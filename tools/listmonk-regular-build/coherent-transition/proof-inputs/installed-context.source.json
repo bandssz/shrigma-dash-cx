@@ -1,0 +1,13 @@
+{
+  "schema": "shrigma-installed-context-source-v1",
+  "source": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/ab-regular-original.sql",
+  "sourceSha256": "899029d7dcb0485d7613c234a04a36ca6962067052850c260881548a067a9706",
+  "bodySha256": "c794db19bf9e8e030284651947510ae5c00a12647fed3ab81f8eeec50b4eb582",
+  "bodyMd5": "a1d091d6356e5b24dc041879cca64cd3",
+  "matchedByLatestNativeRead": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-v2-full-cost-read-v1/ORIGINAL-FULL-COST-RESULT.json",
+  "latestNativeFunctionFence": "all30exactfunctionsCurrent/prepost",
+  "contextIncludesOriginalAB": true,
+  "exactHashAnchorCount": 1,
+  "productionChangePerformed": false,
+  "futureReplacement": "Replace only one exact query hash in installed AB-extended body after own admission; preserve ab_regular_context return, OID/owner/ACL/security/config."
+}

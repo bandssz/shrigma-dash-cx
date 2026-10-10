@@ -40,13 +40,67 @@ def verify_package(package):
     build.require(expected_files and actual_files==expected_files,'Package inventory mismatch')
 
 
+def verify_source_functional_receipt(native, profile, manifest):
+    proof=native.get('isolated_source_proof',{})
+    build.require(profile.get('isolatedSourceProofAuthorized') is True
+        and profile.get('isolatedProofAuthorized') is False and profile.get('isolatedProofAuthorization') is None
+        and native.get('proofPurpose')=='isolated-source-functional'
+        and proof.get('schema')=='shrigma-isolated-source-functional-proof-v1'
+        and proof.get('purpose')=='isolated-source-functional' and proof.get('synthetic') is True
+        and all(proof.get(k) is True for k in ('accepted','fullSyntheticRecipientAccepted','loopbackSMTPAccepted'))
+        and all(proof.get(k) is False and native.get(k) is False for k in
+                ('originalPerformanceAccepted','originalOperational','originalDispatchProved'))
+        and native.get('workerProcessesEnded') is True and native.get('smtpServerEnded') is True
+        and proof.get('binarySha256')==manifest['binary_sha256']==profile['binaryExpectedSha256']
+        and all(proof.get(k)==profile[k] for k in
+                ('querySha256','kernelSha256','workerTransactionSha256','composedRecipientQuerySha256')),
+        'Complete isolated source-functional receipt required; no original admission')
+
+
 def build_image(args):
     build.require(re.fullmatch('[0-9a-f]{40}',args.revision) is not None,'Commit revision required')
     manifest=json.loads(build.read(args.package/'manifest.json'))
     native=json.loads(build.read(args.native_proof))
     binary=build.read(args.package/'candidate/listmonk')
-    build.require(manifest['target']=='linux_amd64' and manifest['source_lock_sha256']==build.sha(build.read(build.REPO/'tools/listmonk-regular-build/upstream.lock.json')),'Current Linux package required')
+    profile_path=getattr(args,'batch_profile',None);profile_sha=getattr(args,'batch_profile_sha256',None)
+    isolated_source_proof=getattr(args,'isolated_source_proof',False)
+    build.require(type(isolated_source_proof) is bool and (not isolated_source_proof or bool(profile_path)),
+                  'Explicit batch profile required for source-functional image')
+    worker=build.module('image_worker_profile',build.REPO/'tools/listmonk-regular-build/worker_patch.py') if profile_path or profile_sha else None
+    batch,lock_bytes=build.batch_build_inputs(args,worker) if worker else (None,None)
+    build.require(bool(profile_path)==bool(profile_sha),'Batch image profile pair required')
+    expected_lock=build.sha(lock_bytes) if batch else build.sha(build.read(build.REPO/'tools/listmonk-regular-build/upstream.lock.json'))
+    build.require(manifest['target']=='linux_amd64' and manifest['source_lock_sha256']==expected_lock,'Current Linux package required')
+    if batch:
+        helper=build.REPO/'tools/listmonk-regular-build/native_batch_profile.cjs'
+        admitted=json.loads(build.command(['node',helper,*(['--isolated-source-proof'] if isolated_source_proof else []),profile_path,profile_sha],build.REPO,dict(__import__('os').environ),timeout=30))
+        expected=build.batch_package_receipt(batch,manifest['binary_sha256'])['build_receipt']
+        build.require(manifest.get('batch_profile',{}).get('build_receipt')==expected
+                      and admitted['binaryExpectedSha256']==manifest['binary_sha256']
+                      and native.get('query_sha256')==batch['querySha256']
+                      and native.get('batch_profile',{}).get('querySha256')==batch['querySha256']
+                      and native.get('batch_profile',{}).get('kernelSha256')==batch['kernelSha256']
+                      and native.get('batch_profile',{}).get('workerTransactionSha256')==batch['workerTransactionSha256']
+                      and (native.get('batch_profile',{}).get('isolatedSourceProofAuthorized') is True if isolated_source_proof
+                           else native.get('batch_profile',{}).get('isolatedProofAuthorized') is True)
+                      and native.get('batch_full_recipient_proof',{}).get('accepted') is True
+                      and native.get('batch_full_recipient_proof',{}).get('scope')=='ephemeral-synthetic-running-campaigns'
+                      and native.get('batch_full_recipient_proof',{}).get('platform')=='linux'
+                      and native.get('batch_full_recipient_proof',{}).get('architecture')=='amd64'
+                      and native.get('batch_full_recipient_proof',{}).get('postgres_version')=='17.10'
+                      and native.get('batch_full_recipient_proof',{}).get('running_status_required_by_exact_query') is True
+                      and native.get('batch_full_recipient_proof',{}).get('binary_sha256')==manifest['binary_sha256']
+                      and native.get('batch_full_recipient_proof',{}).get('query_sha256')==batch['querySha256']
+                      and native.get('batch_full_recipient_proof',{}).get('kernel_sha256')==batch['kernelSha256']
+                      and native.get('batch_full_recipient_proof',{}).get('worker_transaction_sha256')==batch['workerTransactionSha256']
+                      and native.get('batch_full_recipient_proof',{}).get('composed_recipient_query_sha256')==batch['composedRecipientQuerySha256']
+                      and native.get('batch_full_recipient_proof',{}).get('production_operational') is False,
+                      'Measured batch native proof identity required')
+    else:
+        build.require('batch_profile' not in manifest,'Explicit batch image profile required')
     build.require(manifest['binary_sha256']==build.sha(binary)==native['binary_sha256'] and native['status']=='PASSED_EPHEMERAL_ONLY_NOT_DEPLOYED' and native['cluster_stopped'] is True,'Matching Linux native proof required')
+    if isolated_source_proof:
+        verify_source_functional_receipt(native, admitted, manifest)
     # Reject added or missing files as well as changed bytes before archiving.
     verify_package(args.package)
     build.require(not args.out.exists(),'Use a fresh image directory')
@@ -98,11 +152,11 @@ def build_image(args):
     shutil.copyfile(args.package/'manifest.json',args.out/'package-manifest.json');shutil.copyfile(args.native_proof,args.out/'native-proof.json')
     shutil.copyfile(context/'source.tar.gz',args.out/'source.tar.gz');shutil.copyfile(context/'LICENSE',args.out/'LICENSE')
     shutil.rmtree(context)
-    report={'schema':'crm-regular-oci-v1','status':'VERIFIED_IMAGE_OFF_NOT_DEPLOYED','revision':args.revision,'base_image':BASE,'manifest_digest':descriptor['digest'],'config_digest':oci_manifest['config']['digest'],'binary_sha256':manifest['binary_sha256'],'source_sha256':build.sha(source_bytes),'native_proof_sha256':build.sha(build.read(args.native_proof)),'source_lock_sha256':manifest['source_lock_sha256'],'runtime_config_preserved':True,'oci_binary_matches_native_proof':True,'version_command_network_none':True,'registry_push':False,'production_changed':False}
+    report={'schema':'crm-regular-oci-v1','status':'VERIFIED_IMAGE_OFF_NOT_DEPLOYED','revision':args.revision,'base_image':BASE,'manifest_digest':descriptor['digest'],'config_digest':oci_manifest['config']['digest'],'binary_sha256':manifest['binary_sha256'],'source_sha256':build.sha(source_bytes),'native_proof_sha256':build.sha(build.read(args.native_proof)),'source_lock_sha256':manifest['source_lock_sha256'],'runtime_config_preserved':True,'oci_binary_matches_native_proof':True,'version_command_network_none':True,'registry_push':False,'production_changed':False,'proofPurpose':'isolated-source-functional' if isolated_source_proof else 'original-read-gated','originalPerformanceAccepted':False,'originalOperational':False,'originalDispatchProved':False}
     (args.out/'image-proof.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report))
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for n in ('package','native-proof','out'):p.add_argument('--'+n,required=True,type=Path)
-    p.add_argument('--revision',required=True);a=p.parse_args()
+    p.add_argument('--revision',required=True);p.add_argument('--batch-profile',type=Path);p.add_argument('--batch-profile-sha256');p.add_argument('--isolated-source-proof',action='store_true');a=p.parse_args()
     a.package=a.package.resolve();a.native_proof=a.native_proof.resolve();a.out=a.out.resolve();build_image(a)

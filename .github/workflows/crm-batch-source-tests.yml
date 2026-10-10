@@ -1,0 +1,81 @@
+name: CRM batch isolated functional proof (OFF)
+on:
+  pull_request:
+    paths:
+      - 'crm-scheduler-batch-profile.json'
+      - 'tools/listmonk-regular-build/**'
+      - 'tools/listmonk-regular-package/**'
+      - 'tests/segment-regular-native-fixture.cjs'
+      - 'tests/source-proof-split/**'
+      - 'tests/native-profile-v4.test.cjs'
+      - 'tests/rule-membership/**'
+      - 'n8n/growth/segment-listmonk-selection*'
+      - '.github/workflows/crm-batch-source-tests.yml'
+permissions:
+  contents: read
+jobs:
+  source-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GOTOOLCHAIN: local
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Prepare pinned disposable dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/batch-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1 @electric-sql/pglite@0.3.14 @embedded-postgres/linux-x64@17.10.0-beta.17
+          (cd "$RUNNER_TEMP/batch-tools/node_modules/@embedded-postgres/linux-x64" && node scripts/hydrate-symlinks.js)
+          python3 tools/listmonk-regular-package/bootstrap.py --out "$RUNNER_TEMP/batch-inputs" --go "$(command -v go)"
+      - name: Verify new functional split gates without native execution
+        env:
+          SOURCE_SPLIT_TEST_ROOT: ${{ github.workspace }}
+        run: |
+          node --test tests/source-proof-split/profile.test.cjs
+          python3 tests/source-proof-split/receipts.test.py
+          node tests/native-profile-v4.test.cjs "$GITHUB_WORKSPACE"
+      - name: Compile exact candidate, foundation and isolated functional proof as UID1000
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = v22.23.3
+          id -u 1000
+          TASK_OUTPUT="$RUNNER_TEMP/batch-source-output"
+          mkdir "$TASK_OUTPUT"
+          sudo chown 1000 "$TASK_OUTPUT"
+          PROFILE_DIGEST="$(sha256sum crm-scheduler-batch-profile.json | cut -d ' ' -f1)"
+          sudo -u '#1000' env \
+            PATH="$PATH" GOTOOLCHAIN=local PYTHONDONTWRITEBYTECODE=1 \
+            REGULAR_NATIVE_PROOF_ISOLATED=1 \
+            PROFILE_INPUT="$GITHUB_WORKSPACE/crm-scheduler-batch-profile.json" \
+            PROFILE_DIGEST="$PROFILE_DIGEST" \
+            TASK_OUTPUT="$TASK_OUTPUT" \
+            NODE_PATH="$RUNNER_TEMP/batch-tools/node_modules" \
+            GO_BINARY="$(command -v go)" \
+            PG_BINARY_DIR="$RUNNER_TEMP/batch-tools/node_modules/@embedded-postgres/linux-x64/native/bin" \
+            REVIEWED_INPUTS="$RUNNER_TEMP/batch-inputs" \
+            bash tools/listmonk-regular-build/proof-source-only.sh
+      - name: Upload synthetic proof without image or original delivery
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-batch-source-foundation
+          path: |
+            ${{ runner.temp }}/batch-source-output/profile-receipt.json
+            ${{ runner.temp }}/batch-source-output/package/manifest.json
+            ${{ runner.temp }}/batch-source-output/dependency-proof.json
+            ${{ runner.temp }}/batch-source-output/native-functional-proof.json
+            ${{ runner.temp }}/batch-source-output/runtime/**/rule-membership-native.json
+            ${{ runner.temp }}/batch-source-output/profile-with-binary/
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 0

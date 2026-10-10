@@ -165,16 +165,80 @@ def settings_sql(smtp_port, http_port):
         "'::jsonb WHERE key='" + k + "';" for k, v in values.items())
 
 
+def isolated_source_receipt(report, profile):
+    """Pure final receipt assembler; it never runs a proof or imports original acceptance."""
+    require(profile is not None and profile.get('isolatedSourceProofAuthorized') is True
+        and profile.get('isolatedProofAuthorized') is False
+        and profile.get('isolatedProofAuthorization') is None,
+        'Explicit source-functional purpose required')
+    accepted = (report.get('status') == 'PASSED_EPHEMERAL_ONLY_NOT_DEPLOYED'
+        and report.get('cluster_stopped') is True and report.get('workerProcessesEnded') is True
+        and report.get('smtpServerEnded') is True and report.get('local_disposable') is True
+        and report.get('production_changed') is False and report.get('remote_hosts') == 0
+        and report.get('binary_sha256') == profile['binaryExpectedSha256']
+        and report.get('query_sha256') == profile['querySha256']
+        and report.get('batch_full_recipient_proof',{}).get('accepted') is True
+        and report.get('batch_full_recipient_proof',{}).get('scope') == 'ephemeral-synthetic-running-campaigns'
+        and report.get('batch_full_recipient_proof',{}).get('platform') == 'linux'
+        and report.get('batch_full_recipient_proof',{}).get('architecture') == 'amd64'
+        and report.get('batch_full_recipient_proof',{}).get('postgres_version') == '17.10'
+        and report.get('batch_full_recipient_proof',{}).get('running_status_required_by_exact_query') is True
+        and report.get('batch_full_recipient_proof',{}).get('production_operational') is False
+        and all(report.get('batch_full_recipient_proof',{}).get(key) == profile[slot]
+                for key,slot in [('binary_sha256','binaryExpectedSha256'),('query_sha256','querySha256'),
+                    ('kernel_sha256','kernelSha256'),('worker_transaction_sha256','workerTransactionSha256'),
+                    ('composed_recipient_query_sha256','composedRecipientQuerySha256')]))
+    return {'schema':'shrigma-isolated-source-functional-proof-v1',
+        'purpose':'isolated-source-functional','synthetic':True,'accepted':accepted,
+        'fullSyntheticRecipientAccepted':accepted,'loopbackSMTPAccepted':accepted,
+        'originalPerformanceAccepted':False,'originalOperational':False,'originalDispatchProved':False,
+        'binarySha256':profile['binaryExpectedSha256'],'querySha256':profile['querySha256'],
+        'kernelSha256':profile['kernelSha256'],'workerTransactionSha256':profile['workerTransactionSha256'],
+        'composedRecipientQuerySha256':profile['composedRecipientQuerySha256']}
+
+
 def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
-        runtime_dir=LOCAL_RUNTIME, node_path=LOCAL_NODE_PATH):
+        runtime_dir=LOCAL_RUNTIME, node_path=LOCAL_NODE_PATH, batch_profile=None, batch_profile_sha256=None, isolated_source_proof=False):
     require(os.environ.get('REGULAR_NATIVE_PROOF_ISOLATED') == '1', 'Explicit isolated opt-in required')
+    require(bool(batch_profile) == bool(batch_profile_sha256), 'Native batch profile pair required')
+    require(type(isolated_source_proof) is bool and (not isolated_source_proof or bool(batch_profile)),
+        'Isolated source proof requires explicit batch profile')
+    profile = None
+    if batch_profile:
+        require(re.fullmatch('[0-9a-f]{64}', batch_profile_sha256), 'Native batch profile hash required')
+        checked = subprocess.run(['node', str(HERE/'native_batch_profile.cjs'),
+            *(['--isolated-source-proof'] if isolated_source_proof else []),
+            str(batch_profile), batch_profile_sha256, str(REPO)], text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        require(checked.returncode == 0 and len(checked.stdout) < 262144, 'Native batch profile refused')
+        profile = json.loads(checked.stdout)
+        require(profile['binaryExpectedSha256'] == sha(binary.read_bytes()), 'Native batch binary/source receipt mismatch')
+        require(sha((source_dir/'queries/campaigns.sql').read_bytes()) == profile['querySha256'],
+            'Native batch composed worker query mismatch')
+        require(sha((source_dir/'cmd/manager_store.go').read_bytes()) == profile['sourcePins']['managerStoreCandidate']['sha256'],
+            'Native batch composed manager source mismatch')
+        require(sha((source_dir/'cmd/manager_store_batch_jit.go').read_bytes()) == profile['sourcePins']['jitHelper']['sha256'],
+            'Native batch local JIT source mismatch')
+
+    db_user = 'postgres' if profile else 'crm_shadow'
     require(binary.is_file() and not binary.is_symlink(), 'Candidate binary required')
+    if profile:
+        import sys
+        require(sys.platform == 'linux', 'Batch full recipient proof requires Linux')
+        header = binary.read_bytes()[:20]
+        require(header[:6] == b'\x7fELF\x02\x01' and header[18:20] == b'\x3e\x00',
+            'Batch full recipient proof requires measured Linux amd64 ELF')
     require(not report_path.exists(), 'Report path must be new')
     require(pg_bin.is_dir() and pg_bin.joinpath('postgres').is_file(), 'Pinned PostgreSQL 17 runtime unavailable')
     require(source_dir.is_dir() and source_dir.joinpath('schema.sql').is_file(), 'Official native schema unavailable')
     require(runtime_dir.is_dir() and not runtime_dir.is_symlink(), 'Private runtime directory unavailable')
     require(isinstance(node_path,str) and node_path and all(Path(p).is_dir() for p in node_path.split(os.pathsep)),
         'Node module path unavailable')
+    if profile:
+        version = subprocess.run([str(pg_bin/'postgres'), '--version'], text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, check=True)
+        require(re.fullmatch(r'postgres \(PostgreSQL\) 17\.10(?:[^\n]*)\n?', version.stdout),
+            'Original batch migrations require PostgreSQL 17.10')
     run_dir = Path(tempfile.mkdtemp(prefix='regular-native-', dir=runtime_dir))
     socket_root = Path('/private/tmp') if Path('/private/tmp').is_dir() else Path('/tmp')
     socket_dir = Path(tempfile.mkdtemp(prefix='regular-native-', dir=socket_root))
@@ -186,7 +250,7 @@ def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
     require(db_port != 5432, 'Default PostgreSQL port forbidden')
     def db(sql, database=DB_NAME):
         env = clean_env({'NODE_PATH': node_path,
-            'TEST_DATABASE_URL': f'postgresql://crm_shadow@127.0.0.1:{db_port}/{database}'})
+            'TEST_DATABASE_URL': f'postgresql://{db_user}@127.0.0.1:{db_port}/{database}'})
         result = subprocess.run(['node', '-e', NODE_DB],
             input=sql, text=True, env=env,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=35)
@@ -202,9 +266,14 @@ def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
         'query_sha256': '084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d',
         'binary_sha256': sha(binary.read_bytes()), 'proof_directory': str(run_dir),
         'proof_scope': 'synthetic prepared/due schedule boundary; real admission proof composed separately'}
+    if profile:
+        report['query_sha256'] = profile['querySha256']
+        report['batch_profile'] = profile
+        report.update({'proofPurpose':'isolated-source-functional' if isolated_source_proof else 'original-read-gated',
+            'originalPerformanceAccepted':False,'originalOperational':False,'originalDispatchProved':False})
     try:
         with (run_dir/'init.log').open('wb') as log:
-            subprocess.run([str(pg_bin/'initdb'), '-D', str(data), '-U', 'crm_shadow', '--auth-local=trust',
+            subprocess.run([str(pg_bin/'initdb'), '-D', str(data), '-U', db_user, '--auth-local=trust',
                 '--auth-host=trust', '--encoding=UTF8', '--locale=C', '--no-sync'], check=True,
                 stdout=log, stderr=subprocess.STDOUT, timeout=30)
         with (run_dir/'lifecycle.log').open('wb') as log:
@@ -212,15 +281,40 @@ def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
                 '-o', f'-h 127.0.0.1 -k {socket_dir} -p {db_port}', '-w', '-t', '15', 'start'],
                 check=True, stdout=log, stderr=subprocess.STDOUT, timeout=20)
         started = True
+        if profile and isolated_source_proof:
+            membership_path = run_dir / 'rule-membership-native.json'
+            membership_env = clean_env({'NODE_PATH': node_path,
+                'TEST_DATABASE_URL': f'postgresql://{db_user}@127.0.0.1:{db_port}/postgres',
+                'CRM_AUDIENCE_TEST_ISOLATED': '1', 'REGULAR_NATIVE_SOURCE_PROOF': '1',
+                'BULK_MEMBERSHIP_REPORT': str(membership_path)})
+            membership = subprocess.run(['node', str(REPO/'tests/rule-membership/native-runner.cjs')],
+                env=membership_env, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=90)
+            require(membership.returncode == 0 and not membership.stderr and len(membership.stdout) < 4096,
+                'Native membership equivalence refused')
+            membership_summary = json.loads(membership.stdout)
+            require(membership_summary.get('ok') is True and membership_summary.get('cases') == 28
+                and membership_summary.get('afterKernelSha256') == profile['kernelSha256']
+                and membership_summary.get('endConfirmed') is True, 'Native membership identity refused')
+            report['rule_membership_native'] = membership_summary
         db('CREATE DATABASE listmonk;', 'postgres')
         native_schema = source_dir.joinpath('schema.sql').read_text()
         db(native_schema + "\nINSERT INTO settings(key,value) VALUES('migrations','[\"v6.1.0\"]');")
         with NativeSMTP() as smtp:
             db(settings_sql(smtp.port, http_port))
-            config_path = run_dir/'config.toml'; config_path.write_text(config(db_port, http_port))
+            config_path = run_dir/'config.toml'
+            config_text = config(db_port, http_port)
+            if profile:
+                require(config_text.count('user="crm_shadow"') == 1, 'Original native config user anchor drift')
+                config_text = config_text.replace('user="crm_shadow"', 'user="postgres"', 1)
+            config_path.write_text(config_text)
             node_env = clean_env({'NODE_PATH': node_path,
-                'TEST_DATABASE_URL': f'postgresql://crm_shadow@127.0.0.1:{db_port}/listmonk',
+                'TEST_DATABASE_URL': f'postgresql://{db_user}@127.0.0.1:{db_port}/listmonk',
                 'CRM_AUDIENCE_TEST_ISOLATED': '1'})
+            if profile:
+                node_env.update({'REGULAR_NATIVE_BATCH_PROFILE':str(batch_profile),
+                    'REGULAR_NATIVE_BATCH_PROFILE_SHA256':batch_profile_sha256,'REGULAR_NATIVE_PROOF_ISOLATED':'1'})
+            if isolated_source_proof:
+                node_env['REGULAR_NATIVE_SOURCE_PROOF']='1'
             prepare = subprocess.run(['node', str(REPO/'tests/segment-regular-native-fixture.cjs'), 'prepare'],
                 env=node_env, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=45)
             require(prepare.returncode == 0, 'Native fixture prepare failed: ' + prepare.stderr[-5000:])
@@ -271,6 +365,14 @@ def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
                     break
                 time.sleep(.1)
             require(first_lease and all(first_lease['catalogs'].values()), 'Initial heartbeat/catalog refresh unavailable')
+            if profile:
+                coherent = json.loads(db("SELECT json_build_object('query_sha256',d.query_sha256,'candidate_query_sha256',rt.candidate_query_sha256,'enabled',rt.enabled,'worker_sha256',d.worker_sha256,'runtime_sha256',d.runtime_sha256) FROM crm_audience_v2.regular_worker_deployment d CROSS JOIN crm_audience_v2.selection_runtime rt WHERE d.singleton AND rt.singleton;"))
+                require(coherent['query_sha256'] == profile['querySha256']
+                    and coherent['candidate_query_sha256'] == profile['querySha256'] and coherent['enabled']
+                    and coherent['worker_sha256'] == ident['worker_sha256']
+                    and coherent['runtime_sha256'] == ident['runtime_sha256'], 'Native batch readiness identity mismatch')
+                report['batch_readiness_identity'] = coherent
+
             schedule = subprocess.run(['node', str(REPO/'tests/segment-regular-native-fixture.cjs'), 'schedule'],
                 env=node_env, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30)
             require(schedule.returncode == 0, 'Native fixture scheduling failed: ' + schedule.stderr[-5000:])
@@ -461,6 +563,21 @@ def run(binary, report_path, pg_bin=LOCAL_PG, source_dir=LOCAL_SOURCE,
                 stopped = subprocess.run([str(pg_bin/'pg_ctl'), '-D', str(data), '-m', 'fast', '-w', '-t', '15', 'stop'],
                     stdout=log, stderr=subprocess.STDOUT, timeout=20)
             report['cluster_stopped'] = stopped.returncode == 0
+        if isolated_source_proof:
+            report['workerProcessesEnded'] = all(process.poll() is not None for process, _ in processes)
+            report['smtpServerEnded'] = 'smtp' in locals() and not smtp.thread.is_alive()
+        if profile and report.get('status') == 'PASSED_EPHEMERAL_ONLY_NOT_DEPLOYED' and report.get('cluster_stopped') is True:
+            report['batch_full_recipient_proof'] = {
+                'accepted': True, 'scope': 'ephemeral-synthetic-running-campaigns',
+                'platform': 'linux', 'architecture': 'amd64', 'postgres_version': '17.10',
+                'running_status_required_by_exact_query': True,
+                'binary_sha256': report['binary_sha256'], 'query_sha256': profile['querySha256'],
+                'kernel_sha256': profile['kernelSha256'],
+                'worker_transaction_sha256': profile['workerTransactionSha256'],
+                'composed_recipient_query_sha256': profile['composedRecipientQuerySha256'],
+                'production_operational': False}
+        if isolated_source_proof:
+            report['isolated_source_proof'] = isolated_source_receipt(report, profile)
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
         try: socket_dir.rmdir()
@@ -477,6 +594,10 @@ if __name__ == '__main__':
     parser.add_argument('--source-dir',type=Path,default=LOCAL_SOURCE)
     parser.add_argument('--runtime-dir',type=Path,default=LOCAL_RUNTIME)
     parser.add_argument('--node-path',default=LOCAL_NODE_PATH)
+    parser.add_argument('--batch-profile',type=Path)
+    parser.add_argument('--batch-profile-sha256')
+    parser.add_argument('--isolated-source-proof',action='store_true')
     args=parser.parse_args()
     run(args.binary.resolve(),args.report.resolve(),args.pg_bin.resolve(),args.source_dir.resolve(),
-        args.runtime_dir.resolve(),args.node_path)
+        args.runtime_dir.resolve(),args.node_path,
+        args.batch_profile.resolve() if args.batch_profile else None,args.batch_profile_sha256,args.isolated_source_proof)
