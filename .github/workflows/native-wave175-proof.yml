@@ -1,0 +1,80 @@
+name: Native wave175 scheduling exact delta
+on:
+  pull_request:
+    paths:
+      - 'tests/native-wave175/**'
+      - '.github/workflows/native-wave175-proof.yml'
+permissions:
+  contents: read
+jobs:
+  isolated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    services:
+      fixture:
+        image: postgres:17.10
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: listmonk
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['127.0.0.1:55432:5432']
+        options: --health-cmd "pg_isready -U postgres -d listmonk" --health-interval 1s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Prepare isolated source
+        shell: bash
+        run: |
+          set -euo pipefail
+          id -u 1000
+          fixture_root="$(mktemp -d /tmp/shrigma-wave175.XXXXXXXX)"
+          mkdir "$fixture_root/tools" "$fixture_root/source" "$fixture_root/proof"
+          git archive HEAD | tar -xf - -C "$fixture_root/source"
+          sudo chown -R 1000 "$fixture_root"
+          sudo chmod 755 "$fixture_root"
+          printf 'WAVE_FIXTURE_ROOT=%s\n' "$fixture_root" >> "$GITHUB_ENV"
+          sudo -u '#1000' env PATH="$PATH" npm install --prefix "$fixture_root/tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1
+      - name: Verify exact scheduling delta and original triggers
+        id: native
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WAVE_FIXTURE_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" NODE_PATH="$WAVE_FIXTURE_ROOT/tools/node_modules" WAVE175_ISOLATED=1 node tests/native-wave175/fixture.native.cjs | sudo -u '#1000' tee "$WAVE_FIXTURE_ROOT/proof/native.log"
+      - name: Stop isolated PostgreSQL
+        id: stop
+        if: always()
+        shell: bash
+        env:
+          PG_CONTAINER: ${{ job.services.fixture.id }}
+        run: |
+          set -euo pipefail
+          docker stop --timeout 5 "$PG_CONTAINER"
+          test "$(docker inspect --format '{{.State.Running}}' "$PG_CONTAINER")" = false
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$PG_CONTAINER")" = 0
+      - name: Accept after server end
+        if: ${{ success() && steps.native.outcome == 'success' && steps.stop.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYCODE'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ['WAVE_FIXTURE_ROOT'])/'proof'
+          r=json.loads((p/'native.log').read_text().strip())
+          assert r['cases']==9 and r['passed']==9 and r['originalTriggers']==8 and r['uid']==1000 and r['node']=='v22.23.3' and r['pg']['server_version'].startswith('17.10') and r['originalCalls']==0 and r['smtpCalls']==0
+          r.update(accepted=True,fixtureServersEnded=True,synthetic=True,operational=False)
+          (p/'accepted.json').write_text(json.dumps(r)+'\n')
+          print(json.dumps(r))
+          PYCODE
+      - name: Upload synthetic proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-wave175-proof
+          path: ${{ env.WAVE_FIXTURE_ROOT }}/proof/
+          retention-days: 7
+          compression-level: 0

@@ -1,0 +1,716 @@
+{
+  "columns": [
+    {
+      "udt": "int8",
+      "table": "campaign_lists",
+      "column": "id",
+      "default": "nextval('campaign_lists_id_seq'::regclass)",
+      "dataType": "bigint",
+      "nullable": "NO"
+    },
+    {
+      "udt": "int4",
+      "table": "campaign_lists",
+      "column": "campaign_id",
+      "default": null,
+      "dataType": "integer",
+      "nullable": "NO"
+    },
+    {
+      "udt": "int4",
+      "table": "campaign_lists",
+      "column": "list_id",
+      "default": null,
+      "dataType": "integer",
+      "nullable": "YES"
+    },
+    {
+      "udt": "text",
+      "table": "campaign_lists",
+      "column": "list_name",
+      "default": "''::text",
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "int4",
+      "table": "campaign_media",
+      "column": "campaign_id",
+      "default": null,
+      "dataType": "integer",
+      "nullable": "YES"
+    },
+    {
+      "udt": "int4",
+      "table": "campaign_media",
+      "column": "media_id",
+      "default": null,
+      "dataType": "integer",
+      "nullable": "YES"
+    },
+    {
+      "udt": "text",
+      "table": "campaign_media",
+      "column": "filename",
+      "default": "''::text",
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "int4",
+      "table": "campaigns",
+      "column": "id",
+      "default": "nextval('campaigns_id_seq'::regclass)",
+      "dataType": "integer",
+      "nullable": "NO"
+    },
+    {
+      "udt": "uuid",
+      "table": "campaigns",
+      "column": "uuid",
+      "default": null,
+      "dataType": "uuid",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "campaigns",
+      "column": "name",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "campaigns",
+      "column": "subject",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "campaigns",
+      "column": "from_email",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "campaigns",
+      "column": "body",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "campaigns",
+      "column": "body_source",
+      "default": null,
+      "dataType": "text",
+      "nullable": "YES"
+    },
+    {
+      "udt": "text",
+      "table": "campaigns",
+      "column": "altbody",
+      "default": null,
+      "dataType": "text",
+      "nullable": "YES"
+    },
+    {
+      "udt": "content_type",
+      "table": "campaigns",
+      "column": "content_type",
+      "default": "'richtext'::content_type",
+      "dataType": "USER-DEFINED",
+      "nullable": "NO"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "campaigns",
+      "column": "send_at",
+      "default": null,
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "udt": "jsonb",
+      "table": "campaigns",
+      "column": "headers",
+      "default": "'[]'::jsonb",
+      "dataType": "jsonb",
+      "nullable": "NO"
+    },
+    {
+      "udt": "campaign_status",
+      "table": "campaigns",
+      "column": "status",
+      "default": "'draft'::campaign_status",
+      "dataType": "USER-DEFINED",
+      "nullable": "NO"
+    },
+    {
+      "udt": "_varchar",
+      "table": "campaigns",
+      "column": "tags",
+      "default": null,
+      "dataType": "ARRAY",
+      "nullable": "YES"
+    },
+    {
+      "udt": "campaign_type",
+      "table": "campaigns",
+      "column": "type",
+      "default": "'regular'::campaign_type",
+      "dataType": "USER-DEFINED",
+      "nullable": "YES"
+    },
+    {
+      "udt": "text",
+      "table": "campaigns",
+      "column": "messenger",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "int4",
+      "table": "campaigns",
+      "column": "template_id",
+      "default": null,
+      "dataType": "integer",
+      "nullable": "YES"
+    },
+    {
+      "udt": "int4",
+      "table": "campaigns",
+      "column": "to_send",
+      "default": "0",
+      "dataType": "integer",
+      "nullable": "NO"
+    },
+    {
+      "udt": "int4",
+      "table": "campaigns",
+      "column": "sent",
+      "default": "0",
+      "dataType": "integer",
+      "nullable": "NO"
+    },
+    {
+      "udt": "int4",
+      "table": "campaigns",
+      "column": "max_subscriber_id",
+      "default": "0",
+      "dataType": "integer",
+      "nullable": "NO"
+    },
+    {
+      "udt": "int4",
+      "table": "campaigns",
+      "column": "last_subscriber_id",
+      "default": "0",
+      "dataType": "integer",
+      "nullable": "NO"
+    },
+    {
+      "udt": "bool",
+      "table": "campaigns",
+      "column": "archive",
+      "default": "false",
+      "dataType": "boolean",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "campaigns",
+      "column": "archive_slug",
+      "default": null,
+      "dataType": "text",
+      "nullable": "YES"
+    },
+    {
+      "udt": "int4",
+      "table": "campaigns",
+      "column": "archive_template_id",
+      "default": null,
+      "dataType": "integer",
+      "nullable": "YES"
+    },
+    {
+      "udt": "jsonb",
+      "table": "campaigns",
+      "column": "archive_meta",
+      "default": "'{}'::jsonb",
+      "dataType": "jsonb",
+      "nullable": "NO"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "campaigns",
+      "column": "started_at",
+      "default": null,
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "campaigns",
+      "column": "created_at",
+      "default": "now()",
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "campaigns",
+      "column": "updated_at",
+      "default": "now()",
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "udt": "jsonb",
+      "table": "campaigns",
+      "column": "attribs",
+      "default": "'{}'::jsonb",
+      "dataType": "jsonb",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "crm_familia_campanha",
+      "column": "marca",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "crm_familia_campanha",
+      "column": "utm_campaign",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "crm_familia_campanha",
+      "column": "familia",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "crm_familia_campanha",
+      "column": "criado_em",
+      "default": "now()",
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "udt": "int4",
+      "table": "lists",
+      "column": "id",
+      "default": "nextval('lists_id_seq'::regclass)",
+      "dataType": "integer",
+      "nullable": "NO"
+    },
+    {
+      "udt": "uuid",
+      "table": "lists",
+      "column": "uuid",
+      "default": null,
+      "dataType": "uuid",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "lists",
+      "column": "name",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "list_type",
+      "table": "lists",
+      "column": "type",
+      "default": null,
+      "dataType": "USER-DEFINED",
+      "nullable": "NO"
+    },
+    {
+      "udt": "list_optin",
+      "table": "lists",
+      "column": "optin",
+      "default": "'single'::list_optin",
+      "dataType": "USER-DEFINED",
+      "nullable": "NO"
+    },
+    {
+      "udt": "_varchar",
+      "table": "lists",
+      "column": "tags",
+      "default": null,
+      "dataType": "ARRAY",
+      "nullable": "YES"
+    },
+    {
+      "udt": "text",
+      "table": "lists",
+      "column": "description",
+      "default": "''::text",
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "lists",
+      "column": "created_at",
+      "default": "now()",
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "lists",
+      "column": "updated_at",
+      "default": "now()",
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "udt": "list_status",
+      "table": "lists",
+      "column": "status",
+      "default": "'active'::list_status",
+      "dataType": "USER-DEFINED",
+      "nullable": "NO"
+    },
+    {
+      "udt": "int4",
+      "table": "media",
+      "column": "id",
+      "default": "nextval('media_id_seq'::regclass)",
+      "dataType": "integer",
+      "nullable": "NO"
+    },
+    {
+      "udt": "uuid",
+      "table": "media",
+      "column": "uuid",
+      "default": null,
+      "dataType": "uuid",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "media",
+      "column": "provider",
+      "default": "''::text",
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "media",
+      "column": "filename",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "media",
+      "column": "content_type",
+      "default": "'application/octet-stream'::text",
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "media",
+      "column": "thumb",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "jsonb",
+      "table": "media",
+      "column": "meta",
+      "default": "'{}'::jsonb",
+      "dataType": "jsonb",
+      "nullable": "NO"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "media",
+      "column": "created_at",
+      "default": "now()",
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "udt": "int4",
+      "table": "templates",
+      "column": "id",
+      "default": "nextval('templates_id_seq'::regclass)",
+      "dataType": "integer",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "templates",
+      "column": "name",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "template_type",
+      "table": "templates",
+      "column": "type",
+      "default": "'campaign'::template_type",
+      "dataType": "USER-DEFINED",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "templates",
+      "column": "subject",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "templates",
+      "column": "body",
+      "default": null,
+      "dataType": "text",
+      "nullable": "NO"
+    },
+    {
+      "udt": "text",
+      "table": "templates",
+      "column": "body_source",
+      "default": null,
+      "dataType": "text",
+      "nullable": "YES"
+    },
+    {
+      "udt": "bool",
+      "table": "templates",
+      "column": "is_default",
+      "default": "false",
+      "dataType": "boolean",
+      "nullable": "NO"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "templates",
+      "column": "created_at",
+      "default": "now()",
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "udt": "timestamptz",
+      "table": "templates",
+      "column": "updated_at",
+      "default": "now()",
+      "dataType": "timestamp with time zone",
+      "nullable": "YES"
+    }
+  ],
+  "constraints": [
+    {
+      "name": "campaign_lists_campaign_id_fkey",
+      "relation": "campaign_lists",
+      "definition": "FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "name": "campaign_lists_list_id_fkey",
+      "relation": "campaign_lists",
+      "definition": "FOREIGN KEY (list_id) REFERENCES lists(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "name": "campaign_lists_pkey",
+      "relation": "campaign_lists",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "campaign_media_campaign_id_fkey",
+      "relation": "campaign_media",
+      "definition": "FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "name": "campaign_media_media_id_fkey",
+      "relation": "campaign_media",
+      "definition": "FOREIGN KEY (media_id) REFERENCES media(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "name": "campaigns_archive_slug_key",
+      "relation": "campaigns",
+      "definition": "UNIQUE (archive_slug)"
+    },
+    {
+      "name": "campaigns_archive_template_id_fkey",
+      "relation": "campaigns",
+      "definition": "FOREIGN KEY (archive_template_id) REFERENCES templates(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "campaigns_pkey",
+      "relation": "campaigns",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "campaigns_template_id_fkey",
+      "relation": "campaigns",
+      "definition": "FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "campaigns_uuid_key",
+      "relation": "campaigns",
+      "definition": "UNIQUE (uuid)"
+    },
+    {
+      "name": "lists_pkey",
+      "relation": "lists",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "lists_uuid_key",
+      "relation": "lists",
+      "definition": "UNIQUE (uuid)"
+    },
+    {
+      "name": "media_pkey",
+      "relation": "media",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "media_uuid_key",
+      "relation": "media",
+      "definition": "UNIQUE (uuid)"
+    },
+    {
+      "name": "templates_pkey",
+      "relation": "templates",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "crm_familia_campanha_pkey",
+      "relation": "crm_familia_campanha",
+      "definition": "PRIMARY KEY (marca, utm_campaign)"
+    }
+  ],
+  "triggers": [
+    {
+      "name": "crm_ab_lists_guard_v2",
+      "enabled": "O",
+      "function": "CREATE OR REPLACE FUNCTION public.crm_ab_relation_guard_v2()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nBEGIN\n IF EXISTS(SELECT 1 FROM public.crm_ab_arm_v2 WHERE campaign_id IN (\n  CASE WHEN TG_OP<>'INSERT' THEN OLD.campaign_id END,CASE WHEN TG_OP<>'DELETE' THEN NEW.campaign_id END)) THEN\n  RAISE EXCEPTION 'AB_V2_CAMPAIGN_FROZEN';\n END IF;\n IF TG_OP='DELETE' THEN RETURN OLD;ELSE RETURN NEW;END IF;\nEND $function$\n",
+      "relation": "campaign_lists",
+      "definition": "CREATE TRIGGER crm_ab_lists_guard_v2 BEFORE INSERT OR DELETE OR UPDATE ON public.campaign_lists FOR EACH ROW EXECUTE FUNCTION crm_ab_relation_guard_v2()"
+    },
+    {
+      "name": "shrigma_campaign_lists_guard",
+      "enabled": "O",
+      "function": "CREATE OR REPLACE FUNCTION public.shrigma_campaign_relation_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE pid integer;c public.campaigns%ROWTYPE; created_here boolean;\nBEGIN\n -- Check both parents: moving a relation must not remove an owned audience/media.\n FOR pid IN SELECT DISTINCT x FROM unnest(ARRAY[\n   CASE WHEN TG_OP<>'INSERT' THEN OLD.campaign_id END,\n   CASE WHEN TG_OP<>'DELETE' THEN NEW.campaign_id END]) x WHERE x IS NOT NULL ORDER BY x LOOP\n  SELECT ca.* INTO c FROM public.campaigns ca WHERE ca.id=pid FOR UPDATE;\n  IF NOT FOUND OR NOT public.shrigma_campaign_is_managed(c) THEN CONTINUE; END IF;\n  IF current_setting('shrigma.campaign_writer',true)=pid::text THEN CONTINUE; END IF;\n  -- Native create uses one SQL CTE for the draft and its initial relations.\n  created_here:=coalesce(nullif(current_setting('shrigma.campaign_created',true),''),'[]')::jsonb @> to_jsonb(pid);\n  IF TG_OP='INSERT' AND created_here AND c.status::text='draft' AND c.send_at IS NULL THEN CONTINUE; END IF;\n  RAISE EXCEPTION 'CAMPAIGN_EDITOR_REQUIRED';\n END LOOP;\n IF TG_OP='DELETE' THEN RETURN OLD; END IF;\n RETURN NEW;\nEND $function$\n",
+      "relation": "campaign_lists",
+      "definition": "CREATE TRIGGER shrigma_campaign_lists_guard BEFORE INSERT OR DELETE OR UPDATE ON public.campaign_lists FOR EACH ROW EXECUTE FUNCTION shrigma_campaign_relation_guard()"
+    },
+    {
+      "name": "crm_ab_campaign_guard_v2",
+      "enabled": "O",
+      "function": "CREATE OR REPLACE FUNCTION public.crm_ab_campaign_guard_v2()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE e public.crm_ab_experiment_v2%ROWTYPE;allowed boolean;\n runtime_fields text[]:=ARRAY['status','sent','to_send','last_subscriber_id','max_subscriber_id','started_at','updated_at'];\nBEGIN\n SELECT x.* INTO e FROM public.crm_ab_experiment_v2 x JOIN public.crm_ab_arm_v2 a ON a.test_id=x.test_id WHERE a.campaign_id=OLD.id;\n IF NOT FOUND THEN IF TG_OP='DELETE' THEN RETURN OLD;ELSE RETURN NEW;END IF;END IF;\n IF TG_OP='DELETE' THEN RAISE EXCEPTION 'AB_V2_CAMPAIGN_FROZEN';END IF;\n IF EXISTS(SELECT 1 FROM crm_audience_v2.ab_scope WHERE test_id=e.test_id) THEN\n  IF (to_jsonb(OLD)-runtime_fields) IS DISTINCT FROM (to_jsonb(NEW)-runtime_fields) THEN RAISE EXCEPTION 'AB_V2_CAMPAIGN_FROZEN'; END IF;\n  IF OLD.status::text='draft' AND NEW.status::text='scheduled' THEN\n   IF NOT EXISTS(SELECT 1 FROM crm_audience_v2.ab_regular_pair p WHERE p.test_id=e.test_id AND p.admitted_xid=pg_current_xact_id()\n    AND (SELECT count(*) FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id IN(p.campaign_a,p.campaign_b) AND enabled AND NOT suspended)=2) THEN RAISE EXCEPTION 'AB_REGULAR_PAIR_ADMISSION_REQUIRED'; END IF;\n   RETURN NEW;\n  END IF;\n  -- Preserve cancellation of a prepared pair through the existing coordinator.\n  IF e.state='prepared' AND OLD.status::text='draft' AND NEW.status::text='cancelled'\n   AND EXISTS(SELECT 1 FROM crm_audience_v2.ab_regular_lifecycle_intent WHERE test_id=e.test_id AND action='cancel' AND version=e.version AND created_xid=pg_current_xact_id())\n   AND OLD.sent=0 AND OLD.started_at IS NULL THEN RETURN NEW; END IF;\n  IF e.state='prepared' AND (to_jsonb(OLD)-'updated_at') IS DISTINCT FROM (to_jsonb(NEW)-'updated_at') THEN RAISE EXCEPTION 'AB_V2_SCHEDULE_REQUIRED'; END IF;\n  IF e.state<>'prepared' AND NOT EXISTS(SELECT 1 FROM crm_audience_v2.ab_regular_pair WHERE test_id=e.test_id) THEN RAISE EXCEPTION 'AB_REGULAR_PAIR_ADMISSION_REQUIRED'; END IF;\n  IF NEW.status IS DISTINCT FROM OLD.status AND NOT (\n    OLD.status::text='scheduled' AND NEW.status::text='running' AND e.state='scheduled' AND OLD.send_at<=clock_timestamp()\n    OR OLD.status::text IN('scheduled','running','paused') AND NEW.status::text IN('paused','cancelled')\n    OR OLD.status::text='running' AND NEW.status::text='finished') THEN RAISE EXCEPTION 'AB_V2_SCHEDULE_REQUIRED'; END IF;\n  IF NEW.status::text='finished' AND OLD.status::text<>'finished' THEN\n   UPDATE public.crm_ab_arm_v2 SET finished_at=clock_timestamp() WHERE campaign_id=OLD.id AND finished_at IS NULL;\n  END IF;\n  IF NEW.status IS DISTINCT FROM OLD.status AND NEW.status::text IN('paused','cancelled') AND e.state='scheduled' THEN\n   UPDATE public.crm_ab_arm_v2 SET transport_interrupted_at=clock_timestamp() WHERE campaign_id=OLD.id AND transport_interrupted_at IS NULL;\n  END IF;\n  RETURN NEW;\n END IF;\n -- Only the atomic A/B scheduler may change draft->scheduled. Its operation and\n -- native-build receipt are separate prerequisites, never a campaign-editor marker.\n allowed:=current_setting('shrigma.ab_schedule_v2',true)=e.test_id::text AND (\n  EXISTS(SELECT 1 FROM public.crm_ab_runtime_v2 WHERE singleton AND enabled) OR\n  (NEW.status::text='cancelled' AND OLD.sent=0 AND OLD.started_at IS NULL AND\n   (OLD.status::text='draft' OR OLD.status::text='scheduled' AND OLD.send_at>clock_timestamp())));\n IF allowed THEN RETURN NEW;END IF;\n IF (to_jsonb(OLD)-runtime_fields) IS DISTINCT FROM (to_jsonb(NEW)-runtime_fields) THEN RAISE EXCEPTION 'AB_V2_CAMPAIGN_FROZEN';END IF;\n IF e.state='prepared' AND (to_jsonb(OLD)-'updated_at') IS DISTINCT FROM (to_jsonb(NEW)-'updated_at') THEN RAISE EXCEPTION 'AB_V2_SCHEDULE_REQUIRED';END IF;\n IF NEW.status IS DISTINCT FROM OLD.status AND NOT (\n  (OLD.status::text='scheduled' AND NEW.status::text='running' AND e.state='scheduled' AND OLD.send_at<=clock_timestamp()) OR\n  (OLD.status::text IN ('running','scheduled','paused') AND NEW.status::text IN ('paused','cancelled')) OR\n  (OLD.status::text='paused' AND NEW.status::text IN ('running','scheduled') AND e.state='scheduled' AND OLD.send_at<=clock_timestamp()) OR\n  (OLD.status::text='running' AND NEW.status::text='finished')) THEN RAISE EXCEPTION 'AB_V2_SCHEDULE_REQUIRED';END IF;\n IF NEW.status::text='finished' AND OLD.status::text<>'finished' THEN\n  UPDATE public.crm_ab_arm_v2 SET finished_at=clock_timestamp() WHERE campaign_id=OLD.id;\n END IF;\n IF NEW.status IS DISTINCT FROM OLD.status AND NEW.status::text IN ('paused','cancelled') AND e.state='scheduled' THEN\n  -- The worker already holds its campaign row. Write arm evidence rather than\n  -- acquiring the experiment row in the reverse order of the coordinator.\n  UPDATE public.crm_ab_arm_v2 SET transport_interrupted_at=clock_timestamp()\n   WHERE campaign_id=OLD.id AND transport_interrupted_at IS NULL AND e.window_end>clock_timestamp();\n END IF;\n RETURN NEW;\nEND $function$\n",
+      "relation": "campaigns",
+      "definition": "CREATE TRIGGER crm_ab_campaign_guard_v2 BEFORE DELETE OR UPDATE ON public.campaigns FOR EACH ROW EXECUTE FUNCTION crm_ab_campaign_guard_v2()"
+    },
+    {
+      "name": "shrigma_audience_campaign_send_guard_v1",
+      "enabled": "O",
+      "function": "CREATE OR REPLACE FUNCTION crm_audience_v2.campaign_send_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\n DECLARE brand text;ctl crm_audience_v2.regular_delivery_campaign%ROWTYPE;\n deployment crm_audience_v2.regular_worker_deployment%ROWTYPE;lease crm_audience_v2.regular_worker_lease%ROWTYPE;\n ctx jsonb;at timestamptz;\n progress text[]:=ARRAY['status','sent','to_send','max_subscriber_id','last_subscriber_id','started_at','updated_at'];\n BEGIN\n  SELECT b.brand INTO brand FROM crm_audience_v2.campaign_binding_effective(OLD.id) b;\n  IF NOT FOUND THEN\n   IF TG_OP='DELETE' AND EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id=OLD.id) THEN\n    RAISE EXCEPTION 'SEGMENT_CAMPAIGN_HISTORY_RETAINED';\n   END IF;\n   IF TG_OP='DELETE' THEN RETURN OLD; END IF;RETURN NEW;\n  END IF;\n  IF TG_OP='DELETE' OR NEW.id IS DISTINCT FROM OLD.id\n   OR NEW.type::text IS DISTINCT FROM 'regular' OR NEW.messenger IS DISTINCT FROM 'email'\n   OR NEW.attribs#>>'{crm,policy}' IS DISTINCT FROM 'crm-campaign-v1'\n   OR NEW.attribs#>>'{crm,brand}' IS DISTINCT FROM brand THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_REQUIRED';\n  END IF;\n  -- Preserve draft editing under the existing campaign editor guard. A change\n  -- invalidates any previously captured material; it never refreshes approval.\n  IF OLD.status::text='draft' AND NEW.status::text='draft' THEN\n   IF NEW.sent IS DISTINCT FROM 0 OR NEW.started_at IS NOT NULL\n    OR NEW.last_subscriber_id IS DISTINCT FROM 0 THEN RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_REQUIRED'; END IF;\n   RETURN NEW;\n  END IF;\n  IF (to_jsonb(NEW)-progress) IS DISTINCT FROM (to_jsonb(OLD)-progress) THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_MATERIAL_LOCKED';\n  END IF;\n  IF OLD.status::text='draft' AND NEW.status::text='cancelled'\n   AND (to_jsonb(NEW)-ARRAY['status','updated_at'])=(to_jsonb(OLD)-ARRAY['status','updated_at'])\n   AND EXISTS(SELECT 1 FROM public.crm_ab_arm_v2 a JOIN public.crm_ab_experiment_v2 x ON x.test_id=a.test_id\n    JOIN crm_audience_v2.ab_regular_lifecycle_intent i ON i.test_id=x.test_id AND i.version=x.version\n    WHERE a.campaign_id=OLD.id AND x.state='prepared' AND i.action='cancel' AND i.created_xid=pg_current_xact_id()) THEN RETURN NEW; END IF;\n  -- Halt is always possible, including when source, lease or control is lost.\n  -- It cannot acknowledge recipients or alter count/max/start metadata.\n  IF OLD.status::text IN('scheduled','running','paused') AND NEW.status::text IN('paused','cancelled')\n   AND (to_jsonb(NEW)-ARRAY['status','updated_at'])=(to_jsonb(OLD)-ARRAY['status','updated_at']) THEN\n   UPDATE crm_audience_v2.regular_delivery_campaign SET suspended=true WHERE campaign_id=OLD.id;\n   RETURN NEW;\n  END IF;\n  SELECT * INTO ctl FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=OLD.id;\n  IF NOT FOUND OR NEW.sent IS DISTINCT FROM ctl.acknowledged_sent\n   OR NEW.last_subscriber_id IS DISTINCT FROM ctl.acknowledged_subscriber_id THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_RECEIPT_REQUIRED';\n  END IF;\n  -- Only private claim/finish/recovery can move that checkpoint. Legacy batch\n  -- and cleanup updates cannot create progress by assigning native counters.\n  -- Record completed history even after OFF/pause without creating authority.\n  IF NEW.status=OLD.status AND NEW.to_send IS NOT DISTINCT FROM OLD.to_send\n   AND NEW.max_subscriber_id IS NOT DISTINCT FROM OLD.max_subscriber_id\n   AND NEW.started_at IS NOT DISTINCT FROM OLD.started_at THEN RETURN NEW; END IF;\n  IF NOT ctl.enabled OR ctl.suspended OR ctl.material IS DISTINCT FROM crm_audience_v2.regular_delivery_material(OLD.id)\n   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective(OLD.id) b\n    WHERE b.binding_version=ctl.binding_version AND b.binding_hash=ctl.binding_hash) THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_UNAVAILABLE';\n  END IF;\n  -- Do not acquire deployment/lease row locks after the native campaign lock.\n  -- The admission and SMTP paths own their stronger, ordered transaction locks.\n  -- This trigger checks lifecycle state; it never authorizes transport.\n  SELECT * INTO deployment FROM crm_audience_v2.regular_worker_deployment WHERE singleton;\n  SELECT * INTO lease FROM crm_audience_v2.regular_worker_lease WHERE singleton;\n  at:=clock_timestamp();\n  IF deployment.singleton IS NULL OR NOT deployment.enabled OR deployment.approved_at>at\n   OR deployment.worker_sha256 IS DISTINCT FROM ctl.worker_sha256\n   OR deployment.runtime_sha256 IS DISTINCT FROM ctl.runtime_sha256\n   OR lease.instance_id IS NULL OR lease.suspended OR lease.heartbeat_at>at OR lease.expires_at<=at\n   OR lease.worker_sha256 IS DISTINCT FROM ctl.worker_sha256 OR lease.runtime_sha256 IS DISTINCT FROM ctl.runtime_sha256\n   OR lease.database_role IS DISTINCT FROM deployment.database_role THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_WORKER_UNAVAILABLE';\n  END IF;\n  ctx:=crm_audience_v2.selection_worker_context(OLD.id);\n  IF ctx->'bound' IS DISTINCT FROM 'true'::jsonb THEN RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_UNAVAILABLE'; END IF;\n  IF OLD.status::text='draft' AND NEW.status::text='scheduled'\n   AND NEW.sent=0 AND NEW.last_subscriber_id=0 AND NEW.started_at IS NULL THEN RETURN NEW; END IF;\n  IF OLD.status::text IN('scheduled','running') AND NEW.status::text='running' AND OLD.send_at<=at THEN RETURN NEW; END IF;\n  IF OLD.status::text='paused' AND NEW.status::text='scheduled' THEN RETURN NEW; END IF;\n  IF OLD.status::text='running' AND NEW.status::text='finished' THEN\n   IF EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d WHERE d.flow='campaign'\n    AND d.piece='audience-regular-v1:'||OLD.id::text AND d.transport_state IN('in_flight','outcome_unknown'))\n    OR EXISTS(SELECT 1 FROM public.subscriber_lists sl WHERE sl.list_id=(ctx->>'base_list_id')::integer\n     AND sl.subscriber_id>NEW.last_subscriber_id AND sl.subscriber_id<=NEW.max_subscriber_id\n     AND crm_audience_v2.selection_regular_matches(ctx,sl.subscriber_id)) THEN\n    RAISE EXCEPTION 'SEGMENT_CAMPAIGN_FINALIZE_UNAVAILABLE';\n   END IF;\n   RETURN NEW;\n  END IF;\n  RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_REQUIRED';\n END\n $function$\n",
+      "relation": "campaigns",
+      "definition": "CREATE TRIGGER shrigma_audience_campaign_send_guard_v1 BEFORE DELETE OR UPDATE ON public.campaigns FOR EACH ROW EXECUTE FUNCTION crm_audience_v2.campaign_send_guard()"
+    },
+    {
+      "name": "shrigma_campaign_write_guard",
+      "enabled": "O",
+      "function": "CREATE OR REPLACE FUNCTION public.shrigma_campaign_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE managed boolean; writer boolean; o jsonb; n jsonb;\n runtime_fields text[]:=ARRAY['status','sent','to_send','last_subscriber_id','max_subscriber_id','started_at','updated_at'];\nBEGIN\n IF TG_OP='INSERT' THEN\n  IF public.shrigma_campaign_is_managed(NEW) AND\n    (NEW.status::text<>'draft' OR NEW.send_at IS NOT NULL OR NEW.started_at IS NOT NULL OR NEW.sent<>0) THEN\n   RAISE EXCEPTION 'CAMPAIGN_CREATE_DRAFT_ONLY';\n  END IF;\n  IF public.shrigma_campaign_is_managed(NEW) THEN\n   PERFORM set_config('shrigma.campaign_created',\n    (coalesce(nullif(current_setting('shrigma.campaign_created',true),''),'[]')::jsonb||to_jsonb(NEW.id))::text,true);\n  END IF;\n  RETURN NEW;\n END IF;\n managed:=public.shrigma_campaign_is_managed(OLD);\n IF TG_OP='DELETE' THEN\n  IF managed THEN RAISE EXCEPTION 'CAMPAIGN_EDITOR_REQUIRED'; END IF;\n  RETURN OLD;\n END IF;\n IF NOT managed THEN\n  IF public.shrigma_campaign_is_managed(NEW) THEN RAISE EXCEPTION 'CAMPAIGN_ADOPTION_REQUIRED'; END IF;\n  RETURN NEW;\n END IF;\n writer:=current_setting('shrigma.campaign_writer',true)=OLD.id::text;\n IF writer THEN RETURN NEW; END IF;\n o:=to_jsonb(OLD);n:=to_jsonb(NEW);\n IF (o-runtime_fields) IS DISTINCT FROM (n-runtime_fields) THEN RAISE EXCEPTION 'CAMPAIGN_EDITOR_REQUIRED'; END IF;\n -- The native worker may count deliveries and advance a due schedule. Operators\n -- retain stop/pause/resume. A draft cannot bypass review through native Send.\n IF NEW.status IS DISTINCT FROM OLD.status AND NOT (\n   (OLD.status::text='scheduled' AND NEW.status::text='running' AND OLD.send_at<=clock_timestamp()) OR\n   (OLD.status::text IN ('scheduled','running') AND NEW.status::text IN ('paused','cancelled')) OR\n   (OLD.status::text='paused' AND NEW.status::text IN ('scheduled','cancelled')) OR\n   (OLD.status::text='paused' AND NEW.status::text='running' AND OLD.send_at<=clock_timestamp()) OR\n   (OLD.status::text='running' AND NEW.status::text='finished')) THEN\n  RAISE EXCEPTION 'CAMPAIGN_REVIEW_REQUIRED';\n END IF;\n IF OLD.status::text='draft' AND (o-ARRAY['updated_at']) IS DISTINCT FROM (n-ARRAY['updated_at']) THEN\n  RAISE EXCEPTION 'CAMPAIGN_REVIEW_REQUIRED';\n END IF;\n RETURN NEW;\nEND $function$\n",
+      "relation": "campaigns",
+      "definition": "CREATE TRIGGER shrigma_campaign_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.campaigns FOR EACH ROW EXECUTE FUNCTION shrigma_campaign_guard()"
+    },
+    {
+      "name": "shrigma_campaign_list_guard",
+      "enabled": "O",
+      "function": "CREATE OR REPLACE FUNCTION public.shrigma_campaign_dependency_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE c public.campaigns%ROWTYPE;\nBEGIN\n -- Drafts may observe shared catalog edits: their revision changes and review\n -- becomes stale. Once scheduled, preserve dependencies until completion/stop.\n FOR c IN SELECT ca.* FROM public.campaigns ca WHERE public.shrigma_campaign_is_managed(ca)\n  AND ca.status::text IN ('scheduled','running','paused') AND (\n   (TG_TABLE_NAME='templates' AND ca.template_id=OLD.id) OR\n   (TG_TABLE_NAME='lists' AND EXISTS(SELECT 1 FROM public.campaign_lists cl WHERE cl.campaign_id=ca.id AND cl.list_id=OLD.id)) OR\n   (TG_TABLE_NAME='media' AND EXISTS(SELECT 1 FROM public.campaign_media cm WHERE cm.campaign_id=ca.id AND cm.media_id=OLD.id)))\n  ORDER BY ca.id FOR SHARE LOOP\n  RAISE EXCEPTION 'CAMPAIGN_DEPENDENCY_IN_USE';\n END LOOP;\n IF TG_OP='DELETE' THEN RETURN OLD; END IF;\n RETURN NEW;\nEND $function$\n",
+      "relation": "lists",
+      "definition": "CREATE TRIGGER shrigma_campaign_list_guard BEFORE DELETE OR UPDATE ON public.lists FOR EACH ROW EXECUTE FUNCTION shrigma_campaign_dependency_guard()"
+    },
+    {
+      "name": "graph_native_template_guard_v1",
+      "enabled": "O",
+      "function": "CREATE OR REPLACE FUNCTION crm_graph_candidate.native_template_guard_v1()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public', 'crm_graph_candidate'\nAS $function$\nDECLARE r crm_graph_candidate.native_template_v1%ROWTYPE;\nBEGIN\n IF TG_OP IN ('UPDATE','DELETE') AND starts_with(OLD.name,'__shrigma_graph_tx_v1_') THEN\n  IF TG_OP='DELETE' THEN RAISE EXCEPTION 'GRAPH_NATIVE_TEMPLATE_IMMUTABLE';END IF;\n  IF (to_jsonb(OLD)-ARRAY['updated_at','is_default']) IS DISTINCT FROM (to_jsonb(NEW)-ARRAY['updated_at','is_default']) OR NEW.is_default IS DISTINCT FROM false THEN RAISE EXCEPTION 'GRAPH_NATIVE_TEMPLATE_IMMUTABLE';END IF;\n  RETURN NEW;\n END IF;\n IF TG_OP<>'DELETE' AND starts_with(NEW.name,'__shrigma_graph_tx_v1_') THEN\n  IF TG_OP<>'INSERT' THEN RAISE EXCEPTION 'GRAPH_NATIVE_CREATE_REQUIRED';END IF;\n  SELECT * INTO r FROM crm_graph_candidate.native_template_v1 WHERE clone_name=NEW.name FOR UPDATE;\n  IF NOT FOUND OR r.state<>'creating' OR NEW.is_default IS DISTINCT FROM false OR NEW.type::text<>'tx'\n   OR crm_graph_candidate.native_content_v1(to_jsonb(NEW)) IS DISTINCT FROM r.snapshot THEN RAISE EXCEPTION 'GRAPH_NATIVE_RESERVED_CONTENT_REQUIRED';END IF;\n END IF;\n IF TG_OP='DELETE' THEN RETURN OLD;END IF;RETURN NEW;\nEND $function$\n",
+      "relation": "templates",
+      "definition": "CREATE TRIGGER graph_native_template_guard_v1 BEFORE INSERT OR DELETE OR UPDATE ON public.templates FOR EACH ROW EXECUTE FUNCTION crm_graph_candidate.native_template_guard_v1()"
+    },
+    {
+      "name": "shrigma_campaign_template_guard",
+      "enabled": "O",
+      "function": "CREATE OR REPLACE FUNCTION public.shrigma_campaign_dependency_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE c public.campaigns%ROWTYPE;\nBEGIN\n -- Drafts may observe shared catalog edits: their revision changes and review\n -- becomes stale. Once scheduled, preserve dependencies until completion/stop.\n FOR c IN SELECT ca.* FROM public.campaigns ca WHERE public.shrigma_campaign_is_managed(ca)\n  AND ca.status::text IN ('scheduled','running','paused') AND (\n   (TG_TABLE_NAME='templates' AND ca.template_id=OLD.id) OR\n   (TG_TABLE_NAME='lists' AND EXISTS(SELECT 1 FROM public.campaign_lists cl WHERE cl.campaign_id=ca.id AND cl.list_id=OLD.id)) OR\n   (TG_TABLE_NAME='media' AND EXISTS(SELECT 1 FROM public.campaign_media cm WHERE cm.campaign_id=ca.id AND cm.media_id=OLD.id)))\n  ORDER BY ca.id FOR SHARE LOOP\n  RAISE EXCEPTION 'CAMPAIGN_DEPENDENCY_IN_USE';\n END LOOP;\n IF TG_OP='DELETE' THEN RETURN OLD; END IF;\n RETURN NEW;\nEND $function$\n",
+      "relation": "templates",
+      "definition": "CREATE TRIGGER shrigma_campaign_template_guard BEFORE DELETE OR UPDATE ON public.templates FOR EACH ROW EXECUTE FUNCTION shrigma_campaign_dependency_guard()"
+    }
+  ],
+  "relations": [
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "public.campaign_lists",
+      "forceRls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "public.campaign_media",
+      "forceRls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "public.campaigns",
+      "forceRls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "public.crm_familia_campanha",
+      "forceRls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "public.lists",
+      "forceRls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "public.media",
+      "forceRls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "public.templates",
+      "forceRls": false
+    }
+  ]
+}
