@@ -104,6 +104,9 @@ jobs:
           target.chmod(0o644)
           assert hashlib.sha256(target.read_bytes()).digest()==hashlib.sha256(content).digest()
           (root/'profile-with-binary').chmod(0o755)
+          public_graph=root/'package/source/recipe/batch-profile'
+          assert public_graph.is_dir() and not public_graph.is_symlink()
+          public_graph.chmod(0o755)
           PYCODE
       - name: Package the exact tested batch binary as an isolated OCI candidate
         id: oci
