@@ -383,23 +383,17 @@ func (m *Manager) validateRegularCampaign(c *models.Campaign) error {
 	identifiers := make(map[string]struct{})
 	if c.SubjectTpl != nil {
 		for _, tpl := range c.SubjectTpl.Templates() {
-			if tpl.Tree != nil {
-				walkRegularTemplateNode(tpl.Tree.Root, identifiers)
-			}
+			walkRegularTemplateNode(tpl.Tree.Root, identifiers)
 		}
 	}
 	if c.Tpl != nil {
 		for _, tpl := range c.Tpl.Templates() {
-			if tpl.Tree != nil {
-				walkRegularTemplateNode(tpl.Tree.Root, identifiers)
-			}
+			walkRegularTemplateNode(tpl.Tree.Root, identifiers)
 		}
 	}
 	if c.AltBodyTpl != nil {
 		for _, tpl := range c.AltBodyTpl.Templates() {
-			if tpl.Tree != nil {
-				walkRegularTemplateNode(tpl.Tree.Root, identifiers)
-			}
+			walkRegularTemplateNode(tpl.Tree.Root, identifiers)
 		}
 	}
 	for name := range identifiers {
@@ -416,66 +410,36 @@ func walkRegularTemplateNode(node parse.Node, identifiers map[string]struct{}) {
 	}
 	switch value := node.(type) {
 	case *parse.ListNode:
-		if value == nil {
-			return
-		}
 		for _, child := range value.Nodes {
 			walkRegularTemplateNode(child, identifiers)
 		}
 	case *parse.ActionNode:
-		if value == nil {
-			return
-		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 	case *parse.PipeNode:
-		if value == nil {
-			return
-		}
 		for _, command := range value.Cmds {
 			walkRegularTemplateNode(command, identifiers)
 		}
 	case *parse.CommandNode:
-		if value == nil {
-			return
-		}
 		for _, argument := range value.Args {
 			walkRegularTemplateNode(argument, identifiers)
 		}
 	case *parse.IdentifierNode:
-		if value == nil {
-			return
-		}
 		identifiers[value.Ident] = struct{}{}
 	case *parse.ChainNode:
-		if value == nil {
-			return
-		}
 		walkRegularTemplateNode(value.Node, identifiers)
 	case *parse.IfNode:
-		if value == nil {
-			return
-		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 		walkRegularTemplateNode(value.List, identifiers)
 		walkRegularTemplateNode(value.ElseList, identifiers)
 	case *parse.RangeNode:
-		if value == nil {
-			return
-		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 		walkRegularTemplateNode(value.List, identifiers)
 		walkRegularTemplateNode(value.ElseList, identifiers)
 	case *parse.WithNode:
-		if value == nil {
-			return
-		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 		walkRegularTemplateNode(value.List, identifiers)
 		walkRegularTemplateNode(value.ElseList, identifiers)
 	case *parse.TemplateNode:
-		if value == nil {
-			return
-		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 	}
 }

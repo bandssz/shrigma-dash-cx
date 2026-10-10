@@ -79,6 +79,7 @@
     "smtppool/pool.go": "277094a1b9b1dc266424d7505dfc88ca995f322cecd24fcfc81ddfc8fb9a63dd"
   },
   "worker": {
+    "batch_kernel_sha256": "7d9e4cd7fd4e3c6f9967386c5ca7b1410e755690fac3a77149d8d032d2c4e8b4",
     "original": {
       "cmd/init.go": "83ee1f81074c30986c0c9992f7b053c8753a911545287923f0369bc0726818b2",
       "cmd/main.go": "b74a7c865049990fb0302feff48b1ec8c5478cc5af281486c8e50d16cbe94ba2",
@@ -89,13 +90,14 @@
       "queries/campaigns.sql": "37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882"
     },
     "overlay": {
+      "cmd/manager_store_batch_jit.go": "4f21412be8b94a61ae0c78f7a553058613e87d40c1535b53b13ae1a5371f4a7e",
+      "cmd/manager_store_batch_jit_test.go": "1a4e9454e6ff2ec5397c44002b17a498d8a079442f783f63eb7c53bbe712c116",
       "cmd/manager_store_regular.go": "6a7a040a8a3614bb410f8c7f257c4ebe69ac93ae2f7d22efdc1c8d3e4f7e1a35",
       "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6",
       "cmd/manager_store_scan_observability_test.go": "7bf2ce6a80fb870eb49ff2314fcc11461a38a98ee85c69eb51622d4625efd643",
-      "internal/manager/regular_delivery.go": "efed406bec03bdac69b029d329eff74e7d692dff70ab1b9ee8b547e711be186a",
+      "internal/manager/regular_delivery.go": "2c15cdecf232468a999b8f81733bcafea8a6825d1dead3d400bf8f6ee64a9c36",
       "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3",
-      "cmd/manager_store_batch_jit.go": "4f21412be8b94a61ae0c78f7a553058613e87d40c1535b53b13ae1a5371f4a7e",
-      "cmd/manager_store_batch_jit_test.go": "1a4e9454e6ff2ec5397c44002b17a498d8a079442f783f63eb7c53bbe712c116"
+      "internal/manager/regular_template_nil_test.go": "dab81d74dee8d204677831a95b3094367549e92585d2054cfa292b692047fd91"
     },
     "patched": {
       "cmd/init.go": "0a9a3fc67d4c7f01b8654e65b9f820e409b5124b9fd4b88bd68ab912e73c9f20",
@@ -106,7 +108,6 @@
       "models/subscribers.go": "2468127669cc10798b06a7c39f3605a1940793a95535e2641588796081894dc0",
       "queries/campaigns.sql": "772efe8e05331fb201ed24cb08bb97a4625a49811d96622c2148342ce54c6700"
     },
-    "regular_query_sha256": "772efe8e05331fb201ed24cb08bb97a4625a49811d96622c2148342ce54c6700",
-    "batch_kernel_sha256": "7d9e4cd7fd4e3c6f9967386c5ca7b1410e755690fac3a77149d8d032d2c4e8b4"
+    "regular_query_sha256": "772efe8e05331fb201ed24cb08bb97a4625a49811d96622c2148342ce54c6700"
   }
 }

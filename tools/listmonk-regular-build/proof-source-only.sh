@@ -5,6 +5,7 @@ node -e "if(process.version!=='v22.23.3'||process.getuid()!==1000)process.exit(1
 test "${REGULAR_NATIVE_PROOF_ISOLATED:-}" = 1
 "$GO_BINARY" version
 "$PG_BINARY_DIR/postgres" --version
+python3 tests/template-nil-native-proof/run.py --go "$GO_BINARY" --repo-root . --report "$TASK_OUTPUT/template-nil-proof.json"
 node tools/listmonk-regular-build/materialize_batch_profile.cjs \
   --profile "$PROFILE_INPUT" --sha256 "$PROFILE_DIGEST" \
   --out "$TASK_OUTPUT/profile" > "$TASK_OUTPUT/profile-receipt.json"
@@ -20,6 +21,8 @@ python3 tools/listmonk-regular-package/build.py \
   cd "$TASK_OUTPUT/package/source/listmonk"
   GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off "$GO_BINARY" test \
     ./cmd/manager_store_batch_jit.go ./cmd/manager_store_batch_jit_test.go
+  GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOWORK="$TASK_OUTPUT/package/source/go.work" \
+    "$GO_BINARY" test -count=1 -timeout=90s -run '^TestRegularTemplateNil' ./internal/manager
 )
 mkdir "$TASK_OUTPUT/runtime"
 python3 tools/listmonk-regular-build/dependencies_proof.py \

@@ -92,8 +92,9 @@
       "cmd/manager_store_regular.go": "6a7a040a8a3614bb410f8c7f257c4ebe69ac93ae2f7d22efdc1c8d3e4f7e1a35",
       "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6",
       "cmd/manager_store_scan_observability_test.go": "7bf2ce6a80fb870eb49ff2314fcc11461a38a98ee85c69eb51622d4625efd643",
-      "internal/manager/regular_delivery.go": "efed406bec03bdac69b029d329eff74e7d692dff70ab1b9ee8b547e711be186a",
-      "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3"
+      "internal/manager/regular_delivery.go": "2c15cdecf232468a999b8f81733bcafea8a6825d1dead3d400bf8f6ee64a9c36",
+      "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3",
+      "internal/manager/regular_template_nil_test.go": "dab81d74dee8d204677831a95b3094367549e92585d2054cfa292b692047fd91"
     },
     "patched": {
       "cmd/init.go": "0a9a3fc67d4c7f01b8654e65b9f820e409b5124b9fd4b88bd68ab912e73c9f20",
