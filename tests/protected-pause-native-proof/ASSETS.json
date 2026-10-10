@@ -2,8 +2,8 @@
   "schema": "protected-pause-focal-assets-v1",
   "files": {
     ".github/workflows/protected-pause-native-proof.yml": {
-      "bytes": 7147,
-      "sha256": "348c96214d1c22a384df46729c2e9f507cce8bc9d79c1b40bd943bc5feed7935"
+      "bytes": 7152,
+      "sha256": "473b7f9982355c4d5631e97ac392ca1bebabe3871cb11f5b9f64b24eae5316a6"
     },
     "tests/protected-pause-native-proof/fixtures/manager-store.batch.before.go": {
       "bytes": 5826,

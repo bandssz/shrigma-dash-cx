@@ -85,7 +85,7 @@ jobs:
           cp -a "$(go env GOMODCACHE)" "$task/module-cache"
           cp -a "$RUNNER_TEMP/protected-pause-public-inputs" "$task/inputs"
           sudo chown -R 1000:1000 "$task"
-          chmod 755 "$task"
+          sudo chmod 755 "$task"
           printf 'PAUSE_TASK=%s\n' "$task" >> "$GITHUB_ENV"
       - name: Real Manager/pipe finite pause tests in isolated namespace, UID 1000
         shell: bash

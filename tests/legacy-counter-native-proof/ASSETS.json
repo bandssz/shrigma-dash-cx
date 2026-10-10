@@ -47,7 +47,7 @@
     },
     "tools/listmonk-regular-build/native_batch_profile.cjs": {
       "bytes": 19045,
-      "sha256": "fedb4f3a46619e10499b75df09baa1cb27df1680757ef1b747d3df65f34de63d"
+      "sha256": "abbba20dfebcf9df3ff325635d046f66431e833929ac3c5757ede5c0cccb41ff"
     }
   },
   "profileSha256": "28c7c51af4f90fe5ed8624695317f15da3951b3ac13f0b2561bd762c88dc580a",
