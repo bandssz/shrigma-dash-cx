@@ -73,7 +73,6 @@ jobs:
           docker inspect --format '{{.Image}}' "$PG_CONTAINER" | sudo -u '#1000' tee "$HEARTBEAT_FIXTURE_ROOT/proof/image-digests.txt" > /dev/null
           docker stop --time 5 "$PG_CONTAINER"
           test "$(docker inspect --format '{{.State.Running}}' "$PG_CONTAINER")" = false
-          test "$(docker inspect --format '{{.State.Running}}')" = false
           test "$(docker inspect --format '{{.State.ExitCode}}' "$PG_CONTAINER")" = 0
       - name: Accept after confirmed client and server end
         if: ${{ success() && steps.native.outcome == 'success' && steps.stop.outcome == 'success' }}
