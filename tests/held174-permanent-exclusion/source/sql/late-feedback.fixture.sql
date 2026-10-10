@@ -1,0 +1,4 @@
+-- SYNTHETIC isolated fixture only. Exact three public fixture DDL lines, target/FK schema qualified. No consumer/grant/crypto shim is installed.
+CREATE TABLE public.shrigma_email_event_ingest(ingest_id uuid PRIMARY KEY,event_payload jsonb,message_sha256 text,sns_message_id text,topic_arn text,result text);
+CREATE TABLE public.shrigma_email_status(event_key text PRIMARY KEY,first_ingest_id uuid REFERENCES public.shrigma_email_event_ingest(ingest_id),account_id text,region text,message_id text,status text,recipient_key text,recipient_key_version text,dispatch_id_claim uuid,dispatch_id uuid REFERENCES public.shrigma_email_dispatch(dispatch_id),is_test_claim boolean,is_test boolean,reconciliation_status text);
+CREATE TABLE public.shrigma_email_message_link(account_id text,region text,message_id text,dispatch_id uuid REFERENCES public.shrigma_email_dispatch(dispatch_id));
