@@ -110,7 +110,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$PAUSE_TASK" "$GITHUB_SHA" <<'PY'
+          sudo -u "#1000" python3 - "$PAUSE_TASK" "$GITHUB_SHA" <<'PY'
           import json,sys
           from pathlib import Path
           root=Path(sys.argv[1]); p=root/'output/protected-pause-proof.json'
