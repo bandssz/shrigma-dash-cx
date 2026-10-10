@@ -1,0 +1,214 @@
+-- SOURCE preparation only. Authentic CURRENT/window/runtime admission is Root-owned.
+-- Private envelope, full snapshots/functions/settings/client values stay DB/RAM.
+DO $guarded_handoff$
+DECLARE
+ envelope jsonb:=current_setting('shrigma.private_guarded_handoff_envelope',true)::jsonb;
+ plan jsonb:=__PLAN_JSON_LITERAL__::jsonb; pins jsonb:=__PUBLIC_FUNCTION_PINS_LITERAL__::jsonb;
+ admission jsonb;before_state jsonb;after_state jsonb;target jsonb;original_state jsonb;
+ observed_at timestamptz:=clock_timestamp();signature record;item jsonb;ctl record;held record;
+ from_worker text;to_worker text;changed integer;expected_processes integer;
+BEGIN
+ IF jsonb_typeof(envelope) IS DISTINCT FROM 'object' OR envelope->'plan' IS DISTINCT FROM plan
+ OR jsonb_typeof(envelope->'snapshot') IS DISTINCT FROM 'object'
+ OR jsonb_typeof(envelope->'privateAdmission') IS DISTINCT FROM 'object' THEN
+  RAISE EXCEPTION 'GUARDED_HANDOFF_PRIVATE_ADMISSION_REQUIRED'; END IF;
+ admission:=envelope->'privateAdmission';
+ -- Presence/hash is not authenticity. Trusted Root verifies original Mestre,
+ -- private binding, critical window, genuine measured executables/config and
+ -- OS quiescence before supplying this envelope, separately for every stage.
+ IF admission->>'operationId' IS DISTINCT FROM plan->>'operationId'
+ OR admission->>'purpose' IS DISTINCT FROM plan->>'admissionPurpose'
+ OR admission->>'stage' IS DISTINCT FROM plan->>'stage'
+ OR admission->'candidate' IS DISTINCT FROM plan->'candidate'
+ OR admission->>'actor' IS NULL OR length(admission->>'actor') NOT BETWEEN 1 AND 200
+ OR admission->>'admissionSha256' IS DISTINCT FROM plan#>>'{privateReferences,admission,sha256}'
+ OR admission->>'snapshotSha256' IS DISTINCT FROM plan#>>'{privateReferences,snapshot,sha256}'
+ OR admission->>'restoreSha256' IS DISTINCT FROM plan#>>'{privateReferences,restore,sha256}'
+ OR admission->>'quiescenceSha256' IS DISTINCT FROM plan#>>'{privateReferences,quiescence,sha256}'
+ OR admission->>'bindingSha256' IS DISTINCT FROM plan#>>'{privateReferences,binding,sha256}'
+ OR admission->>'measurementSha256' IS DISTINCT FROM plan#>>'{privateReferences,measurement,sha256}'
+ OR admission->>'checkedAt' IS NULL OR admission->>'expiresAt' IS NULL
+ OR NOT isfinite((admission->>'checkedAt')::timestamptz)
+ OR NOT isfinite((admission->>'expiresAt')::timestamptz)
+ OR (admission->>'checkedAt')::timestamptz>observed_at
+ OR (admission->>'expiresAt')::timestamptz<=observed_at
+ OR (admission->>'expiresAt')::timestamptz>(admission->>'checkedAt')::timestamptz+interval '5 minutes'
+ OR admission->>'measuredRuntimeSha256' IS DISTINCT FROM plan#>>'{candidate,runtimeSha256}' THEN
+  RAISE EXCEPTION 'GUARDED_HANDOFF_PRIVATE_ADMISSION_MISMATCH'; END IF;
+ IF current_database()<>'listmonk' OR current_setting('server_version_num')::integer<>170010
+ OR current_setting('transaction_isolation')<>'read committed'
+ OR current_setting('TimeZone')<>'Etc/UTC' OR session_user IS DISTINCT FROM current_user
+ OR current_setting('statement_timeout')::interval<>interval '5 seconds'
+ OR current_setting('lock_timeout')::interval<>interval '500 milliseconds' THEN
+  RAISE EXCEPTION 'GUARDED_HANDOFF_ORIGINAL_BOUNDARY_REFUSED'; END IF;
+ from_worker:=CASE WHEN plan->>'stage' IN('switch-to-candidate','verify-original')
+   THEN plan#>>'{candidate,oldWorkerSha256}' ELSE plan#>>'{candidate,newWorkerSha256}' END;
+ to_worker:=CASE WHEN plan->>'stage'='switch-to-candidate' THEN plan#>>'{candidate,newWorkerSha256}'
+   WHEN plan->>'stage'='return-to-original' THEN plan#>>'{candidate,oldWorkerSha256}' ELSE from_worker END;
+ expected_processes:=CASE WHEN plan->>'stage' IN('switch-to-candidate','return-to-original') THEN 0 ELSE 1 END;
+ IF admission->>'activeWorkerProcesses' IS DISTINCT FROM expected_processes::text
+ OR admission->>'measuredWorkerSha256' IS DISTINCT FROM CASE
+   WHEN plan->>'stage' IN('switch-to-candidate','verify-candidate') THEN plan#>>'{candidate,newWorkerSha256}'
+   ELSE plan#>>'{candidate,oldWorkerSha256}' END
+ OR admission->>'measuredImageSha256' IS DISTINCT FROM CASE
+   WHEN plan->>'stage' IN('switch-to-candidate','verify-candidate') THEN plan#>>'{candidate,newImageSha256}'
+   ELSE plan#>>'{candidate,oldImageSha256}' END THEN
+  RAISE EXCEPTION 'GUARDED_HANDOFF_MEASUREMENT_OR_PROCESS_REFUSED'; END IF;
+ -- Original deployment/advisory/lease/selection/control order; no forced takeover.
+ LOCK TABLE crm_audience_v2.regular_worker_deployment IN ACCESS EXCLUSIVE MODE;
+ PERFORM pg_advisory_xact_lock(hashtextextended('crm-audience-v2-regular-worker-lease',0));
+ PERFORM 1 FROM crm_audience_v2.regular_worker_lease l WHERE l.singleton FOR UPDATE;
+ PERFORM 1 FROM crm_audience_v2.selection_runtime r WHERE r.singleton FOR SHARE;
+ LOCK TABLE crm_audience_v2.regular_delivery_campaign IN SHARE ROW EXCLUSIVE MODE;
+ PERFORM 1 FROM public.campaigns c WHERE c.id IN(171,172,173,174,175,176,177) ORDER BY c.id FOR UPDATE;
+ PERFORM 1 FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id IN(171,172,174) ORDER BY b.campaign_id FOR SHARE;
+ LOCK TABLE public.crm_ab_arm_v2 IN SHARE MODE;
+ PERFORM 1 FROM public.shrigma_email_dispatch d WHERE d.flow='campaign'
+  AND d.piece IN('audience-regular-v1:171','audience-regular-v1:172','audience-regular-v1:173',
+    'audience-regular-v1:174','audience-regular-v1:175','audience-regular-v1:176','audience-regular-v1:177')
+  ORDER BY d.dispatch_id FOR SHARE;
+ __SNAPSHOT_SELECT__ INTO before_state;
+ IF before_state IS DISTINCT FROM envelope->'snapshot' THEN RAISE EXCEPTION 'GUARDED_HANDOFF_SNAPSHOT_DRIFT'; END IF;
+ IF before_state->'mutationTriggers' IS DISTINCT FROM '[]'::jsonb
+ OR jsonb_array_length(before_state->'campaignGuard')<>3
+ OR before_state->'abArms' IS DISTINCT FROM '[]'::jsonb
+ OR EXISTS(SELECT 1 FROM jsonb_array_elements(before_state->'campaignGuard') g
+   WHERE g->>'enabled' IS DISTINCT FROM 'O' OR NOT EXISTS(
+    SELECT 1 FROM (VALUES ('crm_audience_v2.campaign_send_guard()',27),
+      ('public.shrigma_campaign_guard()',31),('public.crm_ab_campaign_guard_v2()',27)) x(signature,type)
+    WHERE g->>'function'=pg_catalog.to_regprocedure(x.signature)::oid::text
+     AND g->>'function'=before_state->'functionMetadata'->x.signature->>'oid'
+     AND (g->>'type')::integer=x.type))
+ OR EXISTS(SELECT 1 FROM (VALUES ('crm_audience_v2.campaign_send_guard()'),
+    ('public.shrigma_campaign_guard()'),('public.crm_ab_campaign_guard_v2()')) x(signature)
+   WHERE (SELECT count(*) FROM jsonb_array_elements(before_state->'campaignGuard') g
+    WHERE g->>'function'=pg_catalog.to_regprocedure(x.signature)::oid::text)<>1) THEN
+  RAISE EXCEPTION 'GUARDED_HANDOFF_TRIGGER_OR_AB_REFUSED'; END IF;
+ IF (SELECT count(*) FROM jsonb_each(before_state->'functionMetadata'))<>12
+ OR jsonb_array_length(pins)<>12 THEN RAISE EXCEPTION 'GUARDED_HANDOFF_FUNCTION_PIN_REFUSED'; END IF;
+ FOR signature IN SELECT key,value FROM jsonb_each(before_state->'functionMetadata') LOOP
+  IF signature.value='null'::jsonb OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(pins) p
+    WHERE p->>'signature'=signature.key AND p->>'md5'=md5(signature.value->>'prosrc')) THEN
+   RAISE EXCEPTION 'GUARDED_HANDOFF_FUNCTION_PIN_REFUSED'; END IF;
+ END LOOP;
+ IF before_state->'functionMetadata'->'crm_audience_v2.regular_worker_heartbeat(uuid,text,text)'->'proconfig'
+    IS DISTINCT FROM '["search_path=pg_catalog","lock_timeout=2s"]'::jsonb
+ OR before_state->'functionMetadata'->'crm_audience_v2.regular_worker_heartbeat(uuid,text,text)'->'prosecdef' IS DISTINCT FROM 'false'::jsonb
+ OR EXISTS(SELECT 1 FROM jsonb_each(before_state->'relationMetadata') r
+   WHERE r.value->>'oid' IS NULL OR r.value->>'kind' NOT IN('r','p')
+    OR r.value->>'rls' IS DISTINCT FROM 'false' OR r.value->>'forceRls' IS DISTINCT FROM 'false') THEN
+  RAISE EXCEPTION 'GUARDED_HANDOFF_METADATA_REFUSED'; END IF;
+ IF before_state#>>'{deployment,enabled}' IS DISTINCT FROM 'true'
+ OR before_state#>>'{deployment,database_role}' IS DISTINCT FROM session_user::text
+ OR before_state#>>'{deployment,query_sha256}' IS DISTINCT FROM plan#>>'{candidate,querySha256}'
+ OR before_state#>>'{deployment,runtime_sha256}' IS DISTINCT FROM plan#>>'{candidate,runtimeSha256}'
+ OR before_state#>>'{deployment,worker_sha256}' IS DISTINCT FROM from_worker
+ OR before_state#>>'{deployment,approved_at}' IS NULL
+ OR NOT isfinite((before_state#>>'{deployment,approved_at}')::timestamptz)
+ OR (before_state#>>'{deployment,approved_at}')::timestamptz>clock_timestamp()
+ OR (SELECT jsonb_agg((c->>'campaign_id')::integer ORDER BY (c->>'campaign_id')::integer)
+   FROM jsonb_array_elements(before_state->'controls') c) IS DISTINCT FROM '[171,172,174]'::jsonb
+ OR (SELECT jsonb_agg((c->>'id')::integer ORDER BY (c->>'id')::integer)
+   FROM jsonb_array_elements(before_state->'campaigns') c) IS DISTINCT FROM '[171,172,173,174,175,176,177]'::jsonb
+ OR before_state->'allRegularRunning' IS DISTINCT FROM '0'::jsonb
+ OR EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign r JOIN public.campaigns c ON c.id=r.campaign_id
+   WHERE r.enabled AND r.worker_sha256=from_worker AND r.runtime_sha256=plan#>>'{candidate,runtimeSha256}'
+    AND c.status::text IN('scheduled','paused','running') AND r.campaign_id NOT IN(171,172,174))
+ OR EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d WHERE d.flow='campaign'
+   AND d.transport_state IN('reserved','in_flight'))
+ OR (SELECT count(*) FROM public.shrigma_email_dispatch d WHERE d.flow='campaign'
+   AND d.transport_state='outcome_unknown' AND NOT d.is_test)<>1
+ OR NOT EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d WHERE d.dispatch_id=(plan->>'heldDispatchId')::uuid
+   AND d.flow='campaign' AND d.piece='audience-regular-v1:174' AND d.brand='fish'
+   AND d.transport_state='outcome_unknown' AND NOT d.is_test
+   AND d.error_code='NATIVE_REGULAR_OUTCOME_UNKNOWN') THEN
+  RAISE EXCEPTION 'GUARDED_HANDOFF_SCOPE_OR_LEDGER_REFUSED'; END IF;
+ -- Validate ALL three owned control/binding/material/progress identities. Ledger
+ -- stays immutable: acceptance counts and max SID must align, no retry/snapshot reset.
+ FOR ctl IN SELECT r.*,c.sent,c.last_subscriber_id,c.status::text AS status,
+    c.type::text AS campaign_type,c.messenger,c.attribs,b.brand,b.binding_version AS current_version,b.binding_hash AS current_hash
+   FROM crm_audience_v2.regular_delivery_campaign r JOIN public.campaigns c ON c.id=r.campaign_id
+   JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON true WHERE r.campaign_id IN(171,172,174) LOOP
+  IF ctl.enabled IS DISTINCT FROM true OR ctl.worker_sha256 IS DISTINCT FROM from_worker
+  OR ctl.runtime_sha256 IS DISTINCT FROM plan#>>'{candidate,runtimeSha256}'
+  OR ctl.campaign_type<>'regular' OR ctl.messenger<>'email'
+  OR ctl.attribs#>>'{crm,policy}' IS DISTINCT FROM 'crm-campaign-v1'
+  OR ctl.attribs#>>'{crm,brand}' IS DISTINCT FROM ctl.brand
+  OR ctl.binding_version IS DISTINCT FROM ctl.current_version OR ctl.binding_hash IS DISTINCT FROM ctl.current_hash
+  OR ctl.acknowledged_sent IS DISTINCT FROM ctl.sent OR ctl.acknowledged_subscriber_id IS DISTINCT FROM ctl.last_subscriber_id
+  OR ctl.material IS DISTINCT FROM crm_audience_v2.regular_delivery_material(ctl.campaign_id) THEN
+   RAISE EXCEPTION 'GUARDED_HANDOFF_CONTROL_BINDING_REFUSED'; END IF;
+  IF ctl.acknowledged_sent IS DISTINCT FROM (SELECT count(*)::integer FROM public.shrigma_email_dispatch d
+    WHERE d.flow='campaign' AND d.piece='audience-regular-v1:'||ctl.campaign_id::text AND d.transport_state='accepted') THEN
+   RAISE EXCEPTION 'GUARDED_HANDOFF_ACCEPTED_PROGRESS_REFUSED'; END IF;
+ END LOOP;
+ IF (SELECT count(*) FROM crm_audience_v2.regular_delivery_campaign r
+   JOIN LATERAL crm_audience_v2.campaign_binding_effective(r.campaign_id) b ON true WHERE r.campaign_id IN(171,172,174))<>3
+ OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign r JOIN public.campaigns c ON c.id=r.campaign_id
+   WHERE r.campaign_id=174 AND r.suspended AND c.status::text='paused' AND r.acknowledged_sent=503
+    AND c.sent=503 AND r.acknowledged_subscriber_id=139873 AND c.last_subscriber_id=139873)
+ OR NOT EXISTS(SELECT 1 FROM public.campaigns c WHERE c.id=172 AND c.status::text='scheduled' AND c.send_at='2026-10-11 21:00:00+00'::timestamptz)
+ OR NOT EXISTS(SELECT 1 FROM public.campaigns c WHERE c.id=173 AND c.status::text='scheduled' AND c.send_at='2026-10-11 21:00:00+00'::timestamptz
+    AND NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective(173))) THEN
+  RAISE EXCEPTION 'GUARDED_HANDOFF_HELD_OR_FUTURE_REFUSED'; END IF;
+ IF (CASE WHEN plan->>'stage'='return-to-original'
+   THEN before_state#>>'{lease,worker_sha256}' NOT IN(plan#>>'{candidate,oldWorkerSha256}',plan#>>'{candidate,newWorkerSha256}')
+   ELSE before_state#>>'{lease,worker_sha256}' IS DISTINCT FROM from_worker END) IS DISTINCT FROM false
+ OR before_state#>>'{lease,runtime_sha256}' IS DISTINCT FROM plan#>>'{candidate,runtimeSha256}'
+ OR before_state#>>'{lease,database_role}' IS DISTINCT FROM session_user::text
+ OR before_state#>>'{lease,suspended}' IS DISTINCT FROM 'false'
+ OR before_state#>>'{lease,suspension_reason}' IS NOT NULL
+ OR before_state#>>'{lease,instance_id}' IS NULL OR before_state#>>'{lease,instance_id}'='00000000-0000-0000-0000-000000000000'
+ OR before_state#>>'{lease,heartbeat_at}' IS NULL OR before_state#>>'{lease,expires_at}' IS NULL
+ OR NOT isfinite((before_state#>>'{lease,heartbeat_at}')::timestamptz)
+ OR NOT isfinite((before_state#>>'{lease,expires_at}')::timestamptz)
+ OR (before_state#>>'{lease,heartbeat_at}')::timestamptz>clock_timestamp() THEN
+  RAISE EXCEPTION 'GUARDED_HANDOFF_LEASE_IDENTITY_REFUSED'; END IF;
+ IF expected_processes=0 THEN
+  IF (before_state#>>'{lease,expires_at}')::timestamptz>clock_timestamp() THEN
+   RAISE EXCEPTION 'GUARDED_HANDOFF_OLD_LEASE_STILL_LIVE'; END IF;
+ ELSE
+  IF (before_state#>>'{lease,expires_at}')::timestamptz<=clock_timestamp()
+  OR before_state#>>'{selectionRuntime,enabled}' IS DISTINCT FROM 'true'
+  OR before_state#>>'{selectionRuntime,candidate_query_sha256}' IS DISTINCT FROM plan#>>'{candidate,querySha256}'
+  OR before_state#>>'{selectionRuntime,verified_at}' IS NULL
+  OR NOT isfinite((before_state#>>'{selectionRuntime,verified_at}')::timestamptz)
+  OR (before_state#>>'{selectionRuntime,verified_at}')::timestamptz>clock_timestamp()
+  OR (before_state#>>'{selectionRuntime,verified_at}')::timestamptz<=clock_timestamp()-interval '5 minutes'
+  OR before_state#>>'{lease,instance_id}' IS DISTINCT FROM admission->>'currentProcessInstanceId'
+  OR admission->>'identityCommitAcknowledgedAt' IS NULL OR admission->>'priorLeaseInstanceId' IS NULL
+  OR (before_state#>>'{lease,heartbeat_at}')::timestamptz<(admission->>'identityCommitAcknowledgedAt')::timestamptz
+  OR before_state#>>'{lease,instance_id}' IS NOT DISTINCT FROM admission->>'priorLeaseInstanceId' THEN
+   RAISE EXCEPTION 'GUARDED_HANDOFF_REAL_HEARTBEAT_REQUIRED'; END IF;
+ END IF;
+ target:=before_state;
+ IF plan->>'stage'='return-to-original' THEN
+  original_state:=envelope->'originalSnapshot';
+  IF jsonb_typeof(original_state) IS DISTINCT FROM 'object'
+  OR original_state#>>'{deployment,worker_sha256}' IS DISTINCT FROM to_worker THEN
+   RAISE EXCEPTION 'GUARDED_HANDOFF_OWN_RETURN_REFUSED'; END IF;
+  -- Exact equality for every field not changed by this handoff or by authentic
+  -- heartbeat refresh: never restore a historical lease/UUID/selection/config.
+  SELECT jsonb_agg(c||jsonb_build_object('worker_sha256',to_worker) ORDER BY (c->>'campaign_id')::integer)
+    INTO item FROM jsonb_array_elements(before_state->'controls') c;
+  IF item IS DISTINCT FROM original_state->'controls'
+  OR jsonb_set(before_state->'deployment','{worker_sha256}',to_jsonb(to_worker)) IS DISTINCT FROM original_state->'deployment'
+  OR EXISTS(SELECT 1 FROM unnest(ARRAY['campaigns','bindings','bindingHistory','dispatch','abArms','functionMetadata',
+    'relationMetadata','mutationTriggers','campaignGuard','settings','senderPolicy']) k
+    WHERE before_state->k IS DISTINCT FROM original_state->k) THEN
+   RAISE EXCEPTION 'GUARDED_HANDOFF_OWN_RETURN_AFTER_DRIFT'; END IF;
+ END IF;
+ IF expected_processes=0 THEN
+  UPDATE crm_audience_v2.regular_worker_deployment d SET worker_sha256=to_worker WHERE d.singleton;
+  GET DIAGNOSTICS changed=ROW_COUNT;IF changed<>1 THEN RAISE EXCEPTION 'GUARDED_HANDOFF_DEPLOYMENT_CARDINALITY'; END IF;
+  UPDATE crm_audience_v2.regular_delivery_campaign r SET worker_sha256=to_worker WHERE r.campaign_id IN(171,172,174);
+  GET DIAGNOSTICS changed=ROW_COUNT;IF changed<>3 THEN RAISE EXCEPTION 'GUARDED_HANDOFF_CONTROL_CARDINALITY'; END IF;
+  target:=jsonb_set(target,'{deployment,worker_sha256}',to_jsonb(to_worker));
+  SELECT jsonb_agg(c||jsonb_build_object('worker_sha256',to_worker) ORDER BY (c->>'campaign_id')::integer)
+   INTO item FROM jsonb_array_elements(target->'controls') c;
+  target:=jsonb_set(target,'{controls}',item);
+ END IF;
+ __SNAPSHOT_SELECT__ INTO after_state;
+ IF after_state IS DISTINCT FROM target THEN RAISE EXCEPTION 'GUARDED_HANDOFF_POSTSTATE_DRIFT'; END IF;
+ -- No private DTO here. COMMIT/exit/end/readback is Root transport evidence.
+END $guarded_handoff$;
