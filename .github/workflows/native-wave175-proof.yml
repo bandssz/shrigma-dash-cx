@@ -61,7 +61,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PYCODE'
+          sudo -u '#1000' env WAVE_FIXTURE_ROOT="$WAVE_FIXTURE_ROOT" python3 - <<'PYCODE'
           import json,os,pathlib
           p=pathlib.Path(os.environ['WAVE_FIXTURE_ROOT'])/'proof'
           r=json.loads((p/'native.log').read_text().strip())
