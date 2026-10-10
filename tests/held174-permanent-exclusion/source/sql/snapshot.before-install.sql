@@ -21,7 +21,7 @@ SELECT jsonb_build_object(
  'exclusionObjects',jsonb_build_object('table',to_regclass('crm_audience_v2.regular_delivery_permanent_exclusion')::oid,
   'helper',to_regprocedure('crm_audience_v2.regular_delivery_permanently_excluded(uuid,integer)')::oid,
   'immutable',to_regprocedure('crm_audience_v2.regular_delivery_exclusion_immutable()')::oid),
- 'functionMetadata',(SELECT jsonb_object_agg(f.signature,to_jsonb(p) ORDER BY f.signature)
+ 'functionMetadata',(SELECT jsonb_object_agg(snapshot_function_relation_source.signature,to_jsonb(p) ORDER BY snapshot_function_relation_source.signature)
     FROM (VALUES
       ('crm_audience_v2.regular_worker_heartbeat(uuid,text,text)'),
       ('crm_audience_v2.regular_worker_require(uuid,text,text)'),
@@ -34,15 +34,15 @@ SELECT jsonb_build_object(
       ('crm_audience_v2.selection_worker_context(integer)'),
       ('crm_audience_v2.regular_delivery_material(integer)'),
       ('public.shrigma_campaign_is_managed(public.campaigns)'),
-      ('public.shrigma_campaign_guard()'),('public.crm_ab_campaign_guard_v2()')) f(signature)
-    LEFT JOIN pg_catalog.pg_proc p ON p.oid=pg_catalog.to_regprocedure(f.signature)),
- 'relationMetadata',(SELECT jsonb_object_agg(f.name,jsonb_build_object('oid',c.oid,'kind',c.relkind,
-    'owner',c.relowner,'acl',to_jsonb(c.relacl),'options',to_jsonb(c.reloptions),
-    'rls',c.relrowsecurity,'forceRls',c.relforcerowsecurity) ORDER BY f.name)
+      ('public.shrigma_campaign_guard()'),('public.crm_ab_campaign_guard_v2()')) snapshot_function_relation_source(signature)
+    LEFT JOIN pg_catalog.pg_proc p ON p.oid=pg_catalog.to_regprocedure(snapshot_function_relation_source.signature)),
+ 'relationMetadata',(SELECT jsonb_object_agg(snapshot_function_relation_source.name,jsonb_build_object('oid',snapshot_relation_catalog.oid,'kind',snapshot_relation_catalog.relkind,
+    'owner',snapshot_relation_catalog.relowner,'acl',to_jsonb(snapshot_relation_catalog.relacl),'options',to_jsonb(snapshot_relation_catalog.reloptions),
+    'rls',snapshot_relation_catalog.relrowsecurity,'forceRls',snapshot_relation_catalog.relforcerowsecurity) ORDER BY snapshot_function_relation_source.name)
     FROM (VALUES ('crm_audience_v2.regular_worker_deployment'),('crm_audience_v2.regular_worker_lease'),
       ('crm_audience_v2.selection_runtime'),('crm_audience_v2.regular_delivery_campaign'),
-      ('public.campaigns'),('public.shrigma_email_dispatch'),('public.crm_ab_arm_v2')) f(name)
-    LEFT JOIN pg_catalog.pg_class c ON c.oid=pg_catalog.to_regclass(f.name)),
+      ('public.campaigns'),('public.shrigma_email_dispatch'),('public.crm_ab_arm_v2')) snapshot_function_relation_source(name)
+    LEFT JOIN pg_catalog.pg_class snapshot_relation_catalog ON snapshot_relation_catalog.oid=pg_catalog.to_regclass(snapshot_function_relation_source.name)),
  'mutationTriggers',(SELECT coalesce(jsonb_agg(jsonb_build_object('oid',oid,'relation',tgrelid,
     'enabled',tgenabled,'function',tgfoid) ORDER BY oid),'[]'::jsonb)
     FROM pg_catalog.pg_trigger WHERE NOT tgisinternal AND tgrelid IN(
