@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'../..'),sha=b=>crypto.createHash('sha256').up
 const schema=fs.readFileSync(path.join(__dirname,'schema.sql'));
 a.equal(sha(schema),'9d94ea32ee76aab91f6fc5c1179539513a8a955984951570ed537b1916230a8f');
 const profile=path.join(root,'crm-scheduler-batch-profile.json');
-a.equal(sha(fs.readFileSync(profile)),'bf267a271a23b449c4d1f9ea707fcaa2c12f3ffd66ca709dd9765ef4a9fd2953');
+a.equal(sha(fs.readFileSync(profile)),'d406a03876671cdf6bc7f0e1a4bb3461434996803d895d2e16e36874ee1f3400');
 const fixture=path.join(root,'tests/segment-regular-native-fixture.cjs');
 a.equal(sha(fs.readFileSync(fixture)),'9f9435b2107f7659929f326644789bdd56bd70b91f315044a1f5ff99a8e608ae');
 a.equal(process.version,'v22.23.3');a.equal(process.getuid(),1000);a.equal(process.platform,'linux');a.equal(process.arch,'x64');
@@ -25,10 +25,11 @@ async function main(){
   await db.query("INSERT INTO settings(key,value) VALUES('migrations','[\"v6.1.0\"]')");
  }finally{await db.end();ended=true;}
  a.equal(ended,true);
- const env={...process.env,REGULAR_NATIVE_BATCH_PROFILE:profile,REGULAR_NATIVE_BATCH_PROFILE_SHA256:'bf267a271a23b449c4d1f9ea707fcaa2c12f3ffd66ca709dd9765ef4a9fd2953'};
+ const env={...process.env,REGULAR_NATIVE_BATCH_PROFILE:profile,REGULAR_NATIVE_BATCH_PROFILE_SHA256:'d406a03876671cdf6bc7f0e1a4bb3461434996803d895d2e16e36874ee1f3400'};
  delete env.REGULAR_NATIVE_SOURCE_PROOF;
  const child=spawnSync(process.execPath,[fixture,'prepare-batch-dependencies'],{cwd:root,env,stdio:'inherit',timeout:60000});
  a.equal(child.error,undefined);a.equal(child.signal,null);a.equal(child.status,0);
  console.log(JSON.stringify({schema:'own-recovery-fixture-bootstrap-v1',officialVersion:'6.1.0',officialCommit:'1b5e8d38c778e869003486d3c38bc7a964661e91',isolated:true,originalCalls:0,clientsEnded:true,workerOrSMTPStarted:false}));
 }
 main().catch(e=>{console.log(JSON.stringify({schema:'own-recovery-fixture-bootstrap-v1',status:'FAILED',code:e.code||'ASSERTION',originalCalls:0}));process.exitCode=1;});
+

@@ -85,7 +85,7 @@ jobs:
           cp -a "$(go env GOMODCACHE)" "$task/module-cache"
           cp -a "$RUNNER_TEMP/counter-public-inputs" "$task/inputs"
           sudo chown -R 1000:1000 "$task"
-          chmod 755 "$task"
+          sudo chmod 755 "$task"
           printf 'COUNTER_TASK=%s\n' "$task" >> "$GITHUB_ENV"
       - name: Real manager package tests under Node 22.23.3, Go 1.26.1 and UID 1000, offline
         shell: bash
@@ -128,3 +128,4 @@ jobs:
           path: ${{ env.COUNTER_TASK }}/evidence/
           if-no-files-found: error
           retention-days: 14
+
