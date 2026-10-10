@@ -38,6 +38,9 @@ jobs:
           batch_root="$(mktemp -d /tmp/shrigma-batch-ci.XXXXXXXX)"
           export BATCH_FIXTURE_ROOT="$batch_root"
           printf 'BATCH_FIXTURE_ROOT=%s\n' "$batch_root" >> "$GITHUB_ENV"
+          export GOMODCACHE="$batch_root/go-mod-cache" GOCACHE="$batch_root/go-build-cache"
+          mkdir "$GOMODCACHE" "$GOCACHE"
+          printf 'GOMODCACHE=%s\nGOCACHE=%s\n' "$GOMODCACHE" "$GOCACHE" >> "$GITHUB_ENV"
           npm install --prefix "$BATCH_FIXTURE_ROOT/batch-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1 @electric-sql/pglite@0.3.14 @embedded-postgres/linux-x64@17.10.0-beta.17
           (cd "$BATCH_FIXTURE_ROOT/batch-tools/node_modules/@embedded-postgres/linux-x64" && node scripts/hydrate-symlinks.js)
           python3 tools/listmonk-regular-package/bootstrap.py --out "$BATCH_FIXTURE_ROOT/batch-inputs" --go "$(command -v go)"
@@ -64,6 +67,7 @@ jobs:
           PROFILE_DIGEST="$(sha256sum crm-scheduler-batch-profile.json | cut -d ' ' -f1)"
           sudo -u '#1000' env \
             PATH="$PATH" GOTOOLCHAIN=local PYTHONDONTWRITEBYTECODE=1 \
+            GOMODCACHE="$GOMODCACHE" GOCACHE="$GOCACHE" \
             REGULAR_NATIVE_PROOF_ISOLATED=1 \
             PROFILE_INPUT="$BATCH_FIXTURE_ROOT/source/crm-scheduler-batch-profile.json" \
             PROFILE_DIGEST="$PROFILE_DIGEST" \
