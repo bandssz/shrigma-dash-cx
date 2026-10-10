@@ -85,7 +85,7 @@ jobs:
           cp -a "$(go env GOMODCACHE)" "$task/module-cache"
           cp -a "$RUNNER_TEMP/guarded-smtp-public-inputs" "$task/inputs"
           sudo chown -R 1000:1000 "$task"
-          chmod 755 "$task"
+          sudo chmod 755 "$task"
           printf 'GUARDED_TASK=%s\n' "$task" >> "$GITHUB_ENV"
       - name: Real guarded Pool and manager tests in loopback-only namespace, UID 1000
         shell: bash
@@ -110,7 +110,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$GUARDED_TASK" "$GITHUB_SHA" <<'PY'
+          sudo -u '#1000' env PATH="$PATH" python3 - "$GUARDED_TASK" "$GITHUB_SHA" <<'PY'
           import json,sys
           from pathlib import Path
           root=Path(sys.argv[1]); p=root/'output/guarded-smtp-proof.json'
@@ -126,6 +126,9 @@ jobs:
           evidence=root/'evidence'; evidence.mkdir(mode=0o755); evidence.chmod(0o755)
           target=evidence/'guarded-smtp-proof.json'; target.write_bytes(b); target.chmod(0o644)
           metadata=evidence/'public-head.json'; metadata.write_text(json.dumps({'head':sys.argv[2],'operational':False})+'\n'); metadata.chmod(0o644)
+          public_keys=('schema','status','phase','testsStarted','sourcePinsVerified','behaviorCases','smtpPassedNames','managerPassedNames','smtpScope','originalCalls','sqlCalls','workerStarted','imageBuilt','operational','productionChanged','nodeVersion','uid','goVersion','profileSha256','querySha256','graphRuntimeSha256')
+          closed={k:r[k] for k in public_keys if k in r}; closed['sourceHead']=sys.argv[2]
+          print(json.dumps(closed,sort_keys=True,separators=(',',':')))
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
