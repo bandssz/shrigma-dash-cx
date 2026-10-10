@@ -17,6 +17,12 @@ jobs:
   source-foundation:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    concurrency:
+      group: crm-batch-registry-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
     env:
       GOTOOLCHAIN: local
       PYTHONDONTWRITEBYTECODE: '1'
@@ -116,7 +122,65 @@ jobs:
             --native-proof "$BATCH_FIXTURE_ROOT/batch-source-output/native-functional-proof.json" \
             --batch-profile "$profile" --batch-profile-sha256 "$profile_digest" \
             --isolated-source-proof --revision "$GITHUB_SHA" --out "$oci_root/image"
-      - name: Upload the verified batch OCI candidate without registry push or deployment
+      - name: Publish exactly the tested candidate image and reconcile its digest
+        id: registry
+        if: ${{ success() && steps.oci.outcome == 'success' && github.repository == 'bandssz/shrigma-dash-cx' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'codex/crm-scheduler-repair-20261009' }}
+        shell: bash
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          umask 077
+          registry_root="$(mktemp -d /tmp/shrigma-batch-registry.XXXXXXXX)"
+          trap 'rm -rf -- "$registry_root"' EXIT
+          export REGISTRY_AUTH_FILE="$registry_root/auth.json"
+          printf '%s' "$REGISTRY_TOKEN" | skopeo login --authfile "$REGISTRY_AUTH_FILE" --username "$GITHUB_ACTOR" --password-stdin ghcr.io
+          unset REGISTRY_TOKEN
+          export IMAGE_PUBLICATION_ROOT="$BATCH_OCI_ROOT/image"
+          python3 - <<'PYCODE'
+          import hashlib,json,os,re,subprocess
+          from pathlib import Path
+          root=Path(os.environ['IMAGE_PUBLICATION_ROOT'])
+          proof=json.loads((root/'image-proof.json').read_text())
+          package=json.loads((root/'package-manifest.json').read_text())
+          assert proof['status']=='VERIFIED_IMAGE_OFF_NOT_DEPLOYED'
+          assert proof['revision']==os.environ['GITHUB_SHA']
+          assert proof['runtime_config_preserved'] is True and proof['oci_binary_matches_native_proof'] is True
+          assert proof['proofPurpose']=='isolated-source-functional'
+          assert all(proof[k] is False for k in ('registry_push','production_changed','originalPerformanceAccepted','originalOperational','originalDispatchProved'))
+          assert package['query_sha256']=='772efe8e05331fb201ed24cb08bb97a4625a49811d96622c2148342ce54c6700'
+          assert proof['binary_sha256']==package['binary_sha256']
+          digest=proof['manifest_digest']
+          assert re.fullmatch(r'sha256:[0-9a-f]{64}',digest)
+          head=os.environ['SOURCE_HEAD']
+          assert re.fullmatch(r'[0-9a-f]{40}',head)
+          image='ghcr.io/bandssz/shrigma-crm-listmonk'
+          tag='batch-v4-'+head
+          auth=os.environ['REGISTRY_AUTH_FILE']
+          child=dict(os.environ);child.pop('GITHUB_TOKEN',None);child.pop('GH_TOKEN',None)
+          def command(args):
+              r=subprocess.run(args,env=child,text=True,capture_output=True,timeout=300)
+              if r.returncode or len(r.stdout)+len(r.stderr)>4194304:
+                  raise RuntimeError('BATCH_REGISTRY_COMMAND_REFUSED')
+              return r.stdout
+          destination='docker://'+image+':'+tag
+          prior=subprocess.run(['skopeo','inspect','--authfile',auth,'--raw',destination],env=child,text=True,capture_output=True,timeout=60)
+          assert len(prior.stdout)+len(prior.stderr)<=4194304
+          if prior.returncode==0:
+              assert 'sha256:'+hashlib.sha256(prior.stdout.encode()).hexdigest()==digest
+          else:
+              detail=prior.stderr.lower()
+              assert 'manifest unknown' in detail and all(k not in detail for k in ('denied','unauthorized','timeout'))
+              command(['skopeo','copy','--authfile',auth,'--preserve-digests','oci:'+str(root/'oci')+':candidate',destination])
+          for suffix in (':'+tag,'@'+digest):
+              raw=command(['skopeo','inspect','--authfile',auth,'--raw','docker://'+image+suffix])
+              assert 'sha256:'+hashlib.sha256(raw.encode()).hexdigest()==digest
+          receipt={'schema':'shrigma-batch-registry-receipt-v1','status':'REGISTRY_VERIFIED_OFF_NOT_DEPLOYED','image':image+'@'+digest,'tag':image+':'+tag,'sourceHead':head,'ciRevision':proof['revision'],'binarySha256':proof['binary_sha256'],'querySha256':package['query_sha256'],'serviceChanged':False,'deployed':False,'originalOperational':False}
+          (root/'registry-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          print(json.dumps(receipt))
+          PYCODE
+      - name: Upload the verified batch OCI candidate and registry receipt without deployment
         if: ${{ success() && steps.oci.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

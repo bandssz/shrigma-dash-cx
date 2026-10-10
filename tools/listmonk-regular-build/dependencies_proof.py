@@ -22,6 +22,55 @@ def command(args,env,cwd=None,timeout=30):
     require(r.returncode==0,'Original ephemeral dependency operation refused')
     return r.stdout
 
+DEPENDENCY_SQL_CLIENT = r"""
+'use strict';
+const MAX_SQL_BYTES = 1048576 + 256;
+const refused = () => {
+  process.stderr.write('EPHEMERAL_DEPENDENCY_CLIENT_REFUSED\n');
+  process.exitCode = 1;
+};
+(async () => {
+  let client = null, succeeded = false, ended = false, failed = false;
+  try {
+    const uri = process.env.TEST_DATABASE_URL;
+    const u = new URL(uri || 'http://invalid');
+    if (u.protocol !== 'postgresql:' || u.hostname !== '127.0.0.1' ||
+        !/^\d{1,5}$/.test(u.port) || Number(u.port) < 1 || Number(u.port) > 65535 || u.port === '5432' ||
+        !['/postgres', '/listmonk'].includes(u.pathname) || u.username !== 'postgres' ||
+        u.password !== '' || u.search !== '' || u.hash !== '') throw Error('refused');
+    if (require('pg/package.json').version !== '8.23.1') throw Error('refused');
+    const {Client} = require('pg');
+    let size = 0;
+    const chunks = [];
+    for await (const chunk of process.stdin) {
+      size += chunk.length;
+      if (size > MAX_SQL_BYTES) throw Error('refused');
+      chunks.push(chunk);
+    }
+    if (size === 0) throw Error('refused');
+    const sql = Buffer.concat(chunks).toString('utf8');
+    client = new Client({connectionString: uri});
+    client.on('error', () => { failed = true; });
+    await client.connect();
+    const version = await client.query('SHOW server_version');
+    if (version.command !== 'SHOW' || version.rows.length !== 1 ||
+        typeof version.rows[0].server_version !== 'string' ||
+        !/^17\.10(?:\D|$)/.test(version.rows[0].server_version)) throw Error('refused');
+    await client.query(sql);
+    if (failed) throw Error('refused');
+    succeeded = true;
+  } catch {
+    failed = true;
+  } finally {
+    if (client) {
+      try { await client.end(); ended = true; } catch { failed = true; }
+    }
+  }
+  if (!succeeded || failed || !ended) { refused(); return; }
+  process.stdout.write(JSON.stringify({ok:true,postgresVersion:'17.10',clientEnded:true}));
+})().catch(refused);
+"""
+
 def run(profile,profile_sha256,pg_bin,source_dir,runtime_dir,node_path,report):
     require(os.environ.get('REGULAR_NATIVE_PROOF_ISOLATED')=='1','Explicit isolated opt-in required')
     require(re.fullmatch('[a-f0-9]{64}',profile_sha256),'Exact profile SHA required')
@@ -51,9 +100,18 @@ def run(profile,profile_sha256,pg_bin,source_dir,runtime_dir,node_path,report):
         command([pg_bin/'initdb','-D',data,'-U','postgres','--auth-local=trust','--auth-host=trust','--encoding=UTF8','--locale=C','--no-sync'],env)
         phase='start';start_attempted=True;command([pg_bin/'pg_ctl','-D',data,'-l',run_dir/'server.log','-o',f'-h 127.0.0.1 -k {socket_dir} -p {port}','-w','-t','15','start'],env);started=True
         def sql(text,database='listmonk'):
+            require(database in ('postgres','listmonk') and isinstance(text,str)
+                    and 0<len(text.encode('utf8'))<=1048576+256,'Original ephemeral SQL input refused')
             uri=f'postgresql://postgres@127.0.0.1:{port}/{database}'
-            r=subprocess.run([str(pg_bin/'psql'),uri,'-X','-v','ON_ERROR_STOP=1','-q'],input=text,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
-            require(r.returncode==0,'Original ephemeral SQL refused')
+            sql_env=dict(env,NODE_PATH=node_path,TEST_DATABASE_URL=uri)
+            r=subprocess.run(['node','-e',DEPENDENCY_SQL_CLIENT],input=text,env=sql_env,text=True,
+                             stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
+            require(len(r.stdout)+len(r.stderr)<262144 and r.returncode==0 and not r.stderr,
+                    'Original ephemeral SQL refused')
+            try:ack=json.loads(r.stdout)
+            except Exception:raise RuntimeError('Original ephemeral SQL protocol refused') from None
+            require(ack=={'ok':True,'postgresVersion':'17.10','clientEnded':True},
+                    'Original ephemeral SQL protocol refused')
         phase='schema';sql('CREATE DATABASE listmonk;','postgres');sql(schema.read_text()+"\nINSERT INTO settings(key,value) VALUES('migrations','[\"v6.1.0\"]');")
         phase='original-migrations'
         fixture_env=dict(env,NODE_PATH=node_path,TEST_DATABASE_URL=f'postgresql://postgres@127.0.0.1:{port}/listmonk',
