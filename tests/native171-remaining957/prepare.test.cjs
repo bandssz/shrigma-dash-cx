@@ -1,0 +1,10 @@
+ 'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{prepare,CANDIDATE,PURPOSE,executeOriginal}=require('./prepare.cjs');
+const input={campaignId:171,operationId:'11111111-1111-4111-8111-111111111111',candidate:{...CANDIDATE},privateReferences:Object.fromEntries(['admission','snapshot','quiescence','binding','disposition'].map(n=>[n,{reference:'22222222-2222-4222-8222-222222222222',sha256:'a'.repeat(64)}]))};let cases=0;const test=(name,fn)=>{fn();cases++;console.log('PASS '+name);};
+test('new purpose and held scope',()=>{const p=prepare(input);assert.equal(PURPOSE,'crm.native171.resume-remaining957-with174-held');assert.equal(p.plan.resumeScope.heldCampaignId,174);assert.equal(p.plan.resumeScope.heldDispatchId,'0d8c77b2-18e7-474f-b9b7-bbfc733bac2f');assert.equal(p.executionAvailable,false);});
+test('174 andAristo refused',()=>{for(const campaignId of [174,175,176,177])assert.throws(()=>prepare({...input,campaignId}));});
+test('no source execution',()=>assert.throws(()=>executeOriginal()));
+test('no original authority values accepted as new references',()=>assert.throws(()=>prepare({...input,privateReferences:{}})));
+test('only171 ledger loop and exactheld504 guard',()=>{const p=prepare(input),sql=p.statements[6];assert.match(sql,/FOREACH cid IN ARRAY ARRAY\[171\]/);assert.match(sql,/HELD174_LEDGER_REQUIRED/);assert.match(sql,/acknowledged_sent=503/);assert.match(sql,/<>504/);assert.match(sql,/r\.brand='fish'/);assert.match(sql,/after_state IS DISTINCT FROM target/);});
+test('deepimmutable scope',()=>assert.equal(Object.isFrozen(prepare(input).plan.resumeScope.protectedCampaignIds),true));
+console.log(JSON.stringify({cases,passed:cases,node:process.version,PGExecuted:false,originalCalls:0}));
