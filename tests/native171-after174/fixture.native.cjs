@@ -2,15 +2,13 @@
 // Rollback-only synthetic PG17.10 fixture adapter. No original connection discovery.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),a=require('node:assert/strict');
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+const DIAGNOSTIC_FIELDS=new Set(["serverVersionNum", "sessionUser", "currentUser", "regularRunning", "deployment", "lease", "selectionRuntime", "controls", "campaigns", "bindings", "bindingHistory", "dispatch", "abArms", "functionMetadata", "relationMetadata", "mutationTriggers", "campaignGuard", "unexpected_field", "snapshot_schema"]);
+function divergentFields(e){if(typeof e?.detail!=='string'||!/^fields:[A-Za-z0-9_,]+$/.test(e.detail))return [];const fields=e.detail.slice(7).split(',');return fields.every(k=>DIAGNOSTIC_FIELDS.has(k))?[...new Set(fields)].sort():[];}
 const INSTANCE='77777777-7777-4777-8777-777777777777';
-const PHASES=new Set(['boundary','connect','26-focal-cases','reset','seed-public-relations','heartbeat-2s','heartbeat-fallback','heartbeat-ready','reset-snapshot','negative-fixture','full-transaction-commit','rollback-end','boundary-or-cleanup']);
-let phase='boundary';
-const safeFailure=e=>({phase:PHASES.has(phase)?phase:'boundary-or-cleanup',sqlstate:typeof e?.code==='string'&&/^[A-Z0-9]{5}$/.test(e.code)?e.code:null});
 let db,kernel,src,finishedCount,seed174State='finished',inTx=false,rollbackConfirmed=true,clientEndConfirmed=false;
 function request(campaignId){const refs={};for(const n of ['admission','snapshot','quiescence','binding','disposition'])refs[n]={reference:crypto.randomUUID(),sha256:sha('SYNTHETIC_ONLY:'+n+':'+crypto.randomUUID())};return {campaignId,operationId:crypto.randomUUID(),candidate:{...kernel.CANDIDATE},privateReferences:refs};}
 function admission(p){return {resumeScope:p.resumeScope,operationId:p.operationId,purpose:p.admissionPurpose,campaignId:String(p.campaignId),candidate:p.candidate,admissionSha256:p.privateReferences.admission.sha256,snapshotSha256:p.privateReferences.snapshot.sha256,quiescenceSha256:p.privateReferences.quiescence.sha256,bindingSha256:p.privateReferences.binding.sha256,dispositionSha256:p.privateReferences.disposition.sha256,actor:'SYNTHETIC_FIXTURE_ONLY_NO_ORIGINAL_AUTHORITY',checkedAt:new Date(Date.now()-1000).toISOString(),expiresAt:new Date(Date.now()+120000).toISOString()};}
 async function seed(){
- phase='seed-public-relations';
  a.equal((await db.query("SELECT count(*)::int n FROM crm_audience_v2.regular_delivery_campaign")).rows[0].n,0,"Full fixture must be BEFORE activate");
  a.equal((await db.query("SELECT count(*)::int n FROM public.campaigns WHERE id=ANY(ARRAY[171,172,173,174])")).rows[0].n,0,"New synthetic IDs required");
  a.equal((await db.query("SELECT count(*)::int n FROM public.shrigma_email_dispatch")).rows[0].n,0,"No synthetic attempt yet");
@@ -67,17 +65,17 @@ function filePin(file,digest){a(path.isAbsolute(file));a(!file.split(path.sep).i
 function createFixture(heartbeatSource,contentionSource){return Object.freeze({synthetic:true,
  async reset({finished174Count,target171Sent,target171Cursor,seed174Status='finished'}){
   a([50,2373,2391].includes(finished174Count));a.equal(target171Sent,15);a.equal(target171Cursor,146);a(['finished','paused'].includes(seed174Status));await rollback();finishedCount=finished174Count;seed174State=seed174Status;
-  phase='reset';await db.query('BEGIN ISOLATION LEVEL READ COMMITTED');inTx=true;
+  await db.query('BEGIN ISOLATION LEVEL READ COMMITTED');inTx=true;
   await db.query("SET LOCAL TimeZone='Etc/UTC';SET LOCAL statement_timeout='5s';SET LOCAL lock_timeout='500ms';SET LOCAL search_path=pg_catalog;");
   await seed();
-  phase='heartbeat-2s';const hp=heartbeatSource.prepare('apply');const metadata=(await db.query(hp.snapshotReadSQL)).rows[0].function_metadata;
+  const hp=heartbeatSource.prepare('apply');const metadata=(await db.query(hp.snapshotReadSQL)).rows[0].function_metadata;
   // Same exact public heartbeat adapter; its transaction boundary belongs to this outer fixture.
   for(let i=1;i<hp.statements.length-1;i++)await db.query(hp.statements[i],i===4?[JSON.stringify({schema:'heartbeat-lock-2s-expected-v1',stage:'apply',functionMetadata:metadata})]:[]);
-  phase='heartbeat-fallback';const cp=contentionSource.prepare('apply');const cm=(await db.query(cp.snapshotReadSQL)).rows[0].function_metadata;
+  const cp=contentionSource.prepare('apply');const cm=(await db.query(cp.snapshotReadSQL)).rows[0].function_metadata;
   for(let i=1;i<cp.statements.length-1;i++)await db.query(cp.statements[i],i===4?[JSON.stringify({schema:'heartbeat-contention-expected-v1',stage:'apply',functionMetadata:cm})]:[]);
-  phase='heartbeat-ready';const hb=(await db.query('SELECT crm_audience_v2.regular_worker_heartbeat($1::uuid,$2,$3) h',[INSTANCE,kernel.CANDIDATE.workerSha256,kernel.CANDIDATE.runtimeSha256])).rows[0].h;
+  const hb=(await db.query('SELECT crm_audience_v2.regular_worker_heartbeat($1::uuid,$2,$3) h',[INSTANCE,kernel.CANDIDATE.workerSha256,kernel.CANDIDATE.runtimeSha256])).rows[0].h;
   a.equal(hb.ready,true);a.equal(hb.instance_id,INSTANCE);
-  phase='reset-snapshot';const input=request(171);src=kernel.prepare(input);const baseline=(await db.query(src.snapshotReadSQL)).rows[0].jsonb_build_object;
+  const input=request(171);src=kernel.prepare(input);const baseline=(await db.query(src.snapshotReadSQL)).rows[0].jsonb_build_object;
   a.equal(baseline.campaignGuard.length,3);a.equal(baseline.dispatch.length,15+finishedCount);a.equal(baseline.campaigns.length,7);
   a.equal(baseline.campaigns.find(c=>c.id===174).status,seed174State);a.deepEqual(baseline.functionMetadata['crm_audience_v2.regular_worker_heartbeat(uuid,text,text)'].proconfig,['search_path=pg_catalog','lock_timeout=2s']);
   a.equal(crypto.createHash('md5').update(baseline.functionMetadata['crm_audience_v2.regular_worker_heartbeat(uuid,text,text)'].prosrc).digest('hex'),'2fb7f585e75826a8a3b813b76caf7c20');
@@ -85,7 +83,6 @@ function createFixture(heartbeatSource,contentionSource){return Object.freeze({s
  },
  async envelope(prepared,current){return {plan:prepared.plan,snapshot:structuredClone(current),privateAdmission:admission(prepared.plan)};},
  async applyNegative(name,{envelope}={}){
-  phase='negative-fixture';
   const fresh=name.startsWith('fresh-'),kind=fresh?name.slice(6):name;
   if(kind==='wrong-purpose'){a(envelope);envelope.privateAdmission.purpose='crm.heartbeat-lock.accepted-sequential-resume';return;}
   if(kind==='wrong-binding'){await db.query("UPDATE crm_audience_v2.regular_delivery_campaign SET binding_hash=repeat('e',64) WHERE campaign_id=171");return;}
@@ -117,7 +114,7 @@ async function main(){
  const contentionDir=process.env.ACCEPTED_RESUME_CONTENTION_SOURCE_DIR;a(contentionDir&&path.isAbsolute(contentionDir));const contentionPrepare=path.join(contentionDir,'prepare.cjs');filePin(contentionPrepare,CONTENTION_PREPARE_SHA);const contentionSource=require(contentionPrepare);
  const heartbeatSource=require(hbPrepare);kernel=require('./prepare.cjs');src=kernel.prepare(request(171));
  const{Client}=require('pg');const client=new Client({connectionString:u.href,options:'-c TimeZone=Etc/UTC',query_timeout:12000});db={query:(s,p)=>client.query(s,p)};
- phase='connect';let result=null,nativeCommitVerified=false,safeError=null;
+ let result=null,nativeCommitVerified=false,phase='connect',safeError=null;
  try{
   await client.connect();const b=(await db.query("SELECT current_setting('server_version_num') v,current_database() d,current_setting('TimeZone') tz,session_user=current_user AS same")).rows[0];a.deepEqual(b,{v:'170010',d:'listmonk',tz:'Etc/UTC',same:true});
   a.equal((await db.query('SELECT count(*)::int n FROM crm_audience_v2.regular_worker_lease')).rows[0].n,0);
@@ -127,10 +124,10 @@ async function main(){
   await db.query('COMMIT');inTx=false;const cp=kernel.prepare(ci),before=(await db.query(cp.snapshotReadSQL)).rows[0].jsonb_build_object;
   const env=await fixture.envelope(cp,before);for(const sql of cp.statements){if(sql.startsWith('BEGIN'))inTx=true;await db.query(sql,sql.includes('$1::text')?[JSON.stringify(env)]:[]);if(sql==='COMMIT;')inTx=false;}
   const after=(await db.query(cp.snapshotReadSQL)).rows[0].jsonb_build_object,expected=structuredClone(before);expected.campaigns.find(c=>c.id===171).status='scheduled';expected.controls.find(c=>c.campaign_id===171).suspended=false;a.deepEqual(after,expected);a.deepEqual(after.dispatch,before.dispatch);nativeCommitVerified=true;phase='rollback-end';
- }catch(e){safeError=safeFailure(e);}
+ }catch(e){safeError={phase,divergentFields:divergentFields(e),sqlstate:typeof e.code==='string'&&/^[A-Z0-9]{5}$/.test(e.code)?e.code:null};}
  finally{try{await rollback();}finally{try{await client.end();clientEndConfirmed=true;}catch{clientEndConfirmed=false;}}}
  const r={schema:'native171-after174-finished-fixture-receipt-v1',ok:!!result&&!safeError&&clientEndConfirmed&&rollbackConfirmed,caseCount:result?.cases||0,synthetic:true,rollbackOnly:false,fixtureCommits:true,nativeCommitVerified,heartbeatBodyMd5:'2fb7f585e75826a8a3b813b76caf7c20',kernelSourcePins:Object.fromEntries(Object.entries(pins).filter(([n])=>['prepare.cjs','resume.atomic.sql.in','snapshot.private-read.sql','PUBLIC-FUNCTION-PINS.json'].includes(n))),originalCalls:0,originalWrites:0,originalAuthorityAccepted:false,smtpCalls:0,nativeWorkerExecuted:false,nodeVersion:process.version,uid:process.getuid(),pgVersion:'8.23.1',postgresVersion:'17.10',clientEndConfirmed,rollbackConfirmed,fixtureServerEnded:false,serverEndOwner:'Root CI must stop service and seal shutdown receipt before complete acceptance',failure:safeError,sourcePins:pins,operational:false};
- const output=process.env.ACCEPTED_RESUME_FIXTURE_RECEIPT;a(output&&path.isAbsolute(output)&&!output.split(path.sep).includes('.private')&&!fs.existsSync(output));fs.writeFileSync(output,JSON.stringify(r,null,2)+'\n',{flag:'wx',mode:0o644});process.stdout.write(JSON.stringify({schema:r.schema,ok:r.ok,phase:safeError?.phase||phase,sqlstate:safeError?.sqlstate||null,caseCount:r.caseCount,rollbackConfirmed,clientEndConfirmed,originalCalls:0,operational:false})+'\n');if(!r.ok)process.exitCode=1;
+ const output=process.env.ACCEPTED_RESUME_FIXTURE_RECEIPT;a(output&&path.isAbsolute(output)&&!output.split(path.sep).includes('.private')&&!fs.existsSync(output));fs.writeFileSync(output,JSON.stringify(r,null,2)+'\n',{flag:'wx',mode:0o644});process.stdout.write(JSON.stringify({schema:r.schema,ok:r.ok,divergentFields:safeError?.divergentFields||[],caseCount:r.caseCount,rollbackConfirmed,clientEndConfirmed,originalCalls:0,operational:false})+'\n');if(!r.ok)process.exitCode=1;
 }
-module.exports=Object.freeze({createFixture});
-if(require.main===module)main().catch(e=>{process.stdout.write(JSON.stringify({schema:'native171-after174-finished-fixture-receipt-v1',ok:false,...safeFailure(e),clientEndConfirmed,rollbackConfirmed,fixtureServerEnded:false,originalCalls:0,operational:false})+'\n');process.exitCode=1;});
+module.exports=Object.freeze({createFixture,divergentFields});
+if(require.main===module)main().catch(()=>{process.stdout.write(JSON.stringify({schema:'native171-after174-finished-fixture-receipt-v1',ok:false,phase:'boundary-or-cleanup',clientEndConfirmed,rollbackConfirmed,fixtureServerEnded:false,originalCalls:0,operational:false})+'\n');process.exitCode=1;});

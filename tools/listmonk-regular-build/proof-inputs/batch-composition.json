@@ -31,8 +31,8 @@
     },
     {
       "path": "tools/listmonk-regular-build/proof-inputs/upstream.full-batch.lock.json",
-      "bytes": 6326,
-      "sha256": "442cda0ae0a6254192535ecba8b4794568927c03762722e4991099e3f098fc7f"
+      "bytes": 6562,
+      "sha256": "235298dc93fbc090b332e8d3a2924ca0c0f19de9a511fd438e843ec2661fcb81"
     },
     {
       "path": "tools/listmonk-regular-build/proof-inputs/manager-store-original.go",

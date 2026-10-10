@@ -13,9 +13,9 @@ SELECT jsonb_build_object(
     FROM crm_audience_v2.campaign_binding r WHERE campaign_id BETWEEN 171 AND 177),
  'bindingHistory',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text COLLATE "C"),'[]'::jsonb)
     FROM crm_audience_v2.campaign_binding_revision r WHERE campaign_id BETWEEN 171 AND 177),
- 'dispatch',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY dispatch_id),'[]'::jsonb)
-    FROM public.shrigma_email_dispatch r WHERE flow='campaign'
-      AND brand='fish'),
+ 'dispatch',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.dispatch_id),'[]'::jsonb)
+    FROM public.shrigma_email_dispatch r WHERE r.flow='campaign'
+      AND r.brand='fish'),
  'abArms',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY campaign_id),'[]'::jsonb)
     FROM public.crm_ab_arm_v2 r WHERE campaign_id BETWEEN 171 AND 177),
  'functionMetadata',(SELECT jsonb_object_agg(f.signature,to_jsonb(p) ORDER BY f.signature)

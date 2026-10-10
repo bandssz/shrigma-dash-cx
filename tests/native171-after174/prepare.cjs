@@ -2,8 +2,8 @@
 // Inert SOURCE only. Authentic Root CURRENT/admission/journal are a separate required interface.
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
 const ASSETS=Object.freeze({
-  "resume.atomic.sql.in": "b2fe453de3a2cbae59734f2e380caeb372a9fb82f1fe3f0c25279556a7e8fa01",
-  "snapshot.private-read.sql": "5230b746e3a50fead92a08cc3151228def61feedbd3449653637b117a03688a6",
+  "resume.atomic.sql.in": "d8460dd265ea92f7a502723cc16783425dbf08b4c8600b15788df7e7a9ecada5",
+  "snapshot.private-read.sql": "38252a539ba38def746f0481e37395fd1357d35c6bc59065321cca91a0dad773",
   "PUBLIC-FUNCTION-PINS.json": "fac062d80b0a252823ea8e877466fd7cad4121a28c92a2db9651a13f22226b68"
 });
 const PURPOSE="crm.native171.resume-after174-finished";

@@ -61,8 +61,9 @@
       "internal/messenger/email/regular_guarded_test.go": "ae104c4035b6e14c0089ebd8486990b530ca15b40a6c534339e27c61af5119c8"
     },
     "smtppool": {
-      "guarded.go": "18c1a1665734fb2f20b8776679fb6081ce910b0027d2350bd50447b811e5918c",
-      "guardedproof/guarded_test.go": "be015cdb4ece153f3706cab7f472eecfa8081bc13025f5d7a86d85d2a452b4f0"
+      "guarded.go": "58d80921e19358e02cf7edb939c2a09a95e2ce1c785203cb5617005f5554ea92",
+      "guardedproof/guarded_test.go": "be015cdb4ece153f3706cab7f472eecfa8081bc13025f5d7a86d85d2a452b4f0",
+      "guardedproof/diagnostics_test.go": "2075e60084ea3de4682914a0417172b6c10e0f7fcce839b963b855eba4d446ba"
     }
   },
   "schema": "listmonk-regular-guarded-overlay-v1",
@@ -95,10 +96,11 @@
       "cmd/manager_store_regular.go": "6a7a040a8a3614bb410f8c7f257c4ebe69ac93ae2f7d22efdc1c8d3e4f7e1a35",
       "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6",
       "cmd/manager_store_scan_observability_test.go": "7bf2ce6a80fb870eb49ff2314fcc11461a38a98ee85c69eb51622d4625efd643",
-      "internal/manager/regular_delivery.go": "947f83b6e59693fb4599360f0729f03647f89e8bcfc2e5c92284881e9ad214af",
+      "internal/manager/regular_delivery.go": "64a387f9cea481a1c5a8f9aca291deb67bc0cd6a7480b7917163314857d91bea",
       "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3",
       "internal/manager/regular_template_nil_test.go": "dab81d74dee8d204677831a95b3094367549e92585d2054cfa292b692047fd91",
-      "internal/manager/legacy_counter_atomic_test.go": "933b48152e6466e3117cf637cfa96f5322e1484f2eb0ef914916ebf4a80be4d6"
+      "internal/manager/legacy_counter_atomic_test.go": "933b48152e6466e3117cf637cfa96f5322e1484f2eb0ef914916ebf4a80be4d6",
+      "internal/manager/regular_smtp_diagnostic_test.go": "df8801ee610b44817b64a54a940affdee9537ad6c1adc636908cbf838fba7d58"
     },
     "patched": {
       "cmd/init.go": "0a9a3fc67d4c7f01b8654e65b9f820e409b5124b9fd4b88bd68ab912e73c9f20",

@@ -676,6 +676,7 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 	})
 	if result.Outcome == smtppool.GuardedAccepted && sendErr == nil && claim.ShouldSend {
 		if err := store.FinishRegularDelivery(msg.Campaign.ID, msg.Subscriber.ID, dispatchID, claim.ClaimToken, "accepted"); err != nil {
+			m.logRegularGuardedDiagnostic(msg.Campaign.ID, dispatchID, result, sendErr, err)
 			msg.pipe.Stop(true)
 			return
 		}
@@ -683,7 +684,8 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 		return
 	}
 	if result.Outcome == smtppool.GuardedOutcomeUnknown && claim.ShouldSend {
-		_ = store.FinishRegularDelivery(msg.Campaign.ID, msg.Subscriber.ID, dispatchID, claim.ClaimToken, "outcome_unknown")
+		finishErr := store.FinishRegularDelivery(msg.Campaign.ID, msg.Subscriber.ID, dispatchID, claim.ClaimToken, "outcome_unknown")
+		m.logRegularGuardedDiagnostic(msg.Campaign.ID, dispatchID, result, sendErr, finishErr)
 		msg.pipe.Stop(true)
 		return
 	}
@@ -691,5 +693,50 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 		(claim.Reason == "ineligible" || claim.Reason == "already_checkpointed" || claim.Reason == "accepted") {
 		return
 	}
+	m.logRegularGuardedDiagnostic(msg.Campaign.ID, dispatchID, result, sendErr, nil)
 	msg.pipe.Stop(true)
+}
+
+// regularGuardedDiagnosticLine contains only public campaign/dispatch identity
+// and closed diagnostics. It never changes Outcome, ShouldSend or delivery flow.
+func regularGuardedDiagnosticLine(campaignID int, dispatchID string, result smtppool.GuardedSendResult, sendErr, finishErr error) string {
+	if campaignID < 1 { campaignID = 0 }
+	if id, err := uuid.FromString(dispatchID); err != nil || id.String() != dispatchID || id == uuid.Nil {
+		dispatchID = "invalid"
+	}
+	outcome := string(result.Outcome)
+	switch result.Outcome {
+	case smtppool.GuardedNotStarted, smtppool.GuardedAccepted, smtppool.GuardedOutcomeUnknown:
+	default: outcome = "invalid"
+	}
+	phase := result.Phase
+	switch phase {
+	case smtppool.GuardedPhasePreflight, smtppool.GuardedPhaseBuild, smtppool.GuardedPhasePool,
+		smtppool.GuardedPhaseAuthorize, smtppool.GuardedPhaseDeadline, smtppool.GuardedPhaseMail,
+		smtppool.GuardedPhaseRcpt, smtppool.GuardedPhaseData, smtppool.GuardedPhaseWrite,
+		smtppool.GuardedPhaseAck, smtppool.GuardedPhaseComplete:
+	default: phase = smtppool.GuardedPhaseUnknown
+	}
+	// Reclassify the same returned error by type, never by error text. This also
+	// covers Emailer refusals before SendGuarded and ignores arbitrary DTO text.
+	replyCode, errorClass := smtppool.DiagnoseGuardedError(sendErr)
+	_, finishClass := smtppool.DiagnoseGuardedError(finishErr)
+	finishState := "none"
+	if finishErr != nil {
+		finishState = "unavailable"
+		var pg interface { SQLState() string }
+		if errors.As(finishErr, &pg) {
+			switch code := pg.SQLState(); code {
+			case "55P03", "57014", "55000", "P0001", "40001", "40P01", "25P02", "42501":
+				finishState = code
+			default: finishState = "other"
+			}
+		}
+	}
+	return fmt.Sprintf("guarded_smtp campaign_id=%d dispatch_id=%s outcome=%s phase=%s reply_code=%d error_class=%s finish_error_class=%s finish_sqlstate=%s",
+		campaignID, dispatchID, outcome, phase, replyCode, errorClass, finishClass, finishState)
+}
+
+func (m *Manager) logRegularGuardedDiagnostic(campaignID int, dispatchID string, result smtppool.GuardedSendResult, sendErr, finishErr error) {
+	m.log.Print(regularGuardedDiagnosticLine(campaignID, dispatchID, result, sendErr, finishErr))
 }

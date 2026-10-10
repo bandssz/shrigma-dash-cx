@@ -2,20 +2,20 @@
   "schema": "legacy-counter-focal-assets-v1",
   "files": {
     "tools/listmonk-regular-build/upstream.lock.json": {
-      "bytes": 6010,
-      "sha256": "c11e76753dc47a8b518e7f1835b29873d75a0d0f5130d83d00e374a490f0af93"
+      "bytes": 6246,
+      "sha256": "f6a46a7f47c13176dce91ac86d0b0a0bee4f19b4096c7da1a44f5ddfc9e628b3"
     },
     "tools/listmonk-regular-build/proof-inputs/upstream.full-batch.lock.json": {
-      "bytes": 6326,
-      "sha256": "442cda0ae0a6254192535ecba8b4794568927c03762722e4991099e3f098fc7f"
+      "bytes": 6562,
+      "sha256": "235298dc93fbc090b332e8d3a2924ca0c0f19de9a511fd438e843ec2661fcb81"
     },
     "crm-scheduler-batch-profile.json": {
       "bytes": 5291,
-      "sha256": "d406a03876671cdf6bc7f0e1a4bb3461434996803d895d2e16e36874ee1f3400"
+      "sha256": "01386014eb752f9b7002980a5ef429423e277c54abe87e6d4b46ae23f0790b27"
     },
     "tools/listmonk-regular-build/proof-inputs/batch-composition.json": {
       "bytes": 3728,
-      "sha256": "f2fcbf367e3ff87bf313cd27e2e77799bd139dad776782c7834c6b6b3f7ef092"
+      "sha256": "65e1e9b49a76a32fdd92e5f7871d9fb69fba97cef9996902067c79ce9cfbba52"
     },
     "tools/listmonk-regular-build/proof-source-only.sh": {
       "bytes": 3237,
@@ -26,8 +26,8 @@
       "sha256": "7f9ef11adcfa6fa08791abea87c71fbe7186e7ddb3d2bcf5a1eed9cea2644af1"
     },
     "tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_delivery.go": {
-      "bytes": 20018,
-      "sha256": "947f83b6e59693fb4599360f0729f03647f89e8bcfc2e5c92284881e9ad214af"
+      "bytes": 22469,
+      "sha256": "64a387f9cea481a1c5a8f9aca291deb67bc0cd6a7480b7917163314857d91bea"
     },
     "tools/listmonk-regular-build/overlay/listmonk/internal/manager/legacy_counter_atomic_test.go": {
       "bytes": 5585,
@@ -50,16 +50,16 @@
       "sha256": "fedb4f3a46619e10499b75df09baa1cb27df1680757ef1b747d3df65f34de63d"
     }
   },
-  "profileSha256": "d406a03876671cdf6bc7f0e1a4bb3461434996803d895d2e16e36874ee1f3400",
+  "profileSha256": "01386014eb752f9b7002980a5ef429423e277c54abe87e6d4b46ae23f0790b27",
   "after": {
     "internal/manager/manager.go": "fc57c5c7c5c1bda612e59506ca641e128bc3aebe3c06d62d441dcfbe47157b5a",
     "internal/manager/pipe.go": "ac35d783784d108e01e6d60c5431257c0a71581acfcbf28a754b251fe546fcc9",
-    "internal/manager/regular_delivery.go": "947f83b6e59693fb4599360f0729f03647f89e8bcfc2e5c92284881e9ad214af",
+    "internal/manager/regular_delivery.go": "64a387f9cea481a1c5a8f9aca291deb67bc0cd6a7480b7917163314857d91bea",
     "internal/manager/legacy_counter_atomic_test.go": "933b48152e6466e3117cf637cfa96f5322e1484f2eb0ef914916ebf4a80be4d6"
   },
   "before": {
     "internal/manager/manager.go": "121cf871f0ee8a421a6ebd99329c13a5c67267dfdcf5732428dbea03fdc1000b",
     "internal/manager/pipe.go": "ecd49661bb50f68958663be366fc1b23489914951ba3296df4d5fee5320e0b99",
-    "internal/manager/regular_delivery.go": "2c15cdecf232468a999b8f81733bcafea8a6825d1dead3d400bf8f6ee64a9c36"
+    "internal/manager/regular_delivery.go": "8dab0f7986c0293463bd47745e6721330c13d2b71212e4228a2824d680e5ba4d"
   }
 }

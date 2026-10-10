@@ -7,7 +7,7 @@ DECLARE
  admission jsonb;before_state jsonb;after_state jsonb;target jsonb;ctx jsonb;item jsonb;fn record;
  at timestamptz:=clock_timestamp();cid integer;chosen integer;other integer;changed integer;
  progress_sent integer;progress_cursor integer;binding_version integer;brand text;
- ledger_count integer;ledger_distinct integer;ledger_max integer;
+ ledger_count integer;ledger_distinct integer;ledger_max integer;mismatch_fields text;
 BEGIN
  IF jsonb_typeof(e) IS DISTINCT FROM 'object' OR e->'plan' IS DISTINCT FROM plan
  OR jsonb_typeof(e->'snapshot') IS DISTINCT FROM 'object'
@@ -50,7 +50,13 @@ BEGIN
  LOCK TABLE public.crm_ab_arm_v2 IN SHARE MODE;
  LOCK TABLE public.shrigma_email_dispatch IN SHARE ROW EXCLUSIVE MODE;
  __SNAPSHOT_SELECT__ INTO before_state;
- IF before_state IS DISTINCT FROM e->'snapshot' THEN RAISE EXCEPTION 'ACCEPTED_RESUME_SNAPSHOT_DRIFT'; END IF;
+ IF before_state IS DISTINCT FROM e->'snapshot' THEN
+  SELECT string_agg(DISTINCT CASE WHEN coalesce(a.key,b.key)=ANY(ARRAY['serverVersionNum','sessionUser','currentUser','regularRunning','deployment','lease','selectionRuntime','controls','campaigns','bindings','bindingHistory','dispatch','abArms','functionMetadata','relationMetadata','mutationTriggers','campaignGuard']::text[])
+    THEN coalesce(a.key,b.key) ELSE 'unexpected_field' END,',') INTO mismatch_fields
+    FROM jsonb_each(before_state) a FULL JOIN jsonb_each(e->'snapshot') b USING(key)
+    WHERE a.value IS DISTINCT FROM b.value;
+  RAISE EXCEPTION 'ACCEPTED_RESUME_SNAPSHOT_DRIFT' USING DETAIL='fields:'||coalesce(mismatch_fields,'snapshot_schema');
+ END IF;
  IF before_state->'mutationTriggers' IS DISTINCT FROM '[]'::jsonb
  OR jsonb_array_length(before_state->'campaignGuard')<>3
  OR before_state->'abArms' IS DISTINCT FROM '[]'::jsonb
