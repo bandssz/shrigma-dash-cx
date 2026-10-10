@@ -2,7 +2,16 @@
 // Executed only AFTER the vote transaction and webhook response. Never writes
 // subscriber attributes. Unknown remote outcomes are recorded, never retried blindly.
 async function syncNpsVote(job,C,http){
- const v=job.payload;let taskId=v.task_id||null;
+ // Purged/missing payloads never reach HTTP. A previously captured live payload
+ // cannot be revoked by this check: that external in-progress effect needs own reconciliation.
+ if(!job||typeof job!=='object'||!job.payload||typeof job.payload!=='object'||Array.isArray(job.payload))
+  return {sync_id:job&&job.sync_id||null,ok:false,task_id:null,refusal_code:'NPS_PAYLOAD_UNAVAILABLE'};
+ const v=job.payload;
+ if(!['fish','aristo'].includes(v.brand)||typeof v.order!=='string'||!v.order||typeof v.email!=='string'||!v.email
+  ||typeof v.date!=='string'||!v.date||!Number.isInteger(v.score)||v.score<0||v.score>10
+  ||!['detrator','passivo','promotor'].includes(v.bucket))
+  return {sync_id:job.sync_id,ok:false,task_id:null,refusal_code:'NPS_PAYLOAD_UNAVAILABLE'};
+ let taskId=v.task_id||null;
  if(!C.CU_TOKEN||!C.LISTS[v.brand])return {sync_id:job.sync_id,ok:false,task_id:taskId};
  const headers={Authorization:C.CU_TOKEN,'Content-Type':'application/json'};
  const call=(method,path,body)=>http({method,url:'https://api.clickup.com/api/v2/'+path,headers,...(body?{body}:{}),json:true,timeout:15000});

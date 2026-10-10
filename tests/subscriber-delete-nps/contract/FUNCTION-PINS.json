@@ -1,0 +1,22 @@
+{
+  "claimOriginal": {
+    "sha256": "d7e16f99696e74be022680b968470244a6269740bb656c1febaaeb9ba2f0e559",
+    "bytes": 987
+  },
+  "finishOriginal": {
+    "sha256": "baf270d964263acc30a144357312d7b34bd7f199b9f8685f9c2b7df07d360acc",
+    "bytes": 940
+  },
+  "claimProposed": {
+    "sha256": "d6121f65e34b728c40552a06505bcd41fe6171b97ce21d013fd5ee59af247354",
+    "bytes": 1253
+  },
+  "finishProposed": {
+    "sha256": "54fef3bc9205cfdb31a042c33ac1a3cab06eb1e8217e70298a08644c3fea0fff",
+    "bytes": 1212
+  },
+  "detachProposed": {
+    "sha256": "6f70c57016d3414e387a6af09303f4b736b6df29980ac8f999fa935ad67ce4d8",
+    "bytes": 433
+  }
+}
