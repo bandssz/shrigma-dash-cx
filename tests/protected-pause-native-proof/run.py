@@ -52,7 +52,7 @@ def command(argv, cwd, env, timeout=180):
 
 def test(args, package, expected, env):
     result = command([args.go, 'test', '-json', '-count=1', '-timeout=30s',
-                      '-run', args.pattern, package], args.cwd, env)
+                      '-run', args.pattern, *(package if isinstance(package, list) else [package])], args.cwd, env)
     require(not result.stderr, 'GO_STDERR_REFUSED')
     try:
         events = [json.loads(x) for x in result.stdout.splitlines()]
@@ -140,7 +140,12 @@ def run(args, report):
     args.pattern = '^TestRegularPause'
     report['managerPassedNames'] = test(args,'./internal/manager',MANAGER_EXPECTED,env)
     report['phase'] = 'committed-quarantine-shape'
-    report['cmdPassedNames'] = test(args,'./cmd',CMD_EXPECTED,env)
+    # The upstream cmd init reads config and can open real services before TestMain.
+    # Execute the two byte-pinned diagnostic files, without upstream init.
+    report['cmdProofScope'] = 'exact-public-files-without-upstream-init'
+    report['cmdPassedNames'] = test(args,[
+        './cmd/manager_store_pause_diagnostic.go',
+        './cmd/manager_store_pause_diagnostic_test.go'],CMD_EXPECTED,env)
     report['phase'] = 'complete'
     report['behaviorCases'] = 10
     report['status'] = 'PASSED_FOCAL_SOURCE_ONLY_NOT_DEPLOYED'

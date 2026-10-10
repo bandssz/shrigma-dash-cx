@@ -59,7 +59,7 @@
   },
   "before": {
     "internal/manager/manager.go": "121cf871f0ee8a421a6ebd99329c13a5c67267dfdcf5732428dbea03fdc1000b",
-    "internal/manager/pipe.go": "ecd49661bb50f68958663be366fc1b23489914951ba3296df4d5fee5320e0b99",
-    "internal/manager/regular_delivery.go": "8dab0f7986c0293463bd47745e6721330c13d2b71212e4228a2824d680e5ba4d"
+    "internal/manager/pipe.go": "a354f72b0b757b464bf230802391bd448fafbc64b1cb3f9677f815f0af661001",
+    "internal/manager/regular_delivery.go": "a9bf7242b865b9e92ee5b8bc41b0c632b1412c9ef68991cc2ec8260316c2fd2d"
   }
 }

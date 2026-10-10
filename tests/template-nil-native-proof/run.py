@@ -3,7 +3,7 @@
 import argparse, hashlib, json, os, pathlib, subprocess, tempfile
 
 BEFORE_SHA='efed406bec03bdac69b029d329eff74e7d692dff70ab1b9ee8b547e711be186a'
-AFTER_SHA='64a387f9cea481a1c5a8f9aca291deb67bc0cd6a7480b7917163314857d91bea'
+AFTER_SHA='a7acf51047320c05dee217f2704813b58b9a8d17bbca12a8d23b6ac1a0ea3e80'
 WALKER_TEST_SHA='dab81d74dee8d204677831a95b3094367549e92585d2054cfa292b692047fd91'
 
 def source(path, expected):
