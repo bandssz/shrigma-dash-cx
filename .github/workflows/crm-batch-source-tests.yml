@@ -55,14 +55,17 @@ jobs:
           test "$(node --version)" = v22.23.3
           id -u 1000
           TASK_OUTPUT="$BATCH_FIXTURE_ROOT/batch-source-output"
-          mkdir "$TASK_OUTPUT"
+          mkdir "$TASK_OUTPUT" "$BATCH_FIXTURE_ROOT/source"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git archive HEAD | tar -xf - -C "$BATCH_FIXTURE_ROOT/source"
           sudo chown -R 1000 "$BATCH_FIXTURE_ROOT"
           sudo chmod 755 "$BATCH_FIXTURE_ROOT"
+          cd "$BATCH_FIXTURE_ROOT/source"
           PROFILE_DIGEST="$(sha256sum crm-scheduler-batch-profile.json | cut -d ' ' -f1)"
           sudo -u '#1000' env \
             PATH="$PATH" GOTOOLCHAIN=local PYTHONDONTWRITEBYTECODE=1 \
             REGULAR_NATIVE_PROOF_ISOLATED=1 \
-            PROFILE_INPUT="$GITHUB_WORKSPACE/crm-scheduler-batch-profile.json" \
+            PROFILE_INPUT="$BATCH_FIXTURE_ROOT/source/crm-scheduler-batch-profile.json" \
             PROFILE_DIGEST="$PROFILE_DIGEST" \
             TASK_OUTPUT="$TASK_OUTPUT" \
             NODE_PATH="$BATCH_FIXTURE_ROOT/batch-tools/node_modules" \
@@ -70,7 +73,55 @@ jobs:
             PG_BINARY_DIR="$BATCH_FIXTURE_ROOT/batch-tools/node_modules/@embedded-postgres/linux-x64/native/bin" \
             REVIEWED_INPUTS="$BATCH_FIXTURE_ROOT/batch-inputs" \
             bash tools/listmonk-regular-build/proof-source-only.sh
-      - name: Upload synthetic proof without image or original delivery
+          # Only the closed public report and reviewed public graph leave UID1000 custody.
+          sudo -u '#1000' env TASK_OUTPUT="$TASK_OUTPUT" python3 - <<'PYCODE'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ['TASK_OUTPUT'])
+          candidates=list((root/'runtime').glob('regular-native-*/rule-membership-native.json'))
+          assert len(candidates)==1
+          source=candidates[0]
+          content=source.read_bytes()
+          report=json.loads(content)
+          assert report['ok'] is True and len(report['cases'])==28
+          assert report['rollbackConfirmed'] is True and report['endConfirmed'] is True
+          assert report['originalCalls']==0 and report['persistentDatabase'] is False
+          assert report['afterKernelSha256']=='7d9e4cd7fd4e3c6f9967386c5ca7b1410e755690fac3a77149d8d032d2c4e8b4'
+          evidence=root/'evidence'
+          evidence.mkdir(mode=0o755)
+          target=evidence/'rule-membership-native.json'
+          target.write_bytes(content)
+          target.chmod(0o644)
+          assert hashlib.sha256(target.read_bytes()).digest()==hashlib.sha256(content).digest()
+          (root/'profile-with-binary').chmod(0o755)
+          PYCODE
+      - name: Package the exact tested batch binary as an isolated OCI candidate
+        id: oci
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          oci_root="$(mktemp -d /tmp/shrigma-batch-oci.XXXXXXXX)"
+          printf 'BATCH_OCI_ROOT=%s\n' "$oci_root" >> "$GITHUB_ENV"
+          cd "$BATCH_FIXTURE_ROOT/source"
+          profile="$BATCH_FIXTURE_ROOT/batch-source-output/profile-with-binary/PROFILE.json"
+          profile_digest="$(sha256sum "$profile" | cut -d ' ' -f1)"
+          REGULAR_NATIVE_PROOF_ISOLATED=1 python3 tools/listmonk-regular-package/image.py \
+            --package "$BATCH_FIXTURE_ROOT/batch-source-output/package" \
+            --native-proof "$BATCH_FIXTURE_ROOT/batch-source-output/native-functional-proof.json" \
+            --batch-profile "$profile" --batch-profile-sha256 "$profile_digest" \
+            --isolated-source-proof --revision "$GITHUB_SHA" --out "$oci_root/image"
+      - name: Upload the verified batch OCI candidate without registry push or deployment
+        if: ${{ success() && steps.oci.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-batch-worker-oci-linux-amd64
+          path: ${{ env.BATCH_OCI_ROOT }}/image/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Upload synthetic proof without original delivery
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -80,7 +131,7 @@ jobs:
             ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/package/manifest.json
             ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/dependency-proof.json
             ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/native-functional-proof.json
-            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/runtime/**/rule-membership-native.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/evidence/rule-membership-native.json
             ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/profile-with-binary/
           if-no-files-found: warn
           retention-days: 7

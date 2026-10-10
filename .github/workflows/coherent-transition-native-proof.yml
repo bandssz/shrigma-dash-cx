@@ -44,7 +44,9 @@ jobs:
           set -euo pipefail
           id -u 1000
           fixture_root="$(mktemp -d /tmp/shrigma-coherent-ci.XXXXXXXX)"
-          mkdir "$fixture_root/tools" "$fixture_root/proof"
+          mkdir "$fixture_root/tools" "$fixture_root/proof" "$fixture_root/source"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git archive HEAD | tar -xf - -C "$fixture_root/source"
           sudo chown -R 1000 "$fixture_root"
           sudo chmod 755 "$fixture_root"
           export COHERENT_FIXTURE_ROOT="$fixture_root"
@@ -58,12 +60,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cd "$COHERENT_FIXTURE_ROOT/source"
           sudo -u '#1000' env PATH="$PATH" node --test tests/coherent-transition/portable-source.test.cjs
       - name: Run actual two-connection synthetic proof
         id: native
         shell: bash
         run: |
           set -euo pipefail
+          cd "$COHERENT_FIXTURE_ROOT/source"
           sudo -u '#1000' env PATH="$PATH" \
             NODE_PATH="$COHERENT_FIXTURE_ROOT/tools/node_modules" \
             BOUNDED_NATIVE_FIXTURE_ISOLATED=1 \
