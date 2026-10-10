@@ -105,7 +105,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$COUNTER_TASK" "$GITHUB_SHA" <<'PY'
+          sudo -u '#1000' env PATH="$PATH" python3 - "$COUNTER_TASK" "$GITHUB_SHA" <<'PY'
           import json,sys
           from pathlib import Path
           root=Path(sys.argv[1]); p=root/'output/counter-proof.json'
