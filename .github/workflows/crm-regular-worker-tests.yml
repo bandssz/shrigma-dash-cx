@@ -67,6 +67,8 @@ jobs:
           GOWORK="$RUNNER_TEMP/regular-package/source/go.work" GOPROXY=off GOSUMDB=off go test -race ./cmd/graph_cache.go ./cmd/graph_cache_test.go
           cd "$RUNNER_TEMP/regular-package/source/smtppool"
           GOWORK="$RUNNER_TEMP/regular-package/source/go.work" GOPROXY=off GOSUMDB=off go test -race ./guardedproof
+      - name: Execute focused scanner classification tests against the exact composed source
+        run: python3 tools/listmonk-regular-build/scan_observability_proof.py --source-root "$RUNNER_TEMP/regular-package/source/listmonk" --go "$(command -v go)"
       - name: Prove contracts and full analyst DOM path
         run: |
           export NODE_PATH="$RUNNER_TEMP/regular-test-tools/node_modules"

@@ -1,0 +1,95 @@
+'use strict';
+// Offline, explicit ephemeral profile. It grants no production authority.
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const LEGACY='084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d';
+const sha=b=>crypto.createHash('sha256').update(b).digest('hex'),HASH=/^[a-f0-9]{64}$/;
+const SQL_PINS=Object.freeze({'n8n/growth/segment-listmonk-selection.sql':'012bf79077ebb2c2793aa6032838009e72f945df46ed42ffd53a302d66da4d6e','n8n/growth/segment-regular-worker-lease.sql':'bb015bb07fd1172c7a1594acca53e27a90b4602d8d3623c13ddd4062e6dad90d','n8n/growth/ab-audience-regular.sql':'899029d7dcb0485d7613c234a04a36ca6962067052850c260881548a067a9706'});
+const RELATIONS=Object.freeze(['crm_audience_v2.recorded_origin_receipt','crm_audience_v2.recorded_origin_source','crm_audience_v2.shopify_customer_fact','crm_audience_v2.shopify_customer_product','crm_audience_v2.shopify_identity','crm_audience_v2.shopify_product_batch','crm_audience_v2.shopify_product_history_gap','crm_audience_v2.shopify_source','public.campaign_views','public.campaigns','public.crm_ab_member_v2','public.link_clicks','public.subscriber_lists','public.subscribers','public.campaign_lists','public.lists']);
+function fail(){throw Error('NATIVE_BATCH_PROFILE_REFUSED');}
+function keys(v,list){if(!v||Object.getPrototypeOf(v)!==Object.prototype||Object.keys(v).sort().join()!==[...list].sort().join())fail();}
+function file(pin){keys(pin,['path','bytes','sha256']);if(typeof pin.path!=='string'||!path.isAbsolute(pin.path)||fs.realpathSync(pin.path)!==pin.path||!Number.isSafeInteger(pin.bytes)||pin.bytes<1||pin.bytes>1048576||!HASH.test(pin.sha256))fail();const stat=fs.lstatSync(pin.path);if(!stat.isFile()||stat.isSymbolicLink())fail();const data=fs.readFileSync(pin.path);if(data.length!==pin.bytes||sha(data)!==pin.sha256)fail();return data;}
+function recipientPreviewSQL(query){
+ // Only the status predicate changes. Remove the legacy checkpoint DML CTE entirely for READ.
+ const marker="ca.status = 'running'";if(query.split(marker).length!==2)fail();
+ const u=query.indexOf('),\nu AS ('),end=query.indexOf('\nSELECT * FROM subs OFFSET',u);
+ if(u<0||end<0)fail();
+ const preview=(query.slice(0,u)+')'+query.slice(end)).replace(marker,"ca.status = 'scheduled'");
+ if(/\b(?:UPDATE|INSERT|DELETE)\b/i.test(preview))fail();return preview;
+}
+function load(manifestPath,manifestSha256,{forRun=false,isolatedSourceProof=false}={}){
+ if(typeof isolatedSourceProof!=='boolean'||(isolatedSourceProof&&(!forRun||process.env.REGULAR_NATIVE_PROOF_ISOLATED!=='1')))fail();
+ if(!HASH.test(manifestSha256)||typeof manifestPath!=='string'||!path.isAbsolute(manifestPath))fail();const data=fs.readFileSync(manifestPath);if(fs.realpathSync(manifestPath)!==manifestPath||!fs.lstatSync(manifestPath).isFile()||fs.lstatSync(manifestPath).isSymbolicLink()||data.length>1048576||sha(data)!==manifestSha256)fail();let m;try{m=JSON.parse(data);}catch{fail();}
+ keys(m,['schema','version','kind','sourceRef','compositionRoot','compositionDelivery','sources','querySha256','kernelSha256','additionalSqlSources','workerTransaction','buildReceipt','nativeAcceptance','isolatedProofAuthorization']);
+ const isV4=m.schema==='shrigma-native-batch-proof-profile-v4'&&m.version===4;
+ if((!isV4&&(m.schema!=='shrigma-native-batch-proof-profile-v3'||m.version!==3))||!['ephemeral-batch-count','ephemeral-batch-count-recipient'].includes(m.kind)||m.sourceRef!=='55ed5bdc42d924a79da577b4b7c7b7b052dfc4c7'||!HASH.test(m.querySha256)||m.querySha256===LEGACY||!HASH.test(m.kernelSha256))fail();
+ if(isV4&&m.kind!=='ephemeral-batch-count-recipient')fail();
+ if(m.nativeAcceptance!==null)fail(); // No production/full-recipient acceptance is imported by this profile.
+ // Portable paths are relative to the pinned manifest, never cwd or an arbitrary root.
+ if(m.compositionRoot!=='.')fail();
+ const root=fs.realpathSync(path.dirname(manifestPath));m.compositionRoot=root;
+ const local=pin=>{keys(pin,['path','bytes','sha256']);if(typeof pin.path!=='string'||path.isAbsolute(pin.path)||pin.path.includes('\\')||pin.path.split('/').some(x=>x===''||x==='..'||x==='.')||path.posix.normalize(pin.path)!==pin.path)fail();const target=path.resolve(root,pin.path);if(!target.startsWith(root+path.sep)||fs.realpathSync(target)!==target)fail();return {...pin,path:target};};
+ m.compositionDelivery=local(m.compositionDelivery);
+ for(const [slot,pin]of Object.entries(m.sources))m.sources[slot]=local(pin);
+ for(const dep of m.additionalSqlSources)dep.file=local(dep.file);
+ if(m.isolatedProofAuthorization!==null){if(isV4){require('./joint_read_profile_v4.cjs').wrapper(m.isolatedProofAuthorization);m.isolatedProofAuthorization={...m.isolatedProofAuthorization,readReceipt:local(m.isolatedProofAuthorization.readReceipt)};}else m.isolatedProofAuthorization=local(m.isolatedProofAuthorization);}
+ const delivery=JSON.parse(file(m.compositionDelivery));if(delivery.operational!==false||delivery.productionChanged!==false)fail();
+ keys(m.sources,['composer','ab','kernel','upstreamQuery','candidateQuery','builderLock','managerStoreOriginal','managerStoreCandidate','jitHelper','jitTest']);
+ const emitted=[...(delivery.inputs||[]),...(delivery.outputs||[])];
+ const bytes={};for(const [slot,pin]of Object.entries(m.sources)){if(!emitted.some(x=>path.resolve(m.compositionRoot,x.path)===pin.path&&x.bytes===pin.bytes&&x.sha256===pin.sha256))fail();bytes[slot]=file(pin);}
+ if(sha(bytes.kernel)!==m.kernelSha256)fail();
+ if(path.resolve(path.dirname(m.sources.composer.path),'ab-listmonk-cohort-patch.cjs')!==m.sources.ab.path)fail();
+ const composer=require(m.sources.composer.path);if(typeof composer.patchBatchWorkerSource!=='function'||typeof composer.patchRegularWorkerSource!=='function'||typeof composer.section!=='function')fail();
+ const old=composer.patchRegularWorkerSource(bytes.upstreamQuery.toString('utf8')),batch=(m.kind==='ephemeral-batch-count-recipient'?composer.patchFullBatchWorkerSource:composer.patchBatchWorkerSource)(bytes.upstreamQuery.toString('utf8'),bytes.kernel.toString('utf8'),m.kernelSha256);
+ if(old.patched_sha256!==LEGACY||batch.patched_sha256!==m.querySha256||sha(bytes.candidateQuery)!==m.querySha256||batch.source!==bytes.candidateQuery.toString('utf8')||batch.batch_kernel_sha256!==m.kernelSha256||batch.authorizes_send!==false||batch.authorizes_selection!==false)fail();
+ const withoutSelected=s=>{for(const name of (m.kind==='ephemeral-batch-count-recipient'?['next-campaign-subscribers','next-campaigns']:['next-campaigns'])){const q=composer.section(s,name);s=s.slice(0,q.start)+s.slice(q.end);}return s;};if(withoutSelected(old.source)!==withoutSelected(batch.source))fail();
+ if(m.kind==='ephemeral-batch-count-recipient'){if(batch.recipient_batch!==true||batch.recipient_lazy!==true||batch.recipient_block_size!==256||batch.requires_native_recipient_performance_acceptance!==true)fail();const checkpoint=q=>q.slice(q.indexOf('u AS ('),q.indexOf('SELECT * FROM subs OFFSET'));if(checkpoint(composer.section(old.source,'next-campaign-subscribers').text)!==checkpoint(composer.section(batch.source,'next-campaign-subscribers').text))fail();}
+ const lock=JSON.parse(bytes.builderLock);if(lock.worker.batch_kernel_sha256!==m.kernelSha256)fail();if(lock.worker.regular_query_sha256!==m.querySha256||lock.worker.patched['queries/campaigns.sql']!==m.querySha256||lock.graph_cache.enabled_by_default!==false)fail();
+ const dependencies=[["segment-shopify-products.sql","7d72c0ab2e759179db59924325592cb0ab1bd73b5bcf51113ed8629a53db83ff"],["segment-shopify-sync-runtime.sql","058133d080747909ee7ac2d54ea8511d6eda65cb69d1ceac0a4cf6597bccb009"],["segment-shopify-count.sql","5263e9f7c2f10378466abc73c4c11d19808068885a572c5f34c4a84663ac3eba"],["segment-shopify-count-performance.sql","3be19bd34b7fc666d6fd17f45442ade80ebc4e710622f4173556f79535f092be"],["segment-shopify-product-quarantine.sql","edb080f4aa4f9019cc071db45cfc62209e017dcc4bdeb6da08651ffffd7c66c9"],["segment-shopify-product-history-completeness-v2.sql","9c113b4b172ad1343b2ecd83bf91b37d2d728f33cca20206c4125e4ed0cf4c7f"],["vip-consent.sql","4bbd7e509da4079ba50651dd43d1857a43eb2f3b2f742f5ab557dc70e23657f7"],["vip-recorded-origin.sql","73e59bc8b150a6fc94a82acd4dd102a4f3e9b354fd87d4db2ebf97ddd803e9d5"],["segment-recorded-origin.sql","4e4048287e6491df3c58079c419b1ebd79de5c98b220eb032fc08245ff32d673"]];
+ if(!Array.isArray(m.additionalSqlSources)||m.additionalSqlSources.length!==dependencies.length||m.additionalSqlSources.some((d,i)=>d.sourceName!==dependencies[i][0]||d.file.sha256!==dependencies[i][1]))fail();const seen=new Set();
+ for(const dep of m.additionalSqlSources){keys(dep,['sourceName','file']);if(typeof dep.sourceName!=='string'||!/^[a-z][a-z0-9-]{1,100}\.sql$/.test(dep.sourceName)||SQL_PINS[dep.sourceName]||seen.has(dep.sourceName))fail();seen.add(dep.sourceName);if(!emitted.some(x=>path.resolve(m.compositionRoot,x.path)===dep.file.path&&x.bytes===dep.file.bytes&&x.sha256===dep.file.sha256))fail();file(dep.file);}
+ keys(m.workerTransaction,['jit','scope']);if(m.workerTransaction.jit!=='off'||m.workerTransaction.scope!=='transaction-local')fail();
+ const fixedWorkerPins={managerStoreOriginal:'37f4892f4beda8a3ca20bc9d5ce7c1cf9d4a5bece0ba36146a4c47afa5fe8240',managerStoreCandidate:'aed74d991ed286287e50a31d8a95ca4f40e509355d4128b5178ecee665732888',jitHelper:'4f21412be8b94a61ae0c78f7a553058613e87d40c1535b53b13ae1a5371f4a7e',jitTest:'1a4e9454e6ff2ec5397c44002b17a498d8a079442f783f63eb7c53bbe712c116'};
+ for(const [slot,digest]of Object.entries(fixedWorkerPins))if(sha(bytes[slot])!==digest)fail();
+ if(lock.worker.patched['cmd/manager_store.go']!==sha(bytes.managerStoreCandidate)||lock.worker.overlay['cmd/manager_store_batch_jit.go']!==sha(bytes.jitHelper)||lock.worker.overlay['cmd/manager_store_batch_jit_test.go']!==sha(bytes.jitTest))fail();
+ const workerTransactionSha256=sha(JSON.stringify([m.workerTransaction.jit,m.workerTransaction.scope,sha(bytes.managerStoreCandidate),sha(bytes.jitHelper)]));
+ const composedCountQuerySha256=sha(composer.section(batch.source,'next-campaigns').text),composedRecipientQuerySha256=sha(composer.section(batch.source,'next-campaign-subscribers').text);
+ const fullPreviewSQL=recipientPreviewSQL(composer.section(batch.source,'next-campaign-subscribers').text);
+ // V4 pins the physical READ body; the composer section-name comment is not a statement. V3 retains its historical bytes.
+ const previewSQL=isV4?fullPreviewSQL.replace(/^-- name: next-campaign-subscribers\n/,''):fullPreviewSQL,recipientPreviewQuerySha256=sha(previewSQL);
+ if(m.buildReceipt!==null){keys(m.buildReceipt,['binarySha256','querySha256','kernelSha256','composerSha256','workerTransactionSha256']);if(!HASH.test(m.buildReceipt.binarySha256)||m.buildReceipt.querySha256!==m.querySha256||m.buildReceipt.kernelSha256!==m.kernelSha256||m.buildReceipt.composerSha256!==sha(bytes.composer)||m.buildReceipt.workerTransactionSha256!==workerTransactionSha256)fail();}
+ let jointRead=null,countReadSQL=null,countReadSha256=null;
+ if(isV4){const v4=require('./joint_read_profile_v4.cjs');countReadSQL=v4.countReadSQL(composer.section(batch.source,'next-campaigns').text);countReadSha256=sha(countReadSQL);if(m.isolatedProofAuthorization!==null)jointRead=v4.validate(m.isolatedProofAuthorization,file(m.isolatedProofAuthorization.readReceipt),{kernelSha256:m.kernelSha256,countReadSha256,recipientReadSha256:recipientPreviewQuerySha256});}
+ if(!isV4&&m.isolatedProofAuthorization!==null){
+  const acceptance=JSON.parse(file(m.isolatedProofAuthorization));
+  keys(acceptance,['schema','querySha256','kernelSha256','workerTransactionSha256','composedCountQuerySha256','composedRecipientQuerySha256','recipientPreviewQuerySha256','kernelAccepted','fullCountAccepted','recipientPreviewAccepted','fullRecipientAccepted','statusAdapted','originalNextSubscribersExecuted','productionChanged','mutationsExecuted','counts','recipientPreviews']);
+  if(acceptance.schema!=='shrigma-root-batch-isolated-proof-authorization-v3'||acceptance.querySha256!==m.querySha256||acceptance.kernelSha256!==m.kernelSha256||acceptance.workerTransactionSha256!==workerTransactionSha256||acceptance.composedCountQuerySha256!==composedCountQuerySha256||acceptance.composedRecipientQuerySha256!==composedRecipientQuerySha256||acceptance.recipientPreviewQuerySha256!==recipientPreviewQuerySha256||acceptance.kernelAccepted!==true||acceptance.fullCountAccepted!==true||acceptance.recipientPreviewAccepted!==true||acceptance.fullRecipientAccepted!==false||acceptance.statusAdapted!==true||acceptance.originalNextSubscribersExecuted!==false||acceptance.productionChanged!==false||acceptance.mutationsExecuted!==false)fail();
+  const observations=(rows,preview)=>{
+   if(!Array.isArray(rows)||rows.length!==2)fail();
+   for(const [i,row]of rows.entries()){
+    keys(row,preview?['campaignId','sqlState','elapsedMs','timeoutMs','rollbackAndProcessEndConfirmed','preFencePassed','postFencePassed','contextUnchanged','sourceQuerySha256','parameters']:['campaignId','sqlState','elapsedMs','timeoutMs','rollbackAndProcessEndConfirmed','preFencePassed','postFencePassed','contextUnchanged','sourceQuerySha256']);
+    if(row.campaignId!==[171,174][i]||row.sqlState!=='00000'||!Number.isFinite(row.elapsedMs)||row.elapsedMs<0||row.elapsedMs>5000||row.timeoutMs!==5000||row.rollbackAndProcessEndConfirmed!==true||row.preFencePassed!==true||row.postFencePassed!==true||row.contextUnchanged!==true||row.sourceQuerySha256!==(preview?recipientPreviewQuerySha256:composedCountQuerySha256))fail();
+    if(preview){
+     if(row.parameters.path!==`receipts/recipient-preview-${row.campaignId}.params.json`)fail();
+     const params=JSON.parse(file(local(row.parameters)));
+     keys(params,['campaignId','campaignType','checkpoint','maxSubscriberId','listIDs','limit']);
+     const integer=n=>Number.isSafeInteger(n)&&n>=0&&n<=2147483647;
+     if(params.campaignId!==row.campaignId||params.campaignType!=='regular'||!integer(params.checkpoint)||!integer(params.maxSubscriberId)||params.maxSubscriberId<params.checkpoint||!Array.isArray(params.listIDs)||params.listIDs.length<1||params.listIDs.length>32||params.listIDs.some(n=>!integer(n)||n<1)||new Set(params.listIDs).size!==params.listIDs.length||params.limit!==1)fail();
+    }
+   }
+  };
+  observations(acceptance.counts,false);observations(acceptance.recipientPreviews,true);
+ }
+ if(isolatedSourceProof&&m.isolatedProofAuthorization!==null)fail(); // No original/private receipt enters functional CI.
+ if(forRun&&(m.kind!=='ephemeral-batch-count-recipient'||m.buildReceipt===null||(!isolatedSourceProof&&m.isolatedProofAuthorization===null)))fail();
+ function transformSQL(repoPath,source){if(!SQL_PINS[repoPath]||sha(source)!==SQL_PINS[repoPath])fail();if(repoPath.endsWith('segment-listmonk-selection.sql')){if(source.includes(LEGACY))fail();return source;}
+ const anchor=repoPath.endsWith('ab-audience-regular.sql')?"ctx:=crm_audience_v2.selection_context(cid,'"+LEGACY+"',true);":"query_sha256 text CHECK(query_sha256='"+LEGACY+"'),";
+ if(source.split(anchor).length!==2||source.split(LEGACY).length!==2)fail();return source.replace(anchor,anchor.replace(LEGACY,m.querySha256));}
+ function additionalSQL(repoPath,source){const dep=m.additionalSqlSources.find(x=>x.sourceName===repoPath);if(!dep||sha(source)!==dep.file.sha256)fail();return source;}
+ function pinnedAdditionalSQL(sourceName){const dep=m.additionalSqlSources.find(x=>x.sourceName===sourceName);if(!dep)fail();return additionalSQL(sourceName,file(dep.file).toString('utf8'));}
+ const report={...(isV4?{countReadSha256,jointRead}:{}),schema:m.schema,version:m.version,kind:m.kind,manifestSha256,compositionDeliverySha256:m.compositionDelivery.sha256,querySha256:m.querySha256,kernelSha256:m.kernelSha256,workerTransactionSha256,workerTransaction:m.workerTransaction,composedCountQuerySha256,composedRecipientQuerySha256,recipientPreviewQuerySha256,isolatedProofAuthorized:m.isolatedProofAuthorization!==null,isolatedSourceProofAuthorized:isolatedSourceProof,proofPurpose:isolatedSourceProof?'isolated-source-functional':'original-read-gated',originalPerformanceAccepted:false,originalOperational:false,originalDispatchProved:false,fullRecipientAccepted:false,graphRuntimeSha256:lock.graph_cache.runtime_sha256,binaryExpectedSha256:m.buildReceipt&&m.buildReceipt.binarySha256,sourcePins:m.sources,additionalSqlSources:m.additionalSqlSources,operational:false,productionChanged:false,performanceAccepted:false,nativeAcceptance:null,isolatedProofAuthorization:m.isolatedProofAuthorization};
+ return Object.freeze({querySha256:m.querySha256,kernelSha256:m.kernelSha256,workerTransactionSha256,recipientPreviewSQL:previewSQL,...(isV4?{countReadSQL}:{}),buildReceipt:m.buildReceipt,transformSQL,additionalSQL,pinnedAdditionalSQL,additionalSqlPaths:Object.freeze(m.additionalSqlSources.map(x=>x.sourceName)),report:Object.freeze(report)});
+}
+function visibilitySQL(){const names=RELATIONS.map(n=>"('"+n+"')").join(',');return "SELECT count(*)=16 AND coalesce(bool_and(c.oid IS NOT NULL AND c.relkind IN ('r','p') AND has_table_privilege(current_user,c.oid,'SELECT') AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity),false) AS ok FROM (VALUES "+names+")fixed(name)LEFT JOIN pg_catalog.pg_class c ON c.oid=to_regclass(fixed.name)";}
+function functionVisibilitySQL(){const fixed=['crm_audience_v2.selection_worker_context(integer)','crm_audience_v2.selection_regular_matches(jsonb,integer)','crm_audience_v2.shopify_rule_valid(jsonb)','crm_audience_v2.shopify_snapshot(text)','crm_audience_v2.shopify_source_current(text,text,text)','crm_audience_v2.recorded_origin_rule_valid(jsonb)','crm_audience_v2.recorded_origin_source_current(text,text,text)','crm_audience_v2.recorded_origin_descriptor(crm_audience_v2.recorded_origin_source)','crm_audience_v2.regular_worker_heartbeat(uuid,text,text)','crm_audience_v2.regular_worker_require(uuid,text,text)','crm_audience_v2.regular_delivery_claim(integer,integer,uuid,text,text,text,text,text,jsonb)'];return 'SELECT count(*)=11 AND bool_and(pg_catalog.to_regprocedure(fixed.signature) IS NOT NULL) AS ok FROM (VALUES '+fixed.map(s=>"('"+s+"')").join(',')+')fixed(signature)';}
+if(require.main===module){try{const args=process.argv.slice(2);const sourceOnly=args[0]==='--source-only',isolatedSourceProof=args[0]==='--isolated-source-proof';if(sourceOnly||isolatedSourceProof)args.shift();if(args.length!==2&&args.length!==3)fail();const profile=load(path.resolve(args[0]),args[1],{forRun:!sourceOnly,isolatedSourceProof});let report={...profile.report,sqlSourceBasePins:SQL_PINS};if(args[2]){const root=path.resolve(args[2]);report.transformedSqlSha256=Object.fromEntries(Object.keys(SQL_PINS).map(n=>[n,sha(profile.transformSQL(n,fs.readFileSync(path.join(root,n),'utf8')))]));}process.stdout.write(JSON.stringify(report)+'\n');}catch{process.stderr.write('NATIVE_BATCH_PROFILE_REFUSED\n');process.exitCode=1;}}
+module.exports=Object.freeze({LEGACY,SQL_PINS,RELATIONS,load,recipientPreviewSQL,visibilitySQL,functionVisibilitySQL});
