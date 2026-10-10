@@ -137,6 +137,14 @@ def settings_sql(smtp_port, http_port):
         self.assertFalse(settings['app.check_updates'])
         self.assertFalse(settings['app.cache_slow_queries'])
         f=(FILES/'tests/segment-regular-native-fixture.cjs').read_text()
+        start=f.index(' // A canonical worker now references')
+        end=f.index(' if(batch){const result=',start)
+        reviewed_exclusion_block=f[start:end]
+        self.assertEqual(hashlib.sha256(reviewed_exclusion_block.encode()).hexdigest(),'9e9010c8f6de88f1d43b37bd60b2e5cb8cd87a38894485c37cbedeb78e99cad2')
+        self.assertIn('if(!dependencyOnly){',reviewed_exclusion_block)
+        self.assertIn('readPermanentExclusionFixture(root)',reviewed_exclusion_block)
+        self.assertNotIn('INSERT INTO',reviewed_exclusion_block)
+        f=f[:start]+f[end:]
         self.assertEqual(hashlib.sha256(f[f.index('async function prepare'):].encode()).hexdigest(),'c70b18974814a91040e408b0ddcc496e9200998065e5586725cec2e521ce785e')
     def test_ci_complete_proof_after_measured_binary_and_no_push(self):
         s=(FILES/'tools/listmonk-regular-build/proof-source-only.sh').read_text()

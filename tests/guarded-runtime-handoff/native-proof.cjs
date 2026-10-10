@@ -8,7 +8,7 @@ const ASSETS=Object.freeze({
   "source/handoff.atomic.sql.in": "8bc9da5a1e4685c01a12ba1b01b48fb8adf675b6d491c72cf7fa970adcf21042",
   "source/snapshot.private-read.sql": "90af778e67c767c4dd5b0bcb6b7c0169c55b00ec1d59c5ae42674a2b540c49f9",
   "source/PUBLIC-FUNCTION-PINS.json": "fac062d80b0a252823ea8e877466fd7cad4121a28c92a2db9651a13f22226b68",
-  "bootstrap.cjs": "e05e34c3495af796134343c143570d8012d0c1502e1c26cd0e39553c1d230ebc",
+  "bootstrap.cjs": "a3e8ba2155f66399ab5f38873a219d6768a3a3204758b0ee6a18a7e35c2195f3",
   "schema.sql": "9d94ea32ee76aab91f6fc5c1179539513a8a955984951570ed537b1916230a8f",
   "fixture.cjs": "4e809c502257cc63c6a6d2e1651d9e4eea669b6127d5e3339e8ac8dcba1a9b2e",
   "fixture-extra-guards.sql": "53ee6e4d2aef2128a05a0bc719473a7e5a91ae7a93ab0b34b3326fcb9ec7e1c1",
