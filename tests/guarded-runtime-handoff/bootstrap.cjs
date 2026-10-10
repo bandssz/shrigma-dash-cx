@@ -7,7 +7,7 @@ a.equal(sha(schema),'9d94ea32ee76aab91f6fc5c1179539513a8a955984951570ed537b19162
 const profile=path.join(root,'crm-scheduler-batch-profile.json');
 const profileSha=process.env.GUARDED_HANDOFF_PROFILE_SHA256;a(/^[a-f0-9]{64}$/.test(profileSha||''));a.equal(sha(fs.readFileSync(profile)),profileSha);
 const fixture=path.join(root,'tests/segment-regular-native-fixture.cjs');
-a.equal(sha(fs.readFileSync(fixture)),'9f9435b2107f7659929f326644789bdd56bd70b91f315044a1f5ff99a8e608ae');
+a.equal(sha(fs.readFileSync(fixture)),'caad07bf8b916329981dafab6908b6389e718c9f1927b6f11150bd40a85e80fb');
 a.equal(process.version,'v22.23.3');a.equal(process.getuid(),1000);a.equal(process.platform,'linux');a.equal(process.arch,'x64');
 a.equal(process.env.CRM_AUDIENCE_TEST_ISOLATED,'1');a.equal(process.env.REGULAR_NATIVE_PROOF_ISOLATED,'1');
 a.equal(require('pg/package.json').version,'8.23.1');

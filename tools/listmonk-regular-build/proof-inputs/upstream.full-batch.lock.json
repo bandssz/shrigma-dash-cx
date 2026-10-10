@@ -93,7 +93,7 @@
     "overlay": {
       "cmd/manager_store_batch_jit.go": "4f21412be8b94a61ae0c78f7a553058613e87d40c1535b53b13ae1a5371f4a7e",
       "cmd/manager_store_batch_jit_test.go": "1a4e9454e6ff2ec5397c44002b17a498d8a079442f783f63eb7c53bbe712c116",
-      "cmd/manager_store_regular.go": "6a7a040a8a3614bb410f8c7f257c4ebe69ac93ae2f7d22efdc1c8d3e4f7e1a35",
+      "cmd/manager_store_regular.go": "fddc286630157005e82a64ba97dbcb100869f56ea6cf2ba7e61cb59232486fee",
       "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6",
       "cmd/manager_store_scan_observability_test.go": "7bf2ce6a80fb870eb49ff2314fcc11461a38a98ee85c69eb51622d4625efd643",
       "internal/manager/regular_delivery.go": "a7acf51047320c05dee217f2704813b58b9a8d17bbca12a8d23b6ac1a0ea3e80",

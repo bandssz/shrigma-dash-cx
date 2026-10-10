@@ -7,7 +7,7 @@ function bounded(f){const s=fs.lstatSync(f);if(!s.isFile()||s.isSymbolicLink()||
 function materialize({profile,profileSha256,out,buildManifest=null}){
  profile=path.resolve(profile);const verified=Profile.load(profile,profileSha256);const m=JSON.parse(bounded(profile)),root=path.dirname(profile);
  if(m.compositionRoot!=='.'||!HASH.test(profileSha256))refuse();
- const files=[m.compositionDelivery,...Object.values(m.sources),...m.additionalSqlSources.map(d=>d.file),...(m.isolatedProofAuthorization?[m.version===4?m.isolatedProofAuthorization.readReceipt:m.isolatedProofAuthorization]:[])];
+ const files=[m.compositionDelivery,...Object.values(m.sources),...m.additionalSqlSources.map(d=>d.file),...Profile.SOURCE_WORKER_DEPENDENCIES,...(m.isolatedProofAuthorization?[m.version===4?m.isolatedProofAuthorization.readReceipt:m.isolatedProofAuthorization]:[])];
  if(m.version===3&&m.isolatedProofAuthorization){const authorization=JSON.parse(bounded(path.join(root,m.isolatedProofAuthorization.path)));for(const row of authorization.recipientPreviews)files.push(row.parameters);}
  const plan=new Map();for(const pin of files){const data=bounded(path.join(root,pin.path));if(data.length!==pin.bytes||sha(data)!==pin.sha256)refuse();if(plan.has(pin.path)&&!plan.get(pin.path).equals(data))refuse();plan.set(pin.path,data);}
  if(buildManifest!==null){

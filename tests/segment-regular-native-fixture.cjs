@@ -237,6 +237,24 @@ async function prepare(){
   }
  }
  await exec(read('n8n/growth/ab-audience-regular.sql'));
+ // A canonical worker now references the real exclusion helper in its two inline gates.
+ // The dependency-only bootstrap preserves absence so the separate PG23 install proof
+ // can test a genuinely new installation. It never starts a worker.
+ if(!dependencyOnly){
+  const FixtureSource=Batch||require('../tools/listmonk-regular-build/native_batch_profile.cjs');
+  await exec(FixtureSource.readPermanentExclusionFixture(root));
+  const own=await pool.query(`SELECT
+   (SELECT count(*)=0 FROM crm_audience_v2.regular_delivery_permanent_exclusion)
+   AND count(*)=2 AND coalesce(bool_and(p.oid IS NOT NULL AND NOT p.prosecdef
+    AND p.provolatile::text=f.volatility AND pg_get_userbyid(p.proowner)=current_user
+    AND p.proconfig=ARRAY['search_path=pg_catalog']::text[]
+    AND md5(p.prosrc)=f.body_md5 AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE')),false) AS ok
+   FROM (VALUES
+    ('crm_audience_v2.regular_delivery_permanently_excluded(uuid,integer)','s','671457eef0d8171dd1d6e4952496fc84'),
+    ('crm_audience_v2.regular_delivery_exclusion_immutable()','v','84f984c50cd40adde421329a5f0ca27f')) f(signature,volatility,body_md5)
+   LEFT JOIN pg_proc p ON p.oid=to_regprocedure(f.signature)`);
+  assert.equal(own.rows[0].ok,true,'NATIVE_EXCLUSION_EMPTY_REAL_OBJECTS_REQUIRED');
+ }
  if(batch){const result=await pool.query(Batch.visibilitySQL());assert.equal(result.rows[0].ok,true,'NATIVE_BATCH_DEPENDENCY_VISIBILITY_REQUIRED');const functions=await pool.query(Batch.functionVisibilitySQL());assert.equal(functions.rows[0].ok,true,'NATIVE_BATCH_FUNCTION_DEPENDENCIES_REQUIRED');}
  if(dependencyOnly){
   const state=await pool.query(`SELECT

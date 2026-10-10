@@ -6,8 +6,8 @@
   "compositionRoot": ".",
   "compositionDelivery": {
     "path": "tools/listmonk-regular-build/proof-inputs/batch-composition.json",
-    "bytes": 3728,
-    "sha256": "5ea3fa6f51cde3bad3dd79eb897e29c63ee19bbe54e1bfeb13925666c8a90a21"
+    "bytes": 4894,
+    "sha256": "a53ce9765dc9a1fcb1ea1693c4a581512e6678faed38914d6666cccc01c54c9a"
   },
   "sources": {
     "composer": {
@@ -38,7 +38,7 @@
     "builderLock": {
       "path": "tools/listmonk-regular-build/proof-inputs/upstream.full-batch.lock.json",
       "bytes": 7046,
-      "sha256": "6782528db302d5ecdad4a54678a542694580bc6fd0617135ac4f6871b50716a7"
+      "sha256": "e551bd56a25faef707d1066fbed5129f64a20a7c5bb5a7256f03f61b07f6ab7a"
     },
     "managerStoreOriginal": {
       "path": "tools/listmonk-regular-build/proof-inputs/manager-store-original.go",

@@ -5,9 +5,9 @@ const root=path.resolve(__dirname,'../..'),sha=b=>crypto.createHash('sha256').up
 const schema=fs.readFileSync(path.join(__dirname,'schema.sql'));
 a.equal(sha(schema),'9d94ea32ee76aab91f6fc5c1179539513a8a955984951570ed537b1916230a8f');
 const profile=path.join(root,'crm-scheduler-batch-profile.json');
-a.equal(sha(fs.readFileSync(profile)),'28c7c51af4f90fe5ed8624695317f15da3951b3ac13f0b2561bd762c88dc580a');
+a.equal(sha(fs.readFileSync(profile)),'5b09d45fd1bd3bf56d6de1d0276b6a35bed9c518ca125430f6560287b84facac');
 const fixture=path.join(root,'tests/segment-regular-native-fixture.cjs');
-a.equal(sha(fs.readFileSync(fixture)),'9f9435b2107f7659929f326644789bdd56bd70b91f315044a1f5ff99a8e608ae');
+a.equal(sha(fs.readFileSync(fixture)),'caad07bf8b916329981dafab6908b6389e718c9f1927b6f11150bd40a85e80fb');
 a.equal(process.version,'v22.23.3');a.equal(process.getuid(),1000);a.equal(process.platform,'linux');a.equal(process.arch,'x64');
 a.equal(process.env.CRM_AUDIENCE_TEST_ISOLATED,'1');a.equal(process.env.REGULAR_NATIVE_PROOF_ISOLATED,'1');
 a.equal(require('pg/package.json').version,'8.23.1');
@@ -25,7 +25,7 @@ async function main(){
   await db.query("INSERT INTO settings(key,value) VALUES('migrations','[\"v6.1.0\"]')");
  }finally{await db.end();ended=true;}
  a.equal(ended,true);
- const env={...process.env,REGULAR_NATIVE_BATCH_PROFILE:profile,REGULAR_NATIVE_BATCH_PROFILE_SHA256:'28c7c51af4f90fe5ed8624695317f15da3951b3ac13f0b2561bd762c88dc580a'};
+ const env={...process.env,REGULAR_NATIVE_BATCH_PROFILE:profile,REGULAR_NATIVE_BATCH_PROFILE_SHA256:'5b09d45fd1bd3bf56d6de1d0276b6a35bed9c518ca125430f6560287b84facac'};
  delete env.REGULAR_NATIVE_SOURCE_PROOF;
  const child=spawnSync(process.execPath,[fixture,'prepare-batch-dependencies'],{cwd:root,env,stdio:'inherit',timeout:60000});
  a.equal(child.error,undefined);a.equal(child.signal,null);a.equal(child.status,0);
