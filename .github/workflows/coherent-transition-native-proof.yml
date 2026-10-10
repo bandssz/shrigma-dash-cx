@@ -43,10 +43,14 @@ jobs:
         run: |
           set -euo pipefail
           id -u 1000
-          mkdir "$RUNNER_TEMP/coherent-transition-tools" "$RUNNER_TEMP/coherent-transition-proof"
-          sudo chown 1000 "$RUNNER_TEMP/coherent-transition-tools" "$RUNNER_TEMP/coherent-transition-proof"
+          fixture_root="$(mktemp -d /tmp/shrigma-coherent-ci.XXXXXXXX)"
+          mkdir "$fixture_root/tools" "$fixture_root/proof"
+          sudo chown -R 1000 "$fixture_root"
+          sudo chmod 755 "$fixture_root"
+          export COHERENT_FIXTURE_ROOT="$fixture_root"
+          printf 'COHERENT_FIXTURE_ROOT=%s\n' "$fixture_root" >> "$GITHUB_ENV"
           sudo -u '#1000' env PATH="$PATH" npm install \
-            --prefix "$RUNNER_TEMP/coherent-transition-tools" \
+            --prefix "$COHERENT_FIXTURE_ROOT/tools" \
             --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1
           sudo -u '#1000' env PATH="$PATH" node -e \
             "if(process.version!=='v22.23.3'||process.getuid()!==1000||process.platform!=='linux'||process.arch!=='x64')process.exit(1)"
@@ -61,12 +65,12 @@ jobs:
         run: |
           set -euo pipefail
           sudo -u '#1000' env PATH="$PATH" \
-            NODE_PATH="$RUNNER_TEMP/coherent-transition-tools/node_modules" \
+            NODE_PATH="$COHERENT_FIXTURE_ROOT/tools/node_modules" \
             BOUNDED_NATIVE_FIXTURE_ISOLATED=1 \
             BOUNDED_NATIVE_FIXTURE_URL='postgresql://postgres@127.0.0.1:55432/bounded_transition_fixture' \
-            BOUNDED_NATIVE_TEST_RECEIPT="$RUNNER_TEMP/coherent-transition-proof/clients-receipt.json" \
+            BOUNDED_NATIVE_TEST_RECEIPT="$COHERENT_FIXTURE_ROOT/proof/clients-receipt.json" \
             node --test --test-reporter=tap tests/coherent-transition/bounded-native-concurrency.test.cjs \
-            | sudo -u '#1000' tee "$RUNNER_TEMP/coherent-transition-proof/native-test.tap"
+            | sudo -u '#1000' tee "$COHERENT_FIXTURE_ROOT/proof/native-test.tap"
       - name: Stop own fixture service and confirm process end
         id: stop
         if: always()
@@ -84,10 +88,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo -u '#1000' env PATH="$PATH" RUNNER_TEMP="$RUNNER_TEMP" python3 - <<'PYCODE'
+          sudo -u '#1000' env PATH="$PATH" COHERENT_FIXTURE_ROOT="$COHERENT_FIXTURE_ROOT" python3 - <<'PYCODE'
           import json,os
           from pathlib import Path
-          root=Path(os.environ['RUNNER_TEMP'])/'coherent-transition-proof'
+          root=Path(os.environ['COHERENT_FIXTURE_ROOT'])/'proof'
           receipt=json.loads((root/'clients-receipt.json').read_text())
           assert receipt['scenariosPassed'] is True and receipt['clientsEnded'] is True
           assert receipt['accepted'] is False and receipt['fixtureServerEnded'] is False
@@ -104,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: coherent-transition-native-fixture
-          path: ${{ runner.temp }}/coherent-transition-proof/
+          path: ${{ env.COHERENT_FIXTURE_ROOT }}/proof/
           if-no-files-found: warn
           retention-days: 7
           compression-level: 0

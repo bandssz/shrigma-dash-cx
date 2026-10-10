@@ -59,11 +59,83 @@ class Tests(unittest.TestCase):
         s=(FILES/'tests/segment-regular-native-fixture.cjs').read_text()
         self.assertIn("isolatedSourceProof&&(!batchPath||dependencyOnly)",s);self.assertIn("u.hostname!=='127.0.0.1'",s);self.assertIn("u.port==='5432'",s);self.assertIn('forRun:!dependencyOnly,isolatedSourceProof',s)
     def test_default_algorithm_and_original_guards_preserved(self):
-        new=ast.parse(native.read_text())
-        expected={'clean_env': '3cf75c11f922cc62ced050287138fa8779ce577dc42b20f554daa0fc4cbb7fd6', 'config': '5f47f942493d529226c09decb00e1c0a7071c16e5d38ae511b4c2feb3a2a2a08', 'settings_sql': '81707546e7997ccf521b141f869df81dbfcf384b8bdb8ac302e8fa3ccfe8cca2'}
-        for name,digest in expected.items():
-            n=next(n for n in new.body if isinstance(n,ast.FunctionDef) and n.name==name)
-            self.assertEqual(hashlib.sha256(ast.dump(n).encode()).hexdigest(),digest)
+        # Parse explicit frozen public source with the same Python AST version.
+        # FunctionDef.type_params added in 3.12 must not change this contract.
+        frozen_source = r"""def clean_env(extra=None):
+    env = {'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'LANG': 'C.UTF-8', 'TZ': 'UTC'}
+    if extra:
+        env.update(extra)
+    return env
+
+def config(port, http_port):
+    return f'''[app]\naddress="127.0.0.1:{http_port}"\n[db]\nhost="127.0.0.1"\nport={port}\nuser="crm_shadow"\npassword="synthetic-local-placeholder"\ndatabase="listmonk"\nssl_mode="disable"\nmax_open=5\nmax_idle=5\nmax_lifetime="60s"\n'''
+
+def settings_sql(smtp_port, http_port):
+    smtp = [{'enabled': True, 'host': '127.0.0.1', 'port': smtp_port, 'auth_protocol': 'none',
+        'username': '', 'password': '', 'hello_hostname': 'example.invalid', 'max_conns': 1,
+        'idle_timeout': '2s', 'wait_timeout': '2s', 'max_msg_retries': 0, 'tls_type': 'none',
+        'tls_skip_verify': False, 'email_headers': {}}]
+    values = {'smtp': smtp, 'app.root_url': f'http://127.0.0.1:{http_port}',
+        'app.from_email': 'Smoke <smoke@example.invalid>', 'app.check_updates': False,
+        'app.notify_emails': [], 'app.enable_public_archive': False,
+        'app.enable_public_subscription_page': False, 'app.send_optin_confirmation': False,
+        'app.concurrency': 2, 'app.message_rate': 20, 'app.batch_size': 1,
+        'app.max_send_errors': 1, 'app.cache_slow_queries': False,
+        'privacy.individual_tracking': False, 'privacy.disable_tracking': False,
+        'privacy.unsubscribe_header': False, 'bounce.enabled': False, 'bounce.mailboxes': [],
+        'messengers': []}
+    return '\n'.join("UPDATE settings SET value='" + json.dumps(v, separators=(',', ':')).replace("'", "''") +
+        "'::jsonb WHERE key='" + k + "';" for k, v in values.items())
+"""
+        expected_nodes = {n.name: n for n in ast.parse(frozen_source).body
+                          if isinstance(n, ast.FunctionDef)}
+        actual_nodes = {n.name: n for n in ast.parse(native.read_text()).body
+                        if isinstance(n, ast.FunctionDef)}
+        self.assertEqual(set(expected_nodes), {'clean_env', 'config', 'settings_sql'})
+        for name, expected in expected_nodes.items():
+            with self.subTest(frozen_function=name):
+                self.assertIn(name, actual_nodes)
+                self.assertEqual(ast.dump(actual_nodes[name], include_attributes=False),
+                                 ast.dump(expected, include_attributes=False),
+                                 'Frozen default function changed: ' + name)
+
+        # Exercise only pure helpers, with a synthetic environment. No process,
+        # database, real environment value or native proof is evaluated here.
+        from types import SimpleNamespace
+        controlled_env = {'PATH': '/synthetic/bin', 'PGHOST': 'outside.invalid',
+                          'UNAPPROVED_TOKEN': 'synthetic-blocked'}
+        clean = extract(native, 'clean_env', {'os': SimpleNamespace(environ=controlled_env)})
+        expected_env = {'PATH': '/synthetic/bin', 'LANG': 'C.UTF-8', 'TZ': 'UTC'}
+        self.assertEqual(clean(), expected_env)
+        self.assertEqual(clean({'NODE_PATH': '/synthetic/modules'}),
+                         dict(expected_env, NODE_PATH='/synthetic/modules'))
+        self.assertEqual(controlled_env, {'PATH': '/synthetic/bin', 'PGHOST': 'outside.invalid',
+                                        'UNAPPROVED_TOKEN': 'synthetic-blocked'})
+        fallback = extract(native, 'clean_env', {'os': SimpleNamespace(environ={})})
+        self.assertEqual(fallback(), {'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'TZ': 'UTC'})
+
+        config_text = extract(native, 'config')(15432, 15000)
+        self.assertIn('[app]\naddress="127.0.0.1:15000"\n', config_text)
+        self.assertIn('[db]\nhost="127.0.0.1"\nport=15432\n', config_text)
+        self.assertIn('database="listmonk"\n', config_text)
+        import json, re
+        settings = {}
+        for line in extract(native, 'settings_sql', {'json': json})(15425, 15000).splitlines():
+            item = re.fullmatch(r"UPDATE settings SET value='(.*)'::jsonb WHERE key='([^']+)';", line)
+            self.assertIsNotNone(item)
+            self.assertNotIn(item.group(2), settings)
+            settings[item.group(2)] = json.loads(item.group(1).replace("''", "'"))
+        self.assertEqual(len(settings['smtp']), 1)
+        smtp = settings['smtp'][0]
+        for key, value in {'enabled': True, 'host': '127.0.0.1', 'port': 15425,
+                           'auth_protocol': 'none', 'username': '', 'password': '',
+                           'tls_type': 'none', 'max_msg_retries': 0}.items():
+            self.assertEqual(smtp[key], value)
+        self.assertEqual(settings['app.root_url'], 'http://127.0.0.1:15000')
+        self.assertEqual(settings['messengers'], [])
+        self.assertEqual(settings['app.batch_size'], 1)
+        self.assertFalse(settings['app.check_updates'])
+        self.assertFalse(settings['app.cache_slow_queries'])
         f=(FILES/'tests/segment-regular-native-fixture.cjs').read_text()
         self.assertEqual(hashlib.sha256(f[f.index('async function prepare'):].encode()).hexdigest(),'c70b18974814a91040e408b0ddcc496e9200998065e5586725cec2e521ce785e')
     def test_ci_complete_proof_after_measured_binary_and_no_push(self):

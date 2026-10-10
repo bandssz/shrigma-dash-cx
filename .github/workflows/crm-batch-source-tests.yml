@@ -32,10 +32,15 @@ jobs:
           go-version: '1.26.1'
           cache: false
       - name: Prepare pinned disposable dependencies
+        shell: bash
         run: |
-          npm install --prefix "$RUNNER_TEMP/batch-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1 @electric-sql/pglite@0.3.14 @embedded-postgres/linux-x64@17.10.0-beta.17
-          (cd "$RUNNER_TEMP/batch-tools/node_modules/@embedded-postgres/linux-x64" && node scripts/hydrate-symlinks.js)
-          python3 tools/listmonk-regular-package/bootstrap.py --out "$RUNNER_TEMP/batch-inputs" --go "$(command -v go)"
+          set -euo pipefail
+          batch_root="$(mktemp -d /tmp/shrigma-batch-ci.XXXXXXXX)"
+          export BATCH_FIXTURE_ROOT="$batch_root"
+          printf 'BATCH_FIXTURE_ROOT=%s\n' "$batch_root" >> "$GITHUB_ENV"
+          npm install --prefix "$BATCH_FIXTURE_ROOT/batch-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1 @electric-sql/pglite@0.3.14 @embedded-postgres/linux-x64@17.10.0-beta.17
+          (cd "$BATCH_FIXTURE_ROOT/batch-tools/node_modules/@embedded-postgres/linux-x64" && node scripts/hydrate-symlinks.js)
+          python3 tools/listmonk-regular-package/bootstrap.py --out "$BATCH_FIXTURE_ROOT/batch-inputs" --go "$(command -v go)"
       - name: Verify new functional split gates without native execution
         env:
           SOURCE_SPLIT_TEST_ROOT: ${{ github.workspace }}
@@ -49,9 +54,10 @@ jobs:
           set -euo pipefail
           test "$(node --version)" = v22.23.3
           id -u 1000
-          TASK_OUTPUT="$RUNNER_TEMP/batch-source-output"
+          TASK_OUTPUT="$BATCH_FIXTURE_ROOT/batch-source-output"
           mkdir "$TASK_OUTPUT"
-          sudo chown 1000 "$TASK_OUTPUT"
+          sudo chown -R 1000 "$BATCH_FIXTURE_ROOT"
+          sudo chmod 755 "$BATCH_FIXTURE_ROOT"
           PROFILE_DIGEST="$(sha256sum crm-scheduler-batch-profile.json | cut -d ' ' -f1)"
           sudo -u '#1000' env \
             PATH="$PATH" GOTOOLCHAIN=local PYTHONDONTWRITEBYTECODE=1 \
@@ -59,10 +65,10 @@ jobs:
             PROFILE_INPUT="$GITHUB_WORKSPACE/crm-scheduler-batch-profile.json" \
             PROFILE_DIGEST="$PROFILE_DIGEST" \
             TASK_OUTPUT="$TASK_OUTPUT" \
-            NODE_PATH="$RUNNER_TEMP/batch-tools/node_modules" \
+            NODE_PATH="$BATCH_FIXTURE_ROOT/batch-tools/node_modules" \
             GO_BINARY="$(command -v go)" \
-            PG_BINARY_DIR="$RUNNER_TEMP/batch-tools/node_modules/@embedded-postgres/linux-x64/native/bin" \
-            REVIEWED_INPUTS="$RUNNER_TEMP/batch-inputs" \
+            PG_BINARY_DIR="$BATCH_FIXTURE_ROOT/batch-tools/node_modules/@embedded-postgres/linux-x64/native/bin" \
+            REVIEWED_INPUTS="$BATCH_FIXTURE_ROOT/batch-inputs" \
             bash tools/listmonk-regular-build/proof-source-only.sh
       - name: Upload synthetic proof without image or original delivery
         if: always()
@@ -70,12 +76,12 @@ jobs:
         with:
           name: crm-batch-source-foundation
           path: |
-            ${{ runner.temp }}/batch-source-output/profile-receipt.json
-            ${{ runner.temp }}/batch-source-output/package/manifest.json
-            ${{ runner.temp }}/batch-source-output/dependency-proof.json
-            ${{ runner.temp }}/batch-source-output/native-functional-proof.json
-            ${{ runner.temp }}/batch-source-output/runtime/**/rule-membership-native.json
-            ${{ runner.temp }}/batch-source-output/profile-with-binary/
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/profile-receipt.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/package/manifest.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/dependency-proof.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/native-functional-proof.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/runtime/**/rule-membership-native.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/profile-with-binary/
           if-no-files-found: warn
           retention-days: 7
           compression-level: 0
