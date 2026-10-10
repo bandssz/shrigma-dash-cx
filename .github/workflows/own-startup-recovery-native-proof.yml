@@ -111,6 +111,11 @@ jobs:
           target=root/'native-fixture-receipt.json'
           assert not target.exists()
           target.write_text(json.dumps(receipt,indent=2)+'\n')
+          for name in ('clients-receipt.json','native-fixture-receipt.json','native-test.log'):
+              path=root/name
+              assert path.is_file() and not path.is_symlink() and path.stat().st_size<1048576
+              path.chmod(0o644)
+          root.chmod(0o755)
           print(json.dumps(receipt,separators=(',',':')))
           PYCODE
       - name: Upload isolated evidence only
