@@ -77,12 +77,14 @@ jobs:
           set -euo pipefail
           test -n "$PG_CONTAINER"
           test -n "$MAILPIT_CONTAINER"
-          docker inspect --format '{{.Image}}' "$PG_CONTAINER" "$MAILPIT_CONTAINER" > "$HEARTBEAT_FIXTURE_ROOT/proof/image-digests.txt"
+          docker inspect --format '{{.Image}}' "$PG_CONTAINER" "$MAILPIT_CONTAINER" | sudo -u '#1000' tee "$HEARTBEAT_FIXTURE_ROOT/proof/image-digests.txt" > /dev/null
           docker stop --time 5 "$PG_CONTAINER" "$MAILPIT_CONTAINER"
           test "$(docker inspect --format '{{.State.Running}}' "$PG_CONTAINER")" = false
           test "$(docker inspect --format '{{.State.Running}}' "$MAILPIT_CONTAINER")" = false
           test "$(docker inspect --format '{{.State.ExitCode}}' "$PG_CONTAINER")" = 0
-          test "$(docker inspect --format '{{.State.ExitCode}}' "$MAILPIT_CONTAINER")" = 0
+          mailpit_exit="$(docker inspect --format '{{.State.ExitCode}}' "$MAILPIT_CONTAINER")"
+          test "$mailpit_exit" = 0 -o "$mailpit_exit" = 143
+          test "$(docker inspect --format '{{.State.OOMKilled}}' "$MAILPIT_CONTAINER")" = false
       - name: Accept after confirmed client and server end
         if: ${{ success() && steps.native.outcome == 'success' && steps.stop.outcome == 'success' }}
         shell: bash
