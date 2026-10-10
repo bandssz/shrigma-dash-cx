@@ -21,7 +21,7 @@ const ASSETS=Object.freeze({
   "PUBLIC-FUNCTION-PINS.before.json": "5d4180fc8c67466c817888cc6133fc35dbdad7eb93e6b34ea3132962c548a124",
   "PUBLIC-FUNCTION-PINS.after.json": "672a7f2cd538471a4aa351b9d9363ff93f07afa4bf81fcbbd0f49cbd055716da",
   "FUNCTION-PINS.json": "57746b731f0d7b516c8f3a244ff60bb537c97d980d1d3cad66935ef20dd2f63b",
-  "files/tools/listmonk-regular-build/overlay/listmonk/cmd/manager_store_regular.go": "93993d366d94d5b2855295e51894b98263f3d49a18cab9f035e7146d3366bd5d"
+  "files/tools/listmonk-regular-build/overlay/listmonk/cmd/manager_store_regular.go": "fddc286630157005e82a64ba97dbcb100869f56ea6cf2ba7e61cb59232486fee"
 });
 const PURPOSE='crm.fish174.permanent-exclusion-and-fish-resume';
 const HELD='0d8c77b2-18e7-474f-b9b7-bbfc733bac2f';

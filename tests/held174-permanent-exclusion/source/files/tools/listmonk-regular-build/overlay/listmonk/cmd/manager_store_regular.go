@@ -59,7 +59,7 @@ SELECT binding.bound,
   AND NOT EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d
    WHERE d.flow='campaign' AND d.piece='audience-regular-v1:'||$1::text
     AND d.transport_state IN('in_flight','outcome_unknown')
-    AND NOT crm_audience_v2.regular_delivery_permanently_excluded(d.dispatch_id,$1))
+    AND NOT crm_audience_v2.regular_delivery_permanently_excluded(d.dispatch_id,$1::integer))
  END AS ready,
  CASE WHEN binding.bound THEN coalesce((SELECT configuration_set FROM control),'') ELSE '' END AS configuration_set
 FROM binding`, campaignID)
@@ -256,7 +256,7 @@ func (s *store) FinalizeRegularDelivery(campaignID int) error {
 	if err := tx.GetContext(ctx, &unresolved, `SELECT EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d
  WHERE d.flow='campaign' AND d.piece='audience-regular-v1:'||$1::text
   AND d.transport_state IN('in_flight','outcome_unknown')
-  AND NOT crm_audience_v2.regular_delivery_permanently_excluded(d.dispatch_id,$1))`, campaignID); err != nil || unresolved {
+  AND NOT crm_audience_v2.regular_delivery_permanently_excluded(d.dispatch_id,$1::integer))`, campaignID); err != nil || unresolved {
 		return errors.New("regular delivery finalization requires reconciliation")
 	}
 	var camps []runningCamp
