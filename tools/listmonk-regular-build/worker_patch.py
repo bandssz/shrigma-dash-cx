@@ -80,6 +80,10 @@ def patch_manager(source):
         "\tpipe *pipe\n}",
         "\tpipe        *pipe\n\tregularDone chan struct{}\n}",
         "guarded completion channel")
+    source = replace_once(source,
+        "\t\tcounts = append(counts, p.sent.Load())\n\t\tp.sent.Store(0)\n",
+        "\t\tcounts = append(counts, p.sent.Swap(0))\n",
+        "legacy atomic scan counter drain")
     start = source.index("\t\tcase msg, ok := <-m.campMsgQ:")
     end = source.index("\n\t\t// Arbitrary message.", start)
     replacement = """\t\tcase msg, ok := <-m.campMsgQ:
@@ -334,6 +338,10 @@ def patch_pipe(source):
 """
     marker = "\n\t// Update campaign's 'sent count.\n"
     source = replace_once(source, marker, insertion + marker, "bound cleanup")
+    source = replace_once(source,
+        "int(p.sent.Load())",
+        "int(p.sent.Swap(0))",
+        "legacy atomic cleanup counter drain")
     return source
 
 

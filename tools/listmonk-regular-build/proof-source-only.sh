@@ -23,6 +23,8 @@ python3 tools/listmonk-regular-package/build.py \
     ./cmd/manager_store_batch_jit.go ./cmd/manager_store_batch_jit_test.go
   GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOWORK="$TASK_OUTPUT/package/source/go.work" \
     "$GO_BINARY" test -count=1 -timeout=90s -run '^TestRegularTemplateNil' ./internal/manager
+  GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOWORK="$TASK_OUTPUT/package/source/go.work" \
+    "$GO_BINARY" test -count=1 -timeout=30s -run '^TestLegacyCounter' ./internal/manager
 )
 mkdir "$TASK_OUTPUT/runtime"
 python3 tools/listmonk-regular-build/dependencies_proof.py \

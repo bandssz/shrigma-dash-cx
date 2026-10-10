@@ -1,0 +1,16 @@
+ 'use strict';
+const assert=require('node:assert/strict'),{prepare,executeOriginal,CANDIDATE,PURPOSE}=require('./prepare.cjs');
+const input={campaignId:171,operationId:'11111111-1111-4111-8111-111111111111',candidate:{...CANDIDATE},privateReferences:Object.fromEntries(['admission','snapshot','quiescence','binding','disposition'].map((n,i)=>[n,{reference:`22222222-2222-4222-8222-22222222222${i}`,sha256:'a'.repeat(64)}]))};
+let cases=0;const test=(n,fn)=>{fn();cases++;console.log('PASS '+n);};
+const clone=()=>JSON.parse(JSON.stringify(input));
+test('own purpose and171 only',()=>{const r=prepare(input);assert.equal(PURPOSE,'crm.native171.resume-after174-finished');assert.equal(r.plan.resumeScope.finishedPrerequisiteId,174);assert.equal(r.executionAvailable,false);assert.equal(r.plan.resumeScope.failureScope,'native171-after174-finished-v1');});
+test('174 plan refused',()=>assert.throws(()=>prepare({...input,campaignId:174})));
+test('175 plan refused',()=>assert.throws(()=>prepare({...input,campaignId:175})));
+test('wrong candidate refused',()=>{const x=clone();x.candidate.workerSha256='a'.repeat(64);assert.throws(()=>prepare(x));});
+test('missing binding refused',()=>{const x=clone();delete x.privateReferences.binding;assert.throws(()=>prepare(x));});
+test('private value injection refused',()=>{const x=clone();x.privateReferences.snapshot.customer='private';assert.throws(()=>prepare(x));});
+test('new operation required',()=>assert.throws(()=>prepare({...input,operationId:'old174'})));
+test('execution unavailable',()=>assert.throws(()=>executeOriginal()));
+test('plan deeply immutable',()=>assert.equal(Object.isFrozen(prepare(input).plan.resumeScope.protectedCampaignIds),true));
+test('bounded statements and RAM envelope',()=>{const r=prepare(input);assert.equal(r.statements[1],"SET LOCAL statement_timeout='5s';");assert.equal(r.statements[2],"SET LOCAL lock_timeout='500ms';");assert.match(r.statements[5],/\$1::text/);});
+console.log(JSON.stringify({cases,passed:cases,node:process.version,pgExecuted:false,synthetic:true,originalCalls:0}));

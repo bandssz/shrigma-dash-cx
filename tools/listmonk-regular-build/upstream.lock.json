@@ -92,16 +92,17 @@
       "cmd/manager_store_regular.go": "6a7a040a8a3614bb410f8c7f257c4ebe69ac93ae2f7d22efdc1c8d3e4f7e1a35",
       "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6",
       "cmd/manager_store_scan_observability_test.go": "7bf2ce6a80fb870eb49ff2314fcc11461a38a98ee85c69eb51622d4625efd643",
-      "internal/manager/regular_delivery.go": "2c15cdecf232468a999b8f81733bcafea8a6825d1dead3d400bf8f6ee64a9c36",
+      "internal/manager/regular_delivery.go": "947f83b6e59693fb4599360f0729f03647f89e8bcfc2e5c92284881e9ad214af",
       "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3",
-      "internal/manager/regular_template_nil_test.go": "dab81d74dee8d204677831a95b3094367549e92585d2054cfa292b692047fd91"
+      "internal/manager/regular_template_nil_test.go": "dab81d74dee8d204677831a95b3094367549e92585d2054cfa292b692047fd91",
+      "internal/manager/legacy_counter_atomic_test.go": "933b48152e6466e3117cf637cfa96f5322e1484f2eb0ef914916ebf4a80be4d6"
     },
     "patched": {
       "cmd/init.go": "0a9a3fc67d4c7f01b8654e65b9f820e409b5124b9fd4b88bd68ab912e73c9f20",
       "cmd/main.go": "62723d5845ff5a31c1c1434ac8f7dea09e8a82c2ddedcad95d705d4fc80aa311",
       "cmd/manager_store.go": "feb292f33ea7d94e09df7b6a689f0ed6863db796c27517f5ec2697888eb154eb",
-      "internal/manager/manager.go": "121cf871f0ee8a421a6ebd99329c13a5c67267dfdcf5732428dbea03fdc1000b",
-      "internal/manager/pipe.go": "ecd49661bb50f68958663be366fc1b23489914951ba3296df4d5fee5320e0b99",
+      "internal/manager/manager.go": "fc57c5c7c5c1bda612e59506ca641e128bc3aebe3c06d62d441dcfbe47157b5a",
+      "internal/manager/pipe.go": "ac35d783784d108e01e6d60c5431257c0a71581acfcbf28a754b251fe546fcc9",
       "models/subscribers.go": "2468127669cc10798b06a7c39f3605a1940793a95535e2641588796081894dc0",
       "queries/campaigns.sql": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d"
     },

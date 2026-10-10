@@ -596,7 +596,7 @@ func (m *Manager) processQueuedCampaignMessage(msg CampaignMessage, numMsg *int)
 	if msg.pipe == nil {
 		return
 	}
-	msg.pipe.wg.Done()
+	defer msg.pipe.wg.Done()
 	if err != nil {
 		msg.pipe.OnError()
 		return

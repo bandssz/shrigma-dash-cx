@@ -1,0 +1,98 @@
+[
+  {
+    "signature": "crm_audience_v2.regular_worker_heartbeat(uuid,text,text)",
+    "md5": "2fb7f585e75826a8a3b813b76caf7c20",
+    "sha256": "03f9390eda984063bb642b5e40d2223c010c7e5219d3532baa002c56d5c328c0",
+    "bytes": 5580,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/p0-20261010/heartbeat-contention-v1/FUNCTION.proposed.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "crm_audience_v2.regular_worker_require(uuid,text,text)",
+    "md5": "e262ed78aff70ec3295e5c0952565eaa",
+    "sha256": "29ffdb4dfc1984d1c6474ed2b9ed9296097a702efec2419fb4c5bc5641c3de20",
+    "bytes": 1293,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/worker-lease-original.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "crm_audience_v2.regular_delivery_claim_live(uuid,integer,integer,uuid,text,text,text,text,text,jsonb,text)",
+    "md5": "30724c352d3a93fa37b0f6dab2e60947",
+    "sha256": "dda6c15f6881e8e6d3da8bb553e2a4acca7b88f61b564164bdd45eefaae1d834",
+    "bytes": 1047,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/worker-lease-original.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "crm_audience_v2.regular_delivery_claim(integer,integer,uuid,text,text,text,text,text,jsonb)",
+    "md5": "118d939e857e8a5d610bb82cd226a30e",
+    "sha256": "8daf45e60da254d3c0baa49032ee5f474949eb206f4146f93473dc433b1c2ed9",
+    "bytes": 8606,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/ab-regular-original.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "crm_audience_v2.regular_delivery_finish(integer,integer,uuid,uuid,text)",
+    "md5": "15312e03bd77228a25fd1e4f7d6972bd",
+    "sha256": "f43064886aa6cc88291857fa982cdc9d5c43d4e146a2d441ab4770fb5d677178",
+    "bytes": 2520,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/ab-regular-original.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "crm_audience_v2.regular_delivery_quarantine(integer[])",
+    "md5": "b22f2e99e2cd01c8380f695c8ca3f329",
+    "sha256": "6834ee52af03d940562d823789cbe6de3ac874c57fec56a5c9fb2252f0db2128",
+    "bytes": 1791,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/ab-regular-original.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "crm_audience_v2.campaign_send_guard()",
+    "md5": "353a824140b3fd5cba9290cdf0d8dec5",
+    "sha256": "d225ceb7b16a85adb9bc50c705ca3b584e389a1a0181fe7b694f47128292af13",
+    "bytes": 6006,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/ab-regular-original.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "crm_audience_v2.selection_worker_context(integer)",
+    "md5": "29625433a7e3e6e2a7e979e99eaf75f0",
+    "sha256": "6a412ed06af7b444bdafb943b78a1a422754eb5a4a8fb21b896703340f8d71b2",
+    "bytes": 621,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/ab-regular-original.sql",
+    "sourceQueryLiteralReplacementOnly": true
+  },
+  {
+    "signature": "crm_audience_v2.regular_delivery_material(integer)",
+    "md5": "30b7274230d43c35e3376e5ca16938ec",
+    "sha256": "6307e4a3e76ba69f8a2a1b248d82a547b9cc8546a2766d7d410347106aa9957d",
+    "bytes": 753,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/inputs/delivery-original.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "public.shrigma_campaign_is_managed(public.campaigns)",
+    "md5": "631d258c6d15823957f71470c6d8df78",
+    "sha256": "2f027fee52e4475ae5981bd5c7ad1a909ee838910ada05ffc8433501ac3647d1",
+    "bytes": 121,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-native-profile-joint-gate-v1/root-v4-adapter-assembly-v1/original-poststart-failure-v1/extra-public-trigger-sources/n8n/growth/campaign-write-guard.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "public.shrigma_campaign_guard()",
+    "md5": "fb84b97de9690b9ffcb1968c660f43cd",
+    "sha256": "68b2f8be775d10b201ef1d7344d833f7ad6469fde31569a04fb35a6b93ff1915",
+    "bytes": 2159,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-native-profile-joint-gate-v1/root-v4-adapter-assembly-v1/original-poststart-failure-v1/extra-public-trigger-sources/n8n/growth/campaign-write-guard.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  },
+  {
+    "signature": "public.crm_ab_campaign_guard_v2()",
+    "md5": "d36af59f930f0421f072c1fe1f496d13",
+    "sha256": "41881fa25ddea775e4938f3d68d82b3ecd0c6e21c0b9bd869501aecb397e134e",
+    "bytes": 4812,
+    "sourcePath": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-native-profile-joint-gate-v1/root-v4-adapter-assembly-v1/selected-membership-native-proof-union-staging/n8n/growth/ab-audience-regular.sql",
+    "sourceQueryLiteralReplacementOnly": false
+  }
+]
