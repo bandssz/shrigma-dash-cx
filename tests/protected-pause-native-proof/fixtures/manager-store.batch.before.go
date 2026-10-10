@@ -66,7 +66,6 @@ func (s *store) NextCampaigns(currentIDs []int64, sentCounts []int64) ([]*models
 	if err := tx.Commit(); err != nil {
 		return nil, campaignScanError(campaignScanCommit, err)
 	}
-	logCommittedRegularQuarantine(quarantine)
 	return out, nil
 }
 

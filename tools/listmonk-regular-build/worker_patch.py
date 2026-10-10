@@ -193,6 +193,7 @@ def patch_manager_store(source):
 \tif err := tx.Commit(); err != nil {
 \t\treturn nil, campaignScanError(campaignScanCommit, err)
 \t}
+\tlogCommittedRegularQuarantine(quarantine)
 \treturn out, nil
 }'''
     return replace_once(source, old, new, "transactional campaign quarantine")
@@ -230,6 +231,12 @@ def patch_batch_manager_store(source):
 \treturn out, nil"""
     return replace_once(source, old, new, "explicit batch recipient transaction local JIT")
 
+
+
+def patch_pause_observability(source):
+    for old, new in (('if err != nil || (gate.Bound && !gate.Ready) {\n\t\treturn nil, errors.New("regular delivery gate unavailable")', 'if err != nil || (gate.Bound && !gate.Ready) {\n\t\tm.logRegularPause(c.ID, regularPausePipeGate, regularPauseGateUnavailable, err)\n\t\treturn nil, errors.New("regular delivery gate unavailable")'), ('if gate.Bound {\n\t\t\t_ = m.store.UpdateCampaignStatus(c.ID, models.CampaignStatusPaused)\n\t\t}\n\t\treturn nil, err', 'if gate.Bound {\n\t\t\tm.logRegularPause(c.ID, regularPauseTemplate, regularPauseTemplateUnavailable, err)\n\t\t\tpauseErr := m.store.UpdateCampaignStatus(c.ID, models.CampaignStatusPaused)\n\t\t\tm.logRegularPause(c.ID, regularPausePauseWrite, regularPauseWriteCode(pauseErr), pauseErr)\n\t\t\treturn nil, errors.New("regular delivery template unavailable")\n\t\t}\n\t\treturn nil, err'), ('_ = m.store.UpdateCampaignStatus(c.ID, models.CampaignStatusPaused)\n\t\t\treturn nil, err', 'm.logRegularPause(c.ID, regularPauseTemplate, regularPauseTemplatePolicy, err)\n\t\t\tpauseErr := m.store.UpdateCampaignStatus(c.ID, models.CampaignStatusPaused)\n\t\t\tm.logRegularPause(c.ID, regularPausePauseWrite, regularPauseWriteCode(pauseErr), pauseErr)\n\t\t\treturn nil, errors.New("regular delivery template policy unavailable")'), ('if err != nil {\n\t\tp.Stop(true)\n\t\treturn false, errors.New("regular delivery gate unavailable")', 'if err != nil {\n\t\tp.m.logRegularPause(p.camp.ID, regularPauseSubscriberGate, regularPauseGateUnavailable, err)\n\t\tp.Stop(true)\n\t\treturn false, errors.New("regular delivery gate unavailable")'), ('if gate.Bound && !gate.Ready {\n\t\tp.Stop(true)', 'if gate.Bound && !gate.Ready {\n\t\tp.m.logRegularPause(p.camp.ID, regularPauseSubscriberGate, regularPauseGateNotReady, nil)\n\t\tp.Stop(true)'), ('if gate.Bound {\n\t\t\tp.Stop(true)\n\t\t}\n\t\treturn false, fmt.Errorf("error fetching campaign subscribers (%s): %v", p.camp.Name, err)', 'if gate.Bound {\n\t\t\tp.m.logRegularPause(p.camp.ID, regularPauseSubscriberSelect, regularPauseSelectionUnavailable, err)\n\t\t\tp.Stop(true)\n\t\t\treturn false, errors.New("regular delivery subscribers unavailable")\n\t\t}\n\t\treturn false, fmt.Errorf("error fetching campaign subscribers (%s): %v", p.camp.Name, err)'), ('if storeErr != nil || store.FinalizeRegularDelivery(p.camp.ID) != nil {\n\t\t\t\tp.boundFinalizeFailed.Store(true)', 'finalizeErr := storeErr\n\t\t\tif finalizeErr == nil {\n\t\t\t\tfinalizeErr = store.FinalizeRegularDelivery(p.camp.ID)\n\t\t\t}\n\t\t\tif finalizeErr != nil {\n\t\t\t\tp.m.logRegularPause(p.camp.ID, regularPauseFinalize, regularPauseFinalizeUnavailable, finalizeErr)\n\t\t\t\tp.boundFinalizeFailed.Store(true)'), ('p.m.log.Printf("error rendering guarded campaign %d subscriber %d", p.camp.ID, s.ID)', 'p.m.logRegularPause(p.camp.ID, regularPauseRender, regularPauseRenderUnavailable, err)'), ('p.m.log.Printf("guarded campaign %d finalization remains unconfirmed", p.camp.ID)', 'p.m.logRegularPause(p.camp.ID, regularPauseCleanup, regularPauseFinalizeUnavailable, nil)'), ('if err := p.m.store.UpdateCampaignStatus(p.camp.ID, models.CampaignStatusPaused); err != nil {\n\t\t\t\tp.m.log.Printf("guarded campaign %d pause remains unconfirmed", p.camp.ID)\n\t\t\t}', 'pauseErr := p.m.store.UpdateCampaignStatus(p.camp.ID, models.CampaignStatusPaused)\n\t\t\tp.m.logRegularPause(p.camp.ID, regularPausePauseWrite, regularPauseWriteCode(pauseErr), pauseErr)')):
+        source = replace_once(source, old, new, "protected pause diagnostic")
+    return source
 
 def patch_pipe(source):
     source = replace_once(source,
@@ -342,7 +349,7 @@ def patch_pipe(source):
         "int(p.sent.Load())",
         "int(p.sent.Swap(0))",
         "legacy atomic cleanup counter drain")
-    return source
+    return patch_pause_observability(source)
 
 
 def patch_subscriber(source):

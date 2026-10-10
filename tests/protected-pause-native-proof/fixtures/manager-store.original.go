@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-
 	"github.com/gofrs/uuid/v5"
 	"github.com/knadh/listmonk/internal/core"
 	"github.com/knadh/listmonk/internal/manager"
@@ -39,35 +37,9 @@ func newManagerStore(q *models.Queries, c *core.Core, m media.Store) *store {
 // campaigns that are also being processed. Additionally, it takes a map of campaignID:sentCount
 // of campaigns that are being processed and updates them in the DB.
 func (s *store) NextCampaigns(currentIDs []int64, sentCounts []int64) ([]*models.Campaign, error) {
-	ctx, cancel, options := regularDeliveryTx()
-	defer cancel()
-	tx, err := db.BeginTxx(ctx, options)
-	if err != nil {
-		return nil, campaignScanError(campaignScanBegin, err)
-	}
-	defer tx.Rollback()
-	if err := setCampaignScanBoundary(ctx, tx); err != nil {
-		return nil, err
-	}
-	if err := setBatchLocalJITOff(ctx, tx); err != nil {
-		return nil, campaignScanError(campaignScanBoundary, err)
-	}
-	var quarantine []byte
-	if err := tx.GetContext(ctx, &quarantine,
-		`SELECT crm_audience_v2.regular_delivery_quarantine($1::bigint[]::integer[])`,
-		pq.Int64Array(currentIDs)); err != nil || !json.Valid(quarantine) {
-		return nil, campaignScanError(campaignScanQuarantine, err)
-	}
 	var out []*models.Campaign
-	if err := tx.Stmtx(s.queries.NextCampaigns).Unsafe().SelectContext(ctx, &out,
-		pq.Int64Array(currentIDs), pq.Int64Array(sentCounts)); err != nil {
-		return nil, campaignScanError(campaignScanSelect, err)
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, campaignScanError(campaignScanCommit, err)
-	}
-	logCommittedRegularQuarantine(quarantine)
-	return out, nil
+	err := s.queries.NextCampaigns.Select(&out, pq.Int64Array(currentIDs), pq.Int64Array(sentCounts))
+	return out, err
 }
 
 // NextSubscribers retrieves a subset of subscribers of a given campaign.
@@ -89,28 +61,9 @@ func (s *store) NextSubscribers(campID, limit int) ([]models.Subscriber, error) 
 		return nil, nil
 	}
 
-	ctx, cancel, options := regularDeliveryTx()
-	defer cancel()
-	tx, err := db.BeginTxx(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-	if err := setRegularDeliveryBoundary(ctx, tx); err != nil {
-		return nil, err
-	}
-	if err := setBatchLocalJITOff(ctx, tx); err != nil {
-		return nil, err
-	}
 	var out []models.Subscriber
-	if err := tx.Stmtx(s.queries.NextCampaignSubscribers).Unsafe().SelectContext(ctx, &out,
-		camps[0].CampaignID, camps[0].CampaignType, camps[0].LastSubscriberID, camps[0].MaxSubscriberID, pq.Array(listIDs), limit); err != nil {
-		return nil, err
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-	return out, nil
+	err := s.queries.NextCampaignSubscribers.Select(&out, camps[0].CampaignID, camps[0].CampaignType, camps[0].LastSubscriberID, camps[0].MaxSubscriberID, pq.Array(listIDs), limit)
+	return out, err
 }
 
 // GetCampaign fetches a campaign from the database.

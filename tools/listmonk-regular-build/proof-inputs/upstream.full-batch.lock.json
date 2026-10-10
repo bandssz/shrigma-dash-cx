@@ -96,18 +96,22 @@
       "cmd/manager_store_regular.go": "6a7a040a8a3614bb410f8c7f257c4ebe69ac93ae2f7d22efdc1c8d3e4f7e1a35",
       "cmd/manager_store_regular_test.go": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6",
       "cmd/manager_store_scan_observability_test.go": "7bf2ce6a80fb870eb49ff2314fcc11461a38a98ee85c69eb51622d4625efd643",
-      "internal/manager/regular_delivery.go": "64a387f9cea481a1c5a8f9aca291deb67bc0cd6a7480b7917163314857d91bea",
+      "internal/manager/regular_delivery.go": "a7acf51047320c05dee217f2704813b58b9a8d17bbca12a8d23b6ac1a0ea3e80",
       "internal/manager/regular_delivery_test.go": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3",
       "internal/manager/regular_template_nil_test.go": "dab81d74dee8d204677831a95b3094367549e92585d2054cfa292b692047fd91",
       "internal/manager/legacy_counter_atomic_test.go": "933b48152e6466e3117cf637cfa96f5322e1484f2eb0ef914916ebf4a80be4d6",
-      "internal/manager/regular_smtp_diagnostic_test.go": "df8801ee610b44817b64a54a940affdee9537ad6c1adc636908cbf838fba7d58"
+      "internal/manager/regular_smtp_diagnostic_test.go": "df8801ee610b44817b64a54a940affdee9537ad6c1adc636908cbf838fba7d58",
+      "cmd/manager_store_pause_diagnostic.go": "26becd77ed364d8b783e6ad3bbefec1aab30a290cf9fbfa529cc5269b78ef459",
+      "cmd/manager_store_pause_diagnostic_test.go": "00a7e4fccac68dcf316734031da9a7e4888bdf24f8c50101586fb9dd74626ecc",
+      "internal/manager/regular_pause_diagnostic.go": "9155f9e4f34befea04e2ec915b8ce61a4b0e360f95df748ce6505b317beed297",
+      "internal/manager/regular_pause_diagnostic_test.go": "e02dca489f863db337ade8bbcd77c2bf53f0b95919a8f045eebca2923adfada2"
     },
     "patched": {
       "cmd/init.go": "0a9a3fc67d4c7f01b8654e65b9f820e409b5124b9fd4b88bd68ab912e73c9f20",
       "cmd/main.go": "62723d5845ff5a31c1c1434ac8f7dea09e8a82c2ddedcad95d705d4fc80aa311",
-      "cmd/manager_store.go": "aed74d991ed286287e50a31d8a95ca4f40e509355d4128b5178ecee665732888",
+      "cmd/manager_store.go": "cbf074fa33dbdbb2ee378f21511da94a0774eb653d83406c35b546526ba6e8f2",
       "internal/manager/manager.go": "fc57c5c7c5c1bda612e59506ca641e128bc3aebe3c06d62d441dcfbe47157b5a",
-      "internal/manager/pipe.go": "ac35d783784d108e01e6d60c5431257c0a71581acfcbf28a754b251fe546fcc9",
+      "internal/manager/pipe.go": "95cea4745a476c77518ecbbcbdfe4a9d865b454b4e095b239d283d26d0347749",
       "models/subscribers.go": "2468127669cc10798b06a7c39f3605a1940793a95535e2641588796081894dc0",
       "queries/campaigns.sql": "772efe8e05331fb201ed24cb08bb97a4625a49811d96622c2148342ce54c6700"
     },

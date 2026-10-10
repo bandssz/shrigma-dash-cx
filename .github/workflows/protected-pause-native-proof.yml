@@ -1,0 +1,136 @@
+name: Protected pause finite diagnostics real package proof (source only)
+on:
+  pull_request:
+    paths:
+      - 'tools/listmonk-regular-build/worker_patch.py'
+      - 'tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_pause_diagnostic*.go'
+      - 'tools/listmonk-regular-build/overlay/listmonk/cmd/manager_store_pause_diagnostic*.go'
+      - 'tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_delivery.go'
+      - 'tools/listmonk-regular-build/upstream.lock.json'
+      - 'tools/listmonk-regular-build/proof-inputs/upstream.full-batch.lock.json'
+      - 'crm-scheduler-batch-profile.json'
+      - 'tests/protected-pause-native-proof/**'
+      - '.github/workflows/protected-pause-native-proof.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-manager-and-quarantine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Check public pins, then hydrate only pinned public inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          assets=json.loads(Path('tests/protected-pause-native-proof/ASSETS.json').read_bytes())
+          assert assets['schema']=='protected-pause-focal-assets-v1'
+          for name,pin in assets['files'].items():
+              p=Path(name); assert p.is_file() and not p.is_symlink()
+              b=p.read_bytes(); assert len(b)==pin['bytes'] and hashlib.sha256(b).hexdigest()==pin['sha256']
+          PY
+          python3 tools/listmonk-regular-package/bootstrap.py --out "$RUNNER_TEMP/protected-pause-public-inputs" --go "$(command -v go)"
+      - name: Make exact tracked public HEAD portable, excluding checkout credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          task="$(mktemp -d /tmp/protected-pause-proof-XXXXXXXX)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git archive --format=tar HEAD > "$task/public-head.tar"
+          python3 - "$task" <<'PY'
+          import sys,tarfile
+          from pathlib import Path,PurePosixPath
+          task=Path(sys.argv[1]); root=task/'source'; root.mkdir()
+          with tarfile.open(task/'public-head.tar') as archive:
+              members=archive.getmembers()
+              assert len(members)<10000 and sum(m.size for m in members)<256*1024*1024
+              for m in members:
+                  parts=PurePosixPath(m.name).parts
+                  assert parts and not PurePosixPath(m.name).is_absolute() and '..' not in parts
+                  assert not any(x in ('.git','.private','.ssh','.aws') or x=='.env' for x in parts)
+                  assert m.isdir() or m.isfile()
+                  target=root/m.name
+                  if m.isdir(): target.mkdir(parents=True,exist_ok=True); target.chmod(0o755)
+                  else:
+                      target.parent.mkdir(parents=True,exist_ok=True)
+                      b=archive.extractfile(m).read(); assert len(b)==m.size
+                      target.write_bytes(b); target.chmod(0o755 if m.mode&0o111 else 0o644)
+          assert not (root/'.git').exists() and not (root/'.private').exists()
+          PY
+          rm "$task/public-head.tar"
+          mkdir "$task/tools" "$task/output"
+          cp -a "$(go env GOROOT)" "$task/tools/go"
+          cp -a "$(dirname "$(dirname "$(command -v node)")")" "$task/tools/node"
+          command -v python3
+          command -v unshare
+          command -v ip
+          if ! getent passwd 1000 > /dev/null; then sudo useradd --uid 1000 --no-create-home protected-pause-proof; fi
+          cp -a "$(go env GOMODCACHE)" "$task/module-cache"
+          cp -a "$RUNNER_TEMP/protected-pause-public-inputs" "$task/inputs"
+          sudo chown -R 1000:1000 "$task"
+          chmod 755 "$task"
+          printf 'PAUSE_TASK=%s\n' "$task" >> "$GITHUB_ENV"
+      - name: Real Manager/pipe finite pause tests in isolated namespace, UID 1000
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PAUSE_TASK/source"
+          sudo unshare --net -- bash -c '
+            set -euo pipefail
+            ip link set lo up
+            task="$1"
+            exec sudo -u "#1000" env -i \
+              PATH="$task/tools/go/bin:$task/tools/node/bin:/usr/bin:/bin" \
+              GOROOT="$task/tools/go" HOME="$task/output" \
+              GOCACHE="$task/output/go-cache" GOMODCACHE="$task/module-cache" \
+              PYTHONDONTWRITEBYTECODE=1 PROTECTED_PAUSE_PROOF_ISOLATED=1 \
+              python3 "$task/source/tests/protected-pause-native-proof/run.py" \
+                --repo-root "$task/source" --inputs "$task/inputs" \
+                --go "$task/tools/go/bin/go" --out "$task/output/hydrated" \
+                --report "$task/output/protected-pause-proof.json"
+          ' protected-pause-namespace "$PAUSE_TASK"
+      - name: Promote only the closed synthetic report for the artifact reader
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$PAUSE_TASK" "$GITHUB_SHA" <<'PY'
+          import json,sys
+          from pathlib import Path
+          root=Path(sys.argv[1]); p=root/'output/protected-pause-proof.json'
+          assert p.is_file() and not p.is_symlink() and p.stat().st_size<65536
+          b=p.read_bytes(); r=json.loads(b)
+          assert r['schema']=='protected-pause-focal-proof-v1'
+          assert r['status']=='PASSED_FOCAL_SOURCE_ONLY_NOT_DEPLOYED' and r['testsStarted'] is True
+          assert r['sourcePinsVerified'] is True and r['behaviorCases']==10
+          assert len(r['managerPassedNames'])==8 and len(r['cmdPassedNames'])==2
+          assert r['beforeFailedNames']==['TestRegularPausePreflight','TestRegularPauseQueueGate','TestRegularPauseSubscriberGate']
+          assert r['smtpStarted'] is False and r['historicalCauseEstablished'] is False
+          assert all(r[k]==0 for k in ('originalCalls','sqlCalls'))
+          assert all(r[k] is False for k in ('workerStarted','imageBuilt','operational','productionChanged'))
+          evidence=root/'evidence'; evidence.mkdir(mode=0o755); evidence.chmod(0o755)
+          target=evidence/'protected-pause-proof.json'; target.write_bytes(b); target.chmod(0o644)
+          metadata=evidence/'public-head.json'; metadata.write_text(json.dumps({'head':sys.argv[2],'operational':False})+'\n'); metadata.chmod(0o644)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: protected-pause-focal-source-proof
+          path: ${{ env.PAUSE_TASK }}/evidence/
+          if-no-files-found: error
+          retention-days: 14

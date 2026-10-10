@@ -31,8 +31,8 @@
     },
     {
       "path": "tools/listmonk-regular-build/proof-inputs/upstream.full-batch.lock.json",
-      "bytes": 6562,
-      "sha256": "235298dc93fbc090b332e8d3a2924ca0c0f19de9a511fd438e843ec2661fcb81"
+      "bytes": 7046,
+      "sha256": "6782528db302d5ecdad4a54678a542694580bc6fd0617135ac4f6871b50716a7"
     },
     {
       "path": "tools/listmonk-regular-build/proof-inputs/manager-store-original.go",
@@ -41,8 +41,8 @@
     },
     {
       "path": "tools/listmonk-regular-build/proof-inputs/manager_store.batch-jit.go",
-      "bytes": 5826,
-      "sha256": "aed74d991ed286287e50a31d8a95ca4f40e509355d4128b5178ecee665732888"
+      "bytes": 5869,
+      "sha256": "cbf074fa33dbdbb2ee378f21511da94a0774eb653d83406c35b546526ba6e8f2"
     },
     {
       "path": "tools/listmonk-regular-build/overlay/batch-jit/cmd/manager_store_batch_jit.go",

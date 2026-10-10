@@ -126,7 +126,6 @@ func (m *Manager) regularDeliveryGate(campaignID int) (RegularDeliveryGate, erro
 		return gate, err
 	}
 	if !m.regularLeaseAvailable() {
-		m.logRegularPause(campaignID, regularPauseLease, regularPauseLeaseUnavailable, nil)
 		gate.Ready = false
 	}
 	return gate, nil
@@ -199,20 +198,17 @@ func (m *Manager) regularLeaseAvailable() bool {
 func (m *Manager) regularHeartbeatOnce() {
 	store, err := m.regularStore()
 	if err != nil {
-		m.logRegularPause(0, regularPauseHeartbeat, regularPauseStoreUnavailable, err)
 		m.clearRegularLease()
 		return
 	}
 	identity, err := m.regularHeartbeatIdentity()
 	if err != nil {
-		m.logRegularPause(0, regularPauseHeartbeat, regularPauseIdentityUnavailable, err)
 		m.clearRegularLease()
 		return
 	}
 	result, err := store.HeartbeatRegularWorker(identity)
 	if err != nil || !result.Ready || result.InstanceID != identity.InstanceID ||
 		!time.Now().Before(result.Deadline) {
-		m.logRegularPause(0, regularPauseHeartbeat, regularPauseHeartbeatUnavailable, err)
 		m.clearRegularLease()
 		return
 	}
@@ -575,7 +571,6 @@ func (m *Manager) processQueuedCampaignMessage(msg CampaignMessage, numMsg *int)
 	*numMsg++
 	gate, err := m.regularDeliveryGate(msg.Campaign.ID)
 	if err != nil || (gate.Bound && !gate.Ready) || (!gate.Bound && msg.regularDone != nil) {
-		m.logRegularPause(msg.Campaign.ID, regularPauseQueueGate, regularPauseGateUnavailable, err)
 		if msg.pipe != nil {
 			msg.pipe.wg.Done()
 			msg.pipe.Stop(true)
@@ -584,7 +579,6 @@ func (m *Manager) processQueuedCampaignMessage(msg CampaignMessage, numMsg *int)
 	}
 	if gate.Bound {
 		if msg.regularDone == nil || msg.pipe == nil {
-			m.logRegularPause(msg.Campaign.ID, regularPauseQueueGate, regularPausePipelineUnavailable, nil)
 			if msg.pipe != nil {
 				msg.pipe.wg.Done()
 				msg.pipe.Stop(true)
@@ -621,25 +615,21 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 		return
 	}
 	if configurationSet == "" {
-		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseConfigurationUnavailable, nil)
 		msg.pipe.Stop(true)
 		return
 	}
 	store, err := m.regularStore()
 	if err != nil {
-		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseStoreUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	messenger, ok := m.messengers[msg.Campaign.Messenger].(guardedRegularMessenger)
 	if !ok {
-		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseMessengerUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	dispatch, err := uuid.NewV4()
 	if err != nil {
-		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseDispatchUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
@@ -647,39 +637,32 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 	out := m.outgoingCampaignMessage(msg, dispatchID, configurationSet, true)
 	configurationSet = out.Headers.Get(regularSESConfigurationSetHeader)
 	if configurationSet == "" {
-		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseConfigurationUnavailable, nil)
 		msg.pipe.Stop(true)
 		return
 	}
 	workerSHA, err := executableSHA256()
 	if err != nil {
-		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseWorkerUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	runtimeSHA, err := m.regularRuntimeSHA(msg.Campaign.Messenger, messenger)
 	if err != nil {
-		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseRuntimeUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	snapshot := json.RawMessage(append([]byte(nil), msg.Subscriber.DeliverySnapshot...))
 	if !json.Valid(snapshot) || len(snapshot) == 0 {
-		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseSnapshotUnavailable, nil)
 		msg.pipe.Stop(true)
 		return
 	}
 	instanceID, err := regularProcessID()
 	if err != nil {
-		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseProcessUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	var claim RegularDeliveryClaimResult
 	var claimStoreErr error
-	claimAttempted := false
 	result, sendErr := messenger.PushRegularGuarded(out, func(envelope smtppool.GuardedEnvelope) error {
-		claimAttempted = true
 		claim, claimStoreErr = store.ClaimRegularDelivery(RegularDeliveryClaim{
 			InstanceID: instanceID, CampaignID: msg.Campaign.ID, SubscriberID: msg.Subscriber.ID, DispatchID: dispatchID,
 			WorkerSHA256: workerSHA, RuntimeSHA256: runtimeSHA, EnvelopeFrom: envelope.From,
@@ -711,9 +694,6 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 		return
 	}
 	m.logRegularGuardedDiagnostic(msg.Campaign.ID, dispatchID, result, sendErr, nil)
-	if claimAttempted && (claimStoreErr != nil || !claim.ShouldSend) {
-		m.logRegularPause(msg.Campaign.ID, regularPauseClaim, regularClaimPauseCode(claim.Reason), claimStoreErr)
-	}
 	msg.pipe.Stop(true)
 }
 
