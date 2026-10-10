@@ -4,7 +4,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const P=require('../tools/listmonk-regular-build/native_batch_profile.cjs'),V=require('../tools/listmonk-regular-build/joint_read_profile_v4.cjs'),M=require('../tools/listmonk-regular-build/materialize_batch_profile.cjs');
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');let cases=0;
 function test(name,fn){fn();cases++;console.log('PASS '+name);}
-const context=fs.realpathSync(process.argv[2]),tmp=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'c2-profile-v4-')));
+const context=fs.realpathSync(process.argv[2]===undefined?path.resolve(__dirname,'..'):process.argv[2]),tmp=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'c2-profile-v4-')));
 function write(m){const f=path.join(tmp,'PROFILE.json'),b=JSON.stringify(m);fs.writeFileSync(f,b);return [f,sha(b)];}
 function load(m,opts){return P.load(...write(m),opts);}
 const clone=x=>JSON.parse(JSON.stringify(x));
