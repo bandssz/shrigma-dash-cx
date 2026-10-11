@@ -1,0 +1,125 @@
+name: Physical drain boundary focal public SOURCE
+on:
+  pull_request:
+    paths:
+      - 'tests/physical-drain-source/**'
+      - '.github/workflows/physical-drain-source-proof.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      fixture:
+        image: postgres:17.10
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: listmonk
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - '127.0.0.1:55432:5432'
+        options: >-
+          --health-cmd "pg_isready -U postgres -d listmonk"
+          --health-interval 1s --health-timeout 3s --health-retries 30
+      mailpit:
+        image: axllent/mailpit:v1.31.4
+        ports:
+          - '127.0.0.1:51025:1025'
+          - '127.0.0.1:58025:8025'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Copy exact public HEAD and prepare dependencies only
+        shell: bash
+        run: |
+          set -euo pipefail
+          id -u 1000
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          proof_root="$(mktemp -d /tmp/physical-drain-source.XXXXXXXX)"
+          mkdir "$proof_root/source" "$proof_root/inputs" "$proof_root/tools" "$proof_root/evidence"
+          git archive HEAD | tar -xf - -C "$proof_root/source"
+          test ! -e "$proof_root/source/.git"
+          test ! -e "$proof_root/source/.private"
+          sudo chown -R 1000 "$proof_root"
+          sudo chmod 755 "$proof_root" "$proof_root/evidence"
+          printf 'DRAIN_PROOF_ROOT=%s\n' "$proof_root" >> "$GITHUB_ENV"
+          printf 'DRAIN_GO=%s\n' "$(command -v go)" >> "$GITHUB_ENV"
+          sudo -u '#1000' env PATH="$PATH" curl --fail --silent --show-error --location --max-time 60 'https://codeload.github.com/knadh/listmonk/tar.gz/1b5e8d38c778e869003486d3c38bc7a964661e91' -o "$proof_root/inputs/listmonk-upstream.tar.gz"
+          sudo -u '#1000' env PATH="$PATH" curl --fail --silent --show-error --location --max-time 60 'https://proxy.golang.org/github.com/knadh/smtppool/v2/@v/v2.0.2.zip' -o "$proof_root/inputs/smtppool.zip"
+          sudo -u '#1000' env PATH="$PATH" npm install --prefix "$proof_root/tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1
+      - name: Reuse public fixture constructor without old behavior suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DRAIN_PROOF_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" NODE_PATH="$DRAIN_PROOF_ROOT/tools/node_modules" CRM_AUDIENCE_TEST_ISOLATED=1 REGULAR_NATIVE_PROOF_ISOLATED=1 TEST_DATABASE_URL='postgresql://postgres@127.0.0.1:55432/listmonk' node tests/own-startup-recovery/bootstrap.cjs
+      - name: Compile real manager and pool with fixture-only lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DRAIN_PROOF_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" PHYSICAL_DRAIN_FIXTURE_ISOLATED=1 python3 tests/physical-drain-source/run.py prepare --repo-root "$DRAIN_PROOF_ROOT/source" --inputs "$DRAIN_PROOF_ROOT/inputs" --go "$DRAIN_GO" --out "$DRAIN_PROOF_ROOT/runtime" --report "$DRAIN_PROOF_ROOT/evidence/compile.json"
+      - name: Execute only five new cases within 60 seconds
+        id: proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DRAIN_PROOF_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" PHYSICAL_DRAIN_FIXTURE_ISOLATED=1 python3 tests/physical-drain-source/run.py proof --repo-root "$DRAIN_PROOF_ROOT/source" --inputs "$DRAIN_PROOF_ROOT/inputs" --go "$DRAIN_GO" --out "$DRAIN_PROOF_ROOT/runtime" --report "$DRAIN_PROOF_ROOT/evidence/proof.json"
+      - name: Confirm both disposable servers ended
+        id: close
+        if: always()
+        env:
+          PG_CONTAINER: ${{ job.services.fixture.id }}
+          MAILPIT_CONTAINER: ${{ job.services.mailpit.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PG_CONTAINER"; test -n "$MAILPIT_CONTAINER"
+          docker stop --time 5 "$PG_CONTAINER" "$MAILPIT_CONTAINER" > /dev/null
+          test "$(docker inspect --format '{{.State.Running}}' "$PG_CONTAINER")" = false
+          test "$(docker inspect --format '{{.State.Running}}' "$MAILPIT_CONTAINER")" = false
+          test "$(docker inspect --format '{{.State.OOMKilled}}' "$PG_CONTAINER")" = false
+          test "$(docker inspect --format '{{.State.OOMKilled}}' "$MAILPIT_CONTAINER")" = false
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$PG_CONTAINER")" = 0
+          mailpit_exit="$(docker inspect --format '{{.State.ExitCode}}' "$MAILPIT_CONTAINER")"
+          test "$mailpit_exit" = 0 -o "$mailpit_exit" = 143
+      - name: Accept synthetic proof only after actual fixture closure
+        if: ${{ success() && steps.proof.outcome == 'success' && steps.close.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u '#1000' env DRAIN_PROOF_ROOT="$DRAIN_PROOF_ROOT" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['DRAIN_PROOF_ROOT'])/'evidence'
+          r=json.loads((root/'proof.json').read_text())
+          assert r['ok'] and r['caseCount']==5 and r['executionSeconds']<=60
+          assert r['node']=='v22.23.3' and r['uid']==1000
+          assert r['originalCalls']==0 and r['originalWrites']==0 and not r['operational']
+          assert r['pgReadOnlyRollbackClientEndConfirmed'] and r['syntheticChildProcessExited']
+          assert r['mailpitSyntheticMessages']==1 and r['realManagerRealPool']
+          assert not r['originalPhysicalDrainProved'] and not r['fullCandidatePhysicalDrainProved']
+          r.update(fixtureServersEnded=True,acceptedSyntheticBoundaryOnly=True)
+          p=root/'accepted.json';p.write_text(json.dumps(r,indent=2)+'\n');p.chmod(0o644)
+          print(json.dumps({'acceptedSyntheticBoundaryOnly':True,'caseCount':5,'originalCalls':0,'operational':False}))
+          PY
+      - name: Upload closed synthetic reports only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: physical-drain-source-focal
+          path: ${{ env.DRAIN_PROOF_ROOT }}/evidence/*.json
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 0

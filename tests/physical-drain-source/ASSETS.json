@@ -1,0 +1,31 @@
+{
+  "schema": "physical-drain-source-assets-v1",
+  "files": {
+    "tests/physical-drain-source/draft/physical_drain_integration.go": {
+      "sha256": "9061f7d65b7e64408fcee05ac6aa8f6c3172f571f40454c337adf649f14eae37",
+      "bytes": 1519
+    },
+    "tests/physical-drain-source/draft/physical_drain_lifecycle.go": {
+      "sha256": "c28e5109e63466619a0525bcfb1836a024b227e299190177195a67228a6166f4",
+      "bytes": 4286
+    },
+    "tests/physical-drain-source/draft/physical_drain_lifecycle_test.go": {
+      "sha256": "72dd4e848fdc37072e3d3b4a3087de7deaa2cd93e268bf3ce3e5f85df2bcccfd",
+      "bytes": 2223
+    },
+    "tests/physical-drain-source/draft/physical_drain_native_test.go": {
+      "sha256": "1be227f58e395d096f1292900a85844c0e9e422d08f8b638613a9cf1038069ab",
+      "bytes": 10154
+    },
+    "tests/physical-drain-source/manager.candidate639.go": {
+      "sha256": "fc57c5c7c5c1bda612e59506ca641e128bc3aebe3c06d62d441dcfbe47157b5a",
+      "bytes": 17835
+    },
+    "tests/physical-drain-source/run.py": {
+      "sha256": "5f549dbcdb1ea332f68f756121d095761e017ae3dd3694d391c1d5ac94f54ea8",
+      "bytes": 10380
+    }
+  },
+  "operational": false,
+  "fullCandidateBinaryCompiled": false
+}
