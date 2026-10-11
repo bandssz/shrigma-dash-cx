@@ -102,7 +102,10 @@ async function main(){
   await db.query("INSERT INTO users(id,username,password_login,password,email,name,type,user_role_id,status)VALUES(9001,'physical-drain-fixture-api',false,$1,'api@fixture.invalid','Physical synthetic API','api',9001,'enabled')",[apiToken]);
   await db.query("INSERT INTO lists(id,uuid,name,type,optin,status,tags)VALUES(9001,gen_random_uuid(),'Physical isolated import','private','single','active',ARRAY['physical-fixture'])");
   await db.query("SELECT setval(pg_get_serial_sequence('public.subscribers','id'),(SELECT max(id) FROM public.subscribers),true)");
-  const config=path.join(runtime,'config.toml');fs.writeFileSync(config,'[app]\naddress="127.0.0.1:50123"\n[db]\nhost="127.0.0.1"\nport=55432\nuser="postgres"\npassword=""\ndatabase="listmonk"\nssl_mode="disable"\nmax_open=5\nmax_idle=5\nmax_lifetime="60s"\n',{mode:0o600});
+  // A nonempty RAM-only synthetic password keeps lib/pq from consuming dbname.
+  // The isolated PostgreSQL fixture uses trust; no original credential is read.
+  const fixtureDbPassword=crypto.randomBytes(16).toString('hex');
+  const config=path.join(runtime,'config.toml');fs.writeFileSync(config,'[app]\naddress="127.0.0.1:50123"\n[db]\nhost="127.0.0.1"\nport=55432\nuser="postgres"\npassword="'+fixtureDbPassword+'"\ndatabase="listmonk"\nssl_mode="disable"\nmax_open=5\nmax_idle=5\nmax_lifetime="60s"\n',{mode:0o600});
   identity=child(exe,['--config',config,'--crm-regular-identity'],runtime);
   await until(()=>identity.ended,Math.min(deadline,Date.now()+5000),'IDENTITY_END_REFUSED');
   check(identity.exit===0&&!identity.bound,'IDENTITY_REFUSED');const lines=identity.body.toString().trim().split('\n');check(lines.length===1,'IDENTITY_FRAME_REFUSED');

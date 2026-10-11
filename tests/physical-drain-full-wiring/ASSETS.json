@@ -1,8 +1,8 @@
 {
   "files": {
     ".github/workflows/physical-drain-full-wiring-proof.yml": {
-      "bytes": 7601,
-      "sha256": "1ed267f5003e903268f60e5cc13c9b8da248d439a6c0f172eafb8bcd5312b941"
+      "bytes": 11416,
+      "sha256": "006a71fb26341c3dfd4738c375f95628e3d65072aa5a994c20a99ce99de3523d"
     },
     "crm-scheduler-batch-profile.json": {
       "bytes": 5291,
@@ -17,8 +17,8 @@
       "sha256": "aea06ccc768a696c5dfac8f821b0a412f6ed46a4cd30d04e63520ac83cc31aa7"
     },
     "tests/physical-drain-full-wiring/native-proof.cjs": {
-      "bytes": 19480,
-      "sha256": "081aa24bed3aa553795d374ad1ef5a5addfca26277c09284d7089d79d9d9a714"
+      "bytes": 19728,
+      "sha256": "71735038642e7b718db19501c6c3a797736af7f88c1b2930eee26f03d9a86a7c"
     },
     "tests/physical-drain-full-wiring/run.py": {
       "bytes": 12459,

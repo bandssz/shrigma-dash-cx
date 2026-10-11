@@ -126,6 +126,60 @@ jobs:
           target=p/'accepted.json';target.write_text(json.dumps(r,indent=2)+'\n');target.chmod(0o644)
           print(json.dumps({'acceptedNewSyntheticExecutableOnly':True,'cases':10,'originalCalls':0}))
           PY
+      - name: Retain the exact tested executable only after the closed proof
+        if: ${{ success() && steps.proof.outcome == 'success' && steps.close.outcome == 'success' }}
+        env:
+          TESTED_CHECKOUT: ${{ github.sha }}
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u '#1000' env PHYSICAL_ROOT="$PHYSICAL_ROOT" TESTED_CHECKOUT="$TESTED_CHECKOUT" SOURCE_HEAD="$SOURCE_HEAD" python3 - <<'PYRETAIN'
+          import hashlib,json,os,re,shutil
+          from pathlib import Path
+          root=Path(os.environ['PHYSICAL_ROOT'])
+          report=json.loads((root/'evidence/accepted.json').read_text())
+          build=json.loads((root/'runtime/compile.json').read_text())
+          assert report['ok'] and report['totalNewCaseCount']==10
+          assert report['fixtureServersEnded'] and report['clientsEnded'] and report['workerProcessEnded']
+          assert report['smtpFrontendClosed'] and report['realSigtermExitZero']
+          assert not report.get('forcedProcessKill',False)
+          assert report['originalCalls']==0 and not report['operational']
+          assert report['heldSmtpAckObserved'] and report['finishSqlLockObserved']
+          assert report['directAckReleasedBeforeExit'] and report['noRetransmission']
+          assert report['measuredExecutableIdentity'] and report['realNotifySystemEmailerOutsideManager']
+          digest=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          executable=root/'runtime/listmonk.bin'
+          assert digest(executable)==build['binarySha256']==report['binarySha256']
+          target=root/'tested-executable';target.mkdir(mode=0o755)
+          originals={'listmonk.bin':executable,'compile.json':root/'runtime/compile.json','accepted.json':root/'evidence/accepted.json'}
+          files={}
+          for name,source in originals.items():
+              dest=target/name;shutil.copyfile(source,dest);dest.chmod(0o644)
+              assert digest(dest)==digest(source)
+              files[name]={'bytes':dest.stat().st_size,'sha256':digest(dest)}
+          assert set(p.name for p in target.iterdir())==set(originals)
+          checkout=os.environ['TESTED_CHECKOUT'];head=os.environ['SOURCE_HEAD']
+          assert re.fullmatch('[a-f0-9]{40}',checkout) and re.fullmatch('[a-f0-9]{40}',head)
+          assets=root/'source/tests/physical-drain-full-wiring/ASSETS.json'
+          profile=root/'source/crm-scheduler-batch-profile.json'
+          assert build['querySha256']==json.loads(profile.read_text())['querySha256']
+          manifest={'schema':'physical-drain-same-tested-executable-artifact-v1','testedCheckout':checkout,'sourceHead':head,
+            'files':files,'querySha256':build['querySha256'],'futureGraphSourceSha256':build['futureGraphSourceSha256'],
+            'sourceAssetsSha256':digest(assets),'batchProfileSha256':digest(profile),'nativeCases':10,
+            'binaryRecompiledAfterProof':False,'configOrCredentialsIncluded':False,'originalCalls':0,'originalPromoted':False,'operational':False}
+          (target/'MANIFEST.json').write_text(json.dumps(manifest,indent=2)+'\n');(target/'MANIFEST.json').chmod(0o644)
+          print(json.dumps({'sameTestedExecutableRetained':True,'files':4,'originalCalls':0}))
+          PYRETAIN
+      - name: Upload only the accepted tested executable and its public pins
+        if: ${{ success() && steps.proof.outcome == 'success' && steps.close.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: physical-drain-same-tested-executable
+          path: ${{ env.PHYSICAL_ROOT }}/tested-executable/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
       - name: Upload only sanitised reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
