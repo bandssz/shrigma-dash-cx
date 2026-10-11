@@ -54,7 +54,7 @@ jobs:
           sudo chmod 755 "$proof_root" "$proof_root/evidence"
           printf 'DRAIN_PROOF_ROOT=%s\n' "$proof_root" >> "$GITHUB_ENV"
           printf 'DRAIN_GO=%s\n' "$(command -v go)" >> "$GITHUB_ENV"
-          sudo -u '#1000' env PATH="$PATH" curl --fail --silent --show-error --location --max-time 60 'https://codeload.github.com/knadh/listmonk/tar.gz/1b5e8d38c778e869003486d3c38bc7a964661e91' -o "$proof_root/inputs/listmonk-upstream.tar.gz"
+          sudo -u '#1000' env PATH="$PATH" curl --fail --silent --show-error --location --max-time 60 'https://api.github.com/repos/knadh/listmonk/tarball/1b5e8d38c778e869003486d3c38bc7a964661e91' -o "$proof_root/inputs/listmonk-upstream.tar.gz"
           sudo -u '#1000' env PATH="$PATH" curl --fail --silent --show-error --location --max-time 60 'https://proxy.golang.org/github.com/knadh/smtppool/v2/@v/v2.0.2.zip' -o "$proof_root/inputs/smtppool.zip"
           sudo -u '#1000' env PATH="$PATH" npm install --prefix "$proof_root/tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1
       - name: Reuse public fixture constructor without old behavior suites
