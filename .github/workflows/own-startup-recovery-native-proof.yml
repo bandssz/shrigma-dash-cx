@@ -1,0 +1,130 @@
+name: Own startup recovery native fixture (SOURCE only)
+on:
+  pull_request:
+    paths:
+      - 'tests/own-startup-recovery/**'
+      - '.github/workflows/own-startup-recovery-native-proof.yml'
+permissions:
+  contents: read
+jobs:
+  native-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      fixture:
+        image: postgres:17.10
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: listmonk
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - '127.0.0.1:55432:5432'
+        options: >-
+          --health-cmd "pg_isready -U postgres -d listmonk"
+          --health-interval 1s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Prepare pinned fixture libraries and runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          id -u 1000
+          fixture_root="$(mktemp -d /tmp/shrigma-own-recovery-ci.XXXXXXXX)"
+          mkdir "$fixture_root/tools" "$fixture_root/proof" "$fixture_root/source"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git archive HEAD | tar -xf - -C "$fixture_root/source"
+          sudo chown -R 1000 "$fixture_root"
+          sudo chmod 755 "$fixture_root"
+          printf 'OWN_FIXTURE_ROOT=%s\n' "$fixture_root" >> "$GITHUB_ENV"
+          sudo -u '#1000' env PATH="$PATH" npm install \
+            --prefix "$fixture_root/tools" \
+            --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1
+          sudo -u '#1000' env PATH="$PATH" node -e \
+            "if(process.version!=='v22.23.3'||process.getuid()!==1000||process.platform!=='linux'||process.arch!=='x64')process.exit(1)"
+      - name: Verify inert recovery SOURCE preparation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$OWN_FIXTURE_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" node --test tests/own-startup-recovery/preparation.test.cjs
+      - name: Load official schema and exact dependency constructor
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$OWN_FIXTURE_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" \
+            NODE_PATH="$OWN_FIXTURE_ROOT/tools/node_modules" \
+            CRM_AUDIENCE_TEST_ISOLATED=1 REGULAR_NATIVE_PROOF_ISOLATED=1 \
+            TEST_DATABASE_URL='postgresql://postgres@127.0.0.1:55432/listmonk' \
+            node tests/own-startup-recovery/bootstrap.cjs
+      - name: Prove actual PostgreSQL guards and reversible own handoff
+        id: native
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$OWN_FIXTURE_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" \
+            NODE_PATH="$OWN_FIXTURE_ROOT/tools/node_modules" \
+            CRM_AUDIENCE_TEST_ISOLATED=1 REGULAR_NATIVE_SOURCE_PROOF=1 \
+            OWN_RECOVERY_FIXTURE_ISOLATED=1 \
+            OWN_RECOVERY_FIXTURE_URL='postgresql://postgres@127.0.0.1:55432/listmonk' \
+            OWN_RECOVERY_SOURCE_DIR="$OWN_FIXTURE_ROOT/source/tests/own-startup-recovery/source" \
+            OWN_RECOVERY_FIXTURE_RECEIPT="$OWN_FIXTURE_ROOT/proof/clients-receipt.json" \
+            node tests/own-startup-recovery/native-proof.cjs \
+            | sudo -u '#1000' tee "$OWN_FIXTURE_ROOT/proof/native-test.log"
+      - name: Stop isolated fixture and verify end
+        id: stop
+        if: always()
+        shell: bash
+        env:
+          FIXTURE_CONTAINER: ${{ job.services.fixture.id }}
+        run: |
+          set -euo pipefail
+          test -n "$FIXTURE_CONTAINER"
+          docker stop --time 5 "$FIXTURE_CONTAINER"
+          test "$(docker inspect --format '{{.State.Running}}' "$FIXTURE_CONTAINER")" = false
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$FIXTURE_CONTAINER")" = 0
+      - name: Accept only after clients and isolated server end
+        if: ${{ success() && steps.native.outcome == 'success' && steps.stop.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u '#1000' env PATH="$PATH" OWN_FIXTURE_ROOT="$OWN_FIXTURE_ROOT" python3 - <<'PYCODE'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['OWN_FIXTURE_ROOT'])/'proof'
+          receipt=json.loads((root/'clients-receipt.json').read_text())
+          assert receipt['sqlGuardScenariosPassed'] is True and receipt['clientsEnded'] is True
+          assert receipt['rollbackConfirmed'] is True and receipt['fixtureServerEnded'] is False
+          assert receipt['status']=='CLIENT_ENDED_FIXTURE_SERVER_END_PENDING'
+          assert len(receipt['cases'])==16 and receipt['synthetic'] is True
+          assert receipt['postgresVersion']=='17.10' and receipt['nodeVersion']=='v22.23.3'
+          assert receipt['uid']==1000 and receipt['pgVersion']=='8.23.1'
+          assert all(receipt[k] is False for k in ('originalAuthorityAccepted','originalOperational'))
+          assert receipt['originalCalls']==0 and receipt['nativeWorkerExecuted'] is False
+          receipt.update(accepted=True,fixtureServerEnded=True,status='PASSED_OWN_RECOVERY_SYNTHETIC_NATIVE_FIXTURE_ONLY')
+          target=root/'native-fixture-receipt.json'
+          assert not target.exists()
+          target.write_text(json.dumps(receipt,indent=2)+'\n')
+          for name in ('clients-receipt.json','native-fixture-receipt.json','native-test.log'):
+              path=root/name
+              assert path.is_file() and not path.is_symlink() and path.stat().st_size<1048576
+              path.chmod(0o644)
+          root.chmod(0o755)
+          print(json.dumps(receipt,separators=(',',':')))
+          PYCODE
+      - name: Upload isolated evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: own-startup-recovery-native-fixture
+          path: ${{ env.OWN_FIXTURE_ROOT }}/proof/
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 0
+

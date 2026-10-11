@@ -1,0 +1,209 @@
+name: CRM batch isolated functional proof (OFF)
+on:
+  pull_request:
+    paths:
+      - 'crm-scheduler-batch-profile.json'
+      - 'tools/listmonk-regular-build/**'
+      - 'tools/listmonk-regular-package/**'
+      - 'tests/segment-regular-native-fixture.cjs'
+      - 'tests/source-proof-split/**'
+      - 'tests/native-profile-v4.test.cjs'
+      - 'tests/rule-membership/**'
+      - 'n8n/growth/segment-listmonk-selection*'
+      - '.github/workflows/crm-batch-source-tests.yml'
+permissions:
+  contents: read
+jobs:
+  source-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    concurrency:
+      group: crm-batch-registry-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GOTOOLCHAIN: local
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Prepare pinned disposable dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          batch_root="$(mktemp -d /tmp/shrigma-batch-ci.XXXXXXXX)"
+          export BATCH_FIXTURE_ROOT="$batch_root"
+          printf 'BATCH_FIXTURE_ROOT=%s\n' "$batch_root" >> "$GITHUB_ENV"
+          export GOMODCACHE="$batch_root/go-mod-cache" GOCACHE="$batch_root/go-build-cache"
+          mkdir "$GOMODCACHE" "$GOCACHE"
+          printf 'GOMODCACHE=%s\nGOCACHE=%s\n' "$GOMODCACHE" "$GOCACHE" >> "$GITHUB_ENV"
+          npm install --prefix "$BATCH_FIXTURE_ROOT/batch-tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1 @electric-sql/pglite@0.3.14 @embedded-postgres/linux-x64@17.10.0-beta.17
+          (cd "$BATCH_FIXTURE_ROOT/batch-tools/node_modules/@embedded-postgres/linux-x64" && node scripts/hydrate-symlinks.js)
+          python3 tools/listmonk-regular-package/bootstrap.py --out "$BATCH_FIXTURE_ROOT/batch-inputs" --go "$(command -v go)"
+      - name: Verify new functional split gates without native execution
+        env:
+          SOURCE_SPLIT_TEST_ROOT: ${{ github.workspace }}
+        run: |
+          node --test tests/source-proof-split/profile.test.cjs
+          python3 tests/source-proof-split/receipts.test.py
+          node tests/native-profile-v4.test.cjs "$GITHUB_WORKSPACE"
+      - name: Compile exact candidate, foundation and isolated functional proof as UID1000
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = v22.23.3
+          id -u 1000
+          TASK_OUTPUT="$BATCH_FIXTURE_ROOT/batch-source-output"
+          mkdir "$TASK_OUTPUT" "$BATCH_FIXTURE_ROOT/source"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git archive HEAD | tar -xf - -C "$BATCH_FIXTURE_ROOT/source"
+          sudo chown -R 1000 "$BATCH_FIXTURE_ROOT"
+          sudo chmod 755 "$BATCH_FIXTURE_ROOT"
+          cd "$BATCH_FIXTURE_ROOT/source"
+          PROFILE_DIGEST="$(sha256sum crm-scheduler-batch-profile.json | cut -d ' ' -f1)"
+          sudo -u '#1000' env \
+            PATH="$PATH" GOTOOLCHAIN=local PYTHONDONTWRITEBYTECODE=1 \
+            GOMODCACHE="$GOMODCACHE" GOCACHE="$GOCACHE" \
+            REGULAR_NATIVE_PROOF_ISOLATED=1 \
+            PROFILE_INPUT="$BATCH_FIXTURE_ROOT/source/crm-scheduler-batch-profile.json" \
+            PROFILE_DIGEST="$PROFILE_DIGEST" \
+            TASK_OUTPUT="$TASK_OUTPUT" \
+            NODE_PATH="$BATCH_FIXTURE_ROOT/batch-tools/node_modules" \
+            GO_BINARY="$(command -v go)" \
+            PG_BINARY_DIR="$BATCH_FIXTURE_ROOT/batch-tools/node_modules/@embedded-postgres/linux-x64/native/bin" \
+            REVIEWED_INPUTS="$BATCH_FIXTURE_ROOT/batch-inputs" \
+            bash tools/listmonk-regular-build/proof-source-only.sh
+          # Only the closed public report and reviewed public graph leave UID1000 custody.
+          sudo -u '#1000' env TASK_OUTPUT="$TASK_OUTPUT" python3 - <<'PYCODE'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ['TASK_OUTPUT'])
+          candidates=list((root/'runtime').glob('regular-native-*/rule-membership-native.json'))
+          assert len(candidates)==1
+          source=candidates[0]
+          content=source.read_bytes()
+          report=json.loads(content)
+          assert report['ok'] is True and len(report['cases'])==28
+          assert report['rollbackConfirmed'] is True and report['endConfirmed'] is True
+          assert report['originalCalls']==0 and report['persistentDatabase'] is False
+          assert report['afterKernelSha256']=='7d9e4cd7fd4e3c6f9967386c5ca7b1410e755690fac3a77149d8d032d2c4e8b4'
+          evidence=root/'evidence'
+          evidence.mkdir(mode=0o755)
+          target=evidence/'rule-membership-native.json'
+          target.write_bytes(content)
+          target.chmod(0o644)
+          assert hashlib.sha256(target.read_bytes()).digest()==hashlib.sha256(content).digest()
+          (root/'profile-with-binary').chmod(0o755)
+          public_graph=root/'package/source/recipe/batch-profile'
+          assert public_graph.is_dir() and not public_graph.is_symlink()
+          public_graph.chmod(0o755)
+          PYCODE
+      - name: Package the exact tested batch binary as an isolated OCI candidate
+        id: oci
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          oci_root="$(mktemp -d /tmp/shrigma-batch-oci.XXXXXXXX)"
+          printf 'BATCH_OCI_ROOT=%s\n' "$oci_root" >> "$GITHUB_ENV"
+          cd "$BATCH_FIXTURE_ROOT/source"
+          profile="$BATCH_FIXTURE_ROOT/batch-source-output/profile-with-binary/PROFILE.json"
+          profile_digest="$(sha256sum "$profile" | cut -d ' ' -f1)"
+          REGULAR_NATIVE_PROOF_ISOLATED=1 python3 tools/listmonk-regular-package/image.py \
+            --package "$BATCH_FIXTURE_ROOT/batch-source-output/package" \
+            --native-proof "$BATCH_FIXTURE_ROOT/batch-source-output/native-functional-proof.json" \
+            --batch-profile "$profile" --batch-profile-sha256 "$profile_digest" \
+            --isolated-source-proof --revision "$GITHUB_SHA" --out "$oci_root/image"
+      - name: Publish exactly the tested candidate image and reconcile its digest
+        id: registry
+        if: ${{ success() && steps.oci.outcome == 'success' && github.repository == 'bandssz/shrigma-dash-cx' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'codex/crm-scheduler-repair-20261009' }}
+        shell: bash
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          umask 077
+          registry_root="$(mktemp -d /tmp/shrigma-batch-registry.XXXXXXXX)"
+          trap 'rm -rf -- "$registry_root"' EXIT
+          export REGISTRY_AUTH_FILE="$registry_root/auth.json"
+          printf '%s' "$REGISTRY_TOKEN" | skopeo login --authfile "$REGISTRY_AUTH_FILE" --username "$GITHUB_ACTOR" --password-stdin ghcr.io
+          unset REGISTRY_TOKEN
+          export IMAGE_PUBLICATION_ROOT="$BATCH_OCI_ROOT/image"
+          python3 - <<'PYCODE'
+          import hashlib,json,os,re,subprocess
+          from pathlib import Path
+          root=Path(os.environ['IMAGE_PUBLICATION_ROOT'])
+          proof=json.loads((root/'image-proof.json').read_text())
+          package=json.loads((root/'package-manifest.json').read_text())
+          assert proof['status']=='VERIFIED_IMAGE_OFF_NOT_DEPLOYED'
+          assert proof['revision']==os.environ['GITHUB_SHA']
+          assert proof['runtime_config_preserved'] is True and proof['oci_binary_matches_native_proof'] is True
+          assert proof['proofPurpose']=='isolated-source-functional'
+          assert all(proof[k] is False for k in ('registry_push','production_changed','originalPerformanceAccepted','originalOperational','originalDispatchProved'))
+          assert package['query_sha256']=='772efe8e05331fb201ed24cb08bb97a4625a49811d96622c2148342ce54c6700'
+          assert proof['binary_sha256']==package['binary_sha256']
+          digest=proof['manifest_digest']
+          assert re.fullmatch(r'sha256:[0-9a-f]{64}',digest)
+          head=os.environ['SOURCE_HEAD']
+          assert re.fullmatch(r'[0-9a-f]{40}',head)
+          image='ghcr.io/bandssz/shrigma-crm-listmonk'
+          tag='batch-v4-'+head
+          auth=os.environ['REGISTRY_AUTH_FILE']
+          child=dict(os.environ);child.pop('GITHUB_TOKEN',None);child.pop('GH_TOKEN',None)
+          def command(args):
+              r=subprocess.run(args,env=child,text=True,capture_output=True,timeout=300)
+              if r.returncode or len(r.stdout)+len(r.stderr)>4194304:
+                  raise RuntimeError('BATCH_REGISTRY_COMMAND_REFUSED')
+              return r.stdout
+          destination='docker://'+image+':'+tag
+          prior=subprocess.run(['skopeo','inspect','--authfile',auth,'--raw',destination],env=child,text=True,capture_output=True,timeout=60)
+          assert len(prior.stdout)+len(prior.stderr)<=4194304
+          if prior.returncode==0:
+              assert 'sha256:'+hashlib.sha256(prior.stdout.encode()).hexdigest()==digest
+          else:
+              detail=prior.stderr.lower()
+              assert 'manifest unknown' in detail and all(k not in detail for k in ('denied','unauthorized','timeout'))
+              command(['skopeo','copy','--authfile',auth,'--preserve-digests','oci:'+str(root/'oci')+':candidate',destination])
+          for suffix in (':'+tag,'@'+digest):
+              raw=command(['skopeo','inspect','--authfile',auth,'--raw','docker://'+image+suffix])
+              assert 'sha256:'+hashlib.sha256(raw.encode()).hexdigest()==digest
+          receipt={'schema':'shrigma-batch-registry-receipt-v1','status':'REGISTRY_VERIFIED_OFF_NOT_DEPLOYED','image':image+'@'+digest,'tag':image+':'+tag,'sourceHead':head,'ciRevision':proof['revision'],'binarySha256':proof['binary_sha256'],'querySha256':package['query_sha256'],'serviceChanged':False,'deployed':False,'originalOperational':False}
+          (root/'registry-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          print(json.dumps(receipt))
+          PYCODE
+      - name: Upload the verified batch OCI candidate and registry receipt without deployment
+        if: ${{ success() && steps.oci.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-batch-worker-oci-linux-amd64
+          path: ${{ env.BATCH_OCI_ROOT }}/image/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Upload synthetic proof without original delivery
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-batch-source-foundation
+          path: |
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/profile-receipt.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/package/manifest.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/dependency-proof.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/native-functional-proof.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/evidence/rule-membership-native.json
+            ${{ env.BATCH_FIXTURE_ROOT }}/batch-source-output/profile-with-binary/
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 0

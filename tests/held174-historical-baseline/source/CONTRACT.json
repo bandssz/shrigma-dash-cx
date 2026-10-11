@@ -1,0 +1,102 @@
+{
+  "schema": "fish-permanent-exclusion-source-contract-v1",
+  "purpose": "crm.fish174.permanent-exclusion-and-fish-resume",
+  "originalExecutionAvailable": false,
+  "heldCampaignId": 174,
+  "heldDispatchId": "0d8c77b2-18e7-474f-b9b7-bbfc733bac2f",
+  "stages": [
+    {
+      "stage": "install",
+      "campaignId": 174,
+      "writes": "Create the own disposition table, two own functions and its immutable triggers; replace only claim/recover/campaign_send_guard bodies under exact 13-body CURRENT/full metadata CAS. All original data and old function OID/owner/ACL/settings stay unchanged.",
+      "beforeSnapshot": "sql/snapshot.before-install.sql",
+      "afterSnapshot": "sql/snapshot.private-read.sql"
+    },
+    {
+      "stage": "dispose",
+      "campaignId": 174,
+      "writes": "Insert exactly one irreversible human_permanent_no_resend record with the exact unknown dispatch row and current binding. Only after that insert, advance the campaign cursor and acknowledged cursor to the excluded SID; sent/acknowledged_sent and the dispatch row do not change. Earlier eligible SID refuses the whole transaction.",
+      "beforeSnapshot": "sql/snapshot.private-read.sql",
+      "afterSnapshot": "sql/snapshot.private-read.sql"
+    },
+    {
+      "stage": "resume",
+      "campaignId": "174 first; 171 only when 174 is paused or finished and no regular campaign is running",
+      "writes": "Change only chosen control.suspended true to false and chosen campaign.status paused to scheduled. Every accepted row and progress field survives. Native worker keeps original claim/finish/context/AB/dedupe gates.",
+      "beforeSnapshot": "sql/snapshot.private-read.sql",
+      "afterSnapshot": "sql/snapshot.private-read.sql"
+    }
+  ],
+  "authenticRootBoundary": {
+    "required": "Root must authenticate fresh native Mestre/private connection and bind the actual human decision to a distinct operation and stage. SOURCE does not issue an actor, grant, approval or callback.",
+    "envelopeFields": [
+      "plan",
+      "snapshot",
+      "privateAdmission"
+    ],
+    "privateAdmissionFields": [
+      "operationId",
+      "purpose",
+      "stage",
+      "actor",
+      "candidate",
+      "privateReferences",
+      "scope",
+      "sourcePins",
+      "checkedAt",
+      "expiresAt",
+      "legacyPendingRows"
+    ],
+    "resumeAdditionalFields": [
+      "binaryExclusionSupportVerified",
+      "measuredWorkerSha256",
+      "exclusionSourceSha256"
+    ],
+    "privateAdmissionValuesAreNotSelfAuthenticating": true,
+    "freshnessMaximumSeconds": 300,
+    "privateReferences": [
+      "admission",
+      "snapshot",
+      "quiescence",
+      "binding",
+      "disposition",
+      "identity",
+      "legacyPending"
+    ],
+    "parameters": "Envelope, complete snapshot, bodies, dedupe/SID and SQL are RAM/stdin only. No argv, log, artifact or SQL/envelope file. Root private checkpoint may retain the existing necessary 0600 snapshot under its separate admission.",
+    "journal": "Root O_EXCL/fsync submitted before one dispatch. Missing COMMIT or end is uncertain; never replay, auto-restore or auto-recover. Resolve only by a newly admitted CURRENT read.",
+    "limits": "Prepared SQL uses 5s statement/500ms lock, read committed, original listmonk PG17.10/EtcUTC/same role. Root must precheck the established input/frame cap without truncation or automatic increase. No transport is introduced here."
+  },
+  "invariants": [
+    "The historical outcome remains outcome_unknown forever under this protocol; the disposition is not an accepted receipt.",
+    "No sent increment, accepted counter reset, to_send inflation, send_at/started_at/content/list/ID rewrite, source rearm or UUID/heartbeat fabrication.",
+    "Claim of this SID never creates transport authority, including after binding drift or finalization. Other unknown/inflight still refuse.",
+    "recover refuses both dry_run and write for this exact dispatch/SID before it reads late SES evidence.",
+    "The original finish remains byte-identical. A late accepted ACK conflicts with the unknown outcome. Separate SES event/status/message-link feedback does not change the disposition; any direct dispatch drift blocks delivery. recover refuses before SES evidence.",
+    "Terminal accounting can have sent < to_send by the permanent excluded recipient. Do not force equality or change counters; report accepted and excluded separately.",
+    "171 cause is still unknown. A fresh full CAS, valid context/material/lease and accepted-only 171 ledger are required; this is not a general suspension override.",
+    "172/173 agendas and all 175/176/177 rows are preserved by full CAS; no operation on lists157/158.",
+    "The tombstone cannot UPDATE/DELETE/TRUNCATE through supported DML. A database owner can still execute out-of-contract DDL; the protocol never grants or permits that."
+  ],
+  "externalDependencies": [
+    "Publish and run the provided 23-case portable PG proof; local verification here does not execute PostgreSQL or Go.",
+    "Rebuild the exact worker with both inline gate/finalization predicate changes, validate compiler/tests, measure executable and runtime genuinely, and perform a separately admitted same-service handoff preserving all accepted/unknown/disposition metadata.",
+    "Existing handoff pins expect the former claim/guard bodies and lack the new table/helper. Root must explicitly extend its own transition snapshot/CAS/pins; neither old readiness nor old admission is reused.",
+    "The original 13 bodies now match Root CURRENT read; that does not replace the fresh complete function/trigger/ACL/owner/settings snapshot at each critical stage.",
+    "Root protected window/quiescence must be genuine; ledger counts alone do not establish that unrelated legacy HTTP inputs are drained.",
+    "After disposition, structural rollback may not remove the table/record, restore old recovery over it, reset cursor or permit replay. Original function backups are included for review, not an admitted auto-return."
+  ],
+  "nativeProofLateFeedback": "Case 14 inserts synthetic late send/delivery feedback into public SES fixture tables and preserves the full unknown dispatch; it does not execute the real SNS consumer or assert authenticated SES acceptance.",
+  "historicalPendingBaseline": {
+    "snapshotField": "legacyPendingRows",
+    "privateReference": "legacyPending",
+    "count": 34,
+    "brandCounts": {
+      "fish": 18,
+      "aristo": 16
+    },
+    "scope": "Only transacional in_flight started14Sep2026 without outcome,accepted orsendlog; CURRENT full rows preserved byteexact.",
+    "doesNotAuthorizeRecoveryOrResend": true,
+    "doesNotProveHttpMsgQueueSmtpDrain": true
+  }
+}

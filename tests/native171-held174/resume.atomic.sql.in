@@ -1,0 +1,213 @@
+-- SOURCE ONLY: authentic Root admission per campaign; private snapshots/bodies stay RAM.
+DO $accepted_resume$
+#variable_conflict use_variable
+DECLARE
+ e jsonb:=current_setting('shrigma.private_accepted_resume_envelope',true)::jsonb;
+ plan jsonb:=__PLAN_JSON_LITERAL__::jsonb;public_pins jsonb:=__PUBLIC_FUNCTION_PINS_LITERAL__::jsonb;
+ admission jsonb;before_state jsonb;after_state jsonb;target jsonb;ctx jsonb;item jsonb;fn record;
+ at timestamptz:=clock_timestamp();cid integer;chosen integer;other integer;changed integer;
+ progress_sent integer;progress_cursor integer;binding_version integer;brand text;
+ ledger_count integer;ledger_distinct integer;ledger_max integer;mismatch_fields text;
+BEGIN
+ IF jsonb_typeof(e) IS DISTINCT FROM 'object' OR e->'plan' IS DISTINCT FROM plan
+ OR jsonb_typeof(e->'snapshot') IS DISTINCT FROM 'object'
+ OR jsonb_typeof(e->'privateAdmission') IS DISTINCT FROM 'object' THEN
+  RAISE EXCEPTION 'ACCEPTED_RESUME_PRIVATE_ADMISSION_REQUIRED'; END IF;
+ admission:=e->'privateAdmission';chosen:=(plan->>'campaignId')::integer;
+ other:=174;
+ IF chosen IS DISTINCT FROM 171 OR admission->'resumeScope' IS DISTINCT FROM plan->'resumeScope' OR plan->'resumeScope' IS DISTINCT FROM '{"targetCampaignId":171,"heldCampaignId":174,"heldDispatchId":"0d8c77b2-18e7-474f-b9b7-bbfc733bac2f","protectedCampaignIds":[171,172,173,174,175,176,177],"failureScope":"native171-independent-held174-v1","selectionScope":"original171-current-binding"}'::jsonb OR plan->>'admissionPurpose' IS DISTINCT FROM 'crm.native171.resume-with174-held'
+ OR admission->>'operationId' IS DISTINCT FROM plan->>'operationId'
+ OR admission->>'purpose' IS DISTINCT FROM plan->>'admissionPurpose'
+ OR admission->>'campaignId' IS DISTINCT FROM plan->>'campaignId'
+ OR admission->'candidate' IS DISTINCT FROM plan->'candidate'
+ OR admission->>'admissionSha256' IS DISTINCT FROM plan#>>'{privateReferences,admission,sha256}'
+ OR admission->>'snapshotSha256' IS DISTINCT FROM plan#>>'{privateReferences,snapshot,sha256}'
+ OR admission->>'bindingSha256' IS DISTINCT FROM plan#>>'{privateReferences,binding,sha256}'
+ OR admission->>'quiescenceSha256' IS DISTINCT FROM plan#>>'{privateReferences,quiescence,sha256}'
+ OR admission->>'dispositionSha256' IS DISTINCT FROM plan#>>'{privateReferences,disposition,sha256}'
+ OR admission->>'actor' IS NULL OR length(admission->>'actor') NOT BETWEEN 1 AND 200
+ OR admission->>'checkedAt' IS NULL OR admission->>'expiresAt' IS NULL
+ OR NOT isfinite((admission->>'checkedAt')::timestamptz)
+ OR NOT isfinite((admission->>'expiresAt')::timestamptz)
+ OR (admission->>'checkedAt')::timestamptz>at OR (admission->>'expiresAt')::timestamptz<=at
+ OR (admission->>'expiresAt')::timestamptz>(admission->>'checkedAt')::timestamptz+interval '5 minutes' THEN
+  RAISE EXCEPTION 'ACCEPTED_RESUME_PRIVATE_ADMISSION_MISMATCH'; END IF;
+ IF current_database()<>'listmonk' OR current_setting('server_version_num')::integer<>170010
+ OR current_setting('transaction_isolation')<>'read committed'
+ OR current_setting('TimeZone')<>'Etc/UTC' OR session_user IS DISTINCT FROM current_user
+ OR current_setting('statement_timeout')::interval<>interval '5 seconds'
+ OR current_setting('lock_timeout')::interval<>interval '500 milliseconds' THEN
+  RAISE EXCEPTION 'ACCEPTED_RESUME_ORIGINAL_BOUNDARY_REFUSED'; END IF;
+ PERFORM 1 FROM crm_audience_v2.regular_worker_deployment WHERE singleton FOR SHARE;
+ PERFORM pg_advisory_xact_lock(hashtextextended('crm-audience-v2-regular-worker-lease',0));
+ PERFORM 1 FROM crm_audience_v2.regular_worker_lease WHERE singleton FOR SHARE;
+ PERFORM 1 FROM crm_audience_v2.selection_runtime WHERE singleton FOR SHARE;
+ LOCK TABLE crm_audience_v2.regular_delivery_campaign IN SHARE ROW EXCLUSIVE MODE;
+ LOCK TABLE public.campaigns IN SHARE ROW EXCLUSIVE MODE;
+ PERFORM 1 FROM public.campaigns WHERE id BETWEEN 171 AND 177 ORDER BY id FOR UPDATE;
+ LOCK TABLE crm_audience_v2.campaign_binding,crm_audience_v2.campaign_binding_revision IN SHARE MODE;
+ PERFORM 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id IN(171,172,174) ORDER BY campaign_id FOR SHARE;
+ LOCK TABLE public.crm_ab_arm_v2 IN SHARE MODE;
+ LOCK TABLE public.shrigma_email_dispatch IN SHARE ROW EXCLUSIVE MODE;
+ __SNAPSHOT_SELECT__ INTO before_state;
+ IF before_state IS DISTINCT FROM e->'snapshot' THEN
+  SELECT string_agg(DISTINCT CASE WHEN coalesce(a.key,b.key)=ANY(ARRAY['serverVersionNum','sessionUser','currentUser','regularRunning','deployment','lease','selectionRuntime','controls','campaigns','bindings','bindingHistory','dispatch','abArms','functionMetadata','relationMetadata','mutationTriggers','campaignGuard']::text[])
+    THEN coalesce(a.key,b.key) ELSE 'unexpected_field' END,',') INTO mismatch_fields
+    FROM jsonb_each(before_state) a FULL JOIN jsonb_each(e->'snapshot') b USING(key)
+    WHERE a.value IS DISTINCT FROM b.value;
+  RAISE EXCEPTION 'ACCEPTED_RESUME_SNAPSHOT_DRIFT' USING DETAIL='fields:'||coalesce(mismatch_fields,'snapshot_schema');
+ END IF;
+ IF before_state->'mutationTriggers' IS DISTINCT FROM '[]'::jsonb
+ OR jsonb_array_length(before_state->'campaignGuard')<>3
+ OR before_state->'abArms' IS DISTINCT FROM '[]'::jsonb
+ OR EXISTS(SELECT 1 FROM jsonb_array_elements(before_state->'campaignGuard') g
+   WHERE g->>'enabled' IS DISTINCT FROM 'O' OR NOT EXISTS(
+    SELECT 1 FROM (VALUES
+      ('crm_audience_v2.campaign_send_guard()',27),
+      ('public.shrigma_campaign_guard()',31),('public.crm_ab_campaign_guard_v2()',27)) expected(signature,type)
+    WHERE g->>'function'=pg_catalog.to_regprocedure(expected.signature)::oid::text
+     AND g->>'function'=(before_state->'functionMetadata'->expected.signature->>'oid')
+     AND (g->>'type')::integer=expected.type))
+ OR EXISTS(SELECT 1 FROM (VALUES ('crm_audience_v2.campaign_send_guard()'),
+    ('public.shrigma_campaign_guard()'),('public.crm_ab_campaign_guard_v2()')) expected(signature)
+   WHERE (SELECT count(*) FROM jsonb_array_elements(before_state->'campaignGuard') g
+     WHERE g->>'function'=pg_catalog.to_regprocedure(expected.signature)::oid::text)<>1) THEN
+  RAISE EXCEPTION 'ACCEPTED_RESUME_TRIGGER_OR_AB_REFUSED'; END IF;
+ FOR fn IN SELECT key,value FROM jsonb_each(before_state->'functionMetadata') LOOP
+  IF fn.value='null'::jsonb OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(public_pins) p
+   WHERE p->>'signature'=fn.key AND p->>'md5'=md5(fn.value->>'prosrc')) THEN
+   RAISE EXCEPTION 'ACCEPTED_RESUME_FUNCTION_PIN_REFUSED'; END IF;
+ END LOOP;
+ IF (SELECT count(*) FROM jsonb_each(before_state->'functionMetadata'))<>12
+ OR EXISTS(SELECT 1 FROM jsonb_each(before_state->'relationMetadata') r
+    WHERE r.value->>'oid' IS NULL OR r.value->>'kind' NOT IN('r','p')
+      OR r.value->>'rls' IS DISTINCT FROM 'false' OR r.value->>'forceRls' IS DISTINCT FROM 'false') THEN
+  RAISE EXCEPTION 'ACCEPTED_RESUME_METADATA_REFUSED'; END IF;
+ 
+ IF before_state#>>'{deployment,enabled}' IS DISTINCT FROM 'true'
+ OR before_state#>>'{deployment,database_role}' IS DISTINCT FROM session_user::text
+ OR before_state#>>'{deployment,worker_sha256}' IS DISTINCT FROM plan#>>'{candidate,workerSha256}'
+ OR before_state#>>'{deployment,runtime_sha256}' IS DISTINCT FROM plan#>>'{candidate,runtimeSha256}'
+ OR before_state#>>'{deployment,query_sha256}' IS DISTINCT FROM plan#>>'{candidate,querySha256}'
+ OR before_state#>>'{deployment,approved_at}' IS NULL
+ OR NOT isfinite((before_state#>>'{deployment,approved_at}')::timestamptz)
+ OR (before_state#>>'{deployment,approved_at}')::timestamptz>at
+ OR before_state#>>'{lease,suspended}' IS DISTINCT FROM 'false'
+ OR before_state#>>'{lease,suspension_reason}' IS NOT NULL
+ OR before_state#>>'{lease,worker_sha256}' IS DISTINCT FROM plan#>>'{candidate,workerSha256}'
+ OR before_state#>>'{lease,runtime_sha256}' IS DISTINCT FROM plan#>>'{candidate,runtimeSha256}'
+ OR before_state#>>'{lease,database_role}' IS DISTINCT FROM session_user::text
+ OR before_state#>>'{lease,instance_id}' IS NULL
+ OR before_state#>>'{lease,instance_id}'='00000000-0000-0000-0000-000000000000'
+ OR before_state#>>'{lease,heartbeat_at}' IS NULL OR before_state#>>'{lease,expires_at}' IS NULL
+ OR NOT isfinite((before_state#>>'{lease,heartbeat_at}')::timestamptz)
+ OR NOT isfinite((before_state#>>'{lease,expires_at}')::timestamptz)
+ OR (before_state#>>'{lease,heartbeat_at}')::timestamptz>clock_timestamp()
+ OR (before_state#>>'{lease,expires_at}')::timestamptz<=clock_timestamp()
+ OR (before_state#>>'{lease,expires_at}')::timestamptz IS DISTINCT FROM
+    (before_state#>>'{lease,heartbeat_at}')::timestamptz+interval '60 seconds'
+ OR before_state#>>'{selectionRuntime,enabled}' IS DISTINCT FROM 'true'
+ OR before_state#>>'{selectionRuntime,candidate_query_sha256}' IS DISTINCT FROM plan#>>'{candidate,querySha256}'
+ OR before_state#>>'{selectionRuntime,verified_at}' IS NULL
+ OR NOT isfinite((before_state#>>'{selectionRuntime,verified_at}')::timestamptz)
+ OR (before_state#>>'{selectionRuntime,verified_at}')::timestamptz>clock_timestamp()
+ OR (before_state#>>'{selectionRuntime,verified_at}')::timestamptz<clock_timestamp()-interval '5 minutes'
+ OR jsonb_array_length(before_state->'controls')<>3 OR jsonb_array_length(before_state->'campaigns')<>7 THEN
+  RAISE EXCEPTION 'ACCEPTED_RESUME_REAL_HEARTBEAT_REQUIRED'; END IF;
+ IF (before_state->'functionMetadata'->'crm_audience_v2.regular_worker_heartbeat(uuid,text,text)'->'proconfig')
+     IS DISTINCT FROM '["search_path=pg_catalog","lock_timeout=2s"]'::jsonb THEN
+  RAISE EXCEPTION 'ACCEPTED_RESUME_HEARTBEAT_2S_REQUIRED'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.campaigns WHERE id=chosen AND status::text='paused' AND send_at<=at)
+ OR NOT EXISTS(SELECT 1 FROM public.campaigns WHERE id=174 AND status::text='paused')
+ OR NOT EXISTS(SELECT 1 FROM public.campaigns WHERE id=171 AND sent=15 AND last_subscriber_id=146)
+ OR before_state->'regularRunning' IS DISTINCT FROM '[]'::jsonb
+ OR EXISTS(SELECT 1 FROM public.campaigns WHERE type::text='regular' AND status::text='running')
+ OR NOT EXISTS(SELECT 1 FROM public.campaigns WHERE id=172 AND status::text='scheduled')
+ OR NOT EXISTS(SELECT 1 FROM public.campaigns WHERE id=173 AND status::text='scheduled')
+ OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=chosen AND suspended)
+ OR EXISTS(SELECT 1 FROM public.crm_ab_arm_v2 WHERE campaign_id IN(171,172,173,174)) THEN
+  RAISE EXCEPTION 'ACCEPTED_RESUME_SEQUENTIAL_SCOPE_REFUSED'; END IF;
+ -- Keep every confirmed receipt. Progress must match both campaign and control.
+ FOREACH cid IN ARRAY ARRAY[171] LOOP
+  SELECT c.sent,c.last_subscriber_id,b.binding_version,b.brand INTO STRICT progress_sent,progress_cursor,binding_version,brand
+   FROM public.campaigns c JOIN crm_audience_v2.regular_delivery_campaign r ON r.campaign_id=c.id
+   JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON true
+   WHERE c.id=cid AND c.type::text='regular' AND c.messenger='email'
+    AND c.attribs#>>'{crm,policy}'='crm-campaign-v1' AND c.attribs#>>'{crm,brand}'=b.brand
+    AND r.enabled AND r.binding_version=b.binding_version AND r.binding_hash=b.binding_hash
+    AND r.worker_sha256=plan#>>'{candidate,workerSha256}' AND r.runtime_sha256=plan#>>'{candidate,runtimeSha256}'
+    AND r.acknowledged_sent=c.sent AND r.acknowledged_subscriber_id=c.last_subscriber_id
+    AND c.sent>0 AND c.last_subscriber_id>0 AND c.started_at IS NOT NULL AND isfinite(c.started_at)
+    AND c.started_at<=at AND c.last_subscriber_id<=c.max_subscriber_id
+    AND c.sent<=c.to_send AND r.material IS NOT DISTINCT FROM crm_audience_v2.regular_delivery_material(cid);
+  IF EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d WHERE d.flow='campaign'
+    AND d.piece='audience-regular-v1:'||cid::text AND (
+     d.brand IS DISTINCT FROM brand OR d.transport_state IS DISTINCT FROM 'accepted' OR d.is_test IS DISTINCT FROM false
+     OR d.accepted_at IS NULL OR NOT isfinite(d.accepted_at) OR d.accepted_at>at
+     OR d.outcome_at IS NULL OR NOT isfinite(d.outcome_at) OR d.outcome_at>at
+     OR d.claim_token IS NULL OR d.error_code IS NOT NULL
+     OR jsonb_typeof(d.dedupe_key::jsonb) IS DISTINCT FROM 'array' OR jsonb_array_length(d.dedupe_key::jsonb)<>3
+     OR (d.dedupe_key::jsonb->>0)::integer IS DISTINCT FROM cid
+     OR (d.dedupe_key::jsonb->>1)::integer IS DISTINCT FROM binding_version
+     OR (d.dedupe_key::jsonb->>2)::integer NOT BETWEEN 1 AND progress_cursor
+     OR d.dedupe_key IS DISTINCT FROM jsonb_build_array(cid,binding_version,(d.dedupe_key::jsonb->>2)::integer)::text)) THEN
+   RAISE EXCEPTION 'ACCEPTED_RESUME_LEDGER_REFUSED'; END IF;
+  SELECT count(*)::integer,count(DISTINCT (d.dedupe_key::jsonb->>2)::integer)::integer,
+    max((d.dedupe_key::jsonb->>2)::integer) INTO ledger_count,ledger_distinct,ledger_max
+   FROM public.shrigma_email_dispatch d WHERE d.flow='campaign' AND d.piece='audience-regular-v1:'||cid::text;
+  IF ledger_count IS DISTINCT FROM progress_sent OR ledger_distinct IS DISTINCT FROM progress_sent
+    OR ledger_max IS NULL OR ledger_max>progress_cursor THEN RAISE EXCEPTION 'ACCEPTED_RESUME_PROGRESS_REFUSED'; END IF;
+ END LOOP;
+ IF EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d WHERE d.flow='campaign' AND d.brand='fish' AND d.transport_state IN('in_flight','outcome_unknown') AND NOT(d.dispatch_id='0d8c77b2-18e7-474f-b9b7-bbfc733bac2f'::uuid AND d.piece='audience-regular-v1:174' AND d.transport_state='outcome_unknown')) THEN RAISE EXCEPTION 'ACCEPTED_RESUME_RECONCILIATION_REQUIRED'; END IF;
+ IF EXISTS(SELECT 1 FROM public.campaigns WHERE id IN(175,176,177) AND status::text='running') THEN RAISE EXCEPTION 'ACCEPTED_RESUME_ARISTO_ACTIVE_REFUSED'; END IF;
+
+ -- Held174 remains entirely immutable; validate exact current503 + original uncertain identity.
+ IF NOT EXISTS(SELECT 1 FROM public.campaigns c JOIN crm_audience_v2.regular_delivery_campaign r ON r.campaign_id=c.id
+  JOIN LATERAL crm_audience_v2.campaign_binding_effective(c.id) b ON true
+  WHERE c.id=174 AND c.status::text='paused' AND c.type::text='regular' AND c.messenger='email'
+   AND c.attribs#>>'{crm,policy}'='crm-campaign-v1' AND c.attribs#>>'{crm,brand}'='fish' AND b.brand='fish'
+   AND c.sent=503 AND c.last_subscriber_id=139873 AND c.started_at IS NOT NULL AND isfinite(c.started_at) AND c.started_at<=at
+   AND c.sent<=c.to_send AND c.last_subscriber_id<=c.max_subscriber_id
+   AND r.enabled AND r.suspended AND r.acknowledged_sent=503 AND r.acknowledged_subscriber_id=139873
+   AND r.binding_version=b.binding_version AND r.binding_hash=b.binding_hash
+   AND r.worker_sha256=plan#>>'{candidate,workerSha256}' AND r.runtime_sha256=plan#>>'{candidate,runtimeSha256}'
+   AND r.material IS NOT DISTINCT FROM crm_audience_v2.regular_delivery_material(174)) THEN RAISE EXCEPTION 'HELD174_CURRENT_REQUIRED'; END IF;
+ SELECT count(*) FILTER(WHERE d.transport_state='accepted')::integer,
+  count(DISTINCT (d.dedupe_key::jsonb->>2)::integer) FILTER(WHERE d.transport_state='accepted')::integer,
+  max((d.dedupe_key::jsonb->>2)::integer) FILTER(WHERE d.transport_state='accepted') INTO ledger_count,ledger_distinct,ledger_max
+ FROM public.shrigma_email_dispatch d WHERE d.flow='campaign' AND d.piece='audience-regular-v1:174';
+ IF ledger_count IS DISTINCT FROM 503 OR ledger_distinct IS DISTINCT FROM 503 OR ledger_max IS NULL OR ledger_max>139873
+ OR (SELECT count(*) FROM public.shrigma_email_dispatch WHERE flow='campaign' AND piece='audience-regular-v1:174')<>504
+ OR NOT EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d WHERE d.dispatch_id='0d8c77b2-18e7-474f-b9b7-bbfc733bac2f'::uuid AND d.brand='fish' AND d.flow='campaign' AND d.piece='audience-regular-v1:174' AND d.transport_state='outcome_unknown' AND NOT d.is_test AND d.claim_token IS NOT NULL AND d.accepted_at IS NULL)
+ OR EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d WHERE d.flow='campaign' AND d.piece='audience-regular-v1:174' AND (
+   d.brand IS DISTINCT FROM 'fish' OR d.is_test IS DISTINCT FROM false
+   OR d.transport_state NOT IN('accepted','outcome_unknown')
+   OR d.transport_state='outcome_unknown' AND d.dispatch_id<>'0d8c77b2-18e7-474f-b9b7-bbfc733bac2f'::uuid
+   OR d.transport_state='accepted' AND (d.accepted_at IS NULL OR NOT isfinite(d.accepted_at) OR d.accepted_at>at OR d.outcome_at IS NULL OR NOT isfinite(d.outcome_at) OR d.outcome_at>at OR d.claim_token IS NULL OR d.error_code IS NOT NULL)
+   OR jsonb_typeof(d.dedupe_key::jsonb) IS DISTINCT FROM 'array' OR jsonb_array_length(d.dedupe_key::jsonb)<>3
+   OR (d.dedupe_key::jsonb->>0)::integer IS DISTINCT FROM 174
+   OR (d.dedupe_key::jsonb->>1)::integer IS DISTINCT FROM (SELECT b.binding_version FROM crm_audience_v2.campaign_binding_effective(174) b)
+   OR (d.dedupe_key::jsonb->>2)::integer<1
+   OR d.transport_state='accepted' AND (d.dedupe_key::jsonb->>2)::integer>139873
+   OR d.dedupe_key IS DISTINCT FROM jsonb_build_array(174,(d.dedupe_key::jsonb->>1)::integer,(d.dedupe_key::jsonb->>2)::integer)::text
+ )) THEN RAISE EXCEPTION 'HELD174_LEDGER_REQUIRED'; END IF;
+ IF (SELECT array_agg(status::text ORDER BY id) FROM public.campaigns WHERE id IN(175,176,177)) IS DISTINCT FROM ARRAY['finished','draft','draft'] THEN RAISE EXCEPTION 'HELD171_ARISTO_PRIORITY'; END IF;
+ ctx:=crm_audience_v2.selection_worker_context(chosen);
+ IF ctx IS NULL OR ctx->'bound' IS DISTINCT FROM 'true'::jsonb THEN RAISE EXCEPTION 'ACCEPTED_RESUME_CONTEXT_REQUIRED'; END IF;
+ target:=before_state;
+ UPDATE crm_audience_v2.regular_delivery_campaign SET suspended=false WHERE campaign_id=chosen AND suspended;
+ GET DIAGNOSTICS changed=ROW_COUNT;IF changed<>1 THEN RAISE EXCEPTION 'ACCEPTED_RESUME_CONTROL_CARDINALITY'; END IF;
+ UPDATE public.campaigns SET status='scheduled' WHERE id=chosen AND status::text='paused';
+ GET DIAGNOSTICS changed=ROW_COUNT;IF changed<>1 THEN RAISE EXCEPTION 'ACCEPTED_RESUME_CAMPAIGN_CARDINALITY'; END IF;
+ IF ctx IS DISTINCT FROM crm_audience_v2.selection_worker_context(chosen)
+ OR (SELECT expires_at<=clock_timestamp() OR suspended FROM crm_audience_v2.regular_worker_lease WHERE singleton) IS DISTINCT FROM false THEN
+  RAISE EXCEPTION 'ACCEPTED_RESUME_FINAL_CURRENT_DRIFT'; END IF;
+ SELECT jsonb_agg(c||CASE WHEN (c->>'campaign_id')::integer=chosen THEN jsonb_build_object('suspended',false)
+    ELSE '{}'::jsonb END ORDER BY (c->>'campaign_id')::integer) INTO item FROM jsonb_array_elements(target->'controls') c;
+ target:=jsonb_set(target,'{controls}',item);
+ SELECT jsonb_agg(c||CASE WHEN (c->>'id')::integer=chosen THEN jsonb_build_object('status','scheduled')
+    ELSE '{}'::jsonb END ORDER BY (c->>'id')::integer) INTO item FROM jsonb_array_elements(target->'campaigns') c;
+ target:=jsonb_set(target,'{campaigns}',item);
+ __SNAPSHOT_SELECT__ INTO after_state;
+ IF after_state IS DISTINCT FROM target THEN RAISE EXCEPTION 'ACCEPTED_RESUME_POSTSTATE_DRIFT'; END IF;
+END $accepted_resume$;

@@ -1,0 +1,25 @@
+{
+  "schema": "guarded-smtp-diagnostic-focal-assets-v1",
+  "files": {
+    "tools/listmonk-regular-build/overlay/smtppool/guarded.go": {
+      "bytes": 10748,
+      "sha256": "58d80921e19358e02cf7edb939c2a09a95e2ce1c785203cb5617005f5554ea92"
+    },
+    "tools/listmonk-regular-build/overlay/smtppool/guardedproof/diagnostics_test.go": {
+      "bytes": 7353,
+      "sha256": "2075e60084ea3de4682914a0417172b6c10e0f7fcce839b963b855eba4d446ba"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_delivery.go": {
+      "bytes": 24112,
+      "sha256": "a7acf51047320c05dee217f2704813b58b9a8d17bbca12a8d23b6ac1a0ea3e80"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_smtp_diagnostic_test.go": {
+      "bytes": 2520,
+      "sha256": "df8801ee610b44817b64a54a940affdee9537ad6c1adc636908cbf838fba7d58"
+    },
+    "tools/listmonk-regular-build/overlay/email/regular_guarded.go": {
+      "bytes": 4852,
+      "sha256": "d56f11cf642cd98c3a8bda6e691b1fe0a57400c21bde4ab2aca1e3e6e962faa2"
+    }
+  }
+}

@@ -1,0 +1,111 @@
+name: Guarded runtime handoff native source proof
+on:
+  pull_request:
+    paths:
+      - 'tests/guarded-runtime-handoff/**'
+      - '.github/workflows/guarded-runtime-handoff-native-proof.yml'
+permissions:
+  contents: read
+jobs:
+  native-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      fixture:
+        image: postgres:17.10
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: listmonk
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - '127.0.0.1:55432:5432'
+        options: >-
+          --health-cmd "pg_isready -U postgres -d listmonk"
+          --health-interval 1s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Copy only exact public HEAD into isolated fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          id -u 1000
+          fixture_root="$(mktemp -d /tmp/shrigma-guarded-handoff-ci.XXXXXXXX)"
+          mkdir "$fixture_root/tools" "$fixture_root/proof" "$fixture_root/source"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git archive HEAD | tar -xf - -C "$fixture_root/source"
+          test ! -e "$fixture_root/source/.git"
+          test ! -e "$fixture_root/source/.private"
+          sudo chown -R 1000 "$fixture_root"
+          sudo chmod 755 "$fixture_root"
+          printf 'GUARDED_HANDOFF_FIXTURE_ROOT=%s\n' "$fixture_root" >> "$GITHUB_ENV"
+          sudo -u '#1000' env PATH="$PATH" npm install --prefix "$fixture_root/tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1
+          profile_sha="$(sudo -u '#1000' env PATH="$PATH" node -e 'const fs=require("node:fs"),c=require("node:crypto");process.stdout.write(c.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"))' "$fixture_root/source/crm-scheduler-batch-profile.json")"
+          test "${#profile_sha}" = 64
+          printf 'GUARDED_HANDOFF_PROFILE_SHA256=%s\n' "$profile_sha" >> "$GITHUB_ENV"
+      - name: Test inert preparation with mandatory CURRENT hooks
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GUARDED_HANDOFF_FIXTURE_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" node --test tests/guarded-runtime-handoff/preparation.test.cjs
+      - name: Bootstrap existing public official fixture without worker or SMTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GUARDED_HANDOFF_FIXTURE_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" NODE_PATH="$GUARDED_HANDOFF_FIXTURE_ROOT/tools/node_modules" CRM_AUDIENCE_TEST_ISOLATED=1 REGULAR_NATIVE_PROOF_ISOLATED=1 GUARDED_HANDOFF_PROFILE_SHA256="$GUARDED_HANDOFF_PROFILE_SHA256" TEST_DATABASE_URL='postgresql://postgres@127.0.0.1:55432/listmonk' node tests/guarded-runtime-handoff/bootstrap.cjs
+      - name: Verify switch heartbeat own return and held refusal in real PG
+        id: native
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GUARDED_HANDOFF_FIXTURE_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" NODE_PATH="$GUARDED_HANDOFF_FIXTURE_ROOT/tools/node_modules" CRM_AUDIENCE_TEST_ISOLATED=1 REGULAR_NATIVE_SOURCE_PROOF=1 GUARDED_HANDOFF_FIXTURE_ISOLATED=1 GUARDED_HANDOFF_FIXTURE_URL='postgresql://postgres@127.0.0.1:55432/listmonk' GUARDED_HANDOFF_FIXTURE_RECEIPT="$GUARDED_HANDOFF_FIXTURE_ROOT/proof/clients-receipt.json" node tests/guarded-runtime-handoff/native-proof.cjs
+      - name: Confirm disposable PostgreSQL server ended
+        id: stop
+        if: always()
+        shell: bash
+        env:
+          PG_CONTAINER: ${{ job.services.fixture.id }}
+        run: |
+          set -euo pipefail
+          test -n "$PG_CONTAINER"
+          docker stop --time 5 "$PG_CONTAINER"
+          test "$(docker inspect --format '{{.State.Running}}' "$PG_CONTAINER")" = false
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$PG_CONTAINER")" = 0
+      - name: Accept only closed synthetic proof after client and server end
+        if: ${{ success() && steps.native.outcome == 'success' && steps.stop.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u '#1000' env PATH="$PATH" GUARDED_HANDOFF_FIXTURE_ROOT="$GUARDED_HANDOFF_FIXTURE_ROOT" GUARDED_HANDOFF_PROFILE_SHA256="$GUARDED_HANDOFF_PROFILE_SHA256" node - <<'JS'
+          const fs=require('node:fs'),path=require('node:path'),a=require('node:assert/strict');
+          const dir=path.join(process.env.GUARDED_HANDOFF_FIXTURE_ROOT,'proof');
+          const r=JSON.parse(fs.readFileSync(path.join(dir,'clients-receipt.json'),'utf8'));
+          a.equal(r.ok,true);a.equal(r.caseCount,17);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);
+          a.equal(r.postgresVersion,'17.10');a.equal(r.pgVersion,'8.23.1');
+          a.equal(r.acceptedFixtureCount,518);a.equal(r.heldUnknownFixtureCount,1);
+          a.equal(r.clientEndConfirmed,true);a.equal(r.rollbackConfirmed,true);
+          a.equal(r.originalCalls,0);a.equal(r.originalWrites,0);a.equal(r.smtpCalls,0);
+          a.equal(r.nativeWorkerExecuted,false);a.equal(r.originalAuthorityAccepted,false);
+          a.equal(r.originalRuntimeMeasured,false);a.equal(r.operational,false);
+          a.equal(r.cases.length,17);a(r.cases.every(c=>c.refused===true||c.commitAcknowledged===true));
+          const accepted={...r,fixtureServerEnded:true,accepted:true,profileSha256:process.env.GUARDED_HANDOFF_PROFILE_SHA256};
+          fs.writeFileSync(path.join(dir,'accepted.json'),JSON.stringify(accepted,null,2)+'\n',{flag:'wx',mode:0o644});
+          fs.chmodSync(path.join(dir,'accepted.json'),0o644);
+          console.log(JSON.stringify({schema:accepted.schema,accepted:true,caseCount:17,clientEndConfirmed:true,fixtureServerEnded:true,originalCalls:0,operational:false}));
+          JS
+      - name: Upload only closed public synthetic receipt
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: guarded-runtime-handoff-native-source-proof
+          path: ${{ env.GUARDED_HANDOFF_FIXTURE_ROOT }}/proof/accepted.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

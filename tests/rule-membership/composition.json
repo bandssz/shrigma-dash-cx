@@ -1,0 +1,545 @@
+{
+  "schema": "shrigma-composed-scanner-public-fixture-v1",
+  "sourceRef": "a908beed2860fb90a1b3891f85e64cbc8040ab22",
+  "functions": [
+    {
+      "name": "crm_audience_v2.selection_canonical",
+      "definition": "CREATE FUNCTION crm_audience_v2.selection_canonical(v jsonb, depth integer DEFAULT 0)\nRETURNS text LANGUAGE plpgsql IMMUTABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\nDECLARE out text; k text; x jsonb; parts text[]:=ARRAY[]::text[];\nBEGIN\n IF v IS NULL OR depth>12 OR octet_length(v::text)>64000 THEN RETURN NULL; END IF;\n CASE jsonb_typeof(v)\n WHEN 'object' THEN\n  FOR k,x IN SELECT key,value FROM jsonb_each(v) ORDER BY key COLLATE \"C\" LOOP\n   IF k !~ '^[a-z_]+$' THEN RETURN NULL; END IF;\n   out:=crm_audience_v2.selection_canonical(x,depth+1); IF out IS NULL THEN RETURN NULL; END IF;\n   parts:=array_append(parts,to_jsonb(k)::text||':'||out);\n  END LOOP;\n  RETURN '{'||array_to_string(parts,',')||'}';\n WHEN 'array' THEN\n  FOR x IN SELECT value FROM jsonb_array_elements(v) LOOP\n   out:=crm_audience_v2.selection_canonical(x,depth+1); IF out IS NULL THEN RETURN NULL; END IF;\n   parts:=array_append(parts,out);\n  END LOOP;\n  RETURN '['||array_to_string(parts,',')||']';\n WHEN 'number' THEN\n  IF v::text !~ '^(0|[1-9][0-9]*)$' THEN RETURN NULL; END IF;\n  RETURN v::text;\n WHEN 'string','boolean','null' THEN RETURN v::text;\n ELSE RETURN NULL;\n END CASE;\nEND $fn$;",
+      "bodySha256": "c4117375149ee494cee8f2c3e04f4325693ba2112e56bec904dab115442aac31",
+      "bodyBytes": 996,
+      "path": "codigo-vigente/tests/scheduler-state-read-native/sql.test.cjs",
+      "line": 63
+    },
+    {
+      "name": "crm_audience_v2.selection_utf16_length",
+      "definition": "CREATE FUNCTION crm_audience_v2.selection_utf16_length(v text) RETURNS integer\nLANGUAGE sql IMMUTABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n SELECT length(v)+length(regexp_replace(v,'[^'||chr(65536)||'-'||chr(1114111)||']','','g'))\n$fn$;",
+      "bodySha256": "10eb0603c61421438ff34ee16db8c81c7a5bd77dfae031286eb4f69043d4f35e",
+      "bodyBytes": 93,
+      "path": "codigo-vigente/tests/scheduler-state-read-native/sql.test.cjs",
+      "line": 63
+    },
+    {
+      "name": "crm_audience_v2.selection_engagement_source_hash",
+      "definition": "CREATE FUNCTION crm_audience_v2.selection_engagement_source_hash(brand text,field text) RETURNS text\nLANGUAGE sql IMMUTABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n SELECT CASE brand||':'||field\n  WHEN 'fish:email.opened' THEN 'b9ec8cdafb47449f8001b1354cbef3e59db236fd91c9e6db3d817cdf8a6dd3f5'\n  WHEN 'fish:email.clicked' THEN '640a55ed1c7bea3a7d7ee7b7ff0e2e2a250fa78af1018dedadd53cdf1dfc602d'\n  WHEN 'aristo:email.opened' THEN '090e2d886df88c1137c54bbe245006533f9ed4b01b25ef1e00f1ca5907c275a2'\n  WHEN 'aristo:email.clicked' THEN '59a67dadaa030a2cfb2a140e217ca0cface5b511dd385ac0a797db6dcee95572'\n END\n$fn$;",
+      "bodySha256": "92ecbbf7a7368a23de29a8a6e0018090ce97ee82ff3d889f415aae7926aae0fd",
+      "bodyBytes": 439,
+      "path": "codigo-vigente/tests/scheduler-state-read-native/sql.test.cjs",
+      "line": 63
+    },
+    {
+      "name": "crm_audience_v2.campaign_binding_effective",
+      "definition": "CREATE FUNCTION crm_audience_v2.campaign_binding_effective(cid integer)\n RETURNS SETOF crm_audience_v2.campaign_binding LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n  SELECT b.* FROM crm_audience_v2.campaign_binding b WHERE b.campaign_id=cid\n   AND NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_release r\n    WHERE r.campaign_id=b.campaign_id AND r.binding_version=b.binding_version AND r.binding_hash=b.binding_hash)\n $fn$;",
+      "bodySha256": "7f248f14271e9c6bddd5b7252f6eacfbc4ca621f92075f001a85dfa209193dea",
+      "bodyBytes": 267,
+      "path": "codigo-vigente/tests/scheduler-state-read-native/sql.test.cjs",
+      "line": 63
+    },
+    {
+      "name": "public.shrigma_campaign_list_brand",
+      "definition": "CREATE OR REPLACE FUNCTION public.shrigma_campaign_list_brand(l public.lists) RETURNS text\nLANGUAGE sql STABLE AS $$\n SELECT CASE\n WHEN coalesce(l.tags,'{}') && ARRAY['cross','aposentada','olivas']::varchar[] THEN NULL\n WHEN (coalesce(l.tags,'{}') && ARRAY['aristo','aristocrata']::varchar[] OR l.id=16)\n  AND NOT (coalesce(l.tags,'{}') && ARRAY['fish','fishermans']::varchar[] OR l.id=17) THEN 'aristo'\n WHEN (coalesce(l.tags,'{}') && ARRAY['fish','fishermans']::varchar[] OR l.id=17)\n  AND NOT (coalesce(l.tags,'{}') && ARRAY['aristo','aristocrata']::varchar[] OR l.id=16) THEN 'fish'\n ELSE NULL END\n$$;",
+      "bodySha256": "abe40c47221a72e26b885d0f3cd1adb2544320d845de10f22dd05327b0dd4fc6",
+      "bodyBytes": 486,
+      "path": "codigo-vigente/tests/scheduler-state-read-native/sql.test.cjs",
+      "line": 63
+    },
+    {
+      "name": "crm_audience_v2.selection_hash",
+      "definition": "CREATE FUNCTION crm_audience_v2.selection_hash(v jsonb) RETURNS text\nLANGUAGE sql IMMUTABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n SELECT encode(sha256(convert_to(crm_audience_v2.selection_canonical(v),'UTF8')),'hex')\n$fn$;",
+      "bodySha256": "089240bb4297eca50e831aa3e799f7d6985625d63b9a760faa2b739205cb2da2",
+      "bodyBytes": 89,
+      "path": "codigo-vigente/tests/scheduler-state-read-native/sql.test.cjs",
+      "line": 63
+    },
+    {
+      "name": "crm_audience_v2.selection_catalog_valid",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.selection_catalog_valid(raw jsonb,brand text) RETURNS boolean\nLANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\nDECLARE x jsonb; seen text[]:=ARRAY[]::text[];\nBEGIN\n IF jsonb_typeof(raw) IS DISTINCT FROM 'object'\n  OR NOT(raw ?& ARRAY['currency','timezone','shop_id','fields','products','origins'])\n  OR raw-'currency'-'timezone'-'shop_id'-'fields'-'products'-'origins'-'recorded_origins'<>'{}'::jsonb THEN RETURN false; END IF;\n IF raw->'currency'<>'null'::jsonb AND (jsonb_typeof(raw->'currency')<>'string' OR raw->>'currency' !~ '^[A-Z]{3}$') THEN RETURN false; END IF;\n IF raw->'shop_id'<>'null'::jsonb AND (jsonb_typeof(raw->'shop_id')<>'string' OR raw->>'shop_id' !~ '^gid://shopify/Shop/[1-9][0-9]{0,19}$') THEN RETURN false; END IF;\n IF raw->'timezone'<>'null'::jsonb AND (jsonb_typeof(raw->'timezone')<>'string'\n  OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.selection_timezone WHERE name=raw->>'timezone')) THEN RETURN false; END IF;\n IF jsonb_typeof(raw->'fields')<>'array' OR jsonb_typeof(raw->'products')<>'array' OR jsonb_typeof(raw->'origins')<>'array' THEN RETURN false; END IF;\n IF jsonb_array_length(raw->'fields')>8 OR jsonb_array_length(raw->'products')>1000 OR jsonb_array_length(raw->'origins')>3 THEN RETURN false; END IF;\n FOR x IN SELECT value FROM jsonb_array_elements(raw->'fields') LOOP\n  IF jsonb_typeof(x) IS DISTINCT FROM 'object' OR NOT(x ?& ARRAY['key','available','source_hash']) OR x-'key'-'available'-'source_hash'<>'{}'::jsonb\n   OR x->>'key' NOT IN('purchase.count','purchase.last_date','purchase.amount','purchase.product','signup.origin','signup.recorded_origin','email.opened','email.clicked')\n   OR jsonb_typeof(x->'key')<>'string' OR (x->>'key')=ANY(seen) OR jsonb_typeof(x->'available')<>'boolean'\n   OR (x->'source_hash'<>'null'::jsonb AND (jsonb_typeof(x->'source_hash')<>'string' OR x->>'source_hash' !~ '^[0-9a-f]{64}$'))\n   OR (x->'available'='true'::jsonb AND x->'source_hash'='null'::jsonb) THEN RETURN false; END IF;\n  seen:=array_append(seen,x->>'key');\n END LOOP;\n seen:=ARRAY[]::text[];\n FOR x IN SELECT value FROM jsonb_array_elements(raw->'products') LOOP\n  IF jsonb_typeof(x) IS DISTINCT FROM 'object' OR NOT(x ?& ARRAY['id','brand','name','available']) OR x-'id'-'brand'-'name'-'available'<>'{}'::jsonb\n   OR x->>'brand' IS DISTINCT FROM brand OR jsonb_typeof(x->'id')<>'string' OR x->>'id' !~ '^gid://shopify/Product/[1-9][0-9]{0,19}$'\n   OR (x->>'id')=ANY(seen) OR jsonb_typeof(x->'name')<>'string' OR crm_audience_v2.selection_utf16_length(x->>'name')>500 OR jsonb_typeof(x->'available')<>'boolean' THEN RETURN false; END IF;\n  seen:=array_append(seen,x->>'id');\n END LOOP;\n seen:=ARRAY[]::text[];\n FOR x IN SELECT value FROM jsonb_array_elements(raw->'origins') LOOP\n  IF jsonb_typeof(x) IS DISTINCT FROM 'object' OR NOT(x ?& ARRAY['key','brand','name','available','provenance_hash']) OR x-'key'-'brand'-'name'-'available'-'provenance_hash'<>'{}'::jsonb\n   OR x->>'brand' IS DISTINCT FROM brand OR jsonb_typeof(x->'key')<>'string' OR x->>'key' NOT IN('popup','vip_alma','vip_desodorante')\n   OR (x->>'key')=ANY(seen) OR jsonb_typeof(x->'name')<>'string' OR crm_audience_v2.selection_utf16_length(x->>'name')>500 OR jsonb_typeof(x->'available')<>'boolean'\n   OR (x->'provenance_hash'<>'null'::jsonb AND (jsonb_typeof(x->'provenance_hash')<>'string' OR x->>'provenance_hash' !~ '^[0-9a-f]{64}$'))\n   OR (x->'available'='true'::jsonb AND x->'provenance_hash'='null'::jsonb) THEN RETURN false; END IF;\n  seen:=array_append(seen,x->>'key');\n END LOOP;\n seen:=ARRAY[]::text[];\n IF raw ? 'recorded_origins' THEN\n  IF jsonb_typeof(raw->'recorded_origins') IS DISTINCT FROM 'array' OR jsonb_array_length(raw->'recorded_origins')>2 THEN RETURN false; END IF;\n  FOR x IN SELECT value FROM jsonb_array_elements(raw->'recorded_origins') LOOP\n   IF jsonb_typeof(x) IS DISTINCT FROM 'object'\n    OR NOT(x ?& ARRAY['key','brand','name','available','scope_id','producer_id','producer_revision','coverage_started_at','provenance_hash'])\n    OR x-'key'-'brand'-'name'-'available'-'scope_id'-'producer_id'-'producer_revision'-'coverage_started_at'-'provenance_hash'<>'{}'::jsonb\n    OR brand<>'aristo' OR x->>'brand' IS DISTINCT FROM brand OR x->>'key' NOT IN('vip_alma','vip_desodorante')\n    OR jsonb_typeof(x->'key')<>'string' OR (x->>'key')=ANY(seen)\n    OR jsonb_typeof(x->'name')<>'string' OR crm_audience_v2.selection_utf16_length(x->>'name') NOT BETWEEN 1 AND 500 OR x->>'name' ~ '[[:cntrl:]]'\n    OR jsonb_typeof(x->'available')<>'boolean' OR jsonb_typeof(x->'scope_id')<>'string' OR x->>'scope_id' !~ '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'\n    OR x->>'producer_id' IS DISTINCT FROM (CASE x->>'key' WHEN 'vip_alma' THEN 'NAmTWZ7vddQ8LX1k' WHEN 'vip_desodorante' THEN 'ywJDsgBDhZOBgoxb' END)\n    OR jsonb_typeof(x->'producer_revision')<>'string' OR x->>'producer_revision' !~ '^[a-f0-9]{64}$'\n    OR jsonb_typeof(x->'coverage_started_at')<>'string' OR x->>'coverage_started_at' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$'\n    OR to_char((x->>'coverage_started_at')::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') IS DISTINCT FROM x->>'coverage_started_at'\n    OR jsonb_typeof(x->'provenance_hash')<>'string' OR x->>'provenance_hash' !~ '^[a-f0-9]{64}$'\n    OR x->>'provenance_hash' IS DISTINCT FROM crm_audience_v2.selection_hash(jsonb_build_object(\n     'contract','crm-recorded-origin-exists-v1','brand',brand,'origin',x->>'key','scope_id',x->>'scope_id',\n     'producer_id',x->>'producer_id','producer_revision',x->>'producer_revision','coverage_started_at',x->>'coverage_started_at')) THEN RETURN false; END IF;\n   seen:=array_append(seen,x->>'key');\n  END LOOP;\n END IF;\n RETURN true;\nEXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow THEN RETURN false;\nEND $fn$;",
+      "bodySha256": "e152a94e429de85ebbc5ed9ee33828e0830d3f632a34df65937e0a22fd0b61b0",
+      "bodyBytes": 5690,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-recorded-origin.sql",
+      "line": 98
+    },
+    {
+      "name": "crm_audience_v2.selection_lists_valid",
+      "definition": "CREATE FUNCTION crm_audience_v2.selection_lists_valid(brand text) RETURNS boolean\nLANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n WITH rows AS MATERIALIZED (\n  SELECT l.id,l.name FROM public.lists l WHERE public.shrigma_campaign_list_brand(l)=brand LIMIT 1001\n ) SELECT count(*)<=1000 AND coalesce(bool_and(coalesce(id>0 AND name IS NOT NULL\n  AND crm_audience_v2.selection_utf16_length(name)<=500,false)),false) FROM rows\n$fn$;",
+      "bodySha256": "4880a6776dc0ea91d00812ab137179935978b4516134ad5e39e91bd281904608",
+      "bodyBytes": 295,
+      "path": "codigo-vigente/tests/scheduler-state-read-native/sql.test.cjs",
+      "line": 63
+    },
+    {
+      "name": "crm_audience_v2.selection_engagement_match",
+      "definition": "CREATE FUNCTION crm_audience_v2.selection_engagement_match(rule jsonb,sid integer,brand text) RETURNS boolean\nLANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\nDECLARE matched boolean; days integer; cutoff timestamptz;\nBEGIN\n IF jsonb_typeof(rule) IS DISTINCT FROM 'object' OR rule->>'op' IS DISTINCT FROM 'condition'\n  OR NOT(rule ?& ARRAY['op','field','operator','value']) OR rule-'op'-'field'-'operator'-'value'<>'{}'::jsonb\n  OR jsonb_typeof(rule->'field') IS DISTINCT FROM 'string' OR jsonb_typeof(rule->'operator') IS DISTINCT FROM 'string'\n  OR rule->>'field' NOT IN('email.opened','email.clicked')\n  OR rule->>'operator' NOT IN('within_last_days','not_within_last_days')\n  OR jsonb_typeof(rule->'value') IS DISTINCT FROM 'number' OR rule->>'value' !~ '^[1-9][0-9]{0,3}$'\n  OR (rule->>'value')::numeric>3650 OR brand IS NULL OR brand NOT IN('fish','aristo') THEN RETURN NULL; END IF;\n days:=(rule->>'value')::integer;\n cutoff:=statement_timestamp()-(days::double precision*86400*interval '1 second');\n IF rule->>'field'='email.opened' THEN\n  SELECT EXISTS(SELECT 1 FROM public.campaign_views ev JOIN public.campaigns ec ON ec.id=ev.campaign_id\n   WHERE ev.subscriber_id=sid AND ec.attribs#>>'{crm,policy}'='crm-campaign-v1' AND ec.attribs#>>'{crm,brand}'=brand\n    AND ec.messenger::text='email' AND ec.type::text='regular'\n    AND ev.created_at>=cutoff AND ev.created_at<=statement_timestamp()) INTO matched;\n ELSE\n  SELECT EXISTS(SELECT 1 FROM public.link_clicks ev JOIN public.campaigns ec ON ec.id=ev.campaign_id\n   WHERE ev.subscriber_id=sid AND ec.attribs#>>'{crm,policy}'='crm-campaign-v1' AND ec.attribs#>>'{crm,brand}'=brand\n    AND ec.messenger::text='email' AND ec.type::text='regular'\n    AND ev.created_at>=cutoff AND ev.created_at<=statement_timestamp()) INTO matched;\n END IF;\n RETURN CASE WHEN rule->>'operator'='within_last_days' THEN matched ELSE NOT matched END;\nEND $fn$;",
+      "bodySha256": "e54a91efee63bc915c4c7510587803ab9d70df35fe6c85e631ba3066e5f7d77f",
+      "bodyBytes": 1734,
+      "path": "codigo-vigente/tests/scheduler-state-read-native/sql.test.cjs",
+      "line": 63
+    },
+    {
+      "name": "crm_audience_v2.selection_rule",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.selection_rule(rule jsonb,sid integer,brand text,depth integer DEFAULT 1,source_config jsonb DEFAULT NULL)\nRETURNS jsonb LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\nDECLARE child jsonb; result jsonb; matches boolean; nodes integer:=1;\n pins jsonb:='[]'::jsonb; selected_list_id integer; native_optin text; source_hash text;\nBEGIN\n IF depth<1 OR depth>4 OR jsonb_typeof(rule) IS DISTINCT FROM 'object' THEN RETURN NULL; END IF;\n IF rule->>'op'='confirmed' THEN\n  IF rule-'op'-'rule'<>'{}'::jsonb OR NOT(rule ?& ARRAY['op','rule']) OR NOT crm_audience_v2.shopify_rule_valid(rule->'rule') THEN RETURN NULL; END IF;\n  result:=crm_audience_v2.selection_rule(rule->'rule',sid,brand,depth+1,source_config);\n  IF result IS NULL OR (result->>'nodes')::integer+1>32 THEN RETURN NULL; END IF;\n  RETURN result||jsonb_build_object('match',coalesce((result->>'match')::boolean,false),'nodes',(result->>'nodes')::integer+1);\n END IF;\n IF rule->>'op'='in_list' THEN\n  IF rule-'op'-'list_id'<>'{}'::jsonb OR NOT(rule ?& ARRAY['op','list_id'])\n   OR jsonb_typeof(rule->'list_id') IS DISTINCT FROM 'number'\n   OR (rule->>'list_id') !~ '^[1-9][0-9]{0,9}$'\n   OR (rule->>'list_id')::numeric>2147483647 THEN RETURN NULL; END IF;\n  selected_list_id:=(rule->>'list_id')::integer;\n  SELECT l.optin::text INTO native_optin FROM public.lists l\n   WHERE l.id=selected_list_id AND l.status::text='active'\n   AND public.shrigma_campaign_list_brand(l)=brand AND l.optin::text IN('single','double');\n  IF NOT FOUND THEN RETURN NULL; END IF;\n  SELECT EXISTS(SELECT 1 FROM public.subscriber_lists sl WHERE sl.subscriber_id=sid AND sl.list_id=selected_list_id\n   AND ((native_optin='double' AND sl.status::text='confirmed')\n    OR (native_optin='single' AND sl.status::text IN('confirmed','unconfirmed')))) INTO matches;\n  RETURN jsonb_build_object('match',matches,'nodes',1,'pins',jsonb_build_array(jsonb_build_object(\n   'rule_key','{\"op\":\"in_list\",\"list_id\":'||selected_list_id||'}','list_id',selected_list_id,'optin',native_optin)));\n END IF;\n IF rule->>'op'='condition' THEN\n  -- Legacy combined callers pass no source configuration and stay list-only.\n  IF source_config IS NULL THEN RETURN NULL; END IF;\n  IF rule->>'field' IN('purchase.count','purchase.amount','purchase.last_date','purchase.product') THEN\n   RETURN crm_audience_v2.selection_shopify_rule(rule,sid,brand,source_config);\n  END IF;\n  IF rule->>'field'='signup.recorded_origin' THEN RETURN crm_audience_v2.selection_recorded_origin_rule(rule,sid,brand,source_config); END IF;\n  source_hash:=crm_audience_v2.selection_engagement_source_hash(brand,rule->>'field');\n  IF source_hash IS NULL OR (SELECT count(*) FROM jsonb_array_elements(source_config->'fields') f\n   WHERE f->>'key'=rule->>'field' AND f->'available'='true'::jsonb AND f->>'source_hash'=source_hash)<>1 THEN RETURN NULL; END IF;\n  matches:=crm_audience_v2.selection_engagement_match(rule,sid,brand);\n  IF matches IS NULL THEN RETURN NULL; END IF;\n  RETURN jsonb_build_object('match',matches,'nodes',1,'pins',jsonb_build_array(jsonb_build_object(\n   'rule_key','{\"op\":\"condition\",\"field\":'||to_jsonb(rule->>'field')::text||',\"operator\":'||to_jsonb(rule->>'operator')::text||',\"value\":'||(rule->>'value')||'}',\n   'source','email','source_hash',source_hash)));\n END IF;\n IF rule->>'op' NOT IN('and','or') OR rule->>'op' IS NULL\n  OR rule-'op'-'rules'<>'{}'::jsonb OR jsonb_typeof(rule->'rules') IS DISTINCT FROM 'array' THEN RETURN NULL; END IF;\n IF jsonb_array_length(rule->'rules')<1 OR jsonb_array_length(rule->'rules')>16 THEN RETURN NULL; END IF;\n matches:=rule->>'op'='and';\n FOR child IN SELECT value FROM jsonb_array_elements(rule->'rules') LOOP\n  result:=crm_audience_v2.selection_rule(child,sid,brand,depth+1,source_config);\n  IF result IS NULL THEN RETURN NULL; END IF;\n  nodes:=nodes+(result->>'nodes')::integer; IF nodes>32 THEN RETURN NULL; END IF;\n  pins:=pins||(result->'pins');\n  IF rule->>'op'='and' THEN matches:=matches AND (result->>'match')::boolean;\n  ELSE matches:=matches OR (result->>'match')::boolean; END IF;\n END LOOP;\n RETURN jsonb_build_object('match',matches,'nodes',nodes,'pins',pins);\nEND $fn$;",
+      "bodySha256": "88290d66edd0ffaacdedaf6834c615705df70db65ccca41f69c307f738a2e1b1",
+      "bodyBytes": 3957,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-recorded-origin.sql",
+      "line": 160
+    },
+    {
+      "name": "crm_audience_v2.selection_context",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.selection_context(cid integer,expected_query_sha256 text,native_engagement boolean DEFAULT false) RETURNS jsonb\nLANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\nDECLARE b crm_audience_v2.campaign_binding%ROWTYPE; r crm_audience_v2.revision%ROWTYPE;\n c crm_audience_v2.config%ROWTYPE; result jsonb; base_result jsonb; current_context jsonb;\n current_pins jsonb; seen_at timestamptz:=statement_timestamp();\nBEGIN\n SELECT * INTO b FROM crm_audience_v2.campaign_binding_effective(cid);\n IF NOT FOUND THEN RETURN jsonb_build_object('bound',false); END IF; -- Preserve unbound native selection.\n IF NOT EXISTS(SELECT 1 FROM crm_audience_v2.selection_runtime rt WHERE rt.singleton AND rt.enabled\n  AND rt.candidate_query_sha256=expected_query_sha256\n  AND isfinite(rt.verified_at) AND rt.verified_at<=seen_at AND rt.verified_at>seen_at-interval '5 minutes') THEN RETURN NULL; END IF;\n SELECT * INTO r FROM crm_audience_v2.revision WHERE audience_id=b.audience_id AND version=b.audience_revision;\n IF NOT FOUND OR r.archived OR r.definition_hash IS DISTINCT FROM b.definition_hash OR r.context_hash IS DISTINCT FROM b.context_hash\n  OR crm_audience_v2.selection_hash(r.definition) IS DISTINCT FROM b.definition_hash\n  OR crm_audience_v2.selection_hash(r.context) IS DISTINCT FROM b.context_hash\n  OR r.definition->>'schema_version' IS DISTINCT FROM 'crm-audience-v2' OR r.definition->>'brand' IS DISTINCT FROM b.brand\n  OR r.definition-'schema_version'-'brand'-'name'-'rule'<>'{}'::jsonb\n  OR NOT(r.definition ?& ARRAY['schema_version','brand','name','rule']) THEN RETURN NULL; END IF;\n IF NOT EXISTS(SELECT 1 FROM crm_audience_v2.audience a WHERE a.id=b.audience_id AND a.brand=b.brand AND NOT a.archived) THEN RETURN NULL; END IF;\n IF b.binding->>'contract' IS DISTINCT FROM 'crm-audience-campaign-binding-v1'\n  OR b.binding->'definition' IS DISTINCT FROM r.definition OR b.binding->'context' IS DISTINCT FROM r.context\n  OR crm_audience_v2.selection_hash(b.binding) IS DISTINCT FROM b.binding_hash\n  OR b.binding->>'brand' IS DISTINCT FROM b.brand\n  OR b.binding->'campaign_id' IS DISTINCT FROM to_jsonb(b.campaign_id)\n  OR b.binding->'binding_version' IS DISTINCT FROM to_jsonb(b.binding_version)\n  OR b.binding->>'audience_id' IS DISTINCT FROM b.audience_id::text\n  OR b.binding->'audience_revision' IS DISTINCT FROM to_jsonb(b.audience_revision)\n  OR b.binding->>'definition_hash' IS DISTINCT FROM b.definition_hash\n  OR b.binding->>'context_hash' IS DISTINCT FROM b.context_hash\n  OR b.binding->'base_list_id' IS DISTINCT FROM to_jsonb(b.base_list_id)\n  OR b.binding->>'campaign_version' IS DISTINCT FROM b.campaign_version\n  OR b.binding->>'catalog_hash' IS DISTINCT FROM b.catalog_hash\n  OR b.binding->'authorizes_selection' IS DISTINCT FROM 'false'::jsonb\n  OR b.binding->'authorizes_send' IS DISTINCT FROM 'false'::jsonb THEN RETURN NULL; END IF;\n IF NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_revision h WHERE h.campaign_id=cid\n  AND h.binding_version=b.binding_version AND h.binding=b.binding AND h.binding_hash=b.binding_hash) THEN RETURN NULL; END IF;\n IF NOT EXISTS(SELECT 1 FROM public.campaigns ca WHERE ca.id=cid AND ca.type::text='regular'\n  AND ca.messenger::text='email' AND ca.attribs#>>'{crm,brand}'=b.brand) THEN RETURN NULL; END IF;\n -- Native enumeration must cover exactly the brand base, not an arbitrary\n -- native union that would silently narrow an OR audience before this filter.\n IF (SELECT array_agg(cl.list_id ORDER BY cl.list_id) FROM public.campaign_lists cl WHERE cl.campaign_id=cid)\n  IS DISTINCT FROM ARRAY[b.base_list_id] THEN RETURN NULL; END IF;\n SELECT * INTO c FROM crm_audience_v2.config WHERE brand=b.brand;\n IF NOT FOUND OR NOT c.enabled OR c.base_list_id IS DISTINCT FROM b.base_list_id OR c.catalog IS NULL\n  OR c.checked_at IS NULL OR c.expires_at IS NULL\n  OR NOT isfinite(c.checked_at) OR NOT isfinite(c.expires_at) OR c.checked_at>seen_at OR c.expires_at<=seen_at\n  OR c.expires_at>c.checked_at+interval '5 minutes'\n  OR NOT crm_audience_v2.selection_catalog_valid(c.catalog,b.brand)\n  OR NOT crm_audience_v2.selection_lists_valid(b.brand) THEN RETURN NULL; END IF;\n result:=crm_audience_v2.selection_rule(r.definition->'rule',0,b.brand,1,CASE WHEN native_engagement THEN c.catalog ELSE NULL END);\n base_result:=crm_audience_v2.selection_rule(jsonb_build_object('op','in_list','list_id',b.base_list_id),0,b.brand);\n IF result IS NULL OR base_result IS NULL THEN RETURN NULL; END IF;\n SELECT jsonb_agg(p ORDER BY (p->>'rule_key') COLLATE \"C\") INTO current_pins\n  FROM (SELECT DISTINCT value AS p FROM jsonb_array_elements(result->'pins')) q;\n current_context:=jsonb_build_object('contract','crm-audience-context-v1','hash_contract','canonical-json-sorted-keys-sha256-v1',\n  'brand',b.brand,'base',jsonb_build_object('id',b.base_list_id,'brand',b.brand,'optin',base_result#>>'{pins,0,optin}'),'rules',current_pins);\n IF current_context IS DISTINCT FROM r.context OR crm_audience_v2.selection_hash(current_context) IS DISTINCT FROM b.context_hash THEN RETURN NULL; END IF;\n RETURN jsonb_build_object('bound',true,'brand',b.brand,'base_list_id',b.base_list_id,'definition',r.definition,\n  'shopify_expires_at',CASE WHEN EXISTS(SELECT 1 FROM jsonb_array_elements(current_pins) p WHERE p->>'source'='shopify')\n   THEN crm_audience_v2.shopify_snapshot(b.brand)->'expires_at' END,\n  'list_pins',(SELECT jsonb_agg(pin) FROM jsonb_array_elements(current_pins||(base_result->'pins')) pin WHERE pin ? 'list_id'));\nEND $fn$;",
+      "bodySha256": "67d251be7cf6a241afb962bb1bfd59708e247d7ba8ba690d257f9b2da7d508cb",
+      "bodyBytes": 5308,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-shopify-selection.sql",
+      "line": 116
+    },
+    {
+      "name": "crm_audience_v2.selection_regular_rule_match",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.selection_regular_rule_match(rule jsonb,consented integer[],sid integer,brand text) RETURNS boolean\n LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n DECLARE child jsonb; matched boolean; result boolean; pin text;\n BEGIN\n  IF rule->>'op'='confirmed' THEN\n   IF rule-'op'-'rule'<>'{}'::jsonb OR NOT(rule ?& ARRAY['op','rule']) OR NOT crm_audience_v2.shopify_rule_valid(rule->'rule') THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE'; END IF;\n   SELECT field_hashes->>(rule#>>'{rule,field}') INTO pin FROM crm_audience_v2.shopify_source WHERE shopify_source.brand=selection_regular_rule_match.brand;\n   IF NOT crm_audience_v2.shopify_source_current(brand,rule#>>'{rule,field}',pin) THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE'; END IF;\n   RETURN coalesce(crm_audience_v2.shopify_customer_match(rule->'rule',sid,brand,pin),false);\n  END IF;\n  IF rule->>'op'='in_list' THEN RETURN (rule->>'list_id')::integer=ANY(consented); END IF;\n  IF rule->>'op'='condition' THEN\n   IF rule->>'field' IN('purchase.count','purchase.amount','purchase.last_date','purchase.product') THEN\n    SELECT field_hashes->>(rule->>'field') INTO pin FROM crm_audience_v2.shopify_source WHERE shopify_source.brand=selection_regular_rule_match.brand;\n    RETURN crm_audience_v2.shopify_customer_match(rule,sid,brand,pin);\n   END IF;\n   IF rule->>'field'='signup.recorded_origin' THEN\n    SELECT crm_audience_v2.recorded_origin_descriptor(s)->>'provenance_hash' INTO pin FROM crm_audience_v2.recorded_origin_source s WHERE s.brand=selection_regular_rule_match.brand AND s.canonical_origin=rule->>'value' AND s.enabled;\n    RETURN crm_audience_v2.recorded_origin_match(rule,sid,brand,pin);\n   END IF;\n   matched:=crm_audience_v2.selection_engagement_match(rule,sid,brand);\n   IF matched IS NULL THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE'; END IF;\n   RETURN matched;\n  END IF;\n  IF rule->>'op' NOT IN('and','or') OR rule->>'op' IS NULL THEN\n   RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE';\n  END IF;\n  result:=rule->>'op'='and';\n  FOR child IN SELECT value FROM jsonb_array_elements(rule->'rules') LOOP\n   matched:=crm_audience_v2.selection_regular_rule_match(child,consented,sid,brand);\n   IF rule->>'op'='and' THEN result:=result AND matched; ELSE result:=result OR matched; END IF;\n  END LOOP;\n  RETURN result;\n END $fn$;",
+      "bodySha256": "7abfd952ee9f8199b6944affbf23ec336318eba30450ee52c203aba0e3377f40",
+      "bodyBytes": 2280,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-recorded-origin.sql",
+      "line": 218
+    },
+    {
+      "name": "crm_audience_v2.selection_regular_matches",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.selection_regular_matches(ctx jsonb,sid integer) RETURNS boolean\n LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n DECLARE consented integer[]; matched boolean;\n BEGIN\n  IF ctx IS NULL THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE'; END IF;\n  IF ctx->'bound'='false'::jsonb THEN RETURN true; END IF;\n  IF ctx ? 'ab_test_id' AND NOT EXISTS(SELECT 1 FROM public.crm_ab_member_v2\n   WHERE test_id=(ctx->>'ab_test_id')::uuid AND arm=ctx->>'ab_arm' AND subscriber_id=sid AND revoked_at IS NULL) THEN RETURN false; END IF;\n  -- A real opt-out, disabled contact or expression non-match is ineligible;\n  -- source/runtime/context failure above must never be represented as zero.\n  IF NOT EXISTS(SELECT 1 FROM public.subscribers s WHERE s.id=sid AND s.status::text='enabled') THEN RETURN false; END IF;\n  SELECT coalesce(array_agg(sl.list_id),ARRAY[]::integer[]) INTO consented FROM public.subscriber_lists sl\n   WHERE sl.subscriber_id=sid AND ctx->'list_ids' @> to_jsonb(sl.list_id)\n    AND (sl.status::text='confirmed' OR (sl.status::text='unconfirmed' AND ctx->'single_list_ids' @> to_jsonb(sl.list_id)));\n  IF NOT (ctx->>'base_list_id')::integer=ANY(consented) THEN RETURN false; END IF;\n  matched:=crm_audience_v2.selection_regular_rule_match(ctx#>'{definition,rule}',consented,sid,ctx->>'brand');\n  IF matched IS NULL THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE'; END IF;\n  RETURN matched;\n END $fn$;",
+      "bodySha256": "1b6e72ea18355a74829158d7c229dd6a3f87ab3bf302220ee7d3018a8823ba33",
+      "bodyBytes": 1353,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/ab-audience-regular.sql",
+      "line": 354
+    },
+    {
+      "name": "crm_audience_v2.selection_worker_context",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.selection_worker_context(cid integer) RETURNS jsonb\n LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n DECLARE ctx jsonb;\n BEGIN\n  ctx:=crm_audience_v2.selection_context(cid,'084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d',true);\n  IF ctx IS NULL THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='SEGMENT_SELECTION_UNAVAILABLE'; END IF;\n  IF ctx->'bound'='true'::jsonb THEN\n   SELECT ctx||jsonb_build_object('list_ids',jsonb_agg(DISTINCT pin->'list_id'),\n    'single_list_ids',coalesce(jsonb_agg(DISTINCT pin->'list_id') FILTER(WHERE pin->>'optin'='single'),'[]'::jsonb))\n   INTO ctx FROM jsonb_array_elements(ctx->'list_pins') pin;\n  END IF;\n  RETURN crm_audience_v2.ab_regular_context(cid,ctx);\n END $fn$;",
+      "bodySha256": "c794db19bf9e8e030284651947510ae5c00a12647fed3ab81f8eeec50b4eb582",
+      "bodyBytes": 621,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/ab-audience-regular.sql",
+      "line": 341
+    },
+    {
+      "name": "crm_audience_v2.campaign_send_guard",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.campaign_send_guard() RETURNS trigger\n LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $fn$\n DECLARE brand text;ctl crm_audience_v2.regular_delivery_campaign%ROWTYPE;\n deployment crm_audience_v2.regular_worker_deployment%ROWTYPE;lease crm_audience_v2.regular_worker_lease%ROWTYPE;\n ctx jsonb;at timestamptz;\n progress text[]:=ARRAY['status','sent','to_send','max_subscriber_id','last_subscriber_id','started_at','updated_at'];\n BEGIN\n  SELECT b.brand INTO brand FROM crm_audience_v2.campaign_binding_effective(OLD.id) b;\n  IF NOT FOUND THEN\n   IF TG_OP='DELETE' AND EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding WHERE campaign_id=OLD.id) THEN\n    RAISE EXCEPTION 'SEGMENT_CAMPAIGN_HISTORY_RETAINED';\n   END IF;\n   IF TG_OP='DELETE' THEN RETURN OLD; END IF;RETURN NEW;\n  END IF;\n  IF TG_OP='DELETE' OR NEW.id IS DISTINCT FROM OLD.id\n   OR NEW.type::text IS DISTINCT FROM 'regular' OR NEW.messenger IS DISTINCT FROM 'email'\n   OR NEW.attribs#>>'{crm,policy}' IS DISTINCT FROM 'crm-campaign-v1'\n   OR NEW.attribs#>>'{crm,brand}' IS DISTINCT FROM brand THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_REQUIRED';\n  END IF;\n  -- Preserve draft editing under the existing campaign editor guard. A change\n  -- invalidates any previously captured material; it never refreshes approval.\n  IF OLD.status::text='draft' AND NEW.status::text='draft' THEN\n   IF NEW.sent IS DISTINCT FROM 0 OR NEW.started_at IS NOT NULL\n    OR NEW.last_subscriber_id IS DISTINCT FROM 0 THEN RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_REQUIRED'; END IF;\n   RETURN NEW;\n  END IF;\n  IF (to_jsonb(NEW)-progress) IS DISTINCT FROM (to_jsonb(OLD)-progress) THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_MATERIAL_LOCKED';\n  END IF;\n  IF OLD.status::text='draft' AND NEW.status::text='cancelled'\n   AND (to_jsonb(NEW)-ARRAY['status','updated_at'])=(to_jsonb(OLD)-ARRAY['status','updated_at'])\n   AND EXISTS(SELECT 1 FROM public.crm_ab_arm_v2 a JOIN public.crm_ab_experiment_v2 x ON x.test_id=a.test_id\n    JOIN crm_audience_v2.ab_regular_lifecycle_intent i ON i.test_id=x.test_id AND i.version=x.version\n    WHERE a.campaign_id=OLD.id AND x.state='prepared' AND i.action='cancel' AND i.created_xid=pg_current_xact_id()) THEN RETURN NEW; END IF;\n  -- Halt is always possible, including when source, lease or control is lost.\n  -- It cannot acknowledge recipients or alter count/max/start metadata.\n  IF OLD.status::text IN('scheduled','running','paused') AND NEW.status::text IN('paused','cancelled')\n   AND (to_jsonb(NEW)-ARRAY['status','updated_at'])=(to_jsonb(OLD)-ARRAY['status','updated_at']) THEN\n   UPDATE crm_audience_v2.regular_delivery_campaign SET suspended=true WHERE campaign_id=OLD.id;\n   RETURN NEW;\n  END IF;\n  SELECT * INTO ctl FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=OLD.id;\n  IF NOT FOUND OR NEW.sent IS DISTINCT FROM ctl.acknowledged_sent\n   OR NEW.last_subscriber_id IS DISTINCT FROM ctl.acknowledged_subscriber_id THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_RECEIPT_REQUIRED';\n  END IF;\n  -- Only private claim/finish/recovery can move that checkpoint. Legacy batch\n  -- and cleanup updates cannot create progress by assigning native counters.\n  -- Record completed history even after OFF/pause without creating authority.\n  IF NEW.status=OLD.status AND NEW.to_send IS NOT DISTINCT FROM OLD.to_send\n   AND NEW.max_subscriber_id IS NOT DISTINCT FROM OLD.max_subscriber_id\n   AND NEW.started_at IS NOT DISTINCT FROM OLD.started_at THEN RETURN NEW; END IF;\n  IF NOT ctl.enabled OR ctl.suspended OR ctl.material IS DISTINCT FROM crm_audience_v2.regular_delivery_material(OLD.id)\n   OR NOT EXISTS(SELECT 1 FROM crm_audience_v2.campaign_binding_effective(OLD.id) b\n    WHERE b.binding_version=ctl.binding_version AND b.binding_hash=ctl.binding_hash) THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_UNAVAILABLE';\n  END IF;\n  -- Do not acquire deployment/lease row locks after the native campaign lock.\n  -- The admission and SMTP paths own their stronger, ordered transaction locks.\n  -- This trigger checks lifecycle state; it never authorizes transport.\n  SELECT * INTO deployment FROM crm_audience_v2.regular_worker_deployment WHERE singleton;\n  SELECT * INTO lease FROM crm_audience_v2.regular_worker_lease WHERE singleton;\n  at:=clock_timestamp();\n  IF deployment.singleton IS NULL OR NOT deployment.enabled OR deployment.approved_at>at\n   OR deployment.worker_sha256 IS DISTINCT FROM ctl.worker_sha256\n   OR deployment.runtime_sha256 IS DISTINCT FROM ctl.runtime_sha256\n   OR lease.instance_id IS NULL OR lease.suspended OR lease.heartbeat_at>at OR lease.expires_at<=at\n   OR lease.worker_sha256 IS DISTINCT FROM ctl.worker_sha256 OR lease.runtime_sha256 IS DISTINCT FROM ctl.runtime_sha256\n   OR lease.database_role IS DISTINCT FROM deployment.database_role THEN\n   RAISE EXCEPTION 'SEGMENT_CAMPAIGN_WORKER_UNAVAILABLE';\n  END IF;\n  ctx:=crm_audience_v2.selection_worker_context(OLD.id);\n  IF ctx->'bound' IS DISTINCT FROM 'true'::jsonb THEN RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_UNAVAILABLE'; END IF;\n  IF OLD.status::text='draft' AND NEW.status::text='scheduled'\n   AND NEW.sent=0 AND NEW.last_subscriber_id=0 AND NEW.started_at IS NULL THEN RETURN NEW; END IF;\n  IF OLD.status::text IN('scheduled','running') AND NEW.status::text='running' AND OLD.send_at<=at THEN RETURN NEW; END IF;\n  IF OLD.status::text='paused' AND NEW.status::text='scheduled' THEN RETURN NEW; END IF;\n  IF OLD.status::text='running' AND NEW.status::text='finished' THEN\n   IF EXISTS(SELECT 1 FROM public.shrigma_email_dispatch d WHERE d.flow='campaign'\n    AND d.piece='audience-regular-v1:'||OLD.id::text AND d.transport_state IN('in_flight','outcome_unknown'))\n    OR EXISTS(SELECT 1 FROM public.subscriber_lists sl WHERE sl.list_id=(ctx->>'base_list_id')::integer\n     AND sl.subscriber_id>NEW.last_subscriber_id AND sl.subscriber_id<=NEW.max_subscriber_id\n     AND crm_audience_v2.selection_regular_matches(ctx,sl.subscriber_id)) THEN\n    RAISE EXCEPTION 'SEGMENT_CAMPAIGN_FINALIZE_UNAVAILABLE';\n   END IF;\n   RETURN NEW;\n  END IF;\n  RAISE EXCEPTION 'SEGMENT_CAMPAIGN_OPERATION_REQUIRED';\n END\n $fn$;",
+      "bodySha256": "d225ceb7b16a85adb9bc50c705ca3b584e389a1a0181fe7b694f47128292af13",
+      "bodyBytes": 6006,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/ab-audience-regular.sql",
+      "line": 894
+    },
+    {
+      "name": "crm_audience_v2.ab_regular_context",
+      "definition": "CREATE FUNCTION crm_audience_v2.ab_regular_context(cid integer,ctx jsonb) RETURNS jsonb\n LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n DECLARE p crm_audience_v2.ab_regular_pair%ROWTYPE;e public.crm_ab_experiment_v2%ROWTYPE;\n  a public.crm_ab_arm_v2%ROWTYPE;s crm_audience_v2.ab_scope%ROWTYPE;\n BEGIN\n  SELECT * INTO a FROM public.crm_ab_arm_v2 WHERE campaign_id=cid;\n  IF NOT FOUND THEN RETURN ctx; END IF;\n  SELECT * INTO s FROM crm_audience_v2.ab_scope WHERE test_id=a.test_id;\n  -- A legacy A/B campaign must never fall through to this different emitter.\n  IF NOT FOUND OR ctx->'bound' IS DISTINCT FROM 'true'::jsonb THEN\n   RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='AB_REGULAR_SCOPE_UNAVAILABLE';\n  END IF;\n  SELECT * INTO p FROM crm_audience_v2.ab_regular_pair WHERE test_id=a.test_id;\n  SELECT * INTO e FROM public.crm_ab_experiment_v2 WHERE test_id=a.test_id;\n  IF p.test_id IS NULL OR p.brand IS DISTINCT FROM ctx->>'brand' OR p.scope_hash IS DISTINCT FROM s.scope_hash\n   OR (a.arm='a' AND p.campaign_a<>cid) OR (a.arm='b' AND p.campaign_b<>cid)\n   OR NOT(e.state='scheduled' AND e.transport_bound OR e.state='prepared' AND p.admitted_xid=pg_current_xact_id())\n   OR (SELECT count(*) FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id IN(p.campaign_a,p.campaign_b) AND enabled AND NOT suspended)<>2\n   OR EXISTS(SELECT 1 FROM public.campaigns WHERE id IN(p.campaign_a,p.campaign_b) AND status::text IN('paused','cancelled'))\n   OR EXISTS(SELECT 1 FROM public.shrigma_email_dispatch WHERE flow='campaign'\n    AND piece IN('audience-regular-v1:'||p.campaign_a::text,'audience-regular-v1:'||p.campaign_b::text) AND transport_state='outcome_unknown') THEN\n   RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='AB_REGULAR_PAIR_UNAVAILABLE';\n  END IF;\n  RETURN ctx||jsonb_build_object('ab_test_id',p.test_id,'ab_arm',a.arm,'ab_scope_hash',p.scope_hash);\n END $fn$;",
+      "bodySha256": "7ea56c90843cfeb918bb6406142b9e334e4d84493a5f7e3903f1bf7df3d542a1",
+      "bodyBytes": 1744,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/ab-audience-regular.sql",
+      "line": 62
+    },
+    {
+      "name": "crm_audience_v2.selection_shopify_rule",
+      "definition": "CREATE FUNCTION crm_audience_v2.selection_shopify_rule(rule jsonb,sid integer,b text,source_config jsonb) RETURNS jsonb\nLANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\nDECLARE pin text; cfg crm_audience_v2.shopify_source%ROWTYPE; matched boolean;\nBEGIN\n IF NOT crm_audience_v2.shopify_rule_valid(rule) THEN RETURN NULL; END IF;\n pin:=crm_audience_v2.shopify_source_hash(b,rule->>'field',source_config);\n SELECT * INTO cfg FROM crm_audience_v2.shopify_source WHERE brand=b;\n IF NOT FOUND OR NOT cfg.enabled OR pin IS NULL OR cfg.field_hashes->>(rule->>'field') IS DISTINCT FROM pin\n  OR crm_audience_v2.shopify_snapshot(b)->'current' IS DISTINCT FROM 'true'::jsonb\n  OR (SELECT count(*) FROM jsonb_array_elements(source_config->'fields') f WHERE f->>'key'=rule->>'field'\n   AND f->'available'='true'::jsonb AND f->>'source_hash'=pin)<>1 THEN RETURN NULL; END IF;\n IF rule->>'field'='purchase.product' AND (SELECT count(*) FROM jsonb_array_elements(source_config->'products') p\n  WHERE p->>'id'=rule->>'value' AND p->>'brand'=b AND p->'available'='true'::jsonb)<>1 THEN RETURN NULL; END IF;\n -- sid=0 validates context only. Individual unknown facts never become false.\n matched:=CASE WHEN sid=0 THEN false ELSE crm_audience_v2.shopify_customer_match(rule,sid,b,pin) END;\n RETURN jsonb_build_object('match',matched,'nodes',1,'pins',jsonb_build_array(jsonb_build_object(\n  'rule_key','{\"op\":\"condition\",\"field\":'||to_jsonb(rule->>'field')::text||',\"operator\":'||to_jsonb(rule->>'operator')::text||',\"value\":'||(rule->'value')::text||'}',\n  'source','shopify','source_hash',pin,'shop_id',cfg.shop_id,'currency',cfg.currency,'timezone',cfg.timezone)));\nEND $fn$;",
+      "bodySha256": "7371fbd59543809aa84dae0546ba1895ef7f446d1428e074034f9b84584ae623",
+      "bodyBytes": 1485,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-shopify-selection.sql",
+      "line": 45,
+      "reconstructedV2": true
+    },
+    {
+      "name": "crm_audience_v2.shopify_source_hash",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.shopify_source_hash(b text,field text,catalog jsonb) RETURNS text\nLANGUAGE sql IMMUTABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\n SELECT CASE WHEN field='purchase.product' THEN\n CASE WHEN b IN('fish','aristo') AND catalog->>'shop_id' ~ '^gid://shopify/Shop/[1-9][0-9]{0,19}$'\n  AND catalog->>'currency' ~ '^[A-Z]{3}$' AND catalog->>'timezone'='America/Sao_Paulo' THEN\n  encode(sha256(convert_to('{\"brand\":'||to_jsonb(b)::text||',\"currency\":'||(catalog->'currency')::text||',\"field\":'||to_jsonb(field)::text||\n   ',\"semantics\":{\"api\":\"2026-07\",\"coverage\":\"complete Customer export with all accessible orders and line items; read_all_orders required; each Customer Order-node count equals Customer.numberOfOrders\",\"freshness\":\"snapshot observed during export; expires 26 hours after export start\",\"history\":\"no payment filter; quantity includes refunded and removed items; no claim about deleted orders or another Customer identity\",\"identity\":\"unique Customer GID and native subscriber UUID; no automatic reassignment\",\"negative\":\"no matching Product GID only when every line item has a resolved product\",\"positive\":\"Product GID in an Order line item with quantity greater than zero\",\"query_sha256\":\"bb89faf525f58f9c5075878888c1be6fcf4992200310a4867cdd2871fb570086\",\"version\":\"shopify-customer-products-v2\"},\"shop_id\":'||(catalog->'shop_id')::text||',\"timezone\":'||(catalog->'timezone')::text||'}','UTF8')),'hex') END\n ELSE (CASE WHEN b IN('fish','aristo') AND field IN('purchase.count','purchase.amount','purchase.last_date')\n AND catalog->>'shop_id' ~ '^gid://shopify/Shop/[1-9][0-9]{0,19}$' AND catalog->>'currency' ~ '^[A-Z]{3}$'\n AND catalog->>'timezone'='America/Sao_Paulo' THEN encode(sha256(convert_to(\n '{\"brand\":'||to_jsonb(b)::text||',\"currency\":'||(catalog->'currency')::text||',\"field\":'||to_jsonb(field)::text||\n ',\"semantics\":{\"amount\":\"Customer.amountSpent in shop currency\",\"api\":\"2026-07\",\"count\":\"Customer.numberOfOrders\",\"coverage\":\"completed reconciled customer export; missing and ambiguous identities unknown\",\"freshness\":\"snapshot observed during export; expires 26 hours after export start\",\"identity\":\"unique Customer GID and native subscriber UUID; no automatic reassignment\",\"last_date\":\"Customer.lastOrder.createdAt in shop timezone\",\"negative\":\"explicit Customer aggregate only; no claim about another Customer identity\",\"query_sha256\":\"1ca989e8c1e9f00478e3e069f70a8fe3f0a20d1fb730022cdb766bf738a65b48\",\"version\":\"shopify-customer-bulk-facts-v1\"},\"shop_id\":'||(catalog->'shop_id')::text||',\"timezone\":'||(catalog->'timezone')::text||'}','UTF8')),'hex') END) END\n$fn$;",
+      "bodySha256": "3969f07cb93f43cd3e0bb37b90df16f8e3b24fcf5fd723274bf4ef419d137a0c",
+      "bodyBytes": 2463,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-products.sql",
+      "line": 168,
+      "reconstructedV2": true
+    },
+    {
+      "name": "crm_audience_v2.shopify_source_current",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.shopify_source_current(b text,field text,pin text) RETURNS boolean\nLANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $fn$\n SELECT coalesce((SELECT s.enabled AND pin IS NOT NULL AND s.field_hashes->>field=pin\n  AND crm_audience_v2.shopify_snapshot(b)->'current'='true'::jsonb\n  AND (field<>'purchase.product' OR (s.query_sha256='bb89faf525f58f9c5075878888c1be6fcf4992200310a4867cdd2871fb570086'\n   AND EXISTS(SELECT 1 FROM crm_audience_v2.shopify_product_batch t WHERE t.brand=b AND t.operation_id=s.current_operation AND t.ready) AND crm_audience_v2.shopify_product_history_attested(b)))\n  FROM crm_audience_v2.shopify_source s WHERE s.brand=b),false)\n$fn$;",
+      "bodySha256": "c921595e1bbf4763d8186af2fddc3bfee680ecdc26882a1145bbaa1ade1c5d23",
+      "bodyBytes": 531,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-products.sql",
+      "line": 182,
+      "reconstructedV2": true
+    },
+    {
+      "name": "crm_audience_v2.shopify_rule_valid",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.shopify_rule_valid(rule jsonb) RETURNS boolean\nLANGUAGE plpgsql IMMUTABLE SECURITY INVOKER SET search_path=pg_catalog AS $fn$\nBEGIN\n IF jsonb_typeof(rule) IS DISTINCT FROM 'object' OR rule->>'op' IS DISTINCT FROM 'condition'\n  OR NOT(rule ?& ARRAY['op','field','operator','value']) OR rule-'op'-'field'-'operator'-'value'<>'{}'::jsonb THEN RETURN false; END IF;\n IF rule->>'field'='purchase.product' THEN\n  RETURN coalesce(jsonb_typeof(rule->'value')='string' AND rule->>'value' ~ '^gid://shopify/Product/[1-9][0-9]{0,19}$'\n   AND rule->>'operator' IN('purchased','not_purchased'),false);\n END IF;\n IF rule->>'field' IN('purchase.count','purchase.amount') THEN\n  IF rule->>'operator' IS NULL OR rule->>'operator' NOT IN('eq','gt','gte','lt','lte') THEN RETURN false; END IF;\n  IF rule->>'field'='purchase.count' THEN\n   RETURN jsonb_typeof(rule->'value')='number' AND rule->>'value' ~ '^(0|[1-9][0-9]{0,9})$'\n    AND (rule->>'value')::numeric<=2147483647;\n  END IF;\n  RETURN jsonb_typeof(rule->'value')='string' AND rule->>'value' ~ '^(0|[1-9][0-9]{0,11})\\.[0-9]{2}$';\n END IF;\n IF rule->>'field'='purchase.last_date' THEN\n  IF jsonb_typeof(rule->'value') IS DISTINCT FROM 'string' OR rule->>'value' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'\n   OR rule->>'value'<'2000-01-01' OR rule->>'value'>'2100-12-31' OR rule->>'operator' IS NULL\n   OR rule->>'operator' NOT IN('eq','before','on_or_before','after','on_or_after') THEN RETURN false; END IF;\n  PERFORM (rule->>'value')::date;RETURN true;\n END IF;\n RETURN false;\nEXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow OR invalid_text_representation THEN RETURN false;\nEND\n$fn$;",
+      "bodySha256": "19303a1caff1c49899e46868a1945d78e899f1ce712a0427eaa25e70c79d7d32",
+      "bodyBytes": 1503,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-products.sql",
+      "line": 191
+    },
+    {
+      "name": "crm_audience_v2.shopify_customer_match",
+      "definition": "CREATE OR REPLACE FUNCTION crm_audience_v2.shopify_customer_match(rule jsonb,sid integer,b text,pin text) RETURNS boolean\nLANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $fn$\nDECLARE cfg crm_audience_v2.shopify_source%ROWTYPE;f crm_audience_v2.shopify_customer_fact%ROWTYPE;\n value_number numeric;target_number numeric;value_date date;target_date date;product_fact crm_audience_v2.shopify_customer_product%ROWTYPE;\nBEGIN\n IF NOT crm_audience_v2.shopify_rule_valid(rule) OR sid IS NULL OR sid<1 OR b IS NULL OR b NOT IN('fish','aristo') THEN RETURN NULL; END IF;\n SELECT * INTO cfg FROM crm_audience_v2.shopify_source WHERE brand=b;\n IF NOT FOUND OR NOT cfg.enabled OR pin IS NULL OR cfg.field_hashes->>(rule->>'field') IS DISTINCT FROM pin\n  OR crm_audience_v2.shopify_snapshot(b)->'current' IS DISTINCT FROM 'true'::jsonb THEN RETURN NULL; END IF;\n SELECT x.* INTO f FROM crm_audience_v2.shopify_customer_fact x\n JOIN public.subscribers s ON s.id=x.subscriber_id AND s.uuid=x.subscriber_uuid AND lower(btrim(s.email))=x.email\n JOIN crm_audience_v2.shopify_identity i ON i.brand=x.brand AND i.customer_gid=x.customer_gid\n  AND i.subscriber_id=x.subscriber_id AND i.subscriber_uuid=x.subscriber_uuid\n WHERE x.brand=b AND x.operation_id=cfg.current_operation AND x.subscriber_id=sid AND x.identity_state='resolved';\n IF NOT FOUND THEN RETURN NULL; END IF;\n IF rule->>'field'='purchase.product' THEN\n  SELECT p.* INTO product_fact FROM crm_audience_v2.shopify_customer_product p\n  JOIN crm_audience_v2.shopify_product_batch t ON t.brand=p.brand AND t.operation_id=p.operation_id AND t.ready\n  WHERE p.brand=b AND p.operation_id=cfg.current_operation AND p.customer_gid=f.customer_gid;\n  IF NOT FOUND THEN RETURN NULL; END IF;\n  IF EXISTS(SELECT 1 FROM jsonb_array_elements(product_fact.products) p WHERE p->>'id'=rule->>'value') THEN\n   RETURN rule->>'operator'='purchased';\n  END IF;\n  IF NOT product_fact.history_complete OR (f.orders_count=0 AND (f.last_order_at IS NOT NULL OR f.amount_spent>0)) OR EXISTS(SELECT 1 FROM crm_audience_v2.shopify_product_history_gap g WHERE g.brand=product_fact.brand AND g.operation_id=product_fact.operation_id AND g.customer_gid=product_fact.customer_gid) THEN RETURN NULL; END IF;\n  RETURN rule->>'operator'='not_purchased';\n END IF;\n -- A contradictory zero cannot prove that no order exists. Historical orders\n -- may predate the surviving Customer after a merge or import.\n IF f.orders_count=0 AND (f.last_order_at IS NOT NULL OR f.amount_spent>0) THEN RETURN NULL; END IF;\n IF rule->>'field'='purchase.last_date' THEN\n  IF f.last_order_at IS NULL THEN RETURN CASE WHEN f.orders_count=0 THEN false ELSE NULL END; END IF;\n  value_date:=(f.last_order_at AT TIME ZONE cfg.timezone)::date;target_date:=(rule->>'value')::date;\n  RETURN CASE rule->>'operator' WHEN 'eq' THEN value_date=target_date WHEN 'before' THEN value_date<target_date\n   WHEN 'on_or_before' THEN value_date<=target_date WHEN 'after' THEN value_date>target_date WHEN 'on_or_after' THEN value_date>=target_date END;\n END IF;\n value_number:=CASE rule->>'field' WHEN 'purchase.count' THEN f.orders_count WHEN 'purchase.amount' THEN f.amount_spent END;\n target_number:=(rule->>'value')::numeric;\n RETURN CASE rule->>'operator' WHEN 'eq' THEN value_number=target_number WHEN 'gt' THEN value_number>target_number\n  WHEN 'gte' THEN value_number>=target_number WHEN 'lt' THEN value_number<target_number WHEN 'lte' THEN value_number<=target_number END;\nEND\n$fn$;",
+      "bodySha256": "3e0f02068d9d24653add615304a188f7f61c1e17083b15605a4ea7181b723dd1",
+      "bodyBytes": 3278,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-products.sql",
+      "line": 219,
+      "reconstructedV2": true
+    },
+    {
+      "name": "crm_audience_v2.shopify_snapshot",
+      "definition": "CREATE FUNCTION crm_audience_v2.shopify_snapshot(b text) RETURNS jsonb\nLANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $fn$\n SELECT coalesce((SELECT jsonb_build_object('current',s.enabled AND t.status='ready'\n   AND t.started_at<=statement_timestamp() AND t.observed_at<=clock_timestamp()\n   AND t.started_at+make_interval(secs=>s.max_age_seconds)>clock_timestamp()\n   AND t.provenance->>'query_sha256'=s.query_sha256 AND t.provenance->>'workflow_id'=s.workflow_id\n   AND t.provenance->>'workflow_version'=s.producer_revision\n   AND t.provenance#>>'{bulk,shop_gid}'=s.shop_id AND t.provenance->>'shop'=s.domain\n   AND t.provenance#>>'{bulk,shop_currency}'=s.currency AND t.provenance#>>'{bulk,shop_timezone}'=s.timezone,\n   'started_at',t.started_at,'observed_at',t.observed_at,\n   'expires_at',t.started_at+make_interval(secs=>s.max_age_seconds),\n   'customers',t.expected_customers,'mapped',t.mapped_customers,'unresolved',t.unresolved_customers)\n  FROM crm_audience_v2.shopify_source s JOIN crm_audience_v2.shopify_batch t ON t.brand=s.brand AND t.operation_id=s.current_operation\n  WHERE s.brand=b),jsonb_build_object('current',false))\n$fn$;",
+      "bodySha256": "a1ae92ad202a650bf9938a3090d6132bfe1917806c483af80832dedc4fa38bd1",
+      "bodyBytes": 1017,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-facts.sql",
+      "line": 249
+    },
+    {
+      "name": "crm_audience_v2.selection_recorded_origin_rule",
+      "definition": "CREATE FUNCTION crm_audience_v2.selection_recorded_origin_rule(rule jsonb,sid integer,b text,source_config jsonb) RETURNS jsonb\nLANGUAGE plpgsql STABLE SET search_path=pg_catalog AS $fn$\nDECLARE o jsonb; pin text; field_hash text; matched boolean;\nBEGIN\n IF NOT crm_audience_v2.recorded_origin_rule_valid(rule) THEN RETURN NULL; END IF;\n field_hash:=crm_audience_v2.recorded_origin_source_hash(b);\n IF field_hash IS NULL OR (SELECT count(*) FROM jsonb_array_elements(source_config->'fields') f\n  WHERE f->>'key'='signup.recorded_origin' AND f->'available'='true'::jsonb AND f->>'source_hash'=field_hash)<>1 THEN RETURN NULL; END IF;\n IF (SELECT count(*) FROM jsonb_array_elements(source_config->'recorded_origins') v\n  WHERE v->>'key'=rule->>'value' AND v->>'brand'=b AND v->'available'='true'::jsonb)<>1 THEN RETURN NULL; END IF;\n SELECT v INTO o FROM jsonb_array_elements(source_config->'recorded_origins') v WHERE v->>'key'=rule->>'value';\n pin:=o->>'provenance_hash';\n IF NOT crm_audience_v2.recorded_origin_source_current(b,rule->>'value',pin) THEN RETURN NULL; END IF;\n matched:=CASE WHEN sid=0 THEN false ELSE crm_audience_v2.recorded_origin_match(rule,sid,b,pin) END;\n RETURN jsonb_build_object('match',matched,'nodes',1,'pins',jsonb_build_array(jsonb_build_object(\n  'rule_key','{\"op\":\"condition\",\"field\":\"signup.recorded_origin\",\"operator\":\"is\",\"value\":'||to_jsonb(rule->>'value')::text||'}',\n  'source','crm','source_hash',field_hash,'recorded_origin_provenance_hash',pin)));\nEND $fn$;",
+      "bodySha256": "7af46fba5474b1643467aede40355b71425533f98a31b44e38cb883bbd804dd1",
+      "bodyBytes": 1305,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-recorded-origin.sql",
+      "line": 79
+    },
+    {
+      "name": "crm_audience_v2.recorded_origin_rule_valid",
+      "definition": "CREATE FUNCTION crm_audience_v2.recorded_origin_rule_valid(rule jsonb) RETURNS boolean\nLANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $fn$\n SELECT coalesce(jsonb_typeof(rule)='object' AND rule ?& ARRAY['op','field','operator','value']\n  AND rule-'op'-'field'-'operator'-'value'='{}'::jsonb AND rule->'op'='\"condition\"'::jsonb\n  AND rule->'field'='\"signup.recorded_origin\"'::jsonb AND rule->'operator'='\"is\"'::jsonb\n  AND rule->'value' IN ('\"vip_alma\"'::jsonb,'\"vip_desodorante\"'::jsonb),false)\n$fn$;",
+      "bodySha256": "626531ad54853ba09972102b6ca9cbd144baadddc2bfdf26c937784a6952f941",
+      "bodyBytes": 356,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-recorded-origin.sql",
+      "line": 44
+    },
+    {
+      "name": "crm_audience_v2.recorded_origin_source_hash",
+      "definition": "CREATE FUNCTION crm_audience_v2.recorded_origin_source_hash(b text) RETURNS text\nLANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $fn$\n SELECT CASE WHEN b='aristo' THEN '35f00a12cf1b7fc3df384475d42f585228fddcdc8bf317685c0569079c6197ae' END\n$fn$;",
+      "bodySha256": "9bdda4a3f211b8aa09df349c5a163016bc1f6c35ed9650b029cd9ea2eb964d97",
+      "bodyBytes": 106,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-recorded-origin.sql",
+      "line": 23
+    },
+    {
+      "name": "crm_audience_v2.recorded_origin_source_current",
+      "definition": "CREATE FUNCTION crm_audience_v2.recorded_origin_source_current(b text,origin text,pin text) RETURNS boolean\nLANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $fn$\n SELECT b='aristo' AND EXISTS(SELECT 1 FROM crm_audience_v2.recorded_origin_source s\n  WHERE s.brand=b AND s.canonical_origin=origin AND s.enabled AND isfinite(s.coverage_started_at)\n   AND s.coverage_started_at<=statement_timestamp() AND crm_audience_v2.recorded_origin_descriptor(s)->>'provenance_hash'=pin)\n$fn$;",
+      "bodySha256": "78456c787cccdc639afa32dd2e3d95ee62ad635f62da5e35a1a8b5ccdc7201d3",
+      "bodyBytes": 311,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-recorded-origin.sql",
+      "line": 38
+    },
+    {
+      "name": "crm_audience_v2.recorded_origin_descriptor",
+      "definition": "CREATE FUNCTION crm_audience_v2.recorded_origin_descriptor(s crm_audience_v2.recorded_origin_source) RETURNS jsonb\nLANGUAGE sql STABLE SET search_path=pg_catalog AS $fn$\n WITH pin AS (SELECT jsonb_build_object('contract','crm-recorded-origin-exists-v1','brand',s.brand,'origin',s.canonical_origin,\n  'scope_id',s.scope_id::text,'producer_id',s.producer_id,'producer_revision',s.producer_revision,\n  'coverage_started_at',to_char(s.coverage_started_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')) v)\n SELECT jsonb_build_object('key',s.canonical_origin,'brand',s.brand,\n  'name',CASE s.canonical_origin WHEN 'vip_alma' THEN 'VIP Alma da Roça' WHEN 'vip_desodorante' THEN 'VIP Desodorante' END,\n  'available',s.enabled AND s.coverage_started_at<=statement_timestamp(),\n  'scope_id',s.scope_id::text,'producer_id',s.producer_id,'producer_revision',s.producer_revision,\n  'coverage_started_at',pin.v->>'coverage_started_at','provenance_hash',crm_audience_v2.selection_hash(pin.v)) FROM pin\n$fn$;",
+      "bodySha256": "206f28c2ac032c0577d0e902aad52ada16553345533185523f4eed73fca3b5ad",
+      "bodyBytes": 825,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-recorded-origin.sql",
+      "line": 27
+    },
+    {
+      "name": "crm_audience_v2.recorded_origin_match",
+      "definition": "CREATE FUNCTION crm_audience_v2.recorded_origin_match(rule jsonb,sid integer,b text,pin text) RETURNS boolean\nLANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $fn$\nBEGIN\n IF NOT crm_audience_v2.recorded_origin_rule_valid(rule)\n  OR NOT crm_audience_v2.recorded_origin_source_current(b,rule->>'value',pin) THEN RETURN NULL; END IF;\n -- A removed or reassigned native UUID cannot borrow an older person's receipt.\n IF NOT EXISTS(SELECT 1 FROM public.subscribers WHERE id=sid AND uuid IS NOT NULL) THEN RETURN NULL; END IF;\n RETURN EXISTS(SELECT 1 FROM crm_audience_v2.recorded_origin_receipt r\n  JOIN crm_audience_v2.recorded_origin_source src ON src.scope_id=r.scope_id AND src.producer_id=r.producer_id\n  JOIN public.subscribers sub ON sub.id=r.subscriber_id AND sub.uuid=r.subscriber_uuid\n  WHERE src.brand=b AND src.canonical_origin=rule->>'value' AND src.enabled\n   AND crm_audience_v2.recorded_origin_descriptor(src)->>'provenance_hash'=pin\n   AND sub.id=sid AND r.accepted_at>=src.coverage_started_at AND r.accepted_at<=statement_timestamp());\nEND $fn$;",
+      "bodySha256": "72e6b8e26f9906161c09d6a597c3b06292779ec60679f270286f6dc28844e3c8",
+      "bodyBytes": 890,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-matched-a908/n8n/growth/segment-recorded-origin.sql",
+      "line": 51
+    },
+    {
+      "name": "crm_audience_v2.regular_delivery_material",
+      "definition": "CREATE FUNCTION crm_audience_v2.regular_delivery_material(cid integer) RETURNS jsonb\n LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog SET TimeZone='UTC' AS $fn$\n SELECT jsonb_build_object(\n  'campaign',to_jsonb(c)-ARRAY['status','sent','to_send','max_subscriber_id','last_subscriber_id','started_at','updated_at'],\n  'template',to_jsonb(t),\n  'lists',coalesce((SELECT jsonb_agg(jsonb_build_object('relation',to_jsonb(cl),'list',to_jsonb(l)) ORDER BY cl.list_id)\n   FROM public.campaign_lists cl LEFT JOIN public.lists l ON l.id=cl.list_id WHERE cl.campaign_id=c.id),'[]'::jsonb),\n  'media',coalesce((SELECT jsonb_agg(jsonb_build_object('relation',to_jsonb(cm),'media',to_jsonb(m)) ORDER BY cm.media_id)\n   FROM public.campaign_media cm LEFT JOIN public.media m ON m.id=cm.media_id WHERE cm.campaign_id=c.id),'[]'::jsonb))\n FROM public.campaigns c LEFT JOIN public.templates t ON t.id=c.template_id WHERE c.id=cid\n$fn$;",
+      "bodySha256": "6307e4a3e76ba69f8a2a1b248d82a547b9cc8546a2766d7d410347106aa9957d",
+      "bodyBytes": 753,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/inputs/n8n/growth/segment-regular-delivery.sql",
+      "line": 37
+    },
+    {
+      "name": "crm_audience_v2.shopify_product_history_attested",
+      "definition": "CREATE FUNCTION crm_audience_v2.shopify_product_history_attested(b text) RETURNS boolean\nLANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $fn$\n SELECT coalesce((SELECT a.source_sha256=t.provenance->>'source_sha256' AND a.query_sha256=t.provenance->>'query_sha256'\n  AND a.producer_revision=t.provenance->>'workflow_version' AND a.customer_count=(t.provenance#>>'{counts,customers}')::integer\n  AND ((a.mode='native_v2' AND a.incomplete_count=(t.provenance#>>'{counts,product_history_incomplete}')::integer)\n   OR (a.mode='derived_v1' AND a.incomplete_count=(t.provenance#>>'{counts,product_history_incomplete}')::integer+\n    (SELECT count(*) FROM crm_audience_v2.shopify_product_history_gap g WHERE g.brand=a.brand AND g.operation_id=a.operation_id)))\n  FROM crm_audience_v2.shopify_source s JOIN crm_audience_v2.shopify_product_batch t ON t.brand=s.brand AND t.operation_id=s.current_operation AND t.ready\n  JOIN crm_audience_v2.shopify_product_history_attestation a ON a.brand=t.brand AND a.operation_id=t.operation_id\n  WHERE s.brand=b AND s.enabled AND s.producer_revision=t.provenance->>'workflow_version'),false)\n$fn$;",
+      "bodySha256": "37d28c20ffd6e9ce2d1d7bb3662b3e7eb9ea967946ba686df629bddffde41b89",
+      "bodyBytes": 978,
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-validator-repair-v1/segment-shopify-product-history-completeness-v2.public.sql",
+      "line": 59,
+      "nativeBodyConfirmed": true
+    }
+  ],
+  "sourceTables": [
+    {
+      "name": "crm_audience_v2.shopify_source",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_source (\n brand text PRIMARY KEY CHECK(brand IN('fish','aristo')),\n shop_id text NOT NULL CHECK(shop_id ~ '^gid://shopify/Shop/[1-9][0-9]{0,19}$'),\n domain text NOT NULL CHECK(domain ~ '^[a-z0-9][a-z0-9-]*\\.myshopify\\.com$'),\n currency text NOT NULL CHECK(currency ~ '^[A-Z]{3}$'),\n timezone text NOT NULL CHECK(timezone='America/Sao_Paulo'),\n query_sha256 text NOT NULL CHECK(query_sha256 ~ '^[0-9a-f]{64}$'),\n workflow_id text NOT NULL CHECK(length(workflow_id) BETWEEN 1 AND 80),\n producer_revision text NOT NULL CHECK(length(producer_revision) BETWEEN 1 AND 128),\n field_hashes jsonb NOT NULL CHECK(jsonb_typeof(field_hashes)='object'),\n ingestion_enabled boolean NOT NULL DEFAULT false,\n enabled boolean NOT NULL DEFAULT false,\n current_operation text,\n max_age_seconds integer NOT NULL DEFAULT 93600 CHECK(max_age_seconds=93600)\n);",
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-facts.sql",
+      "line": 10
+    },
+    {
+      "name": "crm_audience_v2.shopify_batch",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_batch (\n brand text NOT NULL REFERENCES crm_audience_v2.shopify_source(brand),\n operation_id text NOT NULL CHECK(operation_id ~ '^gid://shopify/BulkOperation/[1-9][0-9]{0,24}$'),\n provenance jsonb NOT NULL,\n provenance_sha256 text NOT NULL CHECK(provenance_sha256 ~ '^[0-9a-f]{64}$'),\n expected_customers integer NOT NULL CHECK(expected_customers BETWEEN 0 AND 1000000),\n expected_chunks integer NOT NULL CHECK(expected_chunks BETWEEN 1 AND 200),\n started_at timestamptz NOT NULL,\n completed_at timestamptz NOT NULL,\n observed_at timestamptz NOT NULL,\n status text NOT NULL DEFAULT 'staging' CHECK(status IN('staging','ready')),\n finalized_at timestamptz,\n mapped_customers integer,\n unresolved_customers integer,\n PRIMARY KEY(brand,operation_id),\n CHECK(isfinite(started_at) AND isfinite(completed_at) AND isfinite(observed_at)\n  AND started_at<=completed_at AND completed_at<=observed_at),\n CHECK((status='staging' AND finalized_at IS NULL AND mapped_customers IS NULL AND unresolved_customers IS NULL)\n  OR (status='ready' AND finalized_at IS NOT NULL AND mapped_customers>=0 AND unresolved_customers>=0\n   AND mapped_customers+unresolved_customers=expected_customers))\n);",
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-facts.sql",
+      "line": 25
+    },
+    {
+      "name": "crm_audience_v2.shopify_chunk",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_chunk (\n brand text NOT NULL, operation_id text NOT NULL, chunk_index integer NOT NULL CHECK(chunk_index BETWEEN 0 AND 199),\n payload_sha256 text NOT NULL CHECK(payload_sha256 ~ '^[0-9a-f]{64}$'),\n customer_count integer NOT NULL CHECK(customer_count BETWEEN 0 AND 5000),\n PRIMARY KEY(brand,operation_id,chunk_index),\n FOREIGN KEY(brand,operation_id) REFERENCES crm_audience_v2.shopify_batch(brand,operation_id)\n);",
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-facts.sql",
+      "line": 46
+    },
+    {
+      "name": "crm_audience_v2.shopify_identity",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_identity (\n brand text NOT NULL REFERENCES crm_audience_v2.shopify_source(brand),\n customer_gid text NOT NULL CHECK(customer_gid ~ '^gid://shopify/Customer/[1-9][0-9]{0,24}$'),\n subscriber_id integer NOT NULL,\n subscriber_uuid uuid NOT NULL,\n email text NOT NULL,\n first_operation text NOT NULL,\n mapped_at timestamptz NOT NULL DEFAULT clock_timestamp(),\n PRIMARY KEY(brand,customer_gid),\n UNIQUE(brand,subscriber_uuid),\n CHECK(email=lower(btrim(email)) AND length(email) BETWEEN 3 AND 320)\n);",
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-facts.sql",
+      "line": 53
+    },
+    {
+      "name": "crm_audience_v2.shopify_customer_fact",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_customer_fact (\n brand text NOT NULL,operation_id text NOT NULL,customer_gid text NOT NULL,\n email text,orders_count numeric NOT NULL,amount_spent numeric NOT NULL,currency text NOT NULL,\n last_order_at timestamptz,customer_created_at timestamptz NOT NULL,customer_updated_at timestamptz NOT NULL,\n identity_ambiguous boolean NOT NULL, identity_resolvable boolean NOT NULL,\n subscriber_id integer,subscriber_uuid uuid,\n identity_state text NOT NULL DEFAULT 'pending' CHECK(identity_state IN\n  ('pending','resolved','missing_email','unsupported_email','duplicate_customer_email','missing_contact','ambiguous_contact','identity_changed')),\n PRIMARY KEY(brand,operation_id,customer_gid),\n FOREIGN KEY(brand,operation_id) REFERENCES crm_audience_v2.shopify_batch(brand,operation_id),\n CHECK(customer_gid ~ '^gid://shopify/Customer/[1-9][0-9]{0,24}$'),\n CHECK(orders_count>=0 AND orders_count<=18446744073709551615 AND scale(orders_count)=0),\n CHECK(amount_spent>=0 AND amount_spent::text !~ '[NnIi]'),\n CHECK(currency ~ '^[A-Z]{3}$'),\n CHECK((identity_state='resolved' AND subscriber_id IS NOT NULL AND subscriber_uuid IS NOT NULL)\n  OR (identity_state<>'resolved' AND subscriber_id IS NULL AND subscriber_uuid IS NULL))\n);",
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-facts.sql",
+      "line": 67
+    },
+    {
+      "name": "crm_audience_v2.shopify_product_batch",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_product_batch (\n brand text NOT NULL, operation_id text NOT NULL, provenance jsonb NOT NULL,\n provenance_sha256 text NOT NULL CHECK(provenance_sha256 ~ '^[a-f0-9]{64}$'),\n ready boolean NOT NULL DEFAULT false,\n catalog_products jsonb NOT NULL DEFAULT '[]'::jsonb CHECK(jsonb_typeof(catalog_products)='array'),\n PRIMARY KEY(brand,operation_id),\n FOREIGN KEY(brand,operation_id) REFERENCES crm_audience_v2.shopify_batch(brand,operation_id)\n);",
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-products.sql",
+      "line": 22
+    },
+    {
+      "name": "crm_audience_v2.shopify_customer_product",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_customer_product (\n brand text NOT NULL, operation_id text NOT NULL, customer_gid text NOT NULL,\n products jsonb NOT NULL CHECK(jsonb_typeof(products)='array'),\n history_complete boolean NOT NULL,\n unresolved_items integer NOT NULL CHECK(unresolved_items>=0 AND unresolved_items<=1000000),\n PRIMARY KEY(brand,operation_id,customer_gid),\n FOREIGN KEY(brand,operation_id,customer_gid) REFERENCES crm_audience_v2.shopify_customer_fact(brand,operation_id,customer_gid) ON DELETE CASCADE,\n CHECK(history_complete=(unresolved_items=0))\n);",
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-products.sql",
+      "line": 30
+    },
+    {
+      "name": "crm_audience_v2.shopify_product_chunk",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_product_chunk (\n brand text NOT NULL, operation_id text NOT NULL, chunk_index integer NOT NULL,\n payload_sha256 text NOT NULL CHECK(payload_sha256 ~ '^[a-f0-9]{64}$'),\n PRIMARY KEY(brand,operation_id,chunk_index),\n FOREIGN KEY(brand,operation_id,chunk_index) REFERENCES crm_audience_v2.shopify_chunk(brand,operation_id,chunk_index) ON DELETE CASCADE\n);",
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/installed-function-metadata-v1/installed-source-match-v1/public-transitive-a908/n8n/growth/segment-shopify-products.sql",
+      "line": 39
+    }
+  ],
+  "fixtureColumns": {
+    "columns": {
+      "campaigns": {
+        "id": 23,
+        "uuid": 2950,
+        "name": 25,
+        "subject": 25,
+        "from_email": 25,
+        "body": 25,
+        "body_source": 25,
+        "altbody": 25,
+        "content_type": "enum",
+        "send_at": 1184,
+        "headers": 3802,
+        "status": "enum",
+        "tags": "string-array",
+        "type": "enum",
+        "messenger": 25,
+        "template_id": 23,
+        "to_send": 23,
+        "sent": 23,
+        "max_subscriber_id": 23,
+        "last_subscriber_id": 23,
+        "archive": 16,
+        "archive_slug": 25,
+        "archive_template_id": 23,
+        "archive_meta": 3802,
+        "started_at": 1184,
+        "created_at": 1184,
+        "updated_at": 1184,
+        "attribs": 3802
+      },
+      "templates": {
+        "id": 23,
+        "body": 25,
+        "is_default": 16
+      },
+      "campaign_media": {
+        "campaign_id": 23,
+        "media_id": 23
+      },
+      "campaign_lists": {
+        "campaign_id": 23,
+        "list_id": 23
+      },
+      "lists": {
+        "id": 23,
+        "optin": "enum"
+      },
+      "subscriber_lists": {
+        "list_id": 23,
+        "subscriber_id": 23,
+        "status": "enum"
+      },
+      "subscribers": {
+        "id": 23,
+        "status": "enum"
+      }
+    },
+    "extra": {
+      "public.lists": {
+        "name": "25",
+        "tags": "1009|1015",
+        "status": "enum"
+      },
+      "public.campaign_views": {
+        "subscriber_id": "23",
+        "campaign_id": "23",
+        "created_at": "1184"
+      },
+      "public.link_clicks": {
+        "subscriber_id": "23",
+        "campaign_id": "23",
+        "created_at": "1184"
+      },
+      "crm_audience_v2.campaign_binding": {
+        "campaign_id": "23",
+        "binding_version": "23",
+        "brand": "25",
+        "audience_id": "2950",
+        "audience_revision": "23",
+        "definition_hash": "25",
+        "context_hash": "25",
+        "base_list_id": "23",
+        "catalog_hash": "25",
+        "binding": "3802",
+        "binding_hash": "25",
+        "campaign_version": "25"
+      },
+      "crm_audience_v2.campaign_binding_release": {
+        "campaign_id": "23",
+        "binding_version": "23",
+        "binding_hash": "25"
+      },
+      "crm_audience_v2.campaign_binding_revision": {
+        "campaign_id": "23",
+        "binding_version": "23",
+        "binding": "3802",
+        "binding_hash": "25"
+      },
+      "crm_audience_v2.revision": {
+        "audience_id": "2950",
+        "version": "23",
+        "archived": "16",
+        "definition": "3802",
+        "context": "3802",
+        "definition_hash": "25",
+        "context_hash": "25"
+      },
+      "crm_audience_v2.config": {
+        "brand": "25",
+        "enabled": "16",
+        "base_list_id": "23",
+        "catalog": "3802",
+        "checked_at": "1184",
+        "expires_at": "1184"
+      },
+      "crm_audience_v2.audience": {
+        "id": "2950",
+        "brand": "25",
+        "archived": "16"
+      },
+      "crm_audience_v2.selection_timezone": {
+        "name": "25"
+      },
+      "crm_audience_v2.selection_runtime": {
+        "singleton": "16",
+        "enabled": "16",
+        "candidate_query_sha256": "25",
+        "verified_at": "1184"
+      }
+    },
+    "state": {
+      "deployment": {
+        "singleton": 16,
+        "enabled": 16,
+        "worker_sha256": 25,
+        "runtime_sha256": 25,
+        "query_sha256": 25,
+        "database_role": 19,
+        "approved_at": 1184,
+        "approved_by": 25,
+        "topology_receipt_sha256": 25
+      },
+      "lease": {
+        "singleton": 16,
+        "instance_id": 2950,
+        "worker_sha256": 25,
+        "runtime_sha256": 25,
+        "database_role": 19,
+        "heartbeat_at": 1184,
+        "expires_at": 1184,
+        "suspended": 16,
+        "suspension_reason": 25
+      },
+      "selection": {
+        "singleton": 16,
+        "enabled": 16,
+        "candidate_query_sha256": 25,
+        "verified_at": 1184
+      }
+    },
+    "control": {
+      "campaign_id": 23,
+      "binding_version": 23,
+      "binding_hash": 25,
+      "material": 3802,
+      "worker_sha256": 25,
+      "runtime_sha256": 25,
+      "acknowledged_sent": 23,
+      "acknowledged_subscriber_id": 23,
+      "enabled": 16,
+      "suspended": 16
+    },
+    "expectedQuery": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d"
+  },
+  "sevenVerifiedBodies": {
+    "selection_catalog_valid": [
+      "e152a94e429de85ebbc5ed9ee33828e0830d3f632a34df65937e0a22fd0b61b0",
+      5690
+    ],
+    "selection_context": [
+      "67d251be7cf6a241afb962bb1bfd59708e247d7ba8ba690d257f9b2da7d508cb",
+      5308
+    ],
+    "selection_regular_matches": [
+      "1b6e72ea18355a74829158d7c229dd6a3f87ab3bf302220ee7d3018a8823ba33",
+      1353
+    ],
+    "selection_regular_rule_match": [
+      "7abfd952ee9f8199b6944affbf23ec336318eba30450ee52c203aba0e3377f40",
+      2280
+    ],
+    "selection_rule": [
+      "88290d66edd0ffaacdedaf6834c615705df70db65ccca41f69c307f738a2e1b1",
+      3957
+    ],
+    "selection_worker_context": [
+      "c794db19bf9e8e030284651947510ae5c00a12647fed3ab81f8eeec50b4eb582",
+      621
+    ],
+    "campaign_send_guard": [
+      "d225ceb7b16a85adb9bc50c705ca3b584e389a1a0181fe7b694f47128292af13",
+      6006
+    ]
+  },
+  "extraPins": [
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/schema-read-inputs/campaigns.original-patched.sql",
+      "bytes": 20901,
+      "sha256": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d",
+      "gitBlobSha1": "7512fc07cf4233ddbf22dda5bb69642bc4760caa"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/native-scheduler-state-read-v1/scanner-dependency-read-v1/selector-diagnostic-read-v1/delivery-control-read-v1/incident-source-v1/files/services/dashboard-operational/native-scheduler-state.cjs",
+      "bytes": 87033,
+      "sha256": "9f00802f629d141585a0a459a2326034443c67f32e5d7a303dcaca58e0f74c50",
+      "gitBlobSha1": "98ccc8bd79f5cc1992b8915bd794cecb30c33a86"
+    }
+  ],
+  "query": {
+    "path": "/Users/felipebandeiragoncalves/projetos/GPT- Dashboard Bandeira/deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/composed-scanner-reproduction-v1/incident-source-v1/NEXT-CAMPAIGNS.original.sql",
+    "bytes": 3836,
+    "sha256": "e6e265e6ef9d413c2d1b17fa863c99a6e74816855a734c6656619826b31aa504",
+    "gitBlobSha1": "8114d8e379c42d3d083c7d93e490f1fd5cfa59b2"
+  },
+  "v2Tables": [
+    {
+      "name": "crm_audience_v2.shopify_product_history_gap",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_product_history_gap(\n brand text NOT NULL,operation_id text NOT NULL,customer_gid text NOT NULL,\n source_sha256 text NOT NULL CHECK(source_sha256~'^[0-9a-f]{64}$'),query_sha256 text NOT NULL CHECK(query_sha256='bb89faf525f58f9c5075878888c1be6fcf4992200310a4867cdd2871fb570086'),\n expected_orders numeric NOT NULL CHECK(expected_orders>=0 AND expected_orders<=18446744073709551615 AND scale(expected_orders)=0),\n observed_orders numeric NOT NULL CHECK(observed_orders>=0 AND observed_orders<=18446744073709551615 AND scale(observed_orders)=0),\n proof_sha256 text NOT NULL CHECK(proof_sha256~'^[0-9a-f]{64}$'),correction_sha256 text NOT NULL CHECK(correction_sha256~'^[0-9a-f]{64}$'),recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),\n PRIMARY KEY(brand,operation_id,customer_gid),\n FOREIGN KEY(brand,operation_id,customer_gid) REFERENCES crm_audience_v2.shopify_customer_product(brand,operation_id,customer_gid),\n CHECK(expected_orders<>observed_orders)\n);"
+    },
+    {
+      "name": "crm_audience_v2.shopify_product_history_attestation",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_product_history_attestation(\n brand text NOT NULL,operation_id text NOT NULL,source_sha256 text NOT NULL CHECK(source_sha256~'^[0-9a-f]{64}$'),\n query_sha256 text NOT NULL CHECK(query_sha256='bb89faf525f58f9c5075878888c1be6fcf4992200310a4867cdd2871fb570086'),\n producer_revision text NOT NULL CHECK(length(producer_revision) BETWEEN 1 AND 128),semantics text NOT NULL CHECK(semantics='customer-order-parity-v2'),\n mode text NOT NULL CHECK(mode IN('native_v2','derived_v1')),customer_count integer NOT NULL CHECK(customer_count BETWEEN 0 AND 250000),\n incomplete_count integer NOT NULL CHECK(incomplete_count BETWEEN 0 AND customer_count),proof_sha256 text NOT NULL CHECK(proof_sha256~'^[0-9a-f]{64}$'),\n attestation_sha256 text NOT NULL CHECK(attestation_sha256~'^[0-9a-f]{64}$'),recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),\n PRIMARY KEY(brand,operation_id),FOREIGN KEY(brand,operation_id) REFERENCES crm_audience_v2.shopify_product_batch(brand,operation_id)\n);"
+    },
+    {
+      "name": "crm_audience_v2.shopify_product_history_transition",
+      "definition": "CREATE TABLE crm_audience_v2.shopify_product_history_transition(\n brand text PRIMARY KEY REFERENCES crm_audience_v2.shopify_source(brand),current_operation text NOT NULL,\n from_revision text NOT NULL CHECK(length(from_revision) BETWEEN 1 AND 128),to_revision text NOT NULL CHECK(length(to_revision) BETWEEN 1 AND 128),\n proof_sha256 text NOT NULL CHECK(proof_sha256~'^[0-9a-f]{64}$'),prepared_at timestamptz NOT NULL DEFAULT clock_timestamp(),CHECK(from_revision<>to_revision)\n);"
+    }
+  ],
+  "compositionSchema": "exact-public-products-v2-cost-fixture-v1",
+  "29NativePeerBodiesMatched": true,
+  "attestedBodyConfirmed": true,
+  "originalQueryBytesUnchanged": true
+}

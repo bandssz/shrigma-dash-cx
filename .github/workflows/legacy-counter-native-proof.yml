@@ -1,0 +1,131 @@
+name: Legacy counter atomic drain focal proof (source only)
+on:
+  pull_request:
+    paths:
+      - 'tools/listmonk-regular-build/worker_patch.py'
+      - 'tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_delivery.go'
+      - 'tools/listmonk-regular-build/overlay/listmonk/internal/manager/legacy_counter_atomic_test.go'
+      - 'tools/listmonk-regular-build/upstream.lock.json'
+      - 'tools/listmonk-regular-build/proof-inputs/upstream.full-batch.lock.json'
+      - 'tools/listmonk-regular-build/proof-inputs/batch-composition.json'
+      - 'tools/listmonk-regular-build/proof-source-only.sh'
+      - 'crm-scheduler-batch-profile.json'
+      - 'tests/legacy-counter-native-proof/**'
+      - '.github/workflows/legacy-counter-native-proof.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-manager-before-after:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Check public pins, then hydrate only pinned public inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          assets=json.loads(Path('tests/legacy-counter-native-proof/ASSETS.json').read_bytes())
+          assert assets['schema']=='legacy-counter-focal-assets-v1'
+          for name,pin in assets['files'].items():
+              p=Path(name); assert p.is_file() and not p.is_symlink()
+              b=p.read_bytes(); assert len(b)==pin['bytes'] and hashlib.sha256(b).hexdigest()==pin['sha256']
+          PY
+          python3 tools/listmonk-regular-package/bootstrap.py --out "$RUNNER_TEMP/counter-public-inputs" --go "$(command -v go)"
+      - name: Make exact tracked public HEAD portable, excluding checkout credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          task="$(mktemp -d /tmp/legacy-counter-proof-XXXXXXXX)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git archive --format=tar HEAD > "$task/public-head.tar"
+          python3 - "$task" <<'PY'
+          import sys,tarfile
+          from pathlib import Path,PurePosixPath
+          task=Path(sys.argv[1]); root=task/'source'; root.mkdir()
+          with tarfile.open(task/'public-head.tar') as archive:
+              members=archive.getmembers()
+              assert len(members)<10000 and sum(m.size for m in members)<256*1024*1024
+              for m in members:
+                  parts=PurePosixPath(m.name).parts
+                  assert parts and not PurePosixPath(m.name).is_absolute() and '..' not in parts
+                  assert not any(x in ('.git','.private','.ssh','.aws') or x=='.env' for x in parts)
+                  assert m.isdir() or m.isfile()
+                  target=root/m.name
+                  if m.isdir(): target.mkdir(parents=True,exist_ok=True); target.chmod(0o755)
+                  else:
+                      target.parent.mkdir(parents=True,exist_ok=True)
+                      b=archive.extractfile(m).read(); assert len(b)==m.size
+                      target.write_bytes(b); target.chmod(0o755 if m.mode&0o111 else 0o644)
+          assert not (root/'.git').exists() and not (root/'.private').exists()
+          PY
+          rm "$task/public-head.tar"
+          mkdir "$task/tools" "$task/output"
+          cp -a "$(go env GOROOT)" "$task/tools/go"
+          cp -a "$(dirname "$(dirname "$(command -v node)")")" "$task/tools/node"
+          command -v python3
+          command -v unshare
+          if ! getent passwd 1000 > /dev/null; then sudo useradd --uid 1000 --no-create-home counter-proof; fi
+          cp -a "$(go env GOMODCACHE)" "$task/module-cache"
+          cp -a "$RUNNER_TEMP/counter-public-inputs" "$task/inputs"
+          sudo chown -R 1000:1000 "$task"
+          sudo chmod 755 "$task"
+          printf 'COUNTER_TASK=%s\n' "$task" >> "$GITHUB_ENV"
+      - name: Real manager package tests under Node 22.23.3, Go 1.26.1 and UID 1000, offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$COUNTER_TASK/source"
+          sudo unshare --net -- sudo -u '#1000' env -i \
+            PATH="$COUNTER_TASK/tools/go/bin:$COUNTER_TASK/tools/node/bin:/usr/bin:/bin" \
+            GOROOT="$COUNTER_TASK/tools/go" HOME="$COUNTER_TASK/output" \
+            GOCACHE="$COUNTER_TASK/output/go-cache" GOMODCACHE="$COUNTER_TASK/module-cache" \
+            PYTHONDONTWRITEBYTECODE=1 LEGACY_COUNTER_PROOF_ISOLATED=1 \
+            python3 "$COUNTER_TASK/source/tests/legacy-counter-native-proof/run.py" \
+              --repo-root "$COUNTER_TASK/source" --inputs "$COUNTER_TASK/inputs" \
+              --go "$COUNTER_TASK/tools/go/bin/go" --out "$COUNTER_TASK/output/hydrated" \
+              --report "$COUNTER_TASK/output/counter-proof.json"
+      - name: Promote only the closed synthetic report for the artifact reader
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u '#1000' env PATH="$PATH" python3 - "$COUNTER_TASK" "$GITHUB_SHA" <<'PY'
+          import json,sys
+          from pathlib import Path
+          root=Path(sys.argv[1]); p=root/'output/counter-proof.json'
+          assert p.is_file() and not p.is_symlink() and p.stat().st_size<65536
+          b=p.read_bytes(); r=json.loads(b)
+          assert r['schema']=='legacy-counter-focal-manager-proof-v1'
+          assert r['status']=='PASSED_FOCAL_MANAGER_ONLY_NOT_DEPLOYED' and r['goTestsExecuted'] is True
+          assert r['sourcePinsVerified'] is True and r['onlyThreeFullFileChanges'] is True
+          assert r['before']['deterministicFailureConfirmed'] is True
+          assert r['after']['accepted'] is True and r['after']['behaviorCases']==6
+          assert all(r[k]==0 for k in ('originalCalls','sqlCalls','smtpCalls'))
+          assert all(r[k] is False for k in ('workerStarted','imageBuilt','operational','productionChanged'))
+          evidence=root/'evidence'; evidence.mkdir(mode=0o755); evidence.chmod(0o755)
+          target=evidence/'counter-proof.json'; target.write_bytes(b); target.chmod(0o644)
+          metadata=evidence/'public-head.json'; metadata.write_text(json.dumps({'head':sys.argv[2],'operational':False})+'\n'); metadata.chmod(0o644)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: legacy-counter-focal-source-proof
+          path: ${{ env.COUNTER_TASK }}/evidence/
+          if-no-files-found: error
+          retention-days: 14
+

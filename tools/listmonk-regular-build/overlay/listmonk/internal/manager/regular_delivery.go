@@ -126,6 +126,7 @@ func (m *Manager) regularDeliveryGate(campaignID int) (RegularDeliveryGate, erro
 		return gate, err
 	}
 	if !m.regularLeaseAvailable() {
+		m.logRegularPause(campaignID, regularPauseLease, regularPauseLeaseUnavailable, nil)
 		gate.Ready = false
 	}
 	return gate, nil
@@ -198,17 +199,20 @@ func (m *Manager) regularLeaseAvailable() bool {
 func (m *Manager) regularHeartbeatOnce() {
 	store, err := m.regularStore()
 	if err != nil {
+		m.logRegularPause(0, regularPauseHeartbeat, regularPauseStoreUnavailable, err)
 		m.clearRegularLease()
 		return
 	}
 	identity, err := m.regularHeartbeatIdentity()
 	if err != nil {
+		m.logRegularPause(0, regularPauseHeartbeat, regularPauseIdentityUnavailable, err)
 		m.clearRegularLease()
 		return
 	}
 	result, err := store.HeartbeatRegularWorker(identity)
 	if err != nil || !result.Ready || result.InstanceID != identity.InstanceID ||
 		!time.Now().Before(result.Deadline) {
+		m.logRegularPause(0, regularPauseHeartbeat, regularPauseHeartbeatUnavailable, err)
 		m.clearRegularLease()
 		return
 	}
@@ -383,17 +387,23 @@ func (m *Manager) validateRegularCampaign(c *models.Campaign) error {
 	identifiers := make(map[string]struct{})
 	if c.SubjectTpl != nil {
 		for _, tpl := range c.SubjectTpl.Templates() {
-			walkRegularTemplateNode(tpl.Tree.Root, identifiers)
+			if tpl.Tree != nil {
+				walkRegularTemplateNode(tpl.Tree.Root, identifiers)
+			}
 		}
 	}
 	if c.Tpl != nil {
 		for _, tpl := range c.Tpl.Templates() {
-			walkRegularTemplateNode(tpl.Tree.Root, identifiers)
+			if tpl.Tree != nil {
+				walkRegularTemplateNode(tpl.Tree.Root, identifiers)
+			}
 		}
 	}
 	if c.AltBodyTpl != nil {
 		for _, tpl := range c.AltBodyTpl.Templates() {
-			walkRegularTemplateNode(tpl.Tree.Root, identifiers)
+			if tpl.Tree != nil {
+				walkRegularTemplateNode(tpl.Tree.Root, identifiers)
+			}
 		}
 	}
 	for name := range identifiers {
@@ -410,36 +420,66 @@ func walkRegularTemplateNode(node parse.Node, identifiers map[string]struct{}) {
 	}
 	switch value := node.(type) {
 	case *parse.ListNode:
+		if value == nil {
+			return
+		}
 		for _, child := range value.Nodes {
 			walkRegularTemplateNode(child, identifiers)
 		}
 	case *parse.ActionNode:
+		if value == nil {
+			return
+		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 	case *parse.PipeNode:
+		if value == nil {
+			return
+		}
 		for _, command := range value.Cmds {
 			walkRegularTemplateNode(command, identifiers)
 		}
 	case *parse.CommandNode:
+		if value == nil {
+			return
+		}
 		for _, argument := range value.Args {
 			walkRegularTemplateNode(argument, identifiers)
 		}
 	case *parse.IdentifierNode:
+		if value == nil {
+			return
+		}
 		identifiers[value.Ident] = struct{}{}
 	case *parse.ChainNode:
+		if value == nil {
+			return
+		}
 		walkRegularTemplateNode(value.Node, identifiers)
 	case *parse.IfNode:
+		if value == nil {
+			return
+		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 		walkRegularTemplateNode(value.List, identifiers)
 		walkRegularTemplateNode(value.ElseList, identifiers)
 	case *parse.RangeNode:
+		if value == nil {
+			return
+		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 		walkRegularTemplateNode(value.List, identifiers)
 		walkRegularTemplateNode(value.ElseList, identifiers)
 	case *parse.WithNode:
+		if value == nil {
+			return
+		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 		walkRegularTemplateNode(value.List, identifiers)
 		walkRegularTemplateNode(value.ElseList, identifiers)
 	case *parse.TemplateNode:
+		if value == nil {
+			return
+		}
 		walkRegularTemplateNode(value.Pipe, identifiers)
 	}
 }
@@ -535,6 +575,7 @@ func (m *Manager) processQueuedCampaignMessage(msg CampaignMessage, numMsg *int)
 	*numMsg++
 	gate, err := m.regularDeliveryGate(msg.Campaign.ID)
 	if err != nil || (gate.Bound && !gate.Ready) || (!gate.Bound && msg.regularDone != nil) {
+		m.logRegularPause(msg.Campaign.ID, regularPauseQueueGate, regularPauseGateUnavailable, err)
 		if msg.pipe != nil {
 			msg.pipe.wg.Done()
 			msg.pipe.Stop(true)
@@ -543,6 +584,7 @@ func (m *Manager) processQueuedCampaignMessage(msg CampaignMessage, numMsg *int)
 	}
 	if gate.Bound {
 		if msg.regularDone == nil || msg.pipe == nil {
+			m.logRegularPause(msg.Campaign.ID, regularPauseQueueGate, regularPausePipelineUnavailable, nil)
 			if msg.pipe != nil {
 				msg.pipe.wg.Done()
 				msg.pipe.Stop(true)
@@ -560,7 +602,7 @@ func (m *Manager) processQueuedCampaignMessage(msg CampaignMessage, numMsg *int)
 	if msg.pipe == nil {
 		return
 	}
-	msg.pipe.wg.Done()
+	defer msg.pipe.wg.Done()
 	if err != nil {
 		msg.pipe.OnError()
 		return
@@ -579,21 +621,25 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 		return
 	}
 	if configurationSet == "" {
+		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseConfigurationUnavailable, nil)
 		msg.pipe.Stop(true)
 		return
 	}
 	store, err := m.regularStore()
 	if err != nil {
+		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseStoreUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	messenger, ok := m.messengers[msg.Campaign.Messenger].(guardedRegularMessenger)
 	if !ok {
+		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseMessengerUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	dispatch, err := uuid.NewV4()
 	if err != nil {
+		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseDispatchUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
@@ -601,32 +647,39 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 	out := m.outgoingCampaignMessage(msg, dispatchID, configurationSet, true)
 	configurationSet = out.Headers.Get(regularSESConfigurationSetHeader)
 	if configurationSet == "" {
+		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseConfigurationUnavailable, nil)
 		msg.pipe.Stop(true)
 		return
 	}
 	workerSHA, err := executableSHA256()
 	if err != nil {
+		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseWorkerUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	runtimeSHA, err := m.regularRuntimeSHA(msg.Campaign.Messenger, messenger)
 	if err != nil {
+		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseRuntimeUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	snapshot := json.RawMessage(append([]byte(nil), msg.Subscriber.DeliverySnapshot...))
 	if !json.Valid(snapshot) || len(snapshot) == 0 {
+		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseSnapshotUnavailable, nil)
 		msg.pipe.Stop(true)
 		return
 	}
 	instanceID, err := regularProcessID()
 	if err != nil {
+		m.logRegularPause(msg.Campaign.ID, regularPausePreflight, regularPauseProcessUnavailable, err)
 		msg.pipe.Stop(true)
 		return
 	}
 	var claim RegularDeliveryClaimResult
 	var claimStoreErr error
+	claimAttempted := false
 	result, sendErr := messenger.PushRegularGuarded(out, func(envelope smtppool.GuardedEnvelope) error {
+		claimAttempted = true
 		claim, claimStoreErr = store.ClaimRegularDelivery(RegularDeliveryClaim{
 			InstanceID: instanceID, CampaignID: msg.Campaign.ID, SubscriberID: msg.Subscriber.ID, DispatchID: dispatchID,
 			WorkerSHA256: workerSHA, RuntimeSHA256: runtimeSHA, EnvelopeFrom: envelope.From,
@@ -640,6 +693,7 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 	})
 	if result.Outcome == smtppool.GuardedAccepted && sendErr == nil && claim.ShouldSend {
 		if err := store.FinishRegularDelivery(msg.Campaign.ID, msg.Subscriber.ID, dispatchID, claim.ClaimToken, "accepted"); err != nil {
+			m.logRegularGuardedDiagnostic(msg.Campaign.ID, dispatchID, result, sendErr, err)
 			msg.pipe.Stop(true)
 			return
 		}
@@ -647,7 +701,8 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 		return
 	}
 	if result.Outcome == smtppool.GuardedOutcomeUnknown && claim.ShouldSend {
-		_ = store.FinishRegularDelivery(msg.Campaign.ID, msg.Subscriber.ID, dispatchID, claim.ClaimToken, "outcome_unknown")
+		finishErr := store.FinishRegularDelivery(msg.Campaign.ID, msg.Subscriber.ID, dispatchID, claim.ClaimToken, "outcome_unknown")
+		m.logRegularGuardedDiagnostic(msg.Campaign.ID, dispatchID, result, sendErr, finishErr)
 		msg.pipe.Stop(true)
 		return
 	}
@@ -655,5 +710,53 @@ func (m *Manager) processBoundCampaignMessage(msg CampaignMessage, configuration
 		(claim.Reason == "ineligible" || claim.Reason == "already_checkpointed" || claim.Reason == "accepted") {
 		return
 	}
+	m.logRegularGuardedDiagnostic(msg.Campaign.ID, dispatchID, result, sendErr, nil)
+	if claimAttempted && (claimStoreErr != nil || !claim.ShouldSend) {
+		m.logRegularPause(msg.Campaign.ID, regularPauseClaim, regularClaimPauseCode(claim.Reason), claimStoreErr)
+	}
 	msg.pipe.Stop(true)
+}
+
+// regularGuardedDiagnosticLine contains only public campaign/dispatch identity
+// and closed diagnostics. It never changes Outcome, ShouldSend or delivery flow.
+func regularGuardedDiagnosticLine(campaignID int, dispatchID string, result smtppool.GuardedSendResult, sendErr, finishErr error) string {
+	if campaignID < 1 { campaignID = 0 }
+	if id, err := uuid.FromString(dispatchID); err != nil || id.String() != dispatchID || id == uuid.Nil {
+		dispatchID = "invalid"
+	}
+	outcome := string(result.Outcome)
+	switch result.Outcome {
+	case smtppool.GuardedNotStarted, smtppool.GuardedAccepted, smtppool.GuardedOutcomeUnknown:
+	default: outcome = "invalid"
+	}
+	phase := result.Phase
+	switch phase {
+	case smtppool.GuardedPhasePreflight, smtppool.GuardedPhaseBuild, smtppool.GuardedPhasePool,
+		smtppool.GuardedPhaseAuthorize, smtppool.GuardedPhaseDeadline, smtppool.GuardedPhaseMail,
+		smtppool.GuardedPhaseRcpt, smtppool.GuardedPhaseData, smtppool.GuardedPhaseWrite,
+		smtppool.GuardedPhaseAck, smtppool.GuardedPhaseComplete:
+	default: phase = smtppool.GuardedPhaseUnknown
+	}
+	// Reclassify the same returned error by type, never by error text. This also
+	// covers Emailer refusals before SendGuarded and ignores arbitrary DTO text.
+	replyCode, errorClass := smtppool.DiagnoseGuardedError(sendErr)
+	_, finishClass := smtppool.DiagnoseGuardedError(finishErr)
+	finishState := "none"
+	if finishErr != nil {
+		finishState = "unavailable"
+		var pg interface { SQLState() string }
+		if errors.As(finishErr, &pg) {
+			switch code := pg.SQLState(); code {
+			case "55P03", "57014", "55000", "P0001", "40001", "40P01", "25P02", "42501":
+				finishState = code
+			default: finishState = "other"
+			}
+		}
+	}
+	return fmt.Sprintf("guarded_smtp campaign_id=%d dispatch_id=%s outcome=%s phase=%s reply_code=%d error_class=%s finish_error_class=%s finish_sqlstate=%s",
+		campaignID, dispatchID, outcome, phase, replyCode, errorClass, finishClass, finishState)
+}
+
+func (m *Manager) logRegularGuardedDiagnostic(campaignID int, dispatchID string, result smtppool.GuardedSendResult, sendErr, finishErr error) {
+	m.log.Print(regularGuardedDiagnosticLine(campaignID, dispatchID, result, sendErr, finishErr))
 }

@@ -1,0 +1,105 @@
+name: Subscriber deletion NPS native proof
+
+on:
+  pull_request:
+    paths:
+      - n8n/growth/nps-native.sql
+      - n8n/growth/nps-vote-sync.js
+      - tests/subscriber-delete-nps/**
+      - .github/workflows/subscriber-delete-nps-native-proof.yml
+
+permissions:
+  contents: read
+
+jobs:
+  native-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      fixture:
+        image: postgres:17.10
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: nps_delete_fixture
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nps_delete_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.23.3
+      - name: Prepare disposable source under UID1000
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture_root=$(mktemp -d /tmp/shrigma-nps-delete-ci.XXXXXXXX)
+          chmod 755 "$fixture_root"
+          mkdir "$fixture_root/source" "$fixture_root/tools" "$fixture_root/proof"
+          git archive HEAD | tar -x -C "$fixture_root/source"
+          sudo chown -R 1000:1000 "$fixture_root"
+          sudo -u '#1000' env PATH="$PATH" npm install --prefix "$fixture_root/tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1
+          echo "NPS_DELETE_FIXTURE_ROOT=$fixture_root" >> "$GITHUB_ENV"
+      - name: Eighteen PostgreSQL behavior cases
+        id: behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$NPS_DELETE_FIXTURE_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" NODE_PATH="$NPS_DELETE_FIXTURE_ROOT/tools/node_modules" NPS_FIXTURE_ISOLATED=1 NPS_FIXTURE_URL=postgresql://postgres@127.0.0.1:55432/nps_delete_fixture node tests/subscriber-delete-nps/equivalence.cjs
+      - name: Recreate only the disposable fixture database
+        env:
+          PG_CONTAINER: ${{ job.services.fixture.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'DROP DATABASE nps_delete_fixture'
+          docker exec "$PG_CONTAINER" psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE nps_delete_fixture'
+      - name: Three races with two PostgreSQL connections
+        id: concurrency
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$NPS_DELETE_FIXTURE_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" NODE_PATH="$NPS_DELETE_FIXTURE_ROOT/tools/node_modules" NPS_FIXTURE_ISOLATED=1 NPS_FIXTURE_URL=postgresql://postgres@127.0.0.1:55432/nps_delete_fixture NPS_FIXTURE_REPORT="$NPS_DELETE_FIXTURE_ROOT/proof/concurrency.json" node tests/subscriber-delete-nps/native-concurrency.cjs
+      - name: Stop and verify the disposable PostgreSQL server
+        id: stop
+        if: always()
+        env:
+          PG_CONTAINER: ${{ job.services.fixture.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker stop --time 5 "$PG_CONTAINER"
+          test "$(docker inspect --format '{{.State.Running}}' "$PG_CONTAINER")" = false
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$PG_CONTAINER")" = 0
+      - name: Accept only complete behavior, concurrency and server shutdown
+        if: success() && steps.behavior.outcome == 'success' && steps.concurrency.outcome == 'success' && steps.stop.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u '#1000' env PATH="$PATH" NPS_DELETE_FIXTURE_ROOT="$NPS_DELETE_FIXTURE_ROOT" node <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict'),path=require('node:path');
+          const root=process.env.NPS_DELETE_FIXTURE_ROOT;
+          const b=JSON.parse(fs.readFileSync(path.join(root,'source/tests/subscriber-delete-nps/contract/RESULT.json'),'utf8'));
+          const c=JSON.parse(fs.readFileSync(path.join(root,'proof/concurrency.json'),'utf8'));
+          for(const r of [b,c]){assert.equal(r.ok,true);assert.equal(r.originalCalls,0);assert.equal(r.nodeVersion,'v22.23.3');assert.equal(r.uid,1000);assert.match(r.serverVersion,/^17\.10(?:\D|$)/);}
+          assert.equal(b.testsPassed,18);assert.equal(b.rollbackConfirmed,true);assert.equal(b.connectionEnded,true);assert.equal(b.httpCallsOriginal,0);
+          assert.equal(c.testsPassed,3);assert.equal(c.clientsOpened,2);assert.equal(c.clientsEnded,2);assert.equal(c.allClientsEnded,true);assert.equal(c.pgVersion,'8.23.1');assert.ok(c.rollbackCount>=4);
+          const accepted={schema:'subscriber-delete-nps-native-acceptance-v1',accepted:true,caseCount:21,behaviorCases:18,concurrencyCases:3,nodeVersion:'v22.23.3',uid:1000,serverVersion:b.serverVersion,pgVersion:'8.23.1',rollbackConfirmed:true,allClientsEnded:true,serverEnded:true,originalCalls:0,originalWrites:0,httpCallsOriginal:0,operational:false};
+          fs.writeFileSync(path.join(root,'proof/accepted.json'),JSON.stringify(accepted,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify(accepted));
+          NODE
+      - name: Save the finite proof without fixture data
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: subscriber-delete-nps-native-source-proof
+          path: ${{ env.NPS_DELETE_FIXTURE_ROOT }}/proof/accepted.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

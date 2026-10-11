@@ -1,0 +1,147 @@
+{
+  "schema": "shrigma-native-batch-proof-profile-v4",
+  "version": 4,
+  "kind": "ephemeral-batch-count-recipient",
+  "sourceRef": "55ed5bdc42d924a79da577b4b7c7b7b052dfc4c7",
+  "compositionRoot": ".",
+  "compositionDelivery": {
+    "path": "tools/listmonk-regular-build/proof-inputs/batch-composition.json",
+    "bytes": 4894,
+    "sha256": "a53ce9765dc9a1fcb1ea1693c4a581512e6678faed38914d6666cccc01c54c9a"
+  },
+  "sources": {
+    "composer": {
+      "path": "n8n/growth/segment-listmonk-selection.cjs",
+      "bytes": 23797,
+      "sha256": "aa2bb90ef9f0f9edde130bf7a65bdfa7639b5010015157b79460068453a88d27"
+    },
+    "ab": {
+      "path": "n8n/growth/ab-listmonk-cohort-patch.cjs",
+      "bytes": 3871,
+      "sha256": "9078370d3acf78670ed92bb2eb28a06f869b757d5bcc6af3e37f42c27dfd3020"
+    },
+    "kernel": {
+      "path": "n8n/growth/segment-listmonk-selection.batch.sql",
+      "bytes": 30116,
+      "sha256": "7d9e4cd7fd4e3c6f9967386c5ca7b1410e755690fac3a77149d8d032d2c4e8b4"
+    },
+    "upstreamQuery": {
+      "path": "tools/listmonk-regular-build/proof-inputs/campaigns.upstream.sql",
+      "bytes": 19375,
+      "sha256": "37b1b131a6b9005141b1bf2e32dde53a68838184bc4348f6c97fb61b581c5882"
+    },
+    "candidateQuery": {
+      "path": "tools/listmonk-regular-build/proof-inputs/campaigns.full-batch.sql",
+      "bytes": 89347,
+      "sha256": "772efe8e05331fb201ed24cb08bb97a4625a49811d96622c2148342ce54c6700"
+    },
+    "builderLock": {
+      "path": "tools/listmonk-regular-build/proof-inputs/upstream.full-batch.lock.json",
+      "bytes": 7046,
+      "sha256": "e551bd56a25faef707d1066fbed5129f64a20a7c5bb5a7256f03f61b07f6ab7a"
+    },
+    "managerStoreOriginal": {
+      "path": "tools/listmonk-regular-build/proof-inputs/manager-store-original.go",
+      "bytes": 4485,
+      "sha256": "37f4892f4beda8a3ca20bc9d5ce7c1cf9d4a5bece0ba36146a4c47afa5fe8240"
+    },
+    "managerStoreCandidate": {
+      "path": "tools/listmonk-regular-build/proof-inputs/manager_store.batch-jit.go",
+      "bytes": 5869,
+      "sha256": "cbf074fa33dbdbb2ee378f21511da94a0774eb653d83406c35b546526ba6e8f2"
+    },
+    "jitHelper": {
+      "path": "tools/listmonk-regular-build/overlay/batch-jit/cmd/manager_store_batch_jit.go",
+      "bytes": 445,
+      "sha256": "4f21412be8b94a61ae0c78f7a553058613e87d40c1535b53b13ae1a5371f4a7e"
+    },
+    "jitTest": {
+      "path": "tools/listmonk-regular-build/overlay/batch-jit/cmd/manager_store_batch_jit_test.go",
+      "bytes": 1539,
+      "sha256": "1a4e9454e6ff2ec5397c44002b17a498d8a079442f783f63eb7c53bbe712c116"
+    }
+  },
+  "querySha256": "772efe8e05331fb201ed24cb08bb97a4625a49811d96622c2148342ce54c6700",
+  "kernelSha256": "7d9e4cd7fd4e3c6f9967386c5ca7b1410e755690fac3a77149d8d032d2c4e8b4",
+  "additionalSqlSources": [
+    {
+      "sourceName": "segment-shopify-products.sql",
+      "file": {
+        "path": "n8n/growth/segment-shopify-products.sql",
+        "bytes": 35528,
+        "sha256": "7d72c0ab2e759179db59924325592cb0ab1bd73b5bcf51113ed8629a53db83ff"
+      }
+    },
+    {
+      "sourceName": "segment-shopify-sync-runtime.sql",
+      "file": {
+        "path": "n8n/growth/segment-shopify-sync-runtime.sql",
+        "bytes": 16091,
+        "sha256": "058133d080747909ee7ac2d54ea8511d6eda65cb69d1ceac0a4cf6597bccb009"
+      }
+    },
+    {
+      "sourceName": "segment-shopify-count.sql",
+      "file": {
+        "path": "n8n/growth/segment-shopify-count.sql",
+        "bytes": 24061,
+        "sha256": "5263e9f7c2f10378466abc73c4c11d19808068885a572c5f34c4a84663ac3eba"
+      }
+    },
+    {
+      "sourceName": "segment-shopify-count-performance.sql",
+      "file": {
+        "path": "n8n/growth/segment-shopify-count-performance.sql",
+        "bytes": 14095,
+        "sha256": "3be19bd34b7fc666d6fd17f45442ade80ebc4e710622f4173556f79535f092be"
+      }
+    },
+    {
+      "sourceName": "segment-shopify-product-quarantine.sql",
+      "file": {
+        "path": "n8n/growth/segment-shopify-product-quarantine.sql",
+        "bytes": 3857,
+        "sha256": "edb080f4aa4f9019cc071db45cfc62209e017dcc4bdeb6da08651ffffd7c66c9"
+      }
+    },
+    {
+      "sourceName": "segment-shopify-product-history-completeness-v2.sql",
+      "file": {
+        "path": "n8n/growth/segment-shopify-product-history-completeness-v2.sql",
+        "bytes": 28167,
+        "sha256": "9c113b4b172ad1343b2ecd83bf91b37d2d728f33cca20206c4125e4ed0cf4c7f"
+      }
+    },
+    {
+      "sourceName": "vip-consent.sql",
+      "file": {
+        "path": "n8n/growth/vip-consent.sql",
+        "bytes": 4068,
+        "sha256": "4bbd7e509da4079ba50651dd43d1857a43eb2f3b2f742f5ab557dc70e23657f7"
+      }
+    },
+    {
+      "sourceName": "vip-recorded-origin.sql",
+      "file": {
+        "path": "n8n/growth/vip-recorded-origin.sql",
+        "bytes": 9729,
+        "sha256": "73e59bc8b150a6fc94a82acd4dd102a4f3e9b354fd87d4db2ebf97ddd803e9d5"
+      }
+    },
+    {
+      "sourceName": "segment-recorded-origin.sql",
+      "file": {
+        "path": "n8n/growth/segment-recorded-origin.sql",
+        "bytes": 26123,
+        "sha256": "4e4048287e6491df3c58079c419b1ebd79de5c98b220eb032fc08245ff32d673"
+      }
+    }
+  ],
+  "workerTransaction": {
+    "jit": "off",
+    "scope": "transaction-local"
+  },
+  "buildReceipt": null,
+  "nativeAcceptance": null,
+  "isolatedProofAuthorization": null
+}

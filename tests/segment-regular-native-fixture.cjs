@@ -13,7 +13,18 @@ const B=require('../n8n/growth/segment-campaign-binding.cjs');
 const Counter=require('../n8n/growth/segment-audience-listmonk.cjs');
 const Campaign=require('../n8n/growth/campaign-contract.js');
 const Tracking=require('../n8n/growth/campaign-tracking.js');
-const root=path.resolve(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
+const root=path.resolve(__dirname,'..');
+const batchPath=process.env.REGULAR_NATIVE_BATCH_PROFILE,batchSha=process.env.REGULAR_NATIVE_BATCH_PROFILE_SHA256;
+if(Boolean(batchPath)!==Boolean(batchSha))throw Error('NATIVE_BATCH_PROFILE_REFUSED');
+const Batch=batchPath?require('../tools/listmonk-regular-build/native_batch_profile.cjs'):null;
+if(batchPath&&process.env.REGULAR_NATIVE_PROOF_ISOLATED!=='1')throw Error('NATIVE_BATCH_PROFILE_REFUSED');
+const dependencyOnly=process.argv[2]==='prepare-batch-dependencies';
+if(dependencyOnly&&!batchPath)throw Error('NATIVE_BATCH_PROFILE_REQUIRED');
+const isolatedSourceProof=process.env.REGULAR_NATIVE_SOURCE_PROOF==='1';
+if(isolatedSourceProof&&(!batchPath||dependencyOnly))throw Error('NATIVE_BATCH_PROFILE_REFUSED');
+const batch=batchPath?Batch.load(path.resolve(batchPath),batchSha,{forRun:!dependencyOnly,isolatedSourceProof}):null;
+const queryIdentity=batch?batch.querySha256:'084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d';
+const read=f=>{const source=fs.readFileSync(path.join(root,f),'utf8');return batch&&Batch.SQL_PINS[f]?batch.transformSQL(f,source):source;};
 const uri=process.env.TEST_DATABASE_URL,u=new URL(uri||'http://invalid');
 if(process.env.CRM_AUDIENCE_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.hostname!=='127.0.0.1'||u.pathname!=='/listmonk'||!u.port||u.port==='5432')throw Error('ISOLATED_DATABASE_REQUIRED');
 const pool=new Pool({connectionString:uri,max:2,statement_timeout:15000});
@@ -206,7 +217,56 @@ async function prepare(){
  await exec(read('n8n/growth/segment-regular-admission.sql'));
  await exec(read('n8n/growth/segment-shopify-facts.sql'));
  await exec(read('n8n/growth/segment-shopify-selection.sql'));
+ // Install original products, completeness, then recorded origin after their base sources.
+ if(batch){
+  // Native original guards require actual local initdb issuer postgres and PG17.10.
+  const context=await pool.query("SELECT current_user='postgres' AND current_setting('server_version_num')='170010' AS ok");
+  assert.equal(context.rows[0].ok,true,'NATIVE_BATCH_PG1710_POSTGRES_REQUIRED');
+  for(const sourceName of batch.additionalSqlPaths){
+   await exec(batch.pinnedAdditionalSQL(sourceName));
+   if(sourceName==='vip-consent.sql'){
+    // Verify the exact installed original; no stub, producer grant or role change.
+    const consent=await pool.query(`SELECT EXISTS(SELECT 1 FROM pg_proc p
+     WHERE p.oid=to_regprocedure('public.shrigma_crm_vip_subscribe_v1(text,text,boolean,text)')
+     AND pg_get_userbyid(p.proowner)='postgres' AND NOT p.prosecdef AND p.provolatile='v'
+     AND md5(p.prosrc)='c7cb4706377aff4e35c9ec2734a9f2c8'
+     AND cardinality(p.proconfig)=2 AND p.proconfig @> ARRAY['search_path=pg_catalog, public','lock_timeout=500ms']::text[]
+     AND NOT has_function_privilege('public',p.oid,'EXECUTE')) AS ok`);
+    assert.equal(consent.rows[0].ok,true,'NATIVE_BATCH_ORIGINAL_VIP_CONSENT_BASE_REQUIRED');
+   }
+  }
+ }
  await exec(read('n8n/growth/ab-audience-regular.sql'));
+ // A canonical worker now references the real exclusion helper in its two inline gates.
+ // The dependency-only bootstrap preserves absence so the separate PG23 install proof
+ // can test a genuinely new installation. It never starts a worker.
+ if(!dependencyOnly){
+  const FixtureSource=Batch||require('../tools/listmonk-regular-build/native_batch_profile.cjs');
+  await exec(FixtureSource.readPermanentExclusionFixture(root));
+  const own=await pool.query(`SELECT
+   (SELECT count(*)=0 FROM crm_audience_v2.regular_delivery_permanent_exclusion)
+   AND count(*)=2 AND coalesce(bool_and(p.oid IS NOT NULL AND NOT p.prosecdef
+    AND p.provolatile::text=f.volatility AND pg_get_userbyid(p.proowner)=current_user
+    AND p.proconfig=ARRAY['search_path=pg_catalog']::text[]
+    AND md5(p.prosrc)=f.body_md5 AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE')),false) AS ok
+   FROM (VALUES
+    ('crm_audience_v2.regular_delivery_permanently_excluded(uuid,integer)','s','671457eef0d8171dd1d6e4952496fc84'),
+    ('crm_audience_v2.regular_delivery_exclusion_immutable()','v','84f984c50cd40adde421329a5f0ca27f')) f(signature,volatility,body_md5)
+   LEFT JOIN pg_proc p ON p.oid=to_regprocedure(f.signature)`);
+  assert.equal(own.rows[0].ok,true,'NATIVE_EXCLUSION_EMPTY_REAL_OBJECTS_REQUIRED');
+ }
+ if(batch){const result=await pool.query(Batch.visibilitySQL());assert.equal(result.rows[0].ok,true,'NATIVE_BATCH_DEPENDENCY_VISIBILITY_REQUIRED');const functions=await pool.query(Batch.functionVisibilitySQL());assert.equal(functions.rows[0].ok,true,'NATIVE_BATCH_FUNCTION_DEPENDENCIES_REQUIRED');}
+ if(dependencyOnly){
+  const state=await pool.query(`SELECT
+   NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_worker_deployment WHERE enabled)
+   AND NOT EXISTS(SELECT 1 FROM crm_audience_v2.regular_delivery_campaign WHERE enabled)
+   AND NOT EXISTS(SELECT 1 FROM crm_audience_v2.selection_runtime WHERE enabled)
+   AND NOT EXISTS(SELECT 1 FROM crm_audience_v2.shopify_source WHERE enabled)
+   AND NOT EXISTS(SELECT 1 FROM crm_audience_v2.recorded_origin_source WHERE enabled) AS off`);
+  assert.equal(state.rows[0].off,true,'NATIVE_BATCH_DEPENDENCY_INSTALL_MUST_REMAIN_OFF');
+  return {ephemeral:true,dependencyOnly:true,originalDependencyOrder:batch.additionalSqlPaths,
+   finalWorkerAndSourcesOff:true,performanceAccepted:false,operational:false};
+ }
  await exec(`INSERT INTO crm_audience_v2.regular_sender_policy(brand,envelope_from,account_id,region,configuration_set,enabled) VALUES
   ('fish','contato@fishermans.com.br','000000000000','native-fixture','native-fixture',false),
   ('aristo','contato@oaristocrata.com','000000000000','native-fixture','native-fixture',false)`);
@@ -260,13 +320,14 @@ async function prepare(){
 async function activate(){
  const worker=process.env.REGULAR_NATIVE_WORKER_SHA,runtime=process.env.REGULAR_NATIVE_RUNTIME_SHA;
  assert.match(worker||'',/^[0-9a-f]{64}$/);assert.match(runtime||'',/^[0-9a-f]{64}$/);
+ if(batch)assert.equal(worker,batch.buildReceipt.binarySha256,'NATIVE_BATCH_BINARY_IDENTITY_REQUIRED');
  await pool.query(`INSERT INTO crm_audience_v2.regular_delivery_campaign(campaign_id,binding_version,binding_hash,material,worker_sha256,runtime_sha256,envelope_from,account_id,region,configuration_set,enabled)
   SELECT c.id,b.binding_version,b.binding_hash,crm_audience_v2.regular_delivery_material(c.id),$1,$2,
    CASE b.brand WHEN 'fish' THEN 'contato@fishermans.com.br' ELSE 'contato@oaristocrata.com' END,
    '000000000000','native-fixture','native-fixture',true
   FROM campaigns c JOIN crm_audience_v2.campaign_binding_effective(c.id) b ON true WHERE c.id IN(100,101,200,201,400)`,[worker,runtime]);
  await pool.query(`UPDATE crm_audience_v2.regular_worker_deployment SET enabled=true,worker_sha256=$1,runtime_sha256=$2,
-  query_sha256='084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d',database_role=session_user,
+  query_sha256='${queryIdentity}',database_role=session_user,
   approved_at=clock_timestamp(),approved_by='synthetic-native-fixture',topology_receipt_sha256=$3 WHERE singleton`,
   [worker,runtime,'f'.repeat(64)]);
  await pool.query('UPDATE crm_audience_v2.regular_sender_policy SET enabled=true');
@@ -297,4 +358,4 @@ async function schedule(){
  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
 }
 
-(async()=>{try{let result;if(process.argv[2]==='prepare')result=await prepare();else if(process.argv[2]==='activate')result=await activate();else if(process.argv[2]==='schedule')result=await schedule();else throw Error('MODE_REQUIRED');console.log(JSON.stringify({mode:process.argv[2],ok:true,...result}));}finally{await pool.end();}})().catch(e=>{console.error(e);process.exitCode=1;});
+(async()=>{try{let result;if(process.argv[2]==='prepare'||dependencyOnly)result=await prepare();else if(process.argv[2]==='activate')result=await activate();else if(process.argv[2]==='schedule')result=await schedule();else throw Error('MODE_REQUIRED');console.log(JSON.stringify({mode:process.argv[2],ok:true,...result}));}finally{await pool.end();}})().catch(e=>{console.error(e);process.exitCode=1;});
