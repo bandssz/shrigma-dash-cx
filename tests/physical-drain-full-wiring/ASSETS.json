@@ -1,0 +1,122 @@
+{
+  "files": {
+    ".github/workflows/physical-drain-full-wiring-proof.yml": {
+      "bytes": 7601,
+      "sha256": "1ed267f5003e903268f60e5cc13c9b8da248d439a6c0f172eafb8bcd5312b941"
+    },
+    "crm-scheduler-batch-profile.json": {
+      "bytes": 5291,
+      "sha256": "5b09d45fd1bd3bf56d6de1d0276b6a35bed9c518ca125430f6560287b84facac"
+    },
+    "tests/physical-drain-full-wiring/email_test.go": {
+      "bytes": 2842,
+      "sha256": "20c34f469043a91302a03d1447218804566bc0b5775f99c469282c101b7b6496"
+    },
+    "tests/physical-drain-full-wiring/manager_test.go": {
+      "bytes": 2852,
+      "sha256": "aea06ccc768a696c5dfac8f821b0a412f6ed46a4cd30d04e63520ac83cc31aa7"
+    },
+    "tests/physical-drain-full-wiring/native-proof.cjs": {
+      "bytes": 19480,
+      "sha256": "081aa24bed3aa553795d374ad1ef5a5addfca26277c09284d7089d79d9d9a714"
+    },
+    "tests/physical-drain-full-wiring/run.py": {
+      "bytes": 12459,
+      "sha256": "ccd5c561961b7cc3c8ee4c6c06fc1d61e7ed0626933c045cf207cf0899bf5b67"
+    },
+    "tests/segment-regular-native-fixture.cjs": {
+      "bytes": 31994,
+      "sha256": "caad07bf8b916329981dafab6908b6389e718c9f1927b6f11150bd40a85e80fb"
+    },
+    "tools/listmonk-physical-drain/ASSETS.json": {
+      "bytes": 997,
+      "sha256": "4b29e9024ab6a90fdd5fe87e93f5c618642541f0f654945b5e9f986a27016fe8"
+    },
+    "tools/listmonk-physical-drain/apply.py": {
+      "bytes": 7554,
+      "sha256": "40df1bf05db601f756877b36df5d5c3a0e5793f01fbc4280b7a69c18347ece59"
+    },
+    "tools/listmonk-physical-drain/overlay/cmd/main.go": {
+      "bytes": 12469,
+      "sha256": "b4fd82023c14910efbdc832a9d022c80551c8c72f5ae7346034e2afb245655b3"
+    },
+    "tools/listmonk-physical-drain/overlay/internal/manager/manager.go": {
+      "bytes": 19330,
+      "sha256": "820b1cca6753ac57c89a54b0e7fcbbb207d91aa3c1d845ffffe8663b87f4dcbf"
+    },
+    "tools/listmonk-physical-drain/overlay/internal/manager/physical_drain.go": {
+      "bytes": 3911,
+      "sha256": "1a93abf28983b23ba1d68b33cd700286c3b27c0e061b16ae3db7a2fe4cadc9f4"
+    },
+    "tools/listmonk-physical-drain/overlay/internal/manager/pipe.go": {
+      "bytes": 10573,
+      "sha256": "6709971248d526063c80b206ad1ff91f75f9d620b6c938cea685353fe83d921c"
+    },
+    "tools/listmonk-physical-drain/overlay/internal/messenger/email/email.go": {
+      "bytes": 4978,
+      "sha256": "2ae0e26e9a0dc986b5a34c1374e13c83e7f73415b5cdcb7191b733bcd0043ec6"
+    },
+    "tools/listmonk-physical-drain/overlay/internal/messenger/email/physical_drain.go": {
+      "bytes": 1049,
+      "sha256": "593602afc6dbbb42acd672b5ee86178492d74fe842f9dedc0b02e3c72fd1bd68"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/cmd/manager_store_pause_diagnostic.go": {
+      "bytes": 1227,
+      "sha256": "26becd77ed364d8b783e6ad3bbefec1aab30a290cf9fbfa529cc5269b78ef459"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/cmd/manager_store_pause_diagnostic_test.go": {
+      "bytes": 1117,
+      "sha256": "00a7e4fccac68dcf316734031da9a7e4888bdf24f8c50101586fb9dd74626ecc"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/cmd/manager_store_regular.go": {
+      "bytes": 13859,
+      "sha256": "fddc286630157005e82a64ba97dbcb100869f56ea6cf2ba7e61cb59232486fee"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/cmd/manager_store_regular_test.go": {
+      "bytes": 548,
+      "sha256": "71b62555011473162a8b289fc3adccbfe6162e7fdfa258a50b2adfcf4489dda6"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/cmd/manager_store_scan_observability_test.go": {
+      "bytes": 3756,
+      "sha256": "7bf2ce6a80fb870eb49ff2314fcc11461a38a98ee85c69eb51622d4625efd643"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/internal/manager/legacy_counter_atomic_test.go": {
+      "bytes": 5585,
+      "sha256": "933b48152e6466e3117cf637cfa96f5322e1484f2eb0ef914916ebf4a80be4d6"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_delivery.go": {
+      "bytes": 24112,
+      "sha256": "a7acf51047320c05dee217f2704813b58b9a8d17bbca12a8d23b6ac1a0ea3e80"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_delivery_test.go": {
+      "bytes": 18746,
+      "sha256": "0c41a4690795568dc9ba346c233830f639f34b04d7894d7687cbabdb72152db3"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_pause_diagnostic.go": {
+      "bytes": 5444,
+      "sha256": "9155f9e4f34befea04e2ec915b8ce61a4b0e360f95df748ce6505b317beed297"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_pause_diagnostic_test.go": {
+      "bytes": 6651,
+      "sha256": "e02dca489f863db337ade8bbcd77c2bf53f0b95919a8f045eebca2923adfada2"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_smtp_diagnostic_test.go": {
+      "bytes": 2520,
+      "sha256": "df8801ee610b44817b64a54a940affdee9537ad6c1adc636908cbf838fba7d58"
+    },
+    "tools/listmonk-regular-build/overlay/listmonk/internal/manager/regular_template_nil_test.go": {
+      "bytes": 6467,
+      "sha256": "dab81d74dee8d204677831a95b3094367549e92585d2054cfa292b692047fd91"
+    },
+    "tools/listmonk-regular-build/upstream.lock.json": {
+      "bytes": 6730,
+      "sha256": "f4561506ea67b26f941576e58690cf81f843aebf647aae979d1e4d8297e52798"
+    },
+    "tools/listmonk-regular-build/worker_patch.py": {
+      "bytes": 28974,
+      "sha256": "931f3def3342496cb78753033e296a3e5b7faff2a6a02d599ce7faa37b774c89"
+    }
+  },
+  "operational": false,
+  "schema": "physical-drain-full-wiring-assets-v1"
+}
