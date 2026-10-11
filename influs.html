@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="no-referrer">
-<title>Influs &amp; Afiliados · Grupo Shrigma</title>
+<title>Influs · Grupo Shrigma</title>
+<style>body[data-product-front] [hidden]{display:none!important}</style>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=86f46577e9c7">
 <!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-9WcxGmugnxKLjSObvkAp8LA5XxPQgI6lJIyL1uSJf+I='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
@@ -250,22 +251,28 @@
 <!-- PANEL_JS --><script src="assets/panels/influs.js?v=e662c04812a1"></script>
 <script>
 const $=s=>document.querySelector(s);
+// This view selector never grants data access or borrows another front's key.
+function influsProductFront(view){
+ const afiliados=view==='afiliados';
+ return {id:afiliados?'afiliados':'influs',label:afiliados?'Afiliados':'Influs',section:afiliados?'afil':'creators',channel:afiliados?'crm':'parceiros',sections:afiliados?['afil']:['creators','meta','afil','escopo','diagnostico'],channels:afiliados?['crm','tiktok']:['parceiros']};
+}
+const PRODUCT_FRONT=influsProductFront(new URL(location.href).searchParams.get('view'));
 // Acesso por papel: mantém leitura do legado, sem persistir chaves ou autoria novas.
 const INFLU_ACCESS=InflusAccess.bind({document,host:$('#influ-access'),
   readExisting:()=>shrigmaChave('influs'),writeExisting:()=>(typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('influs','creators_edit'):'')||localStorage.getItem('shrigma_influ_key'),
   authorExisting:()=>(typeof shrigmaAutorOperador==='function'?shrigmaAutorOperador('influs'):'')||localStorage.getItem('shrigma_autor'),
   // Acesso único (decisão de 26/09): a chave de entrada lê e grava; a autoria vem do nome do acesso.
   unified:true,authorFallback:()=>typeof AREA_VIEW!=='undefined'&&AREA_VIEW&&AREA_VIEW.owner?AREA_VIEW.owner():'',
-  onRead:async()=>{await Promise.allSettled([carregarAbaAtiva(),faixaCredencial()]);}});
+  onRead:async()=>{await Promise.allSettled(PRODUCT_FRONT.id==='afiliados'?[carregarAbaAtiva()]:[carregarAbaAtiva(),faixaCredencial()]);}});
 // O TTS conserva seu próprio acesso de escrita/journal; a leitura compartilha este painel.
 const esqueceChaveExistente=shrigmaEsqueceChave;
 shrigmaEsqueceChave=function(painel){if(painel==='influs')INFLU_ACCESS.forgetRead();return esqueceChaveExistente(painel);};
 function chaveLeitura(){return INFLU_ACCESS.requireRead();}
 // TikTok usa a mesma chave e o mesmo nome no histórico (sem formulário à parte).
-function chavePainelTTS(){return INFLU_ACCESS.current('read');}
+function chavePainelTTS(){return PRODUCT_FRONT.id==='afiliados'?(window.ShrigmaAffiliateAccess?.current?.('read')||''):'';}
 // Cobrança v2 do TikTok (aba Cobrança): mensagens aprovadas, simulação, envios e pendências. Não envia nada à TikTok.
 var TTS_COBRANCA_URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/tts-cobranca-painel-a3ac4c25d1e85399';
-function autorPainelTTS(){return INFLU_ACCESS.author();}
+function autorPainelTTS(){return PRODUCT_FRONT.id==='afiliados'?(window.ShrigmaAffiliateAccess?.owner?.()||''):'';}
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
 const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
 const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
@@ -447,7 +454,8 @@ function pintaMarca(){
   el.innerHTML = uma
     ? `<span class="chipe" title="${G.MARCA_CHEIA[MARCA]}"><img src="${LOGO[MARCA]}" alt="${G.MARCA_CHEIA[MARCA]}"></span>`
     : '<span class="sigla" title="Grupo Shrigma">GS</span>';
-  $('#sub-topo').textContent=uma?`${G.MARCA_CHEIA[MARCA]} · cupons e comissão`:'Grupo Shrigma · três marcas';
+  const detail=PRODUCT_FRONT.id==='afiliados'?'operação de afiliados':'cupons e comissão';
+  $('#sub-topo').textContent=uma?`${G.MARCA_CHEIA[MARCA]} · ${detail}`:`Grupo Shrigma · ${PRODUCT_FRONT.label}`;
 }
 // ===================== ABA INFLUS =====================
 // Cadastro cupom<->influ. Le e escreve pelo workflow proprio
@@ -539,7 +547,7 @@ async function faixaCredencial(){
   try{await leitura.promise;}catch(_){ /* Failure is isolated from the Creators/TikTok data. */ }
   finally{if(CRED_READ===leitura)CRED_READ=null;}
 }
-faixaCredencial();
+if(PRODUCT_FRONT.id==='influs')faixaCredencial();
 
 function avisoTela(titulo,detalhe,botao){
   if(window.CREATORS_PILOT)window.CREATORS_PILOT.render();
@@ -1225,12 +1233,18 @@ document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   b.classList.add('ativo');MARCA=b.dataset.marca;if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.sync();pintaMarca();renderTudo();if(window.renderTTS)renderTTS();if(SEC==='escopo'&&ESCOPO)ESCOPO.paint();});
 // A leitura segue a aba visível; trocar de aba sempre relê o período atual.
 function carregarAbaAtiva(){
+  if(!PRODUCT_FRONT.sections.includes(SEC)||SEC==='afil'&&!PRODUCT_FRONT.channels.includes(CANAL))return Promise.resolve();
+  if(PRODUCT_FRONT.id==='afiliados'&&CANAL==='tiktok'&&!chavePainelTTS()){
+    $('#tts-area').textContent='Leitura de Afiliados/TikTok ainda não conectada para esta marca. Nenhum resultado foi interpretado como zero.';
+    return Promise.resolve();
+  }
   if(SEC==='escopo'&&ESCOPO)return ESCOPO.mount($('#area-escopo'));
   if(SEC==='afil'&&CANAL==='crm')return AFFILIATES_MOUNT?AFFILIATES_MOUNT.sync():Promise.resolve();
   if(SEC==='afil')return CANAL==='tiktok'&&typeof window.carregarTTS==='function'?window.carregarTTS():carregarInflu();
   return carregarInflu();
 }
 document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
+  if(!PRODUCT_FRONT.sections.includes(b.dataset.s))return;
   if(SEC===b.dataset.s)return;
   document.querySelectorAll('#secoes button').forEach(x=>x.classList.remove('ativo'));
   document.querySelectorAll('#sec-creators,#sec-afil,#sec-meta,#sec-diagnostico,#sec-escopo').forEach(x=>x.classList.remove('ativa'));
@@ -1240,17 +1254,18 @@ document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
 
 // Canais de afiliados. O TikTok só é carregado quando o canal dele é aberto — abrir Afiliados em
 // Parceiros não dispara a consulta pesada do TikTok Shop.
-let CANAL='parceiros';
+let CANAL=PRODUCT_FRONT.channel;
 // Root injeta explicitamente gateway + vínculo de marca após admissão. Sem adaptador padrão.
 const AFFILIATES_MOUNT=window.ShrigmaAffiliatesMount?ShrigmaAffiliatesMount.bind({document,element:$('#affiliates-v2-root'),view:window.ShrigmaAffiliatesV2,
   getSelection:()=>MARCA,isActive:()=>SEC==='afil'&&CANAL==='crm',getFilters:()=>({period:{start:PER.ini,end:PER.fim}})}):null;
 window.addEventListener('pagehide',()=>{if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.dispose();},{once:true});
 function trocaCanal(c){
+  if(!PRODUCT_FRONT.channels.includes(c))return;
   CANAL=c;if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.sync();
   document.querySelectorAll('#canais button').forEach(x=>x.classList.toggle('ativo',x.dataset.c===c));
   document.querySelectorAll('#sec-afil .canal').forEach(x=>{x.hidden=x.dataset.plataforma!==c;});
   document.body.classList.toggle('sec-partners',SEC==='afil'&&c==='parceiros');
-  if(c==='tiktok'&&typeof window.carregarTTS==='function')window.carregarTTS();
+  if(c==='tiktok')carregarAbaAtiva();
   if(c==='parceiros'&&window.CREATORS_PILOT)window.CREATORS_PILOT.render();
 }
 document.querySelectorAll('#canais button').forEach(b=>b.onclick=()=>{if(!b.disabled&&CANAL!==b.dataset.c)trocaCanal(b.dataset.c);});
@@ -1269,6 +1284,18 @@ var ESCOPO=typeof InfluEscopo!=='undefined'?InfluEscopo.create({document,endpoin
 var AREA_VIEW=typeof AreaView!=='undefined'?AreaView.bind({document,panel:'influs',key:()=>INFLU_ACCESS.current('read'),apiUrl:()=>CX_API_URL,
   onChange:v=>{if(v!=='owner'&&SEC==='diagnostico')$('#secoes [data-s="creators"]').click();else if(v==='owner'&&INFLU)renderConferencia();}}):null;
 if(AREA_VIEW)window.addEventListener('shrigma:access-ready',()=>AREA_VIEW.resolve());
+SEC=PRODUCT_FRONT.section;
+document.title=PRODUCT_FRONT.label+' · Grupo Shrigma';
+document.body.dataset.productFront=PRODUCT_FRONT.id;
+document.querySelector('.titulo h1').textContent=PRODUCT_FRONT.label;
+document.querySelector('.area-marca span').textContent=PRODUCT_FRONT.label;
+document.querySelector('.area-lateral').setAttribute('aria-label','Navegação de '+PRODUCT_FRONT.label);
+document.querySelectorAll('#secoes button').forEach(b=>{b.hidden=!PRODUCT_FRONT.sections.includes(b.dataset.s);b.classList.toggle('ativo',b.dataset.s===SEC);if(b.dataset.s==='afil'&&PRODUCT_FRONT.id==='influs')b.innerHTML='Parceiros do site<small>seleção e acompanhamento</small>';});
+document.querySelectorAll('#sec-creators,#sec-afil,#sec-meta,#sec-diagnostico,#sec-escopo').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
+document.querySelectorAll('#canais button').forEach(b=>{b.hidden=!PRODUCT_FRONT.channels.includes(b.dataset.c);b.classList.toggle('ativo',b.dataset.c===CANAL);});
+document.querySelectorAll('#sec-afil .canal').forEach(x=>{x.hidden=x.dataset.plataforma!==CANAL;});
+document.body.classList.toggle('sec-afil',SEC==='afil');document.body.classList.toggle('sec-partners',SEC==='afil'&&CANAL==='parceiros');
+if(PRODUCT_FRONT.id==='afiliados')$('#influ-access').hidden=true;
 pintaMarca();
 $('#relogio').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 // Tabelas viram cartões no celular; aba centralizada. Sem limitar linhas: algumas tabelas daqui têm linha de total.

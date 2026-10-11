@@ -111,6 +111,8 @@ function invitePermissions(areas,permissions){
 function createAuth(options){
  if(!plain(options)||typeof options.dbPath!=='string'||!options.dbPath||!Array.isArray(options.allowedEmailDomains)||!options.allowedEmailDomains.length||!plain(options.areaHosts))err('CONFIG_INVALID',500);
  if(options.crmManagedRead!==undefined&&(!plain(options.crmManagedRead)||Object.keys(options.crmManagedRead).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedRead).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v))))err('MANAGED_CONFIG_INVALID',500);
+ if(options.dashboardIndividualRead!==undefined&&typeof options.dashboardIndividualRead!=='boolean')err('CONFIG_INVALID',500);
+ const dashboardIndividualRead=options.dashboardIndividualRead===true;
  const coexistence=require('./crm-individual-coexistence.cjs').validate(options);
  let corporateWriter=null;
  let ownMasterWriter=null;
@@ -264,6 +266,12 @@ function createAuth(options){
   return db.prepare("SELECT o.phase FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=? AND o.kind='renew' AND o.lifecycle_version=l.version AND l.state='ready' AND o.phase IN ('queued','prepare_uncertain','prepared','attested','commit_uncertain','committed')").get(userId)?.phase??null;
  }
  function managedAccess(user){
+  if(dashboardIndividualRead&&!managedCrm&&user.role==='manager'&&permissions(user.id).growth?.read===true){
+   const row=db.prepare("SELECT encrypted_key,key_digest FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(user.id),scope=brandScope(db.prepare('SELECT * FROM users WHERE id=?').get(user.id));
+   const bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='crm-panel-read'").get(user.id);
+   const configured=!!(row&&bound&&scope.brandAccess==='single'&&equalHex(bound.binding_mac,upstreamBindingMac(user,'crm-panel-read',row)));
+   return {state:configured?'configured':'unavailable',ready:false,operational:false,reason:configured?'READ_VALIDATION_REQUIRED':'INDIVIDUAL_CREDENTIAL_MISSING',credentialBound:configured,readOnly:true,renewalPhase:null,expired:false,canRenew:false};
+  }
   if(ownMasterWriter&&!coexistence&&user.role==='manager'&&permissions(user.id).growth?.read===true)return {state:'unavailable',ready:false,operational:false,reason:'INDIVIDUAL_ACCESS_NOT_READY',renewalPhase:null,expired:false,canRenew:false};
   const status=managedCrm?.status(user.id);if(!status)return null;
   const scoped=brandScope(db.prepare('SELECT * FROM users WHERE id=?').get(user.id)).brandAccess!=='reprovision_required';

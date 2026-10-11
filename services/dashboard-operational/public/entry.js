@@ -78,9 +78,15 @@ function sessionBrandScope(user){
  if(user.role==='manager'&&user.brandAccess==='single'&&brands.includes(user.brand)&&user.brands.length===1&&user.brands[0]===user.brand)return {brand:user.brand,brands:[user.brand],brandAccess:'single'};
  return null;
 }
-if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation,sessionBrandScope};
+// Product views are navigation only. Both existing Influs views still require
+// its actual area grant; Afiliados data/actions require their own source binding.
+function productViewsForAreas(areas){
+ const definitions={growth:[{area:'growth',view:'growth',label:'CRM'}],organico:[{area:'organico',view:'organico',label:'Orgânico'}],influs:[{area:'influs',view:'influs',label:'Influs'},{area:'influs',view:'afiliados',label:'Afiliados'}]};
+ return Array.isArray(areas)?[...new Set(areas)].flatMap(area=>definitions[area]||[]).map(v=>({...v})):[];
+}
+if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation,sessionBrandScope,productViewsForAreas};
 else (function(){'use strict';
- const AREAS={growth:{label:'CRM',page:'/growth.html'},organico:{label:'Orgânico',page:'/organico.html'},influs:{label:'Influs & Afiliados',page:'/influs.html'}};
+ const AREAS={growth:{label:'CRM',page:'/growth.html'},organico:{label:'Orgânico',page:'/organico.html'},influs:{label:'Influs',page:'/influs.html'}};
  const requested=document.body.dataset.accessPanel;
  const $=id=>document.getElementById(id);
  const loginScreen=$('entry-login'),loginForm=$('login-form'),inviteForm=$('invite-form'),bootstrapForm=$('bootstrap-form'),message=$('entry-message');
@@ -90,7 +96,7 @@ else (function(){'use strict';
  let bootstrapToken=requested==='todos'?fragment.get('bootstrap')||'':'';
  let inviteToken=bootstrapToken?'':fragment.get('invite')||'';
  if(location.hash)history.replaceState(null,'',location.pathname+location.search);
- let session=null,frame=null,selected='',busy=false,version=0;
+ let session=null,frame=null,selected='',selectedView='',busy=false,version=0;
  const campaignButton=$('entry-campaign-open');
  const campaignUi=window.ShrigmaCampaignEdit?.createCampaignEditor({document,getSession:()=>session,storage:window.localStorage,locks:window.navigator?.locks,request:async q=>{
   const {response,data}=await request(q.path,{method:q.method,headers:q.headers,...(q.body?{body:JSON.stringify(q.body)}:{}),editReceipt:q.method==='GET',deadlineMs:q.method==='POST'?90000:20000});
@@ -223,9 +229,10 @@ else (function(){'use strict';
   note.hidden=!waiting;note.textContent=!waiting?'':preserved?'Edição de campanhas aguardando validação · tentativa sem confirmação preservada, não será repetida':'Edição de campanhas aguardando validação · CRM em leitura';
   note.title=!waiting?'':preserved?'Uma tentativa de campanha ficou sem confirmação neste navegador. Ela está guardada e não será enviada de novo. Quando a edição voltar a valer, abra Campanhas para conferir o resultado antes de qualquer nova ação.':'O acesso de edição foi solicitado ou aprovado, mas a escrita individual de campanhas ainda não está pronta. Nada pode ser salvo ou agendado por aqui; a leitura do CRM continua disponível.';
  }
- function openPanel(area){
+ function openPanel(area,view=area){
   if(!session||!session.user.areas.includes(area)||!AREAS[area])return;
-  admin.hidden=true;manage.setAttribute('aria-pressed','false');frameHost.hidden=false;selected=area;frame?.remove();
+  const presentation=productViewsForAreas([area]).find(v=>v.view===view);if(!presentation)return;
+  admin.hidden=true;manage.setAttribute('aria-pressed','false');frameHost.hidden=false;selected=area;selectedView=view;frame?.remove();
   campaignUi?.close();if(campaignButton){
    const writer=session.features?.campaignSubmitWrite===true,history=session.features?.campaignHistoryRead===true;
    campaignButton.hidden=!(area==='growth'&&(writer||history)&&sessionBrandScope(session.user)&&(session.user.role==='superadmin'&&session.user.areas.length===3&&new Set(session.user.areas).size===3&&Object.keys(AREAS).every(a=>session.user.areas.includes(a))||session.user.role==='manager'&&session.user.areas.length===1)&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true);
@@ -234,19 +241,21 @@ else (function(){'use strict';
   audienceGate={state:area==='growth'&&session.features?.audienceDraft===true?'checking':'off'};
   audienceGatePromise=area==='growth'?loadAudienceGate(session):Promise.resolve(audienceGate);
   showCampaignNote(area);
-  frame=document.createElement('iframe');frame.title=AREAS[area].label;frame.referrerPolicy='no-referrer';
-  const target=new URL(AREAS[area].page,location.origin);target.searchParams.set('embed','1');frame.src=target.href;
-  frameHost.replaceChildren(frame);showAudienceNotice(audienceGate);$('entry-area').textContent=AREAS[area].label;
-  for(const button of nav.querySelectorAll('button'))button.setAttribute('aria-current',button.dataset.area===area?'page':'false');
+  frame=document.createElement('iframe');frame.title=presentation.label;frame.referrerPolicy='no-referrer';
+  const target=new URL(AREAS[area].page,location.origin);target.searchParams.set('embed','1');if(area==='influs')target.searchParams.set('view',view);frame.src=target.href;
+  frameHost.replaceChildren(frame);showAudienceNotice(audienceGate);$('entry-area').textContent=presentation.label;
+  for(const button of nav.querySelectorAll('button'))button.setAttribute('aria-current',button.dataset.area===area&&button.dataset.view===view?'page':'false');
  }
  function showShell(s){
   if(!validSession(s)){showLogin(s?.user?.brandAccess==='reprovision_required'?'Este acesso precisa ser vinculado a uma marca pelo administrador. Peça um novo acesso.':'Este acesso não está autorizado para este endereço.');return;}
   clearLegacy();bootstrapToken='';inviteToken='';session=s;loginScreen.hidden=true;shell.hidden=false;message.textContent='';$('entry-owner').textContent=s.user.email;
   $('entry-brand').textContent=s.user.brandAccess==='all'?'Visão gerencial · todas as marcas':AUDIENCE_BRANDS[s.user.brand];
   const managerial=s.user.role==='superadmin'&&requested==='todos';
-  nav.replaceChildren();nav.hidden=!managerial;manage.hidden=!managerial;
-  if(managerial)for(const area of s.user.areas){const button=document.createElement('button');button.type='button';button.dataset.area=area;button.textContent=AREAS[area].label;button.addEventListener('click',()=>openPanel(area));nav.append(button);}
-  openPanel(requested==='todos'?s.user.areas[0]:requested);
+  const views=productViewsForAreas(s.user.areas);
+  nav.replaceChildren();nav.hidden=!(managerial||views.length>1);manage.hidden=!managerial;
+  if(managerial||views.length>1)for(const v of views){const button=document.createElement('button');button.type='button';button.dataset.area=v.area;button.dataset.view=v.view;button.textContent=v.label;button.addEventListener('click',()=>openPanel(v.area,v.view));nav.append(button);}
+  const first=requested==='todos'?s.user.areas[0]:requested,view=first==='influs'&&new URL(location.href).searchParams.get('view')==='afiliados'?'afiliados':first;
+  openPanel(first,view);
  }
  window.addEventListener('message',async event=>{
   if(!session||!frame||event.source!==frame.contentWindow||event.origin!==location.origin)return;

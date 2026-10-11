@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    if: github.repository == 'bandssz/shrigma-dash-cx' && !startsWith(github.event.head_commit.message, 'test-only:')
+    if: github.repository == 'bandssz/shrigma-dash-cx' && !startsWith(github.event.head_commit.message, 'test-only:') && !startsWith(github.event.head_commit.message, 'manager-access:')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -176,3 +176,58 @@ jobs:
         env:
           CAMPAIGN_PGLITE_MODULE: '@electric-sql/pglite'
         run: node --test --test-name-pattern='Gestor saves, reopens and counts a product audience' tests/segment-shopify-products-panel.test.cjs
+
+  verify-manager-access:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'manager-access:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify bounded delta and preserved historical source
+        run: node tools/crm-native-connection/verify-manager-access-source.cjs
+      - name: Build immutable candidate over the existing parent
+        shell: bash
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          access_ci_dir="$(mktemp -d "$RUNNER_TEMP/shrigma-access.XXXXXX")"
+          printf 'ACCESS_CI_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$access_ci_dir" "$access_ci_dir" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$access_ci_dir/docker"
+          export DOCKER_CONFIG="$access_ci_dir/docker"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE:source-$GITHUB_SHA" --file ops/releases/crm-native-connection-20261007/Dockerfile .
+      - name: Verify actual image, authenticated Master and served public assets
+        run: |
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/journey-smoke.cjs,dst=/tmp/smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" /tmp/smoke.cjs > "$ACCESS_CI_DIR/smoke.json"
+          node - "$ACCESS_CI_DIR/smoke.json" <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,72);a.equal(r.presentationPathsUpdated,4);for(const k of ['publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sqlInstallerEnabled,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);console.log(JSON.stringify(r));
+          NODE
+      - name: Verify new individual READ and front separation in Node22 UID1000
+        run: |
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /source/tests/dashboard-individual-read.test.cjs /source/tests/dashboard-individual-read-gateway.test.cjs /source/tests/product-front-split.test.cjs
+      - name: Verify individual writer coexistence preserves original Master
+        run: |
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/tests/analyst-live-coexistence,dst=/tmp/coexist,readonly" --env ANALYST_COEXISTENCE_RUNTIME=/app/native-backend/runtime --env ANALYST_COEXISTENCE_SOURCE=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/coexist/coexistence.test.cjs
+      - name: Publish the tested candidate without deploying
+        run: |
+          docker push "$IMAGE:source-$GITHUB_SHA"
+          node <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),{execFileSync}=require('node:child_process'),image=process.env.IMAGE+':source-'+process.env.GITHUB_SHA,info=JSON.parse(execFileSync('docker',['image','inspect',image],{encoding:'utf8'}));a.equal(info.length,1);const digest=info[0].RepoDigests.filter(s=>s.startsWith(process.env.IMAGE+'@sha256:'));a.equal(digest.length,1);const r={schema:'shrigma-manager-access-image-v1',sourceRevision:process.env.GITHUB_SHA,image:digest[0],syntheticIdentityOnly:true,productionDatabaseUsed:false,productionAdmitted:false,operational:false};fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'```json\n'+JSON.stringify(r,null,2)+'\n```\n');console.log(JSON.stringify(r));
+          NODE
+      - name: Remove private registry session
+        if: always()
+        run: rm -rf -- "$DOCKER_CONFIG"

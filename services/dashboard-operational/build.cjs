@@ -14,7 +14,7 @@ const CONTENT=[
  'logos/icone-aristocrata.png','logos/icone-fishermans.svg','logos/icone-olivas.jpg',
  'logos/wm-aristocrata.png','logos/wm-fishermans.png','logos/wm-olivas.png'
 ];
-const ENTRIES={crm:{area:'growth',label:'CRM'},organico:{area:'organico',label:'Orgânico'},creators:{area:'influs',label:'Influs & Afiliados'},gestao:{area:'todos',label:'Gestão geral'}};
+const ENTRIES={crm:{area:'growth',label:'CRM'},organico:{area:'organico',label:'Orgânico'},creators:{area:'influs',label:'Influs'},gestao:{area:'todos',label:'Gestão geral'}};
 const ENDPOINTS={
  'https://n8n-n8n.tazdb8.easypanel.host/webhook/cx-dash-api-306742284c6fac1d':'cx',
  'https://n8n-n8n.tazdb8.easypanel.host/webhook/cx-dash-cache-a91f3c7e2d4b':'cache',
