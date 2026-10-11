@@ -13,7 +13,10 @@ try{
  assert.ok((supplied.schema==='shrigma-native-batch-proof-profile-v3'&&supplied.version===3)||(supplied.schema==='shrigma-native-batch-proof-profile-v4'&&supplied.version===4));
  assert.equal(supplied.isolatedProofAuthorization,null);
  const base={...supplied,schema:'shrigma-native-batch-proof-profile-v3',version:3};
- const pins=[base.compositionDelivery,...Object.values(base.sources),...base.additionalSqlSources.map(x=>x.file)];
+ const composition=JSON.parse(fs.readFileSync(path.join(context,base.compositionDelivery.path)));
+ const workerPaths=['tools/listmonk-regular-build/overlay/listmonk/cmd/manager_store_regular.go','tools/listmonk-regular-build/proof-inputs/regular-permanent-exclusion-objects.sql'];
+ const workerPins=workerPaths.map(p=>{const hits=[...composition.inputs,...composition.outputs].filter(pin=>pin.path===p);assert.equal(hits.length,1);return hits[0];});
+ const pins=[base.compositionDelivery,...Object.values(base.sources),...base.additionalSqlSources.map(x=>x.file),...workerPins];
  for(const pin of pins){const b=fs.readFileSync(path.join(context,pin.path));assert.equal(b.length,pin.bytes);assert.equal(sha(b),pin.sha256);const f=path.join(tmp,pin.path);fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,b);}
  test('v3 source behavior retained',()=>assert.equal(load(base).report.version,3));
  const m={...clone(base),schema:'shrigma-native-batch-proof-profile-v4',version:4};

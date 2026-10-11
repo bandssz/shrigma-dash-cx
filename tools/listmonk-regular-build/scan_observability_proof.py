@@ -11,7 +11,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-SOURCE_SHA = '6a7a040a8a3614bb410f8c7f257c4ebe69ac93ae2f7d22efdc1c8d3e4f7e1a35'
+SOURCE_SHA = 'fddc286630157005e82a64ba97dbcb100869f56ea6cf2ba7e61cb59232486fee'
 TEST_SHA = '7bf2ce6a80fb870eb49ff2314fcc11461a38a98ee85c69eb51622d4625efd643'
 MARKER = b'// campaignScanPhase and the classifier intentionally expose only closed static values.\n'
 HEADER = b'package main\n\nimport (\n "context"\n "database/sql"\n "errors"\n "github.com/lib/pq"\n)\n\n'
