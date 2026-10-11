@@ -5,7 +5,6 @@ const {decide,validateUpstreams,readJson,forward,ProxyError,MAX_CAMPAIGN_REQUEST
 const AudienceContract=require('./segment-audience-contract.js');
 const ManagedRead=require('./crm-manager-read-bridge.cjs');
 const AudienceRead=require('./crm-audience-read-bridge.cjs');
-const IndividualRead=require('./dashboard-individual-read.cjs');
 const TemplateRead=require('./crm-template-read-bridge.cjs');
 const {fixture}=require('./fixtures.cjs');
 const AREA_PAGE=Object.freeze({growth:'/growth.html',organico:'/organico.html',influs:'/influs.html'});
@@ -519,6 +518,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   if(!auth)throw Error('Auth required');
   if(!Number.isInteger(loginBodyTimeoutMs)||loginBodyTimeoutMs<1||loginBodyTimeoutMs>LOGIN_BODY_TIMEOUT_MS)throw Error('Invalid login body timeout');
   const dashboardIndividualRead=s.dashboardIndividualRead===true;
+  const IndividualRead=dashboardIndividualRead?require('./dashboard-individual-read.cjs'):null;
   if(s.dashboardIndividualRead!==undefined&&typeof s.dashboardIndividualRead!=='boolean'||dashboardIndividualRead&&(s.mode!=='operational'||s.upstreamProfile!=='production'))throw Error('Individual dashboard READ profile invalid');
   const coexistence=require('./crm-individual-coexistence.cjs').validate(s,{requireTokens:true});
   const upstreamProfile=s.upstreamProfile||'production',sandbox=upstreamProfile==='crm-sandbox';
