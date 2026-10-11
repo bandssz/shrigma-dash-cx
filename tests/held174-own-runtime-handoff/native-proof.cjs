@@ -11,7 +11,7 @@ const ASSETS=Object.freeze({
   "source/quiescence.read.sql": "b9793e502d29238ad49356ecfa065e093583c01c1de00f9f7532059ba59ea667",
   "bootstrap.cjs": "3945c077309fc9a11d744a443311baaf76bf3f0569d5d1ce2c9325bdb0528272",
   "schema.sql": "9d94ea32ee76aab91f6fc5c1179539513a8a955984951570ed537b1916230a8f",
-  "fixture.cjs": "4e3dc98ca2754240cd2ed8ee492739ce518a2926f3aa0b9197964323cdea92b5",
+  "fixture.cjs": "b997d81b8c2144783654b29dd9c4f475ce4758b189dddbe1894788f6e90d835b",
   "fixture-extra-guards.sql": "53ee6e4d2aef2128a05a0bc719473a7e5a91ae7a93ab0b34b3326fcb9ec7e1c1",
   "heartbeat.current-fixture.sql": "a45eed57cf0b43db41873fc198f0c80f9f00c3fe8cba08ebbc29638168d0d606",
   "fixture-inputs/OBJECTS.install.sql": "cac58221689ee10702352846f91070bd29c6ba0a3ebfeb4297e4be37314394f0",

@@ -76,13 +76,17 @@ async function seed(){
  for(const name of ['OBJECTS.install.sql','CLAIM.proposed.sql','RECOVER.proposed.sql','GUARD.proposed.sql'])
   await db.query(fs.readFileSync(path.join(__dirname,'fixture-inputs',name),'utf8'));
  // Simulate the already separately proved irreversible disposition, never acceptance.
- await db.query("UPDATE public.campaigns SET last_subscriber_id=139874 WHERE id=174; UPDATE crm_audience_v2.regular_delivery_campaign SET acknowledged_subscriber_id=139874 WHERE campaign_id=174");
+ await db.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+ try {
  await db.query(`INSERT INTO crm_audience_v2.regular_delivery_permanent_exclusion
  (dispatch_id,campaign_id,binding_version,binding_hash,subscriber_id,dedupe_key,dispatch_snapshot,operation_id,disposition)
  SELECT d.dispatch_id,174,b.binding_version,b.binding_hash,139874,d.dedupe_key,to_jsonb(d),gen_random_uuid(),'human_permanent_no_resend'
  FROM public.shrigma_email_dispatch d JOIN crm_audience_v2.campaign_binding_effective(174) b ON true
  WHERE d.dispatch_id='0d8c77b2-18e7-474f-b9b7-bbfc733bac2f'`);
+ await db.query("UPDATE crm_audience_v2.regular_delivery_campaign SET acknowledged_subscriber_id=139874 WHERE campaign_id=174; UPDATE public.campaigns SET last_subscriber_id=139874 WHERE id=174");
  a.equal((await db.query("SELECT crm_audience_v2.regular_delivery_permanently_excluded('0d8c77b2-18e7-474f-b9b7-bbfc733bac2f',174) ready")).rows[0].ready,true);
+ await db.query('COMMIT');
+ } catch (error) { await db.query('ROLLBACK'); throw error; }
 
 }
 module.exports=Object.freeze({prepareFixture,CANDIDATE:Object.freeze(kernel.CANDIDATE)});
