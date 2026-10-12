@@ -24,10 +24,10 @@ function sessionContext(state) {
   const u=state?.user;
   if(!plain(state)||state.authenticated!==true||state.features?.affiliateRead!==true||!plain(u)||!uuid(u.id)||
     !uiRef(state.uiKey)||typeof state.csrf!=='string'||!state.csrf) return null;
-  const manager=u.role==='manager'&&u.brandAccess==='single'&&brands.includes(u.brand)&&Array.isArray(u.brands)&&u.brands.length===1&&u.brands[0]===u.brand;
+  const manager=u.role==='manager'&&Array.isArray(u.brands)&&new Set(u.brands).size===u.brands.length&&u.brands.every(b=>['fish','aristo','olivas'].includes(b))&&(u.brandAccess==='single'&&u.brands.length===1&&u.brands[0]===u.brand||u.brandAccess==='multiple'&&u.brand===null&&u.brands.length>=2&&u.brands.length<=3);
   const master=u.role==='superadmin'&&u.brandAccess==='all'&&u.brand===null&&Array.isArray(u.brands)&&u.brands.length===2&&new Set(u.brands).size===2&&brands.every(b=>u.brands.includes(b));
   if(!manager&&!master)return null;
-  return {principalId:u.id,role:u.role,brands:manager?[u.brand]:[...brands],uiReference:state.uiKey,
+  return {principalId:u.id,role:u.role,brands:manager?[...u.brands]:[...brands],uiReference:state.uiKey,
     // Kept privately in page memory; never returned/logged/transmitted by this adapter.
     signature:JSON.stringify([u.id,u.role,u.brandAccess,u.brand,[...u.brands].sort(),state.uiKey,state.csrf])};
 }
@@ -102,13 +102,14 @@ function create({fetchImpl,getSession,refreshSession,onInvalidate=()=>{}}={}) {
       op.check();try{await op.bounded(refreshSession({signal:op.controller.signal}));}
       catch(_){op.check();throw fail('AFFILIATE_SESSION_UNCONFIRMED',401);}
       const s=sync(op.controller);if(!s)return null;
-      const selected=s.role==='manager'?s.brands[0]:s.brands.includes(requestedBrand)?requestedBrand:'fish';
+      if(requestedBrand==='olivas'&&s.role==='superadmin'&&getSession()?.user?.viewBrands?.includes('olivas')){if(bound)invalidate(op.controller);return 'olivas';}
+      const selected=s.role==='manager'&&s.brands.length===1?s.brands[0]:s.brands.includes(requestedBrand)?requestedBrand:s.brands[0];
       if(bound&&bound.brand!==selected)invalidate(op.controller);
       return selected;
     }finally{op.close();}
   }
   async function ready(brand,options={}){
-    if(!brands.includes(brand))throw fail('AFFILIATE_BRAND_REQUIRED',400);
+    if(!brands.includes(brand))throw fail(brand==='olivas'?'AFFILIATE_BRAND_CONTRACT_NOT_READY':'AFFILIATE_BRAND_REQUIRED',brand==='olivas'?503:400);
     if(disposed)return false;
     // A fresh check of the same session/source binding must not invalidate valid UI cache.
     sync();if(bound&&bound.brand!==brand)invalidate();

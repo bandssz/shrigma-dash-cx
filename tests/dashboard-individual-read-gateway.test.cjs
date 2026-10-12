@@ -6,7 +6,7 @@ const {createServer}=require((process.env.DASHBOARD_ACCESS_TEST_RUNTIME||require
 const {FIXED_DESTINATIONS}=require((process.env.DASHBOARD_ACCESS_TEST_RUNTIME||require('node:path').resolve(__dirname,'../services/dashboard-operational'))+'/proxy.cjs');
 const domains=['synthetic.invalid'],masterHost='master.synthetic.invalid',areaHosts={growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'creators.synthetic.invalid'};
 const date='2026-10-11T19:00:00-03:00';
-async function fixture(t,area='organico',{enabled=true,missing=false,identityMismatch=false,revoke=false}={}){
+async function fixture(t,area='organico',{enabled=true,missing=false,identityMismatch=false,revoke=false,brands}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'dashboard-read-fixture-')),bootstrap=crypto.randomBytes(32).toString('base64url'),password='Synthetic-password-2026!',email='analyst@synthetic.invalid';
  const auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),allowedEmailDomains:domains,areaHosts,managerHost:masterHost,bootstrapAdminEmail:'owner@synthetic.invalid',bootstrapTokenSha256:crypto.createHash('sha256').update(bootstrap).digest('hex'),encryptionKey:crypto.randomBytes(32).toString('hex'),dashboardIndividualRead:enabled});
  let server;
@@ -14,7 +14,7 @@ async function fixture(t,area='organico',{enabled=true,missing=false,identityMis
  await auth.completeBootstrap({email:'owner@synthetic.invalid',token:bootstrap,password,host:masterHost,origin:'https://'+masterHost});
  const admin=await auth.login({email:'owner@synthetic.invalid',password,host:masterHost,origin:'https://'+masterHost});
  const context={method:'POST',host:masterHost,origin:'https://'+masterHost,cookieHeader:admin.cookie.split(';')[0],csrf:admin.csrf};
- const invitation=auth.createInvite({context,email,areas:[area],brand:'fish',permissions:{[area]:{read:true,edit:false}}});
+ const invitation=auth.createInvite({context,email,areas:[area],...(brands?{brands,productFront:area}:{brand:'fish'}),permissions:{[area]:{read:true,edit:false}}});
  const token=invitation.token;
  await auth.acceptInvite({token,password,host:areaHosts[area],origin:'https://'+areaHosts[area]});
  const analyst=await auth.login({email,password,host:areaHosts[area],origin:'https://'+areaHosts[area]});
@@ -39,10 +39,10 @@ async function fixture(t,area='organico',{enabled=true,missing=false,identityMis
  upstreams['crm-read']=new URL('https://comunicacao-crm-panel-read.tazdb8.easypanel.host/read');
  const settings={mode:'operational',upstreamProfile:'production',dashboardIndividualRead:enabled,allowedEmailDomains:domains,managerHost:masterHost,areaHosts,upstreams,allowedUpstreamHosts:[...new Set(Object.values(upstreams).map(u=>u.hostname))],publicDir:dir,port:0,host:'127.0.0.1'};
  server=createServer(settings,{auth,fetchImpl});await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
- const request=async(url,{method='GET',body,csrf=true}={})=>new Promise((resolve,reject)=>{
+ const request=async(url,{method='GET',body,csrf=true,extraHeaders={},asMaster=false}={})=>new Promise((resolve,reject)=>{
   const bytes=body===undefined?undefined:Buffer.from(JSON.stringify(body));
-  const headers={Host:areaHosts[area],Cookie:analyst.cookie.split(';')[0],Origin:'https://'+areaHosts[area]};
-  if(csrf)headers['X-CSRF-Token']=analyst.csrf;
+  const headers={Host:asMaster?masterHost:areaHosts[area],Cookie:(asMaster?admin:analyst).cookie.split(';')[0],Origin:'https://'+(asMaster?masterHost:areaHosts[area]),...extraHeaders};
+  if(csrf)headers['X-CSRF-Token']=(asMaster?admin:analyst).csrf;
   if(bytes){headers['content-type']='application/json';headers['content-length']=bytes.length;}
   const req=http.request({host:'127.0.0.1',port:server.address().port,path:url,method,headers},res=>{let out='';res.on('data',v=>out+=v);res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(out)}));});req.on('error',reject);req.end(bytes);
  });
@@ -58,3 +58,16 @@ test('creator list requires CSRF despite being a semantic read',async t=>{const 
 test('creator list keeps exact requested window',async t=>{const f=await fixture(t,'influs');const r=await f.request('/api/influ',{method:'POST',body:{acao:'listar',ini:'2026-10-01',fim:'2026-10-11',pilot:false,k:f.analyst.uiKey}});assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body.janela,{ini:'2026-10-01',fim:'2026-10-11'});assert.deepEqual(f.reads(),{identityReads:1,dataReads:1});});
 test('READ pilot does not enable creator mutation',async t=>{const f=await fixture(t,'influs');const r=await f.request('/api/influ',{method:'POST',body:{acao:'piloto_operacao',request_id:crypto.randomUUID(),k:f.analyst.uiKey}});assert.equal(r.status,403);assert.equal(f.reads().dataReads,0);});
 test('CRM can read without any writer/provisioner and does not claim operational acceptance',async t=>{const f=await fixture(t,'growth');const r=await f.request('/api/crm-read?action=cache_growth&painel=growth');assert.equal(r.status,200);assert.equal(r.body.crm_diario.length,1);assert.equal(r.body.crm_diario[0].enviados,12);const users=f.auth.users({context:f.context});const u=users.users?users.users.find(u=>u.id===f.userId):users.find(u=>u.id===f.userId);assert.equal(u.crmAccess.readOnly,true);assert.equal(u.crmAccess.operational,false);});
+
+test('multiple brand READ uses the selected admitted slice and refuses Olivas before any source query',async t=>{
+ const f=await fixture(t,'organico',{brands:['fish','aristo','olivas']});
+ const first=await f.request('/api/cx?painel=organico',{extraHeaders:{'X-Shrigma-View-Brand':'fish'}});assert.equal(first.status,200);assert.equal(first.body.cx_post.length,1);assert.equal(first.body.cx_post[0].marca,'fish');
+ const second=await f.request('/api/cx?painel=organico',{extraHeaders:{'X-Shrigma-View-Brand':'aristo'}});assert.equal(second.status,200);assert.equal(second.body.cx_post.length,1);assert.equal(second.body.cx_post[0].marca,'aristo');
+ const before=f.reads();for(const asMaster of [false,true]){const r=await f.request('/api/cx?painel=organico',{asMaster,extraHeaders:{'X-Shrigma-View-Brand':'olivas'}});assert.equal(r.status,503);assert.equal(r.body.error,'BRAND_READ_CONTRACT_NOT_READY');assert.deepEqual(f.reads(),before);}
+});
+
+test('aggregate view header cannot change the authority of a POST or a nonaggregate route',async t=>{
+ const f=await fixture(t,'influs'),before=f.reads();
+ const r=await f.request('/api/influ',{method:'POST',extraHeaders:{'X-Shrigma-View-Brand':'fish'},body:{acao:'listar',ini:'2026-10-01',fim:'2026-10-11',pilot:false,k:f.analyst.uiKey}});assert.equal(r.status,400);assert.equal(r.body.error,'BRAND_INVALID');assert.deepEqual(f.reads(),before);
+ const invalid=await f.request('/api/cx?painel=influs',{extraHeaders:{'X-Shrigma-View-Brand':'todas'}});assert.equal(invalid.status,400);assert.deepEqual(f.reads(),before);
+});

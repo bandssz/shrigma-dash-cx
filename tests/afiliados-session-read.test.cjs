@@ -233,3 +233,15 @@ test('actual guard follows one newer CSRF refresh before a POST, without false 4
  const selected=await window.ShrigmaAffiliateAccess.prepareSelection('fish');assert.equal(selected,'fish');old.resolve(reply(state));const result=await work;
  assert.equal(result.status,200);const posts=calls.filter(c=>c.options.method==='POST');assert.equal(posts.length,1);assert.equal(posts[0].options.headers.get('X-CSRF-Token'),'synthetic-csrf');assert.equal(sessionReads,2);
 });
+
+test('multi-brand affiliate selection switches the own source and invalidates prior results',async()=>{
+ const state=session();state.user={...state.user,brand:null,brands:['fish','aristo','olivas'],brandAccess:'multiple'};const f=fixture({state});
+ assert.equal(await f.adapter.prepareSelection('aristo'),'aristo');assert.equal(f.calls.length,0);assert.equal(await f.ready('aristo'),true);const old=f.adapter.current('read');assert.equal((await f.adapter.read(period)).brand,'aristo');
+ assert.equal(await f.adapter.prepareSelection('fish'),'fish');assert.equal(f.adapter.current('read'),'');assert.equal(await f.ready('fish'),true);assert.notEqual(f.adapter.current('read'),old);assert.equal((await f.adapter.read(period)).brand,'fish');
+ const before=f.calls.length;assert.equal(await f.adapter.prepareSelection('olivas'),'olivas');await assert.rejects(f.ready('olivas'),{code:'AFFILIATE_BRAND_CONTRACT_NOT_READY',status:503});assert.equal(f.calls.length,before);assert.equal(f.adapter.current('read'),'');
+});
+
+test('Master selection Olivas is retained as unavailable and never silently changed to Fish',async()=>{
+ const state=session();state.user={...state.user,role:'superadmin',brand:null,brands:['fish','aristo'],viewBrands:['fish','aristo','olivas'],brandAccess:'all'};const f=fixture({state});
+ assert.equal(await f.adapter.prepareSelection('olivas'),'olivas');await assert.rejects(f.ready('olivas'),{code:'AFFILIATE_BRAND_CONTRACT_NOT_READY',status:503});assert.equal(f.calls.length,0);assert.equal(f.adapter.current('read'),'');assert.equal(await f.adapter.prepareSelection('todas'),'fish');
+});

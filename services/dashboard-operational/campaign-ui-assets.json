@@ -20,15 +20,15 @@
       "source": "public/entry.js",
       "compiled": "public/entry.compiled.js",
       "publicName": "entry.js",
-      "sourceSha256": "8bddff0df4dca3fce03e4e2f2b4fd806a3ae9de2260ff5f463a56d5fa614c191",
-      "compiledSha256": "fb2ba892f0e5b7e4904fa352d1528baccd09007457af47d9cf11f6ffa91c6752"
+      "sourceSha256": "4fdaa8c3571077d99c6d3717ff3cc272b2b89f24369680c154041a3e498ada2e",
+      "compiledSha256": "190d2daeed5fc528324274b4cc6f4c2a94ec8bc8722ec7435a436216e306aef3"
     },
     {
       "source": "public/guard.js",
       "compiled": "public/guard.compiled.js",
       "publicName": "guard.js",
-      "sourceSha256": "642fea77b45fac1af38b37d72edc4e745ebb88d60293bf6c34854ed0365bcba5",
-      "compiledSha256": "d78b21fe7c2068569ef47b91938c7c30cf3fe288fd3abcf8e583951f660b1fac"
+      "sourceSha256": "3023c5e103464c0a95c071f4a2ba33cbfefd1d07a5bb18f5d881d7766a0ef7e2",
+      "compiledSha256": "80f7621bf67e2eb23e2e37bd7820d9a7971f35c277cd49d375cc10219ce6ca27"
     }
   ]
 }

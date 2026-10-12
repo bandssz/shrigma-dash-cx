@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 29825,
-      "sha256": "b28f55256d8c43c6a94fad53789924ab0ec189ed7782ffbe61d97b4722291609"
+      "bytes": 30056,
+      "sha256": "47ef6fdbb52306f1c0271c2c24a4e10f1d6b048f3a089c4890b4f2fac01b04cb"
     },
     {
       "path": "assets/panels/influs.js",
@@ -80,13 +80,13 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 138593,
-      "sha256": "cdfd1f974b3da568e772ef3385b01c93546c4bcfc662f8a2cd43e5dbbd1b92c2"
+      "bytes": 143794,
+      "sha256": "d7402fb216dfefe4612b1c6941d056fc39ba7cc55508dc2ed07f7e67d7a348a0"
     },
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1379,
-      "sha256": "128b8787dbe46128675a34b441fd03bf77daa1eb662116f2cc5ddc3ab78ce15a"
+      "sha256": "14565d75b5a5f831b994f0b7bc79e2055ade20b0df734eba1ff4fdc584d8a03e"
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
@@ -105,38 +105,38 @@
     },
     {
       "path": "services/dashboard-operational/public/afiliados-session-read.cjs",
-      "bytes": 10295,
-      "sha256": "6c4f5a9eb0300dd15cb67e61eb3d171cc97e72bfe4beaceb5dbbfd70b866e49c"
+      "bytes": 10725,
+      "sha256": "db7aabe1104dffee4d872d4feaad62e28719a3ddda9261eb2654d7930c367761"
     },
     {
       "path": "services/dashboard-operational/public/entry.compiled.js",
-      "bytes": 44988,
-      "sha256": "fb2ba892f0e5b7e4904fa352d1528baccd09007457af47d9cf11f6ffa91c6752"
+      "bytes": 45752,
+      "sha256": "190d2daeed5fc528324274b4cc6f4c2a94ec8bc8722ec7435a436216e306aef3"
     },
     {
       "path": "services/dashboard-operational/public/entry.html",
-      "bytes": 8004,
-      "sha256": "274650f60c09a2054294d6d27da21898e53bb475121803eb4cab6b859caeba10"
+      "bytes": 8310,
+      "sha256": "e33fbcf66861688ea1a1fc2994622c546048154204bda11d20112536fc0ab5fe"
     },
     {
       "path": "services/dashboard-operational/public/entry.js",
-      "bytes": 61182,
-      "sha256": "8bddff0df4dca3fce03e4e2f2b4fd806a3ae9de2260ff5f463a56d5fa614c191"
+      "bytes": 62199,
+      "sha256": "4fdaa8c3571077d99c6d3717ff3cc272b2b89f24369680c154041a3e498ada2e"
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 14821,
-      "sha256": "d78b21fe7c2068569ef47b91938c7c30cf3fe288fd3abcf8e583951f660b1fac"
+      "bytes": 16215,
+      "sha256": "80f7621bf67e2eb23e2e37bd7820d9a7971f35c277cd49d375cc10219ce6ca27"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 11936,
-      "sha256": "642fea77b45fac1af38b37d72edc4e745ebb88d60293bf6c34854ed0365bcba5"
+      "bytes": 13172,
+      "sha256": "3023c5e103464c0a95c071f4a2ba33cbfefd1d07a5bb18f5d881d7766a0ef7e2"
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 146467,
-      "sha256": "5149c227cca52e915c4e4bd1e3b5e4d3719fbe1c36a6435a85cbac359cfeef0a"
+      "bytes": 146918,
+      "sha256": "c22801c394008663123c9f45501c00b0e1fe872fb7098d1d7dc076c10de75fe3"
     },
     {
       "path": "tests/afiliados-creator-share.test.cjs",
@@ -170,18 +170,33 @@
     },
     {
       "path": "tests/afiliados-session-read.test.cjs",
-      "bytes": 20526,
-      "sha256": "5cd16f323308df8f3972cd5b179176621cebc33c55d833d628b3f83b1b088f7b"
+      "bytes": 22135,
+      "sha256": "8e417f1b406d5fa06b4c1fc002e391b1d904c34ee5533b2c27270508de9c2930"
+    },
+    {
+      "path": "tests/claude-crm-access-states-path.test.cjs",
+      "bytes": 21337,
+      "sha256": "e345328d9cf8dc42bd9d73fec48149e0ba58f5b2b635fdcd2280a5b34e9c3f6f"
     },
     {
       "path": "tests/dashboard-central-delegation.test.cjs",
-      "bytes": 10258,
-      "sha256": "6a02810dd3d15cc8025cb3de09a687cdacfb1648ab8f97036a31a938a358034f"
+      "bytes": 14592,
+      "sha256": "fe1810c3d99e61d6547402cd092df8631d8722ef6a1f991272c424147fac6d4e"
+    },
+    {
+      "path": "tests/dashboard-individual-read-gateway.test.cjs",
+      "bytes": 11197,
+      "sha256": "36292dc01b367f6cbe18b1115c441cddcc241e054343456ed6018c5e048ceac2"
+    },
+    {
+      "path": "tests/dashboard-operational-brand-identity.test.cjs",
+      "bytes": 9512,
+      "sha256": "b0b25e53da6402d910aa1873c2cf88647967e320914adc176d50dbb695a179fd"
     },
     {
       "path": "tests/dashboard-operational-brand-ui.test.cjs",
-      "bytes": 12482,
-      "sha256": "aa72ef00479f5d39bdacadeff742e23b88e7e7eeb5c046d5a80c84d97c28ee0d"
+      "bytes": 16663,
+      "sha256": "6b56ee5b57ac1bfba2095a4cb65829f693f250f4e4de29e5c3b4533644ab8ebe"
     },
     {
       "path": "tests/dashboard-operational-campaign-ui-assets.test.cjs",
@@ -194,6 +209,11 @@
       "sha256": "11f5357a3f44572f0dd01f9f1da5f74275b245f8741a0e700a1212059354f7bb"
     },
     {
+      "path": "tests/dashboard-operational-user-profile-update-ui.test.cjs",
+      "bytes": 12479,
+      "sha256": "815d669a74bdf6a0b587b0e660cb43d50a59e8595dd674e55bb98ea2b5184dc8"
+    },
+    {
       "path": "tests/product-front-split.test.cjs",
       "bytes": 7163,
       "sha256": "446a05109029958a336f6cfdb67b0b8bd3333a975d27169d80e102f4c4f28032"
@@ -201,7 +221,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2718,
-      "sha256": "7b82aaffd79572006514445060b653ca404c46e28108868272e4acd015c5f38b"
+      "sha256": "fadc4dfef42827b70dcbd97c8a32d68067932d4250a713781dd7292e993a6294"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -211,6 +231,6 @@
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
-  "realAcceptance": "Candidate delegation is locally proven with synthetic users; no production analyst READ/WRITE or automatic source provisioning is claimed.",
-  "managerDelegation": "Master selects product front/brand and requested READ/WRITE; signed narrow product scope, old users/identity/lifecycles preserved. Backend WRITE and source issuance still require their own genuine admission."
+  "realAcceptance": "Synthetic multi-brand signup, save/reopen, session retirement and server slice tests pass locally; this candidate is not installed. No production analyst READ/WRITE or source provisioning is claimed.",
+  "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant."
 }

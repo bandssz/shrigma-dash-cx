@@ -53,7 +53,7 @@
     <form id="admin-invite-form" method="post" action="/auth/users">
      <div class="admin-field"><label for="admin-email">E-mail corporativo</label><input id="admin-email" type="email" autocomplete="off" required></div>
      <div class="admin-field"><label for="admin-area">Setor</label><select id="admin-area"><option value="growth">CRM</option><option value="organico">Orgânico</option><option value="influs">Influs</option><option value="afiliados">Afiliados / TikTok</option></select></div>
-     <div class="admin-field"><label for="admin-brand">Marca</label><select id="admin-brand" required><option value="">Selecione a marca</option><option value="fish">Fishermans</option><option value="aristo">O Aristocrata</option></select></div>
+     <div class="admin-field"><label for="admin-brand">Marcas — uma ou várias</label><select id="admin-brand" multiple size="4" required aria-describedby="admin-brand-help"><option value="" selected disabled>Selecione as marcas</option><option value="fish">Fishermans</option><option value="aristo">O Aristocrata</option><option value="olivas">Olivas do Campo</option></select><button id="admin-brand-all" type="button">Selecionar todas</button><small id="admin-brand-help">Use Cmd/Ctrl para selecionar mais de uma ou selecione todas.</small></div>
      <div class="admin-field"><label for="admin-access">Nível de acesso</label><select id="admin-access"><option value="read">Leitura</option><option value="edit">Edição</option></select></div>
      <button type="submit">Criar convite</button>
     </form>

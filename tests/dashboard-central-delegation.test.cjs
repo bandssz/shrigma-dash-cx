@@ -107,3 +107,36 @@ test('a legacy reinvite cannot widen a previously explicit Afiliados delegation'
  const login=await f.auth.login({email:'afiliados@synthetic.invalid',password:'synthetic-renewed-passphrase',host:q.host,origin:'https://'+q.host});
  assert.deepEqual(login.user.productFronts,['afiliados']);
 });
+test('Master creates and reloads a real portal identity for every nonempty subset of the three view brands',async t=>{
+ const f=await fixture(t),selections=[['fish'],['aristo'],['olivas'],['fish','aristo'],['fish','olivas'],['aristo','olivas'],['fish','aristo','olivas']];
+ assert.deepEqual(f.auth.session(f.master).user.viewBrands,['fish','aristo','olivas']);
+ for(let i=0;i<selections.length;i++){
+  const brands=selections[i],email='selection'+i+'@synthetic.invalid';
+  const q=f.auth.createInvite({context:f.master,email,areas:['influs'],brands,productFront:'afiliados',requestedAccess:'edit'});
+  await f.auth.acceptInvite({token:q.token,password:'synthetic-selection-passphrase',host:q.host,origin:'https://'+q.host});
+  const l=await f.auth.login({email,password:'synthetic-selection-passphrase',host:q.host,origin:'https://'+q.host});
+  const ctx={method:'GET',host:q.host,cookieHeader:l.cookie.split(';')[0]},u=f.auth.session(ctx).user;
+  assert.deepEqual(u.brands,brands);assert.equal(u.brandAccess,brands.length===1?'single':'multiple');assert.equal(u.permissions.influs.edit,false);
+  assert.deepEqual(f.user(q.userId).brands,brands);assert.ok(sessionScope(u));
+  for(const b of ['fish','aristo','olivas'])if(brands.includes(b))assert.equal(f.auth.authorizeBrand({...ctx,area:'influs'},b).id,q.userId);else assert.throws(()=>f.auth.authorizeBrand({...ctx,area:'influs'},b),e=>e.code==='BRAND_DENIED');
+  const db=new DatabaseSync(f.dbPath);try{const row=db.prepare('SELECT brand FROM user_brand_grants_v1 WHERE user_id=?').get(q.userId);assert.equal(!!row,brands.length===1&&brands[0]!=='olivas');if(row)assert.equal(row.brand,brands[0]);}finally{db.close();}
+ }
+ f.reopen();for(const u of f.auth.users({context:f.master}).filter(u=>u.role==='manager'))assert.equal(u.permissions.influs.edit,false);
+});
+function sessionScope(user){return require('../services/dashboard-operational/public/entry.js').sessionBrandScope(user);}
+test('changing a selected set retires the old session and supports return to an admitted single brand',async t=>{
+ const f=await fixture(t),u=await f.invite('influs'),before=f.user(u.userId);
+ f.auth.updateUserProfile({context:f.master,userId:u.userId,expectedRevision:before.profileRevision,email:before.email,area:'influs',productFront:'influs',brands:['fish','aristo','olivas'],access:'read'});
+ assert.equal(f.auth.session(u.context).authenticated,false);assert.deepEqual(f.auth.reconcileUserProfileUpdates(),{completed:1,pending:0});
+ const multi=f.user(u.userId);assert.deepEqual(multi.brands,['fish','aristo','olivas']);
+ f.auth.updateUserProfile({context:f.master,userId:u.userId,expectedRevision:multi.profileRevision,email:multi.email,area:'influs',productFront:'influs',brand:'aristo',access:'read'});
+ assert.deepEqual(f.auth.reconcileUserProfileUpdates(),{completed:1,pending:0});assert.deepEqual(f.user(u.userId).brands,['aristo']);
+});
+test('duplicate, empty, unknown or ambiguous selections cannot create a user; MAC and deletion tampering fail closed',async t=>{
+ const f=await fixture(t);for(const brands of [[],['unknown'],['fish','fish'],new Array(1)])assert.throws(()=>f.auth.createInvite({context:f.master,email:'bad@synthetic.invalid',areas:['influs'],productFront:'afiliados',brands}),e=>e.code==='BRAND_INVALID');
+ assert.throws(()=>f.auth.createInvite({context:f.master,email:'bad@synthetic.invalid',areas:['influs'],productFront:'afiliados',brand:'fish',brands:['aristo']}),e=>e.code==='BRAND_INVALID');
+ const q=f.auth.createInvite({context:f.master,email:'multi@synthetic.invalid',areas:['influs'],productFront:'afiliados',brands:['fish','olivas']});await f.auth.acceptInvite({token:q.token,password:'synthetic-multi-passphrase',host:q.host,origin:'https://'+q.host});
+ const l=await f.auth.login({email:'multi@synthetic.invalid',password:'synthetic-multi-passphrase',host:q.host,origin:'https://'+q.host}),ctx={host:q.host,cookieHeader:l.cookie.split(';')[0]},db=new DatabaseSync(f.dbPath);t.after(()=>db.close());
+ db.prepare('UPDATE user_product_grants_v1 SET brands_json=? WHERE user_id=?').run(JSON.stringify(['fish','aristo','olivas']),q.userId);assert.throws(()=>f.auth.session(ctx),e=>e.code==='PRODUCT_SCOPE_INVALID');
+ db.prepare('DELETE FROM user_product_grants_v1 WHERE user_id=?').run(q.userId);assert.equal(f.auth.session(ctx).authenticated,false);
+});

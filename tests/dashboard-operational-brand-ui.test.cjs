@@ -9,6 +9,9 @@ const master={role:'superadmin',email:'owner@synthetic.invalid',areas:['growth',
 const session=user=>({authenticated:true,user,uiKey:'ui-'+'a'.repeat(32),csrf:'c'.repeat(43),features:{}});
 function dom(html){
  const {document,window}=parseHTML(html);window.HTMLElement.prototype.focus=function(){};
+ // linkedom does not implement native multi-select selectedness. Preserve
+ // independent options in this fixture, as browsers do for select[multiple].
+ Object.defineProperty(window.HTMLOptionElement.prototype,'selected',{configurable:true,get(){return this.hasAttribute('selected');},set(value){if(value&&!this.parentElement?.hasAttribute('multiple'))for(const o of this.parentElement?.querySelectorAll('option')||[])o.removeAttribute('selected');this.toggleAttribute('selected',Boolean(value));}});
  for(const select of document.querySelectorAll('select'))Object.defineProperty(select,'value',{configurable:true,get(){return this.querySelector('option[selected]')?.value??this.querySelector('option')?.value??'';},set(value){for(const option of this.querySelectorAll('option'))option.toggleAttribute('selected',option.value===String(value));}});
  return {document,window,$:id=>document.getElementById(id)};
 }
@@ -18,7 +21,7 @@ async function settle(check){for(let i=0;i<30;i++){if(check())return;await tick(
 test('presentation requires an exact single-brand corporate grant and preserves master all',()=>{
  assert.deepEqual(sessionBrandScope(master),{brand:null,brands:['fish','aristo'],brandAccess:'all'});
  for(const brand of ['fish','aristo'])assert.deepEqual(sessionBrandScope(manager(brand)),{brand,brands:[brand],brandAccess:'single'});
- for(const user of [{...manager('fish'),brand:null,brands:[],brandAccess:'reprovision_required'},{...manager('fish'),brands:['fish','aristo']},{...manager('fish'),brands:['aristo']},{...manager('fish'),brand:'olivas',brands:['olivas']},{...master,brand:'fish'},{...master,brands:['fish','fish']},{...master,brandAccess:'single'}])assert.equal(sessionBrandScope(user),null);
+ for(const user of [{...manager('fish'),brand:null,brands:[],brandAccess:'reprovision_required'},{...manager('fish'),brands:['fish','aristo']},{...manager('fish'),brands:['aristo']},{...manager('fish'),brand:'unknown',brands:['unknown']},{...master,brand:'fish'},{...master,brands:['fish','fish']},{...master,brandAccess:'single'}])assert.equal(sessionBrandScope(user),null);
 });
 
 test('actual admin form requires brand and submits email, sector and direct read/edit choice without granting unverified native edit',async()=>{
@@ -33,17 +36,17 @@ test('actual admin form requires brand and submits email, sector and direct read
   d.$('admin-email').value=' PERSON@SYNTHETIC.INVALID ';d.$('admin-area').value=area;d.$('admin-access').value=requestedAccess;
   d.$('admin-invite-form').dispatchEvent(new d.window.Event('submit',{cancelable:true}));await tick();assert.equal(calls.some(v=>v.body?.action==='invite'),false);assert.match(d.$('admin-message').textContent,/Escolha a marca/);
   d.$('admin-brand').value=brand;d.$('admin-invite-form').dispatchEvent(new d.window.Event('submit',{cancelable:true}));await settle(()=>calls.some(v=>v.body?.action==='invite')&&d.$('admin-invite-form').getAttribute('aria-busy')==='false');
-  const body=calls.find(v=>v.body?.action==='invite').body;assert.deepEqual(body,{action:'invite',email:'person@synthetic.invalid',brand,productFront:area,role:'manager',areas:[backendArea],permissions:{[backendArea]:{read:true,edit:false}},requestedAccess});
+  const body=calls.find(v=>v.body?.action==='invite').body;assert.deepEqual(body,{action:'invite',email:'person@synthetic.invalid',brands:[brand],productFront:area,role:'manager',areas:[backendArea],permissions:{[backendArea]:{read:true,edit:false}},requestedAccess});
   assert.match(d.$('admin-message').textContent,new RegExp('Convite com '+(requestedAccess==='edit'?'Edição':'Leitura')+' criado'));assert.doesNotMatch(d.$('admin-message').textContent,/solicitar edição|aprovação adicional/i);assert.equal(d.$('admin-brand').value,'');assert.equal(d.$('admin-invite-result').hidden,false);assert.equal(d.$('admin-brand').disabled,false);
  }
 });
 
 function guardFixture(user,{status=200,body={ok:true}}={}){
  const d=dom('<html><body><div id="seg-marca"><button data-marca="todas">Todas</button><button data-marca="fish">Fishermans</button><button data-marca="aristo">Aristocrata</button><button data-marca="olivas">Olivas</button></div></body></html>');
- const calls=[],messages=[],events=[],window={parent:{postMessage:(...v)=>messages.push(v)},dispatchEvent:event=>events.push(event),fetch:async(url)=>{calls.push(String(url));if(url==='/auth/session')return new Response(JSON.stringify(session(user)),{status:200});assert.ok(window.ShrigmaBrandAccess,'scope is resolved before API response');return new Response(JSON.stringify(body),{status});}};
+ const calls=[],requests=[],messages=[],events=[],window={parent:{postMessage:(...v)=>messages.push(v)},dispatchEvent:event=>events.push(event),fetch:async(url,options)=>{calls.push(String(url));requests.push({url:String(url),options});if(url==='/auth/session')return new Response(JSON.stringify(session(user)),{status:200});assert.ok(window.ShrigmaBrandAccess,'scope is resolved before API response');return new Response(JSON.stringify(body),{status});}};
  const context={window,document:d.document,location:{origin:'https://crm.synthetic.invalid',href:'https://crm.synthetic.invalid/growth.html'},navigator:{},URL,URLSearchParams,Headers,Response,Request,FormData,CustomEvent:d.window.CustomEvent,HTMLFormElement:d.window.HTMLFormElement};
  vm.runInNewContext(fs.readFileSync(path.join(service,'public/guard.compiled.js'),'utf8'),context);
- return {...d,calls,messages,events,window};
+ return {...d,calls,requests,messages,events,window};
 }
 
 test('guard applies own-brand UI before API response, master retains Consolidada and Olivas; missing grant never reaches API',async()=>{
@@ -90,4 +93,27 @@ test('actual compiled campaign editor presents only its corporate brand and refu
   const injected=d.document.createElement('option');injected.value=own==='fish'?'aristo':'fish';injected.textContent='Other';d.$('campaign-brand').append(injected);d.$('campaign-brand').value=injected.value;d.$('campaign-brand').dispatchEvent(new d.window.Event('change'));await tick();assert.equal(calls.length,before);assert.equal(d.$('campaign-brand').value,own);assert.match(d.$('campaign-status').textContent,/vinculado à sua marca/);controller.close();
  }
  const d=dom(fs.readFileSync(path.join(service,'public/entry.html'),'utf8'));let calls=0;const old=createCampaignEditor({document:d.document,getSession:()=>({...session(manager('fish')),user:{...manager('fish'),brand:null,brands:[],brandAccess:'reprovision_required'},features:{campaignSubmitWrite:true}}),request:async()=>{calls++;},storage:{getItem(){return null;},setItem(){}},createClient:()=>({})});assert.equal(await old.open(),false);assert.equal(calls,0);
+});
+
+test('central form selects all three brands and submits a single scoped invitation',async()=>{
+ const d=dom(fs.readFileSync(path.join(service,'public/entry.html'),'utf8'));d.document.body.dataset.accessPanel='todos';
+ const calls=[],hosts={growth:'crm.synthetic.invalid',organico:'organico.synthetic.invalid',influs:'influs.synthetic.invalid'};
+ d.window.localStorage={removeItem(){},getItem(){return null;}};d.window.sessionStorage={removeItem(){}};
+ const fetch=async(url,o={})=>{const body=o.body&&JSON.parse(o.body);calls.push({url,body});return new Response(JSON.stringify(url==='/auth/session'?{...session({...master,viewBrands:['fish','aristo','olivas']}),areaHosts:hosts}:o.method==='POST'?{inviteUrl:'https://'+hosts.influs+'/#invite='+'i'.repeat(32)}:{users:[]}),{status:o.method==='POST'?201:200});};
+ vm.runInNewContext(fs.readFileSync(path.join(service,'public/entry.compiled.js'),'utf8'),{document:d.document,window:d.window,location:{hash:'',pathname:'/',search:'',origin:'https://gerencial.synthetic.invalid'},history:{replaceState(){}},fetch,URL,URLSearchParams,Headers,AbortController,Response,setTimeout,clearTimeout,navigator:{}});
+ await settle(()=>d.$('entry-shell').hidden===false);d.$('admin-email').value='three@synthetic.invalid';d.$('admin-area').value='afiliados';d.$('admin-access').value='edit';
+ d.$('admin-brand-all').click();assert.deepEqual([...d.$('admin-brand').querySelectorAll('option')].filter(o=>o.selected).map(o=>o.value),['fish','aristo','olivas']);
+ d.$('admin-invite-form').dispatchEvent(new d.window.Event('submit',{cancelable:true}));await settle(()=>calls.some(c=>c.body?.action==='invite'));
+ const sent=calls.filter(c=>c.body?.action==='invite');assert.equal(sent.length,1);assert.deepEqual(sent[0].body.brands,['fish','aristo','olivas']);assert.equal(sent[0].body.productFront,'afiliados');assert.equal(Object.hasOwn(sent[0].body,'brand'),false);assert.equal(sent[0].body.permissions.influs.edit,false);
+ assert.deepEqual(sessionBrandScope({...manager('fish'),brand:null,brands:['fish','aristo','olivas'],brandAccess:'multiple'}),{brand:null,brands:['fish','aristo','olivas'],brandAccess:'multiple'});
+});
+
+test('multi-brand guard keeps only delegated selectors and carries the chosen brand only on aggregate GET',async()=>{
+ const f=guardFixture({...manager('fish'),brand:null,brands:['fish','olivas'],brandAccess:'multiple'});
+ await f.window.fetch('/api/cache?painel=growth');assert.deepEqual([...f.document.querySelectorAll('#seg-marca button')].map(b=>b.dataset.marca),['fish','olivas']);
+ assert.equal(f.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),'fish');
+ f.document.querySelector('[data-marca="olivas"]').classList.add('ativo');await f.window.fetch('/api/cache?painel=growth');assert.equal(f.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),'olivas');
+ await f.window.fetch('/api/templates?acao=templates_listar&brand=fish');assert.equal(f.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),null);
+ await f.window.fetch('/api/cache',{method:'POST',body:'{}',headers:{'Content-Type':'application/json'}});assert.equal(f.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),null);
+ const m=guardFixture({...master,viewBrands:['fish','aristo','olivas']});await m.window.fetch('/api/cache?painel=growth');assert.equal(m.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),null);m.document.querySelector('[data-marca="olivas"]').classList.add('ativo');await m.window.fetch('/api/cache?painel=growth');assert.equal(m.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),'olivas');
 });

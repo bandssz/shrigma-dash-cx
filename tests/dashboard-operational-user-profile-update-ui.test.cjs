@@ -26,7 +26,7 @@ test('compiled initial signup directly chooses Leitura or Edição and records o
  const a=await setup(t,{member:false}),ui=a.ui;
  assert.equal(ui.el('admin-access').querySelector('option[value="read"]').textContent,'Leitura');assert.equal(ui.el('admin-access').querySelector('option[value="edit"]').textContent,'Edição');assert.doesNotMatch(ui.el('admin-panel').textContent,/Solicitar edição|Nível solicitado|Edição é uma solicitação/);
  ui.input('admin-email','analyst@fishermans.com.br');ui.select('admin-brand','aristo');ui.select('admin-access','edit');await ui.submit('admin-invite-form');await ui.submit('admin-invite-form');
- await until(()=>!ui.el('admin-invite-result').hidden,'actual invitation');const calls=ui.calls.filter(c=>c.body?.action==='invite');assert.equal(calls.length,1);assert.equal(calls[0].body.requestedAccess,'edit');assert.equal(calls[0].body.brand,'aristo');assert.equal(calls[0].body.permissions.growth.edit,false);
+ await until(()=>!ui.el('admin-invite-result').hidden,'actual invitation');const calls=ui.calls.filter(c=>c.body?.action==='invite');assert.equal(calls.length,1);assert.equal(calls[0].body.requestedAccess,'edit');assert.deepEqual(calls[0].body.brands,['aristo']);assert.equal(calls[0].body.permissions.growth.edit,false);
  const id=a.f.db.prepare('SELECT id FROM users WHERE email=?').get('analyst@fishermans.com.br').id;assert.ok(a.f.db.prepare('SELECT authority_mac FROM crm_writer_request_authority_v1 WHERE user_id=?').get(id));assert.equal(a.f.db.prepare('SELECT can_edit FROM grants WHERE user_id=?').get(id).can_edit,0);assert.match(ui.el('admin-message').textContent,/Convite com Edição criado/);assert.doesNotMatch(ui.el('admin-message').textContent,/Edição ativa|solicitada/);assert.equal(ui.calls.some(c=>c.body?.action==='crm_writer_approve'),false);assert.equal(a.f.events.length,0);
 });
 
@@ -61,4 +61,13 @@ test('compiled pending editor corrects the destination without another native re
  const editor=form(a);assert.ok(editor);assert.equal(field(editor,'email').value,'pending@fishermans.com.br');assert.match(editor.parentElement.textContent,/Corrigir alteração pendente/);field(editor,'email').value='corrected@fishermans.com.br';submit(a,editor);
  await until(()=>updates(a.ui).length===2&&a.ui.el('admin-message').textContent.includes('Alteração registrada'),'corrected intention');assert.equal(a.f.db.prepare("SELECT count(*) n FROM crm_manager_operations_v1 WHERE kind='revoke'").get().n,count);assert.equal(dbrow(a).email,'manager@oaristocrata.com');assert.equal(dbrow(a).status,'disabled');assert.match(a.ui.el('admin-users').textContent,/acesso anterior está bloqueado/);
  a.f.confirmReadRevoke(a.id);a.ui.el('admin-crm-reconcile').click();await until(()=>dbrow(a).email==='corrected@fishermans.com.br'&&a.ui.document.querySelector('[data-user-action="update-finish"]'),'actual corrected invitation');assert.equal(updates(a.ui).length,2);assert.equal(dbrow(a).permissions.growth.edit,false);
+});
+
+test('compiled editor saves all three brands, retires the former scope and reopens the same selection',async t=>{
+ const a=await setup(t),editor=form(a),select=field(editor,'brand');
+ Object.defineProperty(a.ui.window.HTMLOptionElement.prototype,'selected',{configurable:true,get(){return this.hasAttribute('selected');},set(value){if(value&&!this.parentElement?.hasAttribute('multiple'))for(const o of this.parentElement?.querySelectorAll('option')||[])o.removeAttribute('selected');this.toggleAttribute('selected',Boolean(value));}});
+ for(const o of select.querySelectorAll('option'))o.selected=true;submit(a,editor);
+ await until(()=>updates(a.ui).length===1&&dbrow(a).status==='disabled','old scope retired');assert.deepEqual(updates(a.ui)[0].body.brands,['fish','aristo','olivas']);assert.equal(updates(a.ui)[0].status,202);
+ a.f.confirmReadRevoke(a.id);a.ui.el('admin-crm-reconcile').click();await until(()=>dbrow(a).brandAccess==='multiple','multi selection committed');assert.deepEqual(dbrow(a).brands,['fish','aristo','olivas']);assert.equal(dbrow(a).permissions.growth.edit,false);
+ const reload=a.make();await reload.ready();await a.manage(reload);const reopened=reload.document.querySelector('[data-user-profile="'+a.id+'"] [data-profile-field="brand"]');assert.ok(reopened);assert.deepEqual([...reopened.querySelectorAll('option')].filter(o=>o.selected).map(o=>o.value),['fish','aristo','olivas']);assert.equal(updates(reload).length,0);
 });

@@ -901,8 +901,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             kickManagedCrm();return sendJson(req,res,202,{ok:true});
           }
           if(b.action==='update'){
-            if(Object.keys(b).sort().join(',')!==(Object.hasOwn(b,'productFront')?'access,action,area,brand,email,expectedRevision,productFront,userId':'access,action,area,brand,email,expectedRevision,userId'))throw jsonError(400,'ACTION_DENIED');
-            const result=auth.updateUserProfile({context:ctx,userId:b.userId,expectedRevision:b.expectedRevision,email:b.email,area:b.area,brand:b.brand,access:b.access,productFront:b.productFront});
+            const fields=['access','action','area',Object.hasOwn(b,'brands')?'brands':'brand','email','expectedRevision',...(Object.hasOwn(b,'productFront')?['productFront']:[]),'userId'].sort().join(',');
+            if(Object.keys(b).sort().join(',')!==fields)throw jsonError(400,'ACTION_DENIED');
+            const result=auth.updateUserProfile({context:ctx,userId:b.userId,expectedRevision:b.expectedRevision,email:b.email,area:b.area,brand:b.brand,brands:b.brands,access:b.access,productFront:b.productFront});
             kickManagedCrm();if(!managedCrmRuntime)auth.reconcileUserProfileUpdates();return sendJson(req,res,result.state==='configured'?200:202,result);
           }
           if(b.action==='update_finish'){
@@ -913,7 +914,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(b.action==='invite'){
             if(b.role!=='manager')throw jsonError(400,'ROLE_DENIED');
             if(!editGrantsAllowed(b.permissions))throw jsonError(403,'EDIT_NOT_READY');
-            const invite=auth.createInvite({context:ctx,email:b.email,areas:b.areas,permissions:b.permissions,requestedAccess:b.requestedAccess,brand:b.brand,productFront:b.productFront});
+            const invite=auth.createInvite({context:ctx,email:b.email,areas:b.areas,permissions:b.permissions,requestedAccess:b.requestedAccess,brand:b.brand,brands:b.brands,productFront:b.productFront});
             return sendJson(req,res,201,{userId:invite.userId,inviteUrl:'https://'+invite.host+'/#invite='+encodeURIComponent(invite.token)});
           }
           if(b.action==='revoke'){
@@ -1014,11 +1015,15 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const identity=route==='cx'&&url.searchParams.get('access')==='1'||route==='crm-read'&&d.action==='identity';
         if(identity)return sendJson(req,res,200,{schema:'shrigma_access_identity_v1',role:user.role==='superadmin'?'master':'manager',panel:user.role==='superadmin'?'todos':d.area,allowedPanels:user.areas,owner:user.email,brand:user.brand,brands:user.brands,brandAccess:user.brandAccess});
         const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),explicitBrand=fields.brand??fields.marca;
-        const aggregate=['cx','cache','crm-read'].includes(route),requestBrand=explicitBrand??(user.role==='manager'&&(aggregate||['organico','influs'].includes(d.area))?user.brand:undefined);
+        const viewBrand=req.headers['x-shrigma-view-brand'];
+        const aggregate=['cx','cache','crm-read'].includes(route);
+        if(viewBrand!==undefined&&(typeof viewBrand!=='string'||!['fish','aristo','olivas'].includes(viewBrand)||!aggregate||req.method!=='GET'||d.edit))throw jsonError(400,'BRAND_INVALID');
+        const requestBrand=explicitBrand??viewBrand??(user.role==='manager'&&(aggregate||['organico','influs'].includes(d.area))?user.brand:undefined);
         if(user.role==='manager'){
           if(typeof auth.authorizeBrand!=='function')throw jsonError(503,'BRAND_AUTH_NOT_READY');
           auth.authorizeBrand({...ctx,area:d.area,edit:d.edit||campaignSubmitRoute},requestBrand);
         }
+        if(requestBrand==='olivas')throw jsonError(503,'BRAND_READ_CONTRACT_NOT_READY');
         // Superadmin retains the selectors already admitted by the proxy (for
         // example Influencer 'todas'); those legacy selectors are not IAM grants.
         const brandedCtx={...ctx,...(user.role==='manager'?{brand:requestBrand}:{})};
