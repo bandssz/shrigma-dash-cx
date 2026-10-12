@@ -1,4 +1,5 @@
 'use strict';
+const {rowBrandDependencies}=require('./helpers/dashboard-row-brand-fixture.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../services/dashboard-operational/public/entry.js'),'utf8');
 function element(){return {children:[],textContent:'',append(...children){this.children.push(...children);},setAttribute(){},addEventListener(){}};}
@@ -7,7 +8,7 @@ const manager={id:'synthetic-id',email:'manager@synthetic.invalid',role:'manager
 test('manager list displays readiness and pending revocation without exposing private fields or changing legacy rows',()=>{
  const start=source.indexOf(' function crmAccessLabel('),end=source.indexOf(' async function saveAccessRequest(');assert.ok(start>=0&&end>start);
  const context={document:{createElement:element},AREAS:{growth:{label:'CRM'},organico:{label:'Orgânico'}},saveAccessRequest(){},revoke(){}};
- vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
+ rowBrandDependencies(context,source);vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
  const render=user=>text(context.renderUser(user));
  for(const [state,ready,label] of [['awaiting_accept',false,'CRM aguarda aceite'],['provisioning',false,'CRM preparando acesso'],['ready',true,'CRM pronto'],['ready',false,'CRM acesso pendente'],['revoking',false,'CRM revogação pendente'],['revoked',false,'CRM revogado'],['failed',false,'CRM indisponível']]){
   const result=render({...manager,crmAccess:{state,ready,namespaceId:'private-namespace',principalId:'private-principal',bearer:'private-bearer',generation:3}});
@@ -45,7 +46,7 @@ test('pending list includes an uncertain renewal without exposing managed state 
 });
 test('manual renewal is offered only for the eligible active CRM manager and reports persisted renewal phases',()=>{
  const start=source.indexOf(' function crmAccessLabel('),end=source.indexOf(' async function saveAccessRequest(');assert.ok(start>=0&&end>start);
- const context={document:{createElement:element},AREAS:{growth:{label:'CRM'},organico:{label:'Orgânico'}},saveAccessRequest(){},revoke(){}};vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
+ const context={document:{createElement:element},AREAS:{growth:{label:'CRM'},organico:{label:'Orgânico'}},saveAccessRequest(){},revoke(){}};rowBrandDependencies(context,source);vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
  const access={state:'ready',ready:true,canRenew:true,expired:false,renewalPhase:null},eligible={...manager,crmAccess:access};
  assert.match(text(context.renderUser(eligible)),/Renovar acesso CRM/);
  for(const user of [{...eligible,role:'superadmin'},{...eligible,status:'invited'},{...eligible,status:'disabled'},{...eligible,areas:['organico']},{...eligible,areas:['growth','organico']},{...eligible,permissions:{growth:{read:true,edit:true}}},...['ready','canRenew'].map(key=>({...eligible,crmAccess:{...access,[key]:false}})),{...eligible,crmAccess:{...access,expired:true}},{...eligible,crmAccess:{...access,renewalPhase:'queued'}}])assert.doesNotMatch(text(context.renderUser(user)),/Renovar acesso CRM/);

@@ -204,6 +204,26 @@
       "sha256": "458976bca28bd2c515f62f0f3ffd7a896a47ddc46f6a11d9cf4f1e5730d6cf88"
     },
     {
+      "path": "tests/dashboard-operational-content-access-ui.test.cjs",
+      "bytes": 7888,
+      "sha256": "c09aa094eb3ec3bb6ec4f76b076665c492842c02132210eb97c3e853dcf66c38"
+    },
+    {
+      "path": "tests/dashboard-operational-corporate-renewal.test.cjs",
+      "bytes": 25347,
+      "sha256": "68217ff8d454952e1de8544dc41fc98113cbacca376f2c48af478eaa117da5a3"
+    },
+    {
+      "path": "tests/dashboard-operational-managed-ui.test.cjs",
+      "bytes": 11406,
+      "sha256": "7953cb9701e33ac370f25b7ad701a73dfbdecefa965dcd4e3b4626ece5a9bb66"
+    },
+    {
+      "path": "tests/dashboard-operational-own-master-production.test.cjs",
+      "bytes": 17636,
+      "sha256": "62700a67358ea5f6c7903ad088a23c1e75e1320b0d44633846f74fd491fe18ab"
+    },
+    {
       "path": "tests/dashboard-operational-upstream-auth-boundary.test.cjs",
       "bytes": 9106,
       "sha256": "11f5357a3f44572f0dd01f9f1da5f74275b245f8741a0e700a1212059354f7bb"
@@ -214,6 +234,11 @@
       "sha256": "815d669a74bdf6a0b587b0e660cb43d50a59e8595dd674e55bb98ea2b5184dc8"
     },
     {
+      "path": "tests/helpers/dashboard-row-brand-fixture.cjs",
+      "bytes": 752,
+      "sha256": "a6fded93ab05cee557853804553d863394669a7b87a335f2ee54e7f877bf6880"
+    },
+    {
       "path": "tests/product-front-split.test.cjs",
       "bytes": 7163,
       "sha256": "446a05109029958a336f6cfdb67b0b8bd3333a975d27169d80e102f4c4f28032"
@@ -221,7 +246,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2718,
-      "sha256": "fadc4dfef42827b70dcbd97c8a32d68067932d4250a713781dd7292e993a6294"
+      "sha256": "581f356b01350799c0d3edc2a02c8e56462dadab585664ee300db304dfcf8c60"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",

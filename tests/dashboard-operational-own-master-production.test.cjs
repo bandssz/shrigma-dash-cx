@@ -1,4 +1,5 @@
 'use strict';
+const {rowBrandDependencies}=require('./helpers/dashboard-row-brand-fixture.cjs');
 // Real Auth/SQLite, original IAM SQL in disposable PGlite, and stream HTTP
 // handlers. Synthetic credentials/provider only; no remote effects or sends.
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
@@ -88,6 +89,6 @@ test('manager intent, stale grants or private setters cannot enable own Master p
 test('manager own profile public metadata reports the unavailable direct access instead of active reading or writing',()=>{
  const entry=source('services/dashboard-operational/public/entry.js'),start=entry.indexOf(' function crmAccessLabel('),end=entry.indexOf(' async function saveAccessRequest(');assert.ok(start>=0&&end>start);
  const element=()=>({children:[],textContent:'',append(...c){this.children.push(...c);},setAttribute(){},addEventListener(){}}),text=n=>[n.textContent,...n.children.map(text)].filter(Boolean).join(' | '),ctx={document:{createElement:element},AREAS:{growth:{label:'CRM'}},saveAccessRequest(){},revoke(){}};
- require('node:vm').runInNewContext(entry.slice(start,end)+'\nglobalThis.render=userRow;',ctx);
- for(const requestedAccess of ['read','edit']){const rendered=text(ctx.render({id:'synthetic-manager-id',role:'manager',email:'synthetic-manager@fishermans.com.br',areas:['growth'],brand:'fish',brandAccess:'single',status:'active',permissions:{growth:{read:true,edit:false}},requestedAccess,crmAccess:{state:'unavailable',ready:false,operational:false,reason:'INDIVIDUAL_ACCESS_NOT_READY',canRenew:false,renewalPhase:null},campaignContentAccess:{available:false}}));assert.match(rendered,/Cadastro preservado · acesso individual ainda não habilitado/);assert.match(rendered,/Cadastro ativo/);assert.doesNotMatch(rendered,/Somente leitura|Edição ativa|Edição configurada|Conteúdo em leitura|Renovar acesso CRM|Aprovar edição/);}
+ rowBrandDependencies(ctx,entry);require('node:vm').runInNewContext(entry.slice(start,end)+'\nglobalThis.render=userRow;',ctx);
+ for(const requestedAccess of ['read','edit']){const rendered=text(ctx.render({id:'synthetic-manager-id',role:'manager',email:'synthetic-manager@fishermans.com.br',areas:['growth'],brand:'fish',brands:['fish'],brandAccess:'single',status:'active',permissions:{growth:{read:true,edit:false}},requestedAccess,crmAccess:{state:'unavailable',ready:false,operational:false,reason:'INDIVIDUAL_ACCESS_NOT_READY',canRenew:false,renewalPhase:null},campaignContentAccess:{available:false}}));assert.match(rendered,/Cadastro preservado · acesso individual ainda não habilitado/);assert.match(rendered,/Cadastro ativo/);assert.doesNotMatch(rendered,/Somente leitura|Edição ativa|Edição configurada|Conteúdo em leitura|Renovar acesso CRM|Aprovar edição/);}
 });

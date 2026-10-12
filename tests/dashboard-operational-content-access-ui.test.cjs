@@ -1,4 +1,5 @@
 'use strict';
+const {rowBrandDependencies}=require('./helpers/dashboard-row-brand-fixture.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.resolve(__dirname,'../services/dashboard-operational/public/entry.js'),'utf8');
 function element(){return {children:[],textContent:'',disabled:false,hidden:false,listeners:{},append(...children){this.children.push(...children);},setAttribute(){},addEventListener(name,handler){this.listeners[name]=handler;}};}
@@ -8,7 +9,7 @@ const unavailable={available:false,reason:'BRAND_TEMPLATE_OWNERSHIP_NOT_READY'};
 function rows(){
  const start=source.indexOf(' function crmAccessLabel('),end=source.indexOf(' async function saveAccessRequest(');assert.ok(start>=0&&end>start);
  const context={document:{createElement:element},AREAS:{growth:{label:'CRM'},organico:{label:'Orgânico'},influs:{label:'Influs'}},saveAccessRequest(){},revoke(){}};
- vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
+ rowBrandDependencies(context,source);vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
  return user=>context.renderUser(user);
 }
 
