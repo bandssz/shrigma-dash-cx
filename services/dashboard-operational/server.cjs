@@ -405,6 +405,16 @@ function projectBrandCache(value,brand,area,origin,{templateReadAdmitted=false,a
  if(!brandRecord(value)||!['fish','aristo'].includes(brand)||!Object.hasOwn(BRAND_ROWS,area))throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');
  const out={brand,brands:[brand],brandAccess:'single',_escopo:area,_painel:area,crm_credencial:[]};let contract=false;
  for(const [key,item]of Object.entries(value)){
+  if(area==='growth'&&key==='crm_fontes'&&Array.isArray(item)&&item.every(row=>brandRecord(row)&&!Object.hasOwn(row,'marca')&&!Object.hasOwn(row,'brand'))){
+   // Published shared API mfP48DvaKeCt2r2p/c8cf8d13 emits these six
+   // collector records without brand or customer metrics. Do not invent one.
+   if(!Array.isArray(item)||item.length>6)throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');
+   const labels={shopify_conversao:'Venda (Shopify)',listmonk_snapshot:'E-mail (Listmonk)',wa_status_meta:'Status WhatsApp (Meta)',inventario_operacao:'Inventário de automações',wa_saude:'Saúde do canal WhatsApp',wa_fluxo_saude:'Saúde dos fluxos WhatsApp'},seen=new Set();
+   out.crm_fontes=item.map(row=>{
+    if(!brandRecord(row)||!Object.hasOwn(labels,row.fonte)||seen.has(row.fonte)||Object.hasOwn(row,'marca')||Object.hasOwn(row,'brand')||!['coleta','evento'].includes(row.tipo)||!['ok','atrasado','evento',null].includes(row.status)||row.coletado_em!==null&&!brandDate(row.coletado_em)||row.cadencia_seg!==null&&(!Number.isSafeInteger(row.cadencia_seg)||row.cadencia_seg<=0||row.cadencia_seg>86400))throw jsonError(502,'BRAND_RESPONSE_UNSCOPED');
+    seen.add(row.fonte);return {fonte:row.fonte,rotulo:labels[row.fonte]+' · coletor compartilhado',escopo:'compartilhado',tipo:row.tipo,status:row.status,coletado_em:row.coletado_em,cadencia_seg:row.cadencia_seg};
+   });continue;
+  }
   if(BRAND_ROWS[area].has(key)){
    const fields=CACHE_ROW_FIELDS[key];
    if(area==='growth'&&(!fields||!Object.keys(fields).length))continue;

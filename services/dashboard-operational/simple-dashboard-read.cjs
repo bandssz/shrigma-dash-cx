@@ -93,11 +93,18 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
     for(const rows of Object.values(b).filter(Array.isArray))for(const row of rows)for(const key of ['coletado_em','ultima_coleta','ultima_ok','ultima']){
      const v=row?.[key];if(typeof v==='string'&&Number.isFinite(Date.parse(v))&&(!freshness[key]||Date.parse(v)>Date.parse(freshness[key])))freshness[key]=new Date(v).toISOString();
     }
-    result={front,brand,status:200,counts,freshness,source:front==='growth'?'crm-panel-read':front==='organico'?'cache-organico':front==='influs'?'influ-listar':'tts-painel',window:front==='influs'||front==='afiliados'?{ini,fim}:null,readOnly:true};
+    if(b.coleta&&typeof b.coleta[brand]==='string'&&Number.isFinite(Date.parse(b.coleta[brand])))freshness.pedidos_coletados_em=new Date(b.coleta[brand]).toISOString();
+    const attribution=b.organico_attribution||b.crm_attribution,attributionCounts={};
+    if(attribution&&typeof attribution==='object')for(const name of ['daily','quality','coverage'])if(Array.isArray(attribution[name])){
+     attributionCounts[name]=attribution[name].length;
+     if(name==='daily'&&front==='organico')attributionCounts.detailedRows=attribution[name].filter(row=>row.detail_level==='utm').length;
+     for(const row of attribution[name])if(typeof row.checked_at==='string'&&Number.isFinite(Date.parse(row.checked_at))&&(!freshness.attribution_checked_at||Date.parse(row.checked_at)>Date.parse(freshness.attribution_checked_at)))freshness.attribution_checked_at=new Date(row.checked_at).toISOString();
+    }
+    result={front,brand,status:200,counts,freshness,...(Object.keys(attributionCounts).length?{attributionCounts}:{}),source:front==='growth'?'crm-panel-read':front==='organico'?'cache-organico':front==='influs'?'influ-listar':'tts-painel',window:front==='influs'||front==='afiliados'?{ini,fim}:null,readOnly:true};
    }catch(e){
     result={front,brand,status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'SERVICE_READ_UNCONFIRMED',counts:null,freshness:null,readOnly:true};
     const p=e.projectionIssue;
-    if(front==='growth'&&p&&/^(crm_[a-z_]+|wa_[a-z_]+|attribution\.[a-z_]+)$/.test(p.section||'')&&['rows_type_invalid','row_type_invalid','brand_marker_invalid','field_type_invalid'].includes(p.reason)&&(!p.field||/^[a-z_]{1,64}$/.test(p.field)))result.diagnostic={section:p.section,reason:p.reason,...(p.field?{field:p.field}:{})};
+    if(['growth','organico','influs'].includes(front)&&p&&/^(crm_[a-z_]+|wa_[a-z_]+|cx_[a-z_]+|(?:attribution|organic)\.[a-z_]+|influs|roi|cupons|custos|receita_cupom|termos|clientes|conciliacao|saude)$/.test(p.section||'')&&['rows_type_invalid','row_type_invalid','brand_marker_invalid','field_type_invalid'].includes(p.reason)&&(!p.field||/^[a-z_]{1,64}$/.test(p.field)))result.diagnostic={section:p.section,reason:p.reason,...(p.field?{field:p.field}:{})};
    }
    auth.authorize({...context,admin:true});return result;
   }));

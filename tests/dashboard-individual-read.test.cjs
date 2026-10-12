@@ -85,3 +85,30 @@ test('disabled simple READ is unchanged; sandbox, synthetic and unknown flags re
  assert.throws(()=>S.environmentForSimpleDashboardRead({DASHBOARD_SIMPLE_READ_LOGIN:'enabled'},{...before,DASHBOARD_UPSTREAM_PROFILE:'crm-sandbox'}));
  assert.throws(()=>S.environmentForSimpleDashboardRead({DASHBOARD_SIMPLE_READ_LOGIN:'true'},before));
 });
+
+test('organic preserves the published detailed UTM classification and original account/video metrics',()=>{
+ const v=org();v.cx_post[0].views=10;v.cx_conta_dia[0].profile_views=4;v.cx_conta_dia[0].alcance_conta=12;
+ v.organico_attribution={schema_version:1,window_days:30,source_system:'shopify',currency:'BRL',rule_version:'organico-utm-20260927-v2',default_model:'last_click',daily:[{marca:'fish',dia:'2026-10-11',model:'last_click',classification:'editorial',detail_level:'utm',rule_reason:'controle_utm_instagram_story',pedidos:1,receita_liquida:10}],quality:[],coverage:[]};
+ const out=projectOrg(v);assert.equal(out.cx_post[0].views,10);assert.equal(out.cx_conta_dia[0].profile_views,4);assert.equal(out.cx_conta_dia[0].alcance_conta,12);assert.equal(out.organico_attribution.rule_version,v.organico_attribution.rule_version);
+ const O=require('../organico-attribution.js'),selected=O.select(out,'fish','2026-10-01','2026-10-11');assert.equal(selected.detailRows.length,1);assert.equal(selected.detailRows[0].rule_reason,'controle_utm_instagram_story');
+});
+test('optional creator blocks preserve brand, unknowns and actual collection time without personal rows',()=>{
+ const v=creators();v.clientes=[{marca:'fish',influ:'fixture-creator',pedidos:3,novos:1,recorrentes:1,sem_indice:1,customer_email:'private@synthetic.invalid'},{marca:'aristo',influ:'other',pedidos:1,novos:1,recorrentes:0,sem_indice:0}];v.conciliacao=[{marca:'fish',codigo:'FIXTURE',influ:'fixture-creator',relatorio_pedidos:null,pagos:1,receita_paga:10,nao_pagos:0,receita_nao_paga:0,diferenca:null,relatorio_cobertura:'sem_coleta',situacao:'relatorio_indisponivel'}];v.saude=[{marca:'fish',lane:'coleta_pedidos',ok:false,em:stamp,ultimo_ok_em:null,itens:null,detalhe:'private provider error'}];v.coleta={fish:stamp,aristo:'2026-10-10T00:00:00Z'};v.conciliacao_pedidos=[{email:'private@synthetic.invalid'}];
+ const out=projectCreators(v);assert.equal(out.clientes.length,1);assert.equal(out.clientes[0].sem_indice,1);assert.equal(out.conciliacao[0].diferenca,null);assert.equal(out.saude[0].ok,false);assert.deepEqual(out.coleta,{fish:stamp});assert(!JSON.stringify(out).includes('private'));assert(!Object.hasOwn(out,'conciliacao_pedidos'));
+ const absent=projectCreators(creators());for(const k of ['clientes','conciliacao','saude','coleta'])assert(!Object.hasOwn(absent,k));
+});
+test('creator client denominator cannot silently omit unknown classifications',()=>{const v=creators();v.clientes=[{marca:'fish',influ:'fixture-creator',pedidos:3,novos:1,recorrentes:1,sem_indice:0}];assert.throws(()=>projectCreators(v));});
+test('organic diagnostic exposes a field name and reason without its value',()=>{const v=org();v.cx_post[0].impulsionado='private-value';assert.throws(()=>projectOrg(v),e=>{assert.deepEqual(e.projectionIssue,{section:'cx_post',reason:'field_type_invalid',field:'impulsionado'});assert(!JSON.stringify(e.projectionIssue).includes('private-value'));return true;});});
+test('creator health screen does not fabricate another brand under individual scope',()=>{
+ const F=require('../influs-conferencia.js'),p={brand:'fish',brandAccess:'single',saude:[{marca:'fish',lane:'coleta_pedidos',ok:true,em:stamp}]};const rows=F.saude(p,Date.parse(stamp));assert(rows.length>0);assert(rows.every(x=>x.marca==='fish'));assert.equal(F.saude({saude:[]}).length,6);
+});
+
+test('missing reconciliation numerators refuse before the screen can manufacture zero',()=>{
+ const value=creators();value.conciliacao=[{marca:'fish',codigo:'FIXTURE',relatorio_cobertura:'completa',situacao:'igual'}];assert.throws(()=>projectCreators(value));
+ const complete={marca:'fish',codigo:'FIXTURE',relatorio_cobertura:'completa',situacao:'igual',pagos:1,receita_paga:10,nao_pagos:0,receita_nao_paga:0,relatorio_pedidos:1,relatorio_vendas_liquidas:10};
+ for(const k of ['pagos','nao_pagos','receita_paga','receita_nao_paga','relatorio_pedidos','relatorio_vendas_liquidas']){value.conciliacao=[{...complete,[k]:null}];assert.throws(()=>projectCreators(value));}
+ value.conciliacao=[complete];assert.equal(projectCreators(value).conciliacao[0].nao_pagos,0);
+});
+
+test('complete report with a legitimately absent coupon retains the null pair',()=>{const v=creators();v.conciliacao=[{marca:'fish',codigo:'FIXTURE',pagos:1,receita_paga:10,nao_pagos:0,receita_nao_paga:0,relatorio_cobertura:'completa',situacao:'ausente_no_relatorio',relatorio_pedidos:null,relatorio_vendas_liquidas:null}];assert.equal(projectCreators(v).conciliacao[0].relatorio_vendas_liquidas,null);});
+test('success flag without a confirmed source time remains unknown on the health screen',()=>{const F=require('../influs-conferencia.js'),out=F.saude({brand:'fish',brandAccess:'single',saude:[{marca:'fish',lane:'coleta_pedidos',ok:true,em:null,ultimo_ok_em:null}]});assert.equal(out.find(x=>x.lane==='coleta_pedidos').estado,'sem_registro');});

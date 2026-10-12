@@ -127,3 +127,11 @@ test('projection failure native summary reveals only the closed section, field a
  const result=await reader.summary(f.adminContext,['fish'],'https://'+HOST);const crm=result.sources.find(x=>x.front==='growth');
  assert.equal(crm.status,502);assert.deepEqual(crm.diagnostic,{section:'crm_diario',reason:'field_type_invalid',field:'enviados'});assert.equal(crm.counts,null);assert(!JSON.stringify(result).includes('private@'));assert.deepEqual(Object.keys(crm.diagnostic).sort(),['field','reason','section']);assert(!Object.hasOwn(crm,'rows'));assert(!Object.hasOwn(crm,'payload'));
 });
+
+test('published shared CRM collectors are metadata and never become a fabricated brand',()=>{
+ const S=require(runtime+'/server.cjs'),row={fonte:'listmonk_snapshot',rotulo:'unsafe-label',tipo:'coleta',status:'ok',coletado_em:STAMP,cadencia_seg:1800,receita:999,email:'private@synthetic.invalid'};
+ const out=S.projectBrandCache({crm_diario:[{marca:'fish',dia:'2026-10-12',enviados:12},{marca:'aristo',dia:'2026-10-12',enviados:24}],crm_fontes:[row]},'fish','growth','https://'+HOST);
+ assert.equal(out.crm_diario.length,1);assert.equal(out.crm_fontes.length,1);assert.equal(out.crm_fontes[0].escopo,'compartilhado');assert.match(out.crm_fontes[0].rotulo,/coletor compartilhado/);for(const k of ['marca','brand','receita','email'])assert(!Object.hasOwn(out.crm_fontes[0],k));assert(!JSON.stringify(out).includes('unsafe-label'));assert(!JSON.stringify(out).includes('private@'));
+ assert.throws(()=>S.projectBrandCache({crm_fontes:[row]},'fish','growth','https://'+HOST),e=>e.code==='BRAND_READ_CONTRACT_NOT_READY');
+ assert.throws(()=>S.projectBrandCache({crm_diario:[],crm_fontes:[{...row,fonte:'unreviewed'}]},'fish','growth','https://'+HOST));
+});
