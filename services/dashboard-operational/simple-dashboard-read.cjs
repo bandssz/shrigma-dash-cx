@@ -1,0 +1,70 @@
+'use strict';
+// The cookie selects person/front/brand; one private service key authenticates
+// each existing source. Fixed READ routes return only the selected brand.
+const crypto=require('node:crypto');
+const {decide,forward,FIXED_DESTINATIONS}=require('./proxy.cjs');
+const Individual=require('./dashboard-individual-read.cjs');
+const Affiliate=require('./afiliados-read.cjs');
+const AffiliateProjection=require('./afiliados-read-contract.cjs');
+const Journeys=require('./crm-published-journey-read.cjs');
+const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
+const AREA={growth:'growth',organico:'organico',influs:'influs',afiliados:'influs'};
+function sourceKeysFromEnv(env){
+ const names={growth:'DASHBOARD_SERVICE_READ_CRM_KEY',organico:'DASHBOARD_SERVICE_READ_ORGANICO_KEY',influs:'DASHBOARD_SERVICE_READ_INFLUS_KEY',afiliados:'DASHBOARD_SERVICE_READ_AFILIADOS_KEY'};
+ const out={};for(const [front,name]of Object.entries(names)){const value=env[name];if(value!==undefined){if(typeof value!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(value))fail('SERVICE_READ_CONFIG_INVALID',500);out[front]=value;}}
+ return Object.freeze(out);
+}
+function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth}={}){
+ if(!auth?.authorizeBrand||!auth?.authorize||typeof fetchImpl!=='function'||typeof projectGrowth!=='function'||Object.keys(keys).some(k=>!Object.hasOwn(AREA,k)))fail('SERVICE_READ_CONFIG_INVALID',500);
+ const credentials=Object.freeze({...keys}),versions=Object.fromEntries(Object.keys(credentials).map(front=>[front,crypto.randomBytes(32).toString('hex')]));
+ const noSecrets=value=>{const serialized=JSON.stringify(value);for(const secret of Object.values(credentials))if(serialized.includes(secret))fail('BRAND_RESPONSE_UNSCOPED',502);};
+ let pending=0;
+ const current=(context,front,brand)=>{
+  const user=auth.authorizeBrand({...context,area:AREA[front],productFront:front,edit:false},brand);
+  return {user,stamp:JSON.stringify([user.id,user.role,user.areas,user.permissions,user.productFronts,user.brands,user.jobTitle])};
+ };
+ const same=(context,front,brand,before)=>{if(current(context,front,brand).stamp!==before.stamp)fail('SERVICE_READ_ACCESS_CHANGED',403);};
+ const journeys=Journeys.createReader({fetchImpl,authorize:(context,{brand})=>{const {user}=current(context,'growth',brand);if(!credentials.growth)fail('SERVICE_READ_SOURCE_NOT_LINKED',503);return {userId:user.id,binding:versions.growth+':'+user.id,credential:credentials.growth};}});
+ function availability(context,brand){
+  current(context,'afiliados',brand);if(brand==='olivas')fail('BRAND_READ_CONTRACT_NOT_READY',503);
+  return {schema:'shrigma-affiliate-read-availability-v1',brand,readLinked:!!credentials.afiliados,binding:versions.afiliados||null,readOnly:true};
+ }
+ async function read({context,route,method,query,body,viewBrand,origin}){
+  let front,brand,d,affiliateCommand;
+  if(route==='templates'){
+   if(method!=='GET'||body!==undefined)fail('READ_ONLY');
+   const action=query.get('acao');if(!['fluxos_capacidade','fluxos_listar'].includes(action))fail('READ_ONLY');
+   const result=action==='fluxos_capacidade'?journeys.capability(context,query):await journeys.read(context,query);noSecrets(result.body);return result;
+  }
+  if(route==='affiliate-read'){
+   affiliateCommand=Affiliate.decision(method,query,body);brand=affiliateCommand.brand;front='afiliados';
+   if(method==='GET')return {status:200,body:availability(context,brand)};
+  }else{
+   d=decide(route,method,query,body);if(d.edit)fail('READ_ONLY');front=d.area;
+   if(!Object.hasOwn(AREA,front)||front==='afiliados')fail('READ_ONLY');
+   const identity=route==='cx'&&query.get('access')==='1'||route==='crm-read'&&d.action==='identity';
+   if(identity){const user=auth.authorize({...context,area:AREA[front],edit:false});return {status:200,body:{schema:'shrigma_access_identity_v1',role:user.role==='superadmin'?'master':'manager',panel:front,allowedPanels:user.areas,owner:user.jobTitle||'administrador',brand:user.brand,brands:user.brands,brandAccess:user.brandAccess}};}
+   const allowed=front==='growth'?route==='crm-read'&&method==='GET'&&d.action==='cache_growth':front==='organico'?['cx','cache'].includes(route)&&method==='GET'&&d.action==='':front==='influs'&&route==='influ'&&method==='POST'&&d.action==='listar';
+   if(!allowed)fail('READ_ONLY');
+   if(viewBrand!==undefined&&(!['cx','cache','crm-read'].includes(route)||method!=='GET'||!['fish','aristo','olivas'].includes(viewBrand)))fail('BRAND_INVALID',400);
+   const user=auth.authorize({...context,area:AREA[front],productFront:front,edit:false});
+   brand=body?.marca||query.get('brand')||query.get('marca')||viewBrand||user.brand;
+  }
+  const before=current(context,front,brand);if(brand==='olivas')fail('BRAND_READ_CONTRACT_NOT_READY',503);
+  const credential=credentials[front];if(!credential)fail('SERVICE_READ_SOURCE_NOT_LINKED',503);
+  if(route==='affiliate-read'&&affiliateCommand.expected_binding!==versions.afiliados)fail('AFFILIATE_READ_BINDING_CHANGED',409);
+  const targetRoute=route==='affiliate-read'?'tts':route;
+  if(upstreams?.[targetRoute]?.href!==FIXED_DESTINATIONS[targetRoute])fail('SERVICE_READ_DESTINATION_INVALID',503);
+  if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
+  try{
+   const result=await forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,fetchImpl});
+   same(context,front,brand,before);if(result.status!==200)fail('SERVICE_READ_SOURCE_REFUSED',503);
+   noSecrets(result.body);
+   let payload=front==='growth'?projectGrowth(result.body,brand,'growth',origin):front==='afiliados'?AffiliateProjection.project(result.body,{brand,ini:body.ini,fim:body.fim,credential}):Individual.project(result.body,{area:front,brand,query:body||Object.fromEntries(query),credential});
+   if(front==='growth')payload=Journeys.capabilities(payload,origin,true);
+   same(context,front,brand,before);return {status:200,body:payload};
+  }finally{pending--;}
+ }
+ return Object.freeze({read,availability});
+}
+module.exports={createReader,sourceKeysFromEnv};

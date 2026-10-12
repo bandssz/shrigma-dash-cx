@@ -200,6 +200,7 @@ else (function(){'use strict';
   const u=s?.user;
   if(s?.authenticated!==true||!u||!sessionBrandScope(u)||typeof u.email!=='string'||!uiKeyOk(s.uiKey)||typeof s.csrf!=='string'||!Array.isArray(u.areas)||!u.areas.length)return false;
   if(!u.areas.every(a=>Object.hasOwn(AREAS,a))||new Set(u.areas).size!==u.areas.length)return false;
+  if(s.features?.simpleLogin===true&&u.role==='manager'&&u.simpleRead===true)return productViewsForAreas(u.areas,u.productFronts).length>0&&(requested==='todos'||u.areas.includes(requested));
   if(requested==='todos')return u.role==='superadmin'&&Object.keys(AREAS).every(a=>u.areas.includes(a));
   return Object.hasOwn(AREAS,requested)&&u.areas.includes(requested)&&(u.role==='superadmin'||u.role==='manager'&&u.areas.length===1);
  }
@@ -208,7 +209,7 @@ else (function(){'use strict';
   version++;session=null;selected='';audienceGate={state:'off'};audienceGatePromise=Promise.resolve(audienceGate);frame?.remove();frame=null;frameHost.replaceChildren();nav.replaceChildren();nav.hidden=true;
   shell.hidden=true;loginScreen.hidden=false;admin.hidden=true;manage.hidden=true;inviteResult.hidden=true;inviteLink.value='';
   $('admin-users').replaceChildren();$('admin-crm-reconcile').hidden=true;
-  $('login-password').value='';
+  $('login-password').value='';clearSimplePasswords();$('entry-password').hidden=true;
   loginForm.hidden=!!inviteToken||!!bootstrapToken;inviteForm.hidden=!inviteToken;bootstrapForm.hidden=!bootstrapToken;message.textContent=text;
   (bootstrapToken?$('bootstrap-email'):inviteToken?$('invite-password'):$('login-email')).focus();
  }
@@ -256,7 +257,8 @@ else (function(){'use strict';
  }
  function showShell(s){
   if(!validSession(s)){showLogin(s?.user?.brandAccess==='reprovision_required'?'Este acesso precisa ser vinculado a uma marca pelo administrador. Peça um novo acesso.':'Este acesso não está autorizado para este endereço.');return;}
-  clearLegacy();bootstrapToken='';inviteToken='';session=s;loginScreen.hidden=true;shell.hidden=false;message.textContent='';$('entry-owner').textContent=s.user.email;
+  clearLegacy();bootstrapToken='';inviteToken='';session=s;loginScreen.hidden=true;shell.hidden=false;message.textContent='';$('entry-owner').textContent=s.features?.simpleLogin===true?(s.user.jobTitle||'administrador'):s.user.email;
+  configureSimpleScreen();
   $('entry-brand').textContent=s.user.brandAccess==='all'?'Visão gerencial · todas as marcas':brandNames(s.user.brands);
   const managerial=s.user.role==='superadmin'&&requested==='todos';
   const views=productViewsForAreas(s.user.areas,s.user.productFronts);
@@ -514,11 +516,85 @@ else (function(){'use strict';
   }catch(_){if(ticket!==version||session!==original)return;await refreshUsersAfterChange();if(ticket!==version||session!==original)return;adminMessage.textContent=!response||response.ok||response.status>=500?'A resposta da alteração não foi confirmada. Confira o estado na lista de acessos; nenhuma alteração foi reenviada.':'O nível de acesso foi recusado. Confira o estado do cadastro.';}
   finally{busy=false;button.disabled=false;select.disabled=false;}
  }
+ function clearSimplePasswords(){
+  for(const id of ['simple-password','simple-current-password','simple-new-password']){const field=$(id);if(field)field.value='';}
+  for(const field of $('admin-users')?.querySelectorAll?.('input[type="password"]')||[])field.value='';
+  const dialog=$('simple-password-dialog');if(dialog?.open)dialog.close();
+ }
+ function configureSimpleScreen(){
+  const simple=session?.features?.simpleLogin===true;
+  if($('entry-password'))$('entry-password').hidden=!simple;
+  if($('simple-user-form'))$('simple-user-form').hidden=!simple;
+  $('admin-invite-form').hidden=simple;
+  for(const note of admin.querySelectorAll('.admin-access-note'))note.hidden=simple;
+  const explanation=admin.querySelector('.admin-heading p');if(simple&&explanation)explanation.textContent='Cadastre a pessoa com senha inicial, cargo, frentes e marcas. Estes acessos são de leitura. Senhas e desativação podem ser alteradas aqui.';
+  if(simple){inviteResult.hidden=true;inviteLink.value='';$('admin-crm-reconcile').hidden=true;}
+ }
+ const checkedValues=id=>[...$(id).querySelectorAll('input[type="checkbox"]:checked')].map(input=>input.value);
+ function simpleChecks(label,values,selected){
+  const field=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent=label;field.append(legend);
+  for(const [value,title]of values){const item=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=value;input.checked=selected.includes(value);item.append(input,document.createTextNode(' '+title));field.append(item);}
+  return field;
+ }
+ async function simpleWrite(body,form,successText){
+  if(busy||session?.features?.simpleLogin!==true||session.user.role!=='superadmin')return false;
+  const original=session,ticket=version;let response,data;busy=true;
+  const controls=[...form.querySelectorAll('input,button')];for(const control of controls)control.disabled=true;
+  adminMessage.textContent='Salvando cadastro…';
+  try{
+   ({response,data}=await post('/auth/simple/users',body));if(ticket!==version||session!==original)return false;
+   if(!response.ok)throw Error('account_failed');
+   const loaded=await refreshUsersAfterChange();if(ticket!==version||session!==original)return false;
+   adminMessage.textContent=successText+(loaded?'':' A lista ainda não pôde ser atualizada.');return true;
+  }catch(_){
+   if(ticket!==version||session!==original)return false;
+   const labels={EMAIL_EXISTS:'Este e-mail já possui cadastro.',PASSWORD_INVALID:'Use uma senha com pelo menos 12 caracteres e no máximo 72 bytes.',FRONTS_INVALID:'Selecione pelo menos uma frente.',BRANDS_INVALID:'Selecione pelo menos uma marca.',JOB_TITLE_INVALID:'Informe o cargo.'};
+   adminMessage.textContent=labels[data?.error]||(!response||response.ok||response.status>=500?'A resposta não foi confirmada. Atualize a lista antes de repetir.':'O cadastro foi recusado. Confira os dados.');return false;
+  }finally{busy=false;for(const control of controls)control.disabled=false;for(const field of form.querySelectorAll('input[type="password"]'))field.value='';}
+ }
+ function simpleUserRow(user){
+  const row=document.createElement('div');row.className='user-row';
+  const heading=document.createElement('div'),title=document.createElement('strong'),summary=document.createElement('p');
+  title.textContent=user.jobTitle;summary.textContent=user.email+' · '+(user.active?'Ativo':'Inativo');heading.append(title,summary);row.append(heading);
+  if(user.administrator){const note=document.createElement('p');note.textContent='Administrador · todos os setores. Use Trocar senha para alterar sua senha.';row.append(note);return row;}
+  const form=document.createElement('form');form.className='simple-user-editor';
+  const job=document.createElement('input');job.value=user.jobTitle;job.maxLength=100;job.required=true;job.setAttribute('aria-label','Cargo');
+  const fronts=simpleChecks('Frentes de leitura',[['growth','CRM'],['organico','Orgânico'],['influs','Influs'],['afiliados','Afiliados']],user.fronts);
+  const brands=simpleChecks('Marcas',[['fish','Fishermans'],['aristo','O Aristocrata'],['olivas','Olivas do Campo']],user.brands);
+  const activeLabel=document.createElement('label'),active=document.createElement('input');active.type='checkbox';active.checked=user.active;activeLabel.append(active,document.createTextNode(' Acesso ativo'));
+  const save=document.createElement('button');save.type='submit';save.textContent='Salvar acesso';
+  form.append(job,fronts,brands,activeLabel,save);row.append(form);
+  form.addEventListener('submit',event=>{event.preventDefault();const values=field=>[...field.querySelectorAll('input:checked')].map(input=>input.value);void simpleWrite({action:'update',userId:user.id,jobTitle:job.value,fronts:values(fronts),brands:values(brands),active:active.checked},form,'Acesso atualizado. As sessões anteriores foram encerradas.');});
+  const reset=document.createElement('form');reset.className='simple-password-reset';
+  const password=document.createElement('input');password.type='password';password.autocomplete='new-password';password.minLength=12;password.maxLength=72;password.required=true;password.setAttribute('aria-label','Nova senha inicial');
+  const button=document.createElement('button');button.type='submit';button.textContent='Resetar senha';reset.append(password,button);row.append(reset);
+  reset.addEventListener('submit',event=>{event.preventDefault();void simpleWrite({action:'reset',userId:user.id,password:password.value},reset,'Senha resetada. As sessões anteriores foram encerradas.');});return row;
+ }
+ $('simple-user-form')?.addEventListener('submit',async event=>{
+  event.preventDefault();if(busy)return;const form=event.currentTarget;
+  const body={action:'create',email:$('simple-email').value.trim().toLowerCase(),password:$('simple-password').value,jobTitle:$('simple-title').value,fronts:checkedValues('simple-fronts'),brands:checkedValues('simple-brands')};
+  if(await simpleWrite(body,form,'Usuário criado. Compartilhe a senha inicial por um canal privado.')){for(const id of ['simple-email','simple-title','simple-password'])$(id).value='';for(const field of form.querySelectorAll('input[type="checkbox"]'))field.checked=false;}
+ });
+ $('entry-password')?.addEventListener('click',()=>{if(session?.features?.simpleLogin!==true)return;clearSimplePasswords();$('simple-password-message').textContent='';$('simple-password-dialog').showModal();$('simple-current-password').focus();});
+ $('simple-password-close')?.addEventListener('click',clearSimplePasswords);
+ $('simple-password-dialog')?.addEventListener('close',()=>{for(const id of ['simple-current-password','simple-new-password'])$(id).value='';});
+ $('simple-password-form')?.addEventListener('submit',async event=>{
+  event.preventDefault();if(busy||session?.features?.simpleLogin!==true)return;busy=true;const ticket=version,button=event.currentTarget.querySelector('button');button.disabled=true;
+  let response,data;
+  try{
+   ({response,data}=await post('/auth/password',{currentPassword:$('simple-current-password').value,password:$('simple-new-password').value}));if(ticket!==version)return;
+   if(response.ok){showLogin('Senha alterada. Entre novamente.');return;}
+   if(response.status>=500){showLogin('A resposta da troca não foi confirmada. Entre novamente antes de tentar outra alteração.');return;}
+   $('simple-password-message').textContent=data?.error==='PASSWORD_CURRENT_INVALID'?'A senha atual não confere.':'A troca foi recusada. Use uma nova senha com pelo menos 12 caracteres e no máximo 72 bytes.';
+  }catch(_){if(ticket===version)showLogin('A resposta da troca não foi confirmada. Entre novamente.');}
+  finally{busy=false;button.disabled=false;$('simple-current-password').value='';$('simple-new-password').value='';}
+ });
  async function loadUsers(){
   const original=session,ticket=version;
   const {response,data}=await request('/auth/users',{editReceipt:true});if(!response.ok)throw Error('users_unavailable');
   if(ticket!==version||session!==original)return;
   const users=Array.isArray(data)?data:data?.users;if(!Array.isArray(users))throw Error('users_unavailable');
+  if(session.features?.simpleLogin===true){$('admin-users').replaceChildren(...users.map(simpleUserRow));$('admin-crm-reconcile').hidden=true;return;}
   $('admin-users').replaceChildren(...users.map(userRow));
   $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(user.profileUpdate?.state==='revoking'||['provisioning','revoking','renewing'].includes(user.crmWriter?.state)||['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
  }
@@ -602,7 +678,7 @@ else (function(){'use strict';
  }
  $('admin-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(inviteLink.value);adminMessage.textContent='Link copiado.';}catch(_){inviteLink.select();adminMessage.textContent='Selecione e copie o link de convite.';}});
  $('admin-invite-hide').addEventListener('click',()=>{inviteLink.value='';inviteResult.hidden=true;});
- window.addEventListener('pagehide',()=>{version++;session=null;inviteToken='';bootstrapToken='';inviteLink.value='';frame?.remove();});
+ window.addEventListener('pagehide',()=>{version++;session=null;inviteToken='';bootstrapToken='';inviteLink.value='';clearSimplePasswords();frame?.remove();});
  (async()=>{
   // An invite is for a new identity. A cookie from another account on the
   // same team host must not consume or hide its one-time URL fragment.

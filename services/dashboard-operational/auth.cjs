@@ -120,6 +120,9 @@ function invitePermissions(areas,permissions){
 
 function createAuth(options){
  if(!plain(options)||typeof options.dbPath!=='string'||!options.dbPath||!Array.isArray(options.allowedEmailDomains)||!options.allowedEmailDomains.length||!plain(options.areaHosts))err('CONFIG_INVALID',500);
+ if(options.simpleReadMode!==undefined&&typeof options.simpleReadMode!=='boolean')err('CONFIG_INVALID',500);
+ const simpleReadMode=options.simpleReadMode===true;
+ const sessionMs=simpleReadMode?7*24*60*60*1000:SESSION_MS,idleMs=simpleReadMode?sessionMs:IDLE_MS;
  if(options.crmManagedRead!==undefined&&(!plain(options.crmManagedRead)||Object.keys(options.crmManagedRead).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedRead).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v))))err('MANAGED_CONFIG_INVALID',500);
  if(options.dashboardIndividualRead!==undefined&&typeof options.dashboardIndividualRead!=='boolean')err('CONFIG_INVALID',500);
  const dashboardIndividualRead=options.dashboardIndividualRead===true;
@@ -264,6 +267,9 @@ function createAuth(options){
   }
   db.exec('COMMIT');
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
+ const simpleAccounts=simpleReadMode?require('./simple-login-accounts.cjs').createSimpleAccounts({db,
+  authorizeAdmin:context=>adminContext(context),authorizeUser:context=>authorize(context),
+  normalizeEmail:value=>emailAddress(value,domainSet),hashPassword,verifyPassword,now:current}):null;
  // Off by default: records local identity jobs, never starts remote transport
  // or a worker. The private gateway constructor owns this configuration.
  let managedCrm=null,managedWriter=null,nativeConnections=null,affiliateNativeConsent=null;
@@ -311,9 +317,20 @@ function createAuth(options){
    const next=waiters.shift();if(next)next();else hashing=false;
   }
  }
- async function hashPassword(password){const salt=crypto.randomBytes(16),hash=await derive(validPassword(password),salt);return `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${salt.toString('base64url')}$${hash.toString('base64url')}`;}
+ let bcryptPromise,dummyBcryptPromise;
+ const bcrypt=()=>bcryptPromise||(bcryptPromise=import('./bcrypt.mjs').then(m=>m.default));
+ async function hashPassword(password,{legacyCompatible=false}={}){
+  validPassword(password);
+  if(simpleReadMode&&!legacyCompatible){if(Buffer.byteLength(password,'utf8')>72)err('PASSWORD_INVALID',400);return (await bcrypt()).hash(password,12);}
+  const salt=crypto.randomBytes(16),hash=await derive(password,salt);return `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${salt.toString('base64url')}$${hash.toString('base64url')}`;
+ }
  async function verifyPassword(password,encoded){
   if(typeof password!=='string'||password.length>128||Buffer.byteLength(password)>256)return false;
+  if(typeof encoded==='string'&&/^\$2[aby]\$12\$[./A-Za-z0-9]{53}$/.test(encoded))return Buffer.byteLength(password,'utf8')<=72&&(await bcrypt()).compare(password,encoded);
+  if(simpleReadMode&&typeof encoded!=='string'){
+   const b=await bcrypt();dummyBcryptPromise||=(b.hash(crypto.randomBytes(32).toString('base64url'),12));
+   await b.compare(password,await dummyBcryptPromise);return false;
+  }
   let salt=DUMMY_SALT,expected=Buffer.alloc(64);
   if(typeof encoded==='string'){
    const parts=encoded.split('$');if(parts.length===6&&parts[0]==='scrypt'&&parts[1]===String(SCRYPT.N)&&parts[2]===String(SCRYPT.r)&&parts[3]===String(SCRYPT.p)){
@@ -335,6 +352,8 @@ function createAuth(options){
  }
  function brandScope(user){
   if(user.role==='superadmin')return {brand:null,brands:[...BRANDS],brandAccess:'all',viewBrands:[...VIEW_BRANDS]};
+  const simple=simpleAccounts?.profile(user.id);
+  if(simple)return {brand:simple.brands.length===1?simple.brands[0]:null,brands:[...simple.brands],viewBrands:[...simple.brands],brandAccess:simple.brands.length===1?'single':'multiple'};
   const selected=selectedProductScope(user);
   if(selected&&(selected.brands.length!==1||!BRANDS.includes(selected.brands[0])))return {brand:selected.brands.length===1?selected.brands[0]:null,brands:[...selected.brands],viewBrands:[...selected.brands],brandAccess:selected.brands.length===1?'single':'multiple'};
   const row=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(user.id);
@@ -408,6 +427,8 @@ function createAuth(options){
  function productScope(user){
   const p=permissions(user.id),areas=AREAS.filter(a=>p[a]?.read);
   if(user.role==='superadmin')return {productFront:null,productFronts:Object.keys(PRODUCT_AREAS).filter(front=>areas.includes(PRODUCT_AREAS[front]))};
+  const simple=simpleAccounts?.profile(user.id);
+  if(simple)return {productFront:simple.fronts.length===1?simple.fronts[0]:null,productFronts:[...simple.fronts]};
   const row=db.prepare('SELECT * FROM user_product_grants_v1 WHERE user_id=?').get(user.id);
   // Existing users retain their original scope. Absence does not migrate or
   // enlarge an existing delegation; new UI invitations always select a front.
@@ -433,7 +454,7 @@ function createAuth(options){
   db.prepare('INSERT INTO user_product_grants_v1(user_id,product_front,scope_mac) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET product_front=excluded.product_front,scope_mac=excluded.scope_mac').run(userId,front,brandMac(['product-scope-v1',user.id,user.email,scope.brand,areas[0],front]));
   db.prepare('UPDATE user_brand_grants_v1 SET scope_mac=? WHERE user_id=?').run(currentBrandMac(userId,user.email,areas[0],scope.brand),userId);bindCurrentBrandLifecycles(userId);
  }
- function publicUser(user){const p=permissions(user.id);return {id:user.id,email:user.email,role:user.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,...brandScope(user),...productScope(user)};}
+ function publicUser(user){const p=permissions(user.id),simple=simpleAccounts?.profile(user.id);return {id:user.id,email:user.email,role:user.role,...(simple?{jobTitle:simple.jobTitle,simpleRead:true}:{}),areas:AREAS.filter(a=>p[a]?.read),permissions:p,...brandScope(user),...productScope(user)};}
  function beginBootstrap({email,token,host,origin}){
   const h=knownHost(host);if(h!==managerHost)err('HOST_DENIED',403);checkOrigin(h,origin);
   const user=findUser.get(emailAddress(email,domainSet));
@@ -468,10 +489,20 @@ function createAuth(options){
   // Reserve the attempt before the costly hash. Concurrent guesses cannot all
   // pass a stale counter and outrun the per-account ceiling.
   recordAttempt([[globalKey,GLOBAL_LOGIN_ATTEMPTS],...keys],t);
-  const user=findUser.get(normalized),valid=await verifyPassword(password,user?.state==='active'?user.password_hash:null);
+  const candidate=findUser.get(normalized),expected=candidate?JSON.stringify(candidate):null;
+  const valid=await verifyPassword(password,candidate?.state==='active'?candidate.password_hash:null);
+  // Password checks yield. A reset or deactivation during that work must not
+  // be followed by a new session for the old snapshot. Re-read and reserve the
+  // session in one short synchronous transaction after the costly check.
+  if(db.isTransaction)err('AUTH_BUSY',503);
+  db.exec('BEGIN IMMEDIATE');
+  try{
+  const user=findUser.get(normalized);
+  if(!user||JSON.stringify(user)!==expected)err('AUTH_INVALID',401);
   const area=Object.entries(areaHosts).find(([,value])=>value===h)?.[0];
   const managerAreas=user?.role==='manager'?AREAS.filter(a=>permissions(user.id)[a]?.read):[];
-  const allowed=!!(user&&user.state==='active'&&valid&&(user.role==='superadmin'?h===managerHost||ownMasterWriter&&h===areaHosts.growth:user.role==='manager'&&area&&managerAreas.length===1&&managerAreas[0]===area));
+  const simple=user&&simpleAccounts?.profile(user.id);
+  const allowed=!!(user&&user.state==='active'&&valid&&(user.role==='superadmin'?h===managerHost||ownMasterWriter&&h===areaHosts.growth:user.role==='manager'&&(simple?(h===managerHost||area&&managerAreas.includes(area)):area&&managerAreas.length===1&&managerAreas[0]===area)));
   if(!allowed)err('AUTH_INVALID',401);
   requireBrandScope(user);
   cleanSuccess(keys);
@@ -479,9 +510,12 @@ function createAuth(options){
   // Keep it stable across sign-ins so a lost acknowledgement can be consulted
   // by the same person. Cookies and CSRF secrets still rotate on every login.
   const token=random(),uiKey=publicUiKey(user.id),sessionMarker='ui-'+crypto.randomBytes(16).toString('hex');
-  db.prepare('DELETE FROM sessions WHERE expires_at<=? OR idle_expires_at<=?').run(t,t);
-  db.prepare('INSERT INTO sessions(token_hash,user_id,host,ui_key,created_at,expires_at,idle_expires_at) VALUES(?,?,?,?,?,?,?)').run(sha(token),user.id,h,sessionMarker,t,t+SESSION_MS,t+IDLE_MS);
-  return {cookie:cookie(token,Math.floor(SESSION_MS/1000)),user:publicUser(user),csrf:crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url'),uiKey};
+  const reservedAt=current();
+  db.prepare('DELETE FROM sessions WHERE expires_at<=? OR idle_expires_at<=?').run(reservedAt,reservedAt);
+  db.prepare('INSERT INTO sessions(token_hash,user_id,host,ui_key,created_at,expires_at,idle_expires_at) VALUES(?,?,?,?,?,?,?)').run(sha(token),user.id,h,sessionMarker,reservedAt,reservedAt+sessionMs,reservedAt+idleMs);
+  const result={cookie:cookie(token,Math.floor(sessionMs/1000)),user:publicUser(user),csrf:crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url'),uiKey};
+  db.exec('COMMIT');return result;
+  }catch(e){if(db.isTransaction)db.exec('ROLLBACK');throw e;}
  }
  function lookup(ctx,refresh=true){
   const h=knownHost(ctx?.host);
@@ -498,10 +532,11 @@ function createAuth(options){
   const t=current();if(!row||row.state!=='active'||row.expires_at<=t||row.idle_expires_at<=t)return null;
   const area=Object.entries(areaHosts).find(([,v])=>v===h)?.[0],perms=permissions(row.user_id);
   const managerAreas=AREAS.filter(a=>perms[a]?.read);
-  if(h===managerHost&&row.role!=='superadmin'||area&&!(ownMasterWriter&&area==='growth'&&row.role==='superadmin')&&(row.role!=='manager'||managerAreas.length!==1||managerAreas[0]!==area))return null;
+  const simple=simpleAccounts?.profile(row.user_id);
+  if(h===managerHost&&row.role!=='superadmin'&&!simple||area&&!(ownMasterWriter&&area==='growth'&&row.role==='superadmin')&&(row.role!=='manager'||(simple?!managerAreas.includes(area):managerAreas.length!==1||managerAreas[0]!==area)))return null;
   const scope=brandScope({id:row.user_id,email:row.email,role:row.role});if(scope.brandAccess==='reprovision_required')return null;
-  if(refresh)db.prepare('UPDATE sessions SET idle_expires_at=? WHERE token_hash=?').run(Math.min(row.expires_at,t+IDLE_MS),row.token_hash);
-  const user={id:row.user_id,email:row.email,role:row.role,areas:AREAS.filter(a=>perms[a]?.read),permissions:perms,...scope,...productScope({id:row.user_id,email:row.email,role:row.role})};
+  if(refresh)db.prepare('UPDATE sessions SET idle_expires_at=? WHERE token_hash=?').run(Math.min(row.expires_at,t+idleMs),row.token_hash);
+  const user={id:row.user_id,email:row.email,role:row.role,...(simple?{jobTitle:simple.jobTitle,simpleRead:true}:{}),areas:AREAS.filter(a=>perms[a]?.read),permissions:perms,...scope,...productScope({id:row.user_id,email:row.email,role:row.role})};
   const csrf=crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url');
   return {user,csrf,uiKey:publicUiKey(user.id),tokenHash:row.token_hash,host:h};
  }
@@ -1468,6 +1503,6 @@ function createAuth(options){
   const transport=options.crmNativeSourceTransport||require('./native-source-transport.cjs').createOriginalSourceTransport({fetchImpl:options.crmNativeSourceFetch||fetch});
   nativeSourceSync=require('./native-source-sync.cjs').createSourceSync({enabled:true,db,consent:nativeConsent,identity:nativeIdentity,authorize:authorizeSource,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-source-sync-v1:'+value).digest('hex'),transport,permitDelegation:(context,connectionId)=>nativeConnections.permitSourceSync({context,connectionId})});
  }
- return Object.freeze({...(dashboardAffiliateRead?{affiliateReadContext,setAffiliateReadCredential,affiliateSourceStatus,affiliateNativeAvailability,...(affiliateNativeConsent?{affiliateNativeConsent}: {})}:{}),...(nativeSchedulerStateChatApproval?{nativeSchedulerStateChatApproval}:{}),...(nativeSchedulerStateConsent?{nativeSchedulerStateConsent}:{}),...(nativeSchedulerBinding?{nativeSchedulerBinding}:{}),...(nativeSourceSync?{nativeSourceSync}:{}),...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady,ownMasterPublishedJourneyReadBinding,ownMasterPublishedJourneyReadReady}:{}),...(ownMasterAudienceWrite?{ownMasterAudienceWriteBinding,audienceWriterAuthorization}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ return Object.freeze({...(simpleAccounts?{simpleAccounts}:{}),...(dashboardAffiliateRead?{affiliateReadContext,setAffiliateReadCredential,affiliateSourceStatus,affiliateNativeAvailability,...(affiliateNativeConsent?{affiliateNativeConsent}: {})}:{}),...(nativeSchedulerStateChatApproval?{nativeSchedulerStateChatApproval}:{}),...(nativeSchedulerStateConsent?{nativeSchedulerStateConsent}:{}),...(nativeSchedulerBinding?{nativeSchedulerBinding}:{}),...(nativeSourceSync?{nativeSourceSync}:{}),...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady,ownMasterPublishedJourneyReadBinding,ownMasterPublishedJourneyReadReady}:{}),...(ownMasterAudienceWrite?{ownMasterAudienceWriteBinding,audienceWriterAuthorization}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,PRODUCT_AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};

@@ -44,12 +44,20 @@
   <header class="topbar">
    <div class="topbar-brand">Shrigma <small id="entry-area"></small><small id="entry-brand"></small></div>
    <nav id="entry-nav" aria-label="Áreas" hidden></nav>
-   <div class="topbar-account"><span id="entry-owner"></span><button id="entry-campaign-open" type="button" hidden>Campanhas</button><button id="entry-manage" type="button" hidden>Acessos do time</button><button id="entry-logout" type="button">Sair</button></div>
+   <div class="topbar-account"><span id="entry-owner"></span><button id="entry-password" type="button" hidden>Trocar senha</button><button id="entry-campaign-open" type="button" hidden>Campanhas</button><button id="entry-manage" type="button" hidden>Acessos do time</button><button id="entry-logout" type="button">Sair</button></div>
   </header>
   <main>
    <div id="entry-frame"></div>
    <section id="admin-panel" class="admin-panel" hidden aria-label="Gestão de acessos">
     <div class="admin-heading"><h2>Acessos do time</h2><p>Escolha o e-mail corporativo, o setor, a marca e o nível de acesso. Cada pessoa verá somente a marca cadastrada. O convite permite criar a própria senha.</p></div>
+    <form id="simple-user-form" method="post" action="/auth/simple/users" hidden>
+     <div class="admin-field"><label for="simple-email">E-mail</label><input id="simple-email" type="email" autocomplete="off" required></div>
+     <div class="admin-field"><label for="simple-title">Cargo</label><input id="simple-title" maxlength="100" required></div>
+     <div class="admin-field"><label for="simple-password">Senha inicial</label><input id="simple-password" type="password" minlength="12" maxlength="72" autocomplete="new-password" required><small>A pessoa poderá trocar a senha ao entrar.</small></div>
+     <fieldset id="simple-fronts"><legend>Frentes liberadas para leitura</legend><label><input type="checkbox" value="growth"> CRM</label><label><input type="checkbox" value="organico"> Orgânico</label><label><input type="checkbox" value="influs"> Influs</label><label><input type="checkbox" value="afiliados"> Afiliados</label></fieldset>
+     <fieldset id="simple-brands"><legend>Marcas liberadas</legend><label><input type="checkbox" value="fish"> Fishermans</label><label><input type="checkbox" value="aristo"> O Aristocrata</label><label><input type="checkbox" value="olivas"> Olivas do Campo</label></fieldset>
+     <button type="submit">Criar usuário</button>
+    </form>
     <form id="admin-invite-form" method="post" action="/auth/users">
      <div class="admin-field"><label for="admin-email">E-mail corporativo</label><input id="admin-email" type="email" autocomplete="off" required></div>
      <div class="admin-field"><label for="admin-area">Setor</label><select id="admin-area"><option value="growth">CRM</option><option value="organico">Orgânico</option><option value="influs">Influs</option><option value="afiliados">Afiliados / TikTok</option></select></div>
@@ -65,6 +73,15 @@
    </section>
   </main>
  </section>
+ <dialog id="simple-password-dialog" aria-labelledby="simple-password-heading">
+  <form id="simple-password-form" method="post" action="/auth/password">
+   <h2 id="simple-password-heading">Trocar minha senha</h2>
+   <label for="simple-current-password">Senha atual</label><input id="simple-current-password" type="password" autocomplete="current-password" required>
+   <label for="simple-new-password">Nova senha</label><input id="simple-new-password" type="password" minlength="12" maxlength="72" autocomplete="new-password" required>
+   <p id="simple-password-message" role="status" aria-live="polite"></p>
+   <button type="submit">Salvar nova senha</button><button id="simple-password-close" type="button">Fechar</button>
+  </form>
+ </dialog>
  <dialog id="entry-campaign-dialog" hidden aria-labelledby="campaign-heading">
   <header><h2 id="campaign-heading">Campanhas</h2><button id="campaign-close" type="button" aria-label="Fechar editor">Fechar</button></header>
   <p>Salvar conserva o rascunho. O envio só será agendado após conferir o público e confirmar o horário.</p>
