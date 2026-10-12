@@ -50,8 +50,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 6713,
-      "sha256": "574d48afa73a61bdfea6eaa1c61dc5fe6c461790e1275067c0fd27bdf7cd17e5"
+      "bytes": 6727,
+      "sha256": "92483cb0512b93885632f0773c1c52192ccd7b23018fb9058b228f0679464448"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",

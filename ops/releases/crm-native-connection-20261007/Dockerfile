@@ -20,7 +20,7 @@ COPY services/dashboard-operational/native-foundation-preview.cjs services/dashb
 COPY services/dashboard-operational/journey-read/growth-flows.js ./services/dashboard-operational/journey-read/
 COPY services/dashboard-operational/public/entry.js services/dashboard-operational/public/entry.compiled.js ./services/dashboard-operational/public/
 COPY services/dashboard-operational/campaign-ui-assets.json ./services/dashboard-operational/
-COPY growth.html influs.html ./
+COPY growth.html influs.html organico.html ./
 COPY assets/panels/growth.js assets/panels/influs.js ./assets/panels/
 COPY services/dashboard-operational/crm-presentation.css ./services/dashboard-operational/
 COPY services/dashboard-operational/own-foundation/ ./services/dashboard-operational/own-foundation/
