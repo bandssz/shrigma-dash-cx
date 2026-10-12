@@ -8,7 +8,7 @@
 <style>body[data-product-front] [hidden]{display:none!important}</style>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=86f46577e9c7">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-0/jhRuCnPTTKADrQZGiBJ6lx5Jr/xJgkvkmPknEFFC0='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ocZ2rVTnp4l3ajL16pWvRlTOeMV2+EYsRctC7WBieO0='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -248,14 +248,14 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=e662c04812a1"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=f02ba09e5fc4"></script>
 <script>
 const $=s=>document.querySelector(s);
 // This view selector never grants data access or borrows another front's key.
 function influsProductFront(view){
  if(view===null||view===undefined)return {id:'legacy',label:'Influs / Afiliados',section:'creators',channel:'parceiros',sections:['creators','meta','afil','escopo','diagnostico'],channels:['crm','parceiros','tiktok','meli','shopee']};
  const afiliados=view==='afiliados';
- return {id:afiliados?'afiliados':'influs',label:afiliados?'Afiliados':'Influs',section:afiliados?'afil':'creators',channel:afiliados?'crm':'parceiros',sections:afiliados?['afil']:['creators','meta','afil','escopo','diagnostico'],channels:afiliados?['crm','tiktok']:['parceiros']};
+ return {id:afiliados?'afiliados':'influs',label:afiliados?'Afiliados':'Influs',section:afiliados?'afil':'creators',channel:afiliados?'tiktok':'parceiros',sections:afiliados?['afil']:['creators','meta','afil','escopo','diagnostico'],channels:afiliados?['crm','tiktok']:['parceiros']};
 }
 function influsProductView(){
  const query=typeof location==='undefined'?'':String(location.search||String(location.href||'').split('?')[1]?.split('#')[0]||'');
@@ -1243,14 +1243,10 @@ $('#i-f-salvar').onclick=salvarInflu;
 
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.sync();pintaMarca();renderTudo();if(window.renderTTS)renderTTS();if(SEC==='escopo'&&ESCOPO)ESCOPO.paint();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.sync();pintaMarca();renderTudo();if(typeof PRODUCT_FRONT!=='undefined'&&PRODUCT_FRONT.id==='afiliados'&&CANAL==='tiktok')carregarAbaAtiva();else if(window.renderTTS)renderTTS();if(SEC==='escopo'&&ESCOPO)ESCOPO.paint();});
 // A leitura segue a aba visível; trocar de aba sempre relê o período atual.
 function carregarAbaAtiva(){
   if(typeof PRODUCT_FRONT!=='undefined'&&(!PRODUCT_FRONT.sections.includes(SEC)||SEC==='afil'&&!PRODUCT_FRONT.channels.includes(CANAL)))return Promise.resolve();
-  if(typeof PRODUCT_FRONT!=='undefined'&&PRODUCT_FRONT.id==='afiliados'&&CANAL==='tiktok'&&!chavePainelTTS()){
-    $('#tts-area').textContent='Leitura de Afiliados/TikTok ainda não conectada para esta marca. Nenhum resultado foi interpretado como zero.';
-    return Promise.resolve();
-  }
   if(SEC==='escopo'&&ESCOPO)return ESCOPO.mount($('#area-escopo'));
   if(SEC==='afil'&&CANAL==='crm')return AFFILIATES_MOUNT?AFFILIATES_MOUNT.sync():Promise.resolve();
   if(SEC==='afil'&&CANAL==='tiktok')return typeof window.carregarTTS==='function'?window.carregarTTS():Promise.resolve();
@@ -1296,7 +1292,7 @@ var ESCOPO=typeof InfluEscopo!=='undefined'?InfluEscopo.create({document,endpoin
 // Visão por papel, como no CRM: gestor da área por padrão; acesso mestre pode ver o diagnóstico do dono.
 var AREA_VIEW=typeof AreaView!=='undefined'?AreaView.bind({document,panel:'influs',key:()=>INFLU_ACCESS.current('read'),apiUrl:()=>CX_API_URL,
   onChange:v=>{if(v!=='owner'&&SEC==='diagnostico')$('#secoes [data-s="creators"]').click();else if(v==='owner'&&INFLU)renderConferencia();}}):null;
-if(AREA_VIEW)window.addEventListener('shrigma:access-ready',()=>AREA_VIEW.resolve());
+if(AREA_VIEW&&(typeof PRODUCT_FRONT==='undefined'||PRODUCT_FRONT.id!=='afiliados'))window.addEventListener('shrigma:access-ready',()=>AREA_VIEW.resolve());
 if(typeof PRODUCT_FRONT!=='undefined'){
 SEC=PRODUCT_FRONT.section;CANAL=PRODUCT_FRONT.channel;
 document.title=PRODUCT_FRONT.label+' · Grupo Shrigma';

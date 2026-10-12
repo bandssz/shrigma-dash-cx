@@ -257,8 +257,9 @@ function decide(route,method,query,body,{crmCampaignSubmitWrite=false}={}){
   const credentialSlot=spec.area==='panel'?{growth:'growth-read',organico:'organico-read',influs:'influs-read'}[area]:policy.slot||spec.slot;
   return {route,area,method,action,edit:policy.edit===true,credentialSlot};
 }
-function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='production',{crmCampaignSubmitWrite=false,crmAudienceDraft=false,crmMasterAudienceRead=false,crmCorporateWriter,dashboardIndividualRead=false}={}){
+function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='production',{crmCampaignSubmitWrite=false,crmAudienceDraft=false,crmMasterAudienceRead=false,crmCorporateWriter,dashboardIndividualRead=false,dashboardAffiliateRead=false}={}){
   if(typeof dashboardIndividualRead!=='boolean')throw Error('Individual READ route profile invalid');
+  if(typeof dashboardAffiliateRead!=='boolean'||dashboardAffiliateRead&&profile!=='production')throw Error('Affiliate READ route profile invalid');
   const corporate=crmCorporateWriter!==undefined&&require('./crm-manager-runtime.cjs').isCampaignWriterDescriptor(crmCorporateWriter);
   if(crmCorporateWriter!==undefined&&!corporate)throw Error('Corporate writer profile invalid');
   if(require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)&&(profile!=='production'||crmAudienceDraft))throw Error('Own Master campaign profile invalid');
@@ -276,7 +277,7 @@ function validateUpstreams(config,allowedHosts,dynamicManifest=null,profile='pro
   }
   if(crmMasterAudienceRead&&(!require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)||profile!=='production'||crmAudienceDraft))throw Error('Original Master audience read profile invalid');
   if(crmCampaignSubmitWrite&&!corporate)throw Error('Campaign submission requires reviewed profile');
-  if(corporate&&(!crmCampaignSubmitWrite||!Object.hasOwn(config,'crm-read')||!Object.hasOwn(config,'campaigns')||Object.keys(config).some(k=>!['crm-read','campaigns','campaigns_media','cx','influ',...(dashboardIndividualRead?['cache']:[]),...(crmAudienceDraft||crmMasterAudienceRead?['segments']:[])].includes(k))))throw Error('Corporate writer routes invalid');
+  if(corporate&&(!crmCampaignSubmitWrite||!Object.hasOwn(config,'crm-read')||!Object.hasOwn(config,'campaigns')||Object.keys(config).some(k=>!['crm-read','campaigns','campaigns_media','cx','influ',...(dashboardIndividualRead?['cache']:[]),...(dashboardAffiliateRead?['tts']:[]),...(crmAudienceDraft||crmMasterAudienceRead?['segments']:[])].includes(k))))throw Error('Corporate writer routes invalid');
   const out=Object.create(null),hosts=new Set(allowedHosts),dynamic=Object.keys(config).filter(route=>!Object.hasOwn(FIXED_DESTINATIONS,route));
   if(dynamic.length){
     if(!plain(dynamicManifest)||Object.keys(dynamicManifest).sort().join(',')!=='routes,schema,sourceRevision'||dynamicManifest.schema!==DYNAMIC_MANIFEST_SCHEMA||dynamicManifest.sourceRevision!==REVIEWED_DYNAMIC.sourceRevision||!plain(dynamicManifest.routes)||Object.keys(dynamicManifest.routes).sort().join(',')!==dynamic.sort().join(','))throw Error('Unreviewed dynamic upstream manifest');

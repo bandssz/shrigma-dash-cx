@@ -1,8 +1,9 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle']);
+ const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','affiliate-read','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle']);
  const nativeFetch=window.fetch.bind(window);
- let csrfPromise=null,campaignWriter=false,audienceWriter=false;
+ let csrfPromise=null,campaignWriter=false,audienceWriter=false,sessionState=null,sessionSequence=0,brandPresentationSignature=null;
+ const AffiliateSession=require('./afiliados-session-read.cjs');
  const uiKey=value=>typeof value==='string'&&/^ui-[a-f0-9]{16,128}$/.test(value);
  function reject(status=403){return new Response(JSON.stringify({erro:'Rota não autorizada pelo painel.'}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});}
  function notifyExpired(){if(window.parent!==window)window.parent.postMessage({type:'shrigma:session-expired'},location.origin);}
@@ -11,6 +12,7 @@
   if(user?.role==='superadmin'&&user.brandAccess==='all'&&user.brand===null&&Array.isArray(user.brands)&&user.brands.length===2&&new Set(user.brands).size===2&&brands.every(b=>user.brands.includes(b)))scope={brand:null,brands,brandAccess:'all'};
   else if(user?.role==='manager'&&user.brandAccess==='single'&&brands.includes(user.brand)&&Array.isArray(user.brands)&&user.brands.length===1&&user.brands[0]===user.brand)scope={brand:user.brand,brands:[user.brand],brandAccess:'single'};
   else throw Error('brand_scope_unavailable');
+  const signature=JSON.stringify(scope);if(signature===brandPresentationSignature)return;brandPresentationSignature=signature;
   window.ShrigmaBrandAccess=Object.freeze({...scope,brands:Object.freeze([...scope.brands])});
   if(scope.brandAccess==='single'){
    for(const button of document.querySelectorAll('#seg-marca button[data-marca]')){
@@ -57,18 +59,34 @@
    throw Error('unsupported_body');
   }
  }
- async function csrf(){
-  if(!csrfPromise)csrfPromise=(async()=>{
-   const response=await nativeFetch('/auth/session',{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer'});
+ async function refreshSession({signal}={}){
+  const sequence=++sessionSequence;
+  const pending=(async()=>{
+   const response=await nativeFetch('/auth/session',{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal});
    if(!response.ok)throw Error('session_unavailable');
    const state=await response.json();
+   if(sequence!==sessionSequence)throw Error('session_replaced');
    if(state?.authenticated!==true||typeof state.csrf!=='string'||!state.csrf){notifyExpired();throw Error('session_expired');}
-   bindBrandPresentation(state.user);
+   bindBrandPresentation(state.user);sessionState=state;
    audienceWriter=state.features?.audienceDraft===true&&state.user?.permissions?.growth?.edit===true;
    campaignWriter=state.features?.campaignSubmitWrite===true&&state.user?.role==='manager'&&state.user.areas?.length===1&&state.user.areas[0]==='growth'&&state.user.permissions?.growth?.read===true&&state.user.permissions.growth.edit===true;
-   return state.csrf;
-  })().catch(error=>{csrfPromise=null;throw error;});
-  return csrfPromise;
+   return state;
+  })();
+  csrfPromise=pending.then(state=>state.csrf).catch(error=>{if(sequence===sessionSequence){csrfPromise=null;sessionState=null;campaignWriter=false;audienceWriter=false;}throw error;});
+  // csrfPromise is also used by legacy requests; a refresh caller may be the
+  // only consumer, so observe rejection without changing its fail-closed value.
+  csrfPromise.catch(()=>{});
+  try{return await pending;}catch(error){if(sequence===sessionSequence){csrfPromise=null;sessionState=null;campaignWriter=false;audienceWriter=false;}throw error;}
+ }
+ async function csrf(){
+  if(!csrfPromise)refreshSession().catch(()=>{});
+  const pending=csrfPromise;
+  try{return await pending;}catch(error){
+   // A concurrent genuine refresh may replace the cached promise. Follow that
+   // one successor before any business request; never replay a POST.
+   if(csrfPromise&&csrfPromise!==pending)return csrfPromise;
+   throw error;
+  }
  }
  window.fetch=async function(input,init={}){
   let url;try{url=new URL(input instanceof Request?input.url:input,location.href);}catch(_){return reject();}
@@ -104,6 +122,7 @@
    return response;
   }catch(_){return reject(502);}
  };
+ window.ShrigmaAffiliateAccess=AffiliateSession.create({fetchImpl:(...args)=>window.fetch(...args),getSession:()=>sessionState,refreshSession});
  window.XMLHttpRequest=class{constructor(){throw Error('Use a rota autenticada do painel.');}};
  window.WebSocket=class{constructor(){throw Error('Conexão externa bloqueada.');}};
  window.EventSource=class{constructor(){throw Error('Conexão externa bloqueada.');}};

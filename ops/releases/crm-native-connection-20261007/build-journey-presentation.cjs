@@ -1,7 +1,7 @@
 'use strict';
 // Two reviewed public replacements over the exact existing presentation.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const FILES=['assets/panels/growth.js','growth.html','influs.html','entry.js'];
+const FILES=['assets/panels/growth.js','assets/panels/influs.js','growth.html','influs.html','entry.js'];
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 const refuse=()=>{throw Error('JOURNEY_PRESENTATION_BUILD_REFUSED');};
 function read(p){const s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.size<1||s.size>2*1024*1024)refuse();return fs.readFileSync(p);}
@@ -23,7 +23,13 @@ function buildJourneyPresentation(sourceRoot,imageRoot,output){
    if(manifest.schema!=='shrigma_campaign_ui_assets_v1'||manifest.esbuildVersion!=='0.28.2'||manifest.assets.length!==4||!asset||sha(original)!==asset.sourceSha256||sha(compiled)!==asset.compiledSha256)refuse();
    source=compiled.toString('utf8');
   }else source=read(path.join(sourceRoot,file)).toString('utf8');
-  const after=Buffer.from(transform(source,file));
+  let transformed=transform(source,file);
+  if(file==='influs.html'){
+   const directory=path.join(sourceRoot,'services/dashboard-operational'),manifest=JSON.parse(read(path.join(directory,'campaign-ui-assets.json'))),compiled=read(path.join(directory,'public/guard.compiled.js'));
+   const guard=manifest.assets?.find(a=>a.publicName==='guard.js');if(!guard||sha(compiled)!==guard.compiledSha256||!transformed.includes('<script src="/guard.js"></script>'))refuse();
+   transformed=transformed.replace('<script src="/guard.js"></script>','<script src="/guard.js?v='+guard.compiledSha256.slice(0,16)+'"></script>');
+  }
+  const after=Buffer.from(transformed);
   if(file==='growth.html'&&(!after.includes('configuredReadOnly:true')||after.includes('observedOnly:true')||!after.includes('conexões originais')))refuse();
   if(file==='assets/panels/growth.js'&&(!after.includes('configuredReadOnly')||/\bGMedia\b/.test(after)))refuse();
   const f=next.files.find(f=>f.path===file),before=previous.files.find(f=>f.path===file);if(!f||sha(after)===before.afterSha256||after.length<1||after.length>2*1024*1024)refuse();
