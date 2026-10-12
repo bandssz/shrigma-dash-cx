@@ -901,8 +901,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             kickManagedCrm();return sendJson(req,res,202,{ok:true});
           }
           if(b.action==='update'){
-            if(Object.keys(b).sort().join(',')!=='access,action,area,brand,email,expectedRevision,userId')throw jsonError(400,'ACTION_DENIED');
-            const result=auth.updateUserProfile({context:ctx,userId:b.userId,expectedRevision:b.expectedRevision,email:b.email,area:b.area,brand:b.brand,access:b.access});
+            if(Object.keys(b).sort().join(',')!==(Object.hasOwn(b,'productFront')?'access,action,area,brand,email,expectedRevision,productFront,userId':'access,action,area,brand,email,expectedRevision,userId'))throw jsonError(400,'ACTION_DENIED');
+            const result=auth.updateUserProfile({context:ctx,userId:b.userId,expectedRevision:b.expectedRevision,email:b.email,area:b.area,brand:b.brand,access:b.access,productFront:b.productFront});
             kickManagedCrm();if(!managedCrmRuntime)auth.reconcileUserProfileUpdates();return sendJson(req,res,result.state==='configured'?200:202,result);
           }
           if(b.action==='update_finish'){
@@ -913,7 +913,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(b.action==='invite'){
             if(b.role!=='manager')throw jsonError(400,'ROLE_DENIED');
             if(!editGrantsAllowed(b.permissions))throw jsonError(403,'EDIT_NOT_READY');
-            const invite=auth.createInvite({context:ctx,email:b.email,areas:b.areas,permissions:b.permissions,requestedAccess:b.requestedAccess,brand:b.brand});
+            const invite=auth.createInvite({context:ctx,email:b.email,areas:b.areas,permissions:b.permissions,requestedAccess:b.requestedAccess,brand:b.brand,productFront:b.productFront});
             return sendJson(req,res,201,{userId:invite.userId,inviteUrl:'https://'+invite.host+'/#invite='+encodeURIComponent(invite.token)});
           }
           if(b.action==='revoke'){
@@ -1005,6 +1005,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const corporateAudienceRoute=(!!corporateWriter||crmMasterAudienceWrite)&&allowAudienceDraft&&route==='segments'&&(audienceAction||audienceFeature(ctx));
         const campaignSubmitRoute=allowCampaignSubmit&&route==='campaigns'&&(d.edit||!campaignWriter||auth.session(ctx).user?.role==='superadmin'&&auth.campaignWriterReady(ctx));
         const user=parityDecision?parityUser:auth.authorize({...ctx,area:d.area,edit:d.edit||campaignSubmitRoute||corporateAudienceRoute});
+        if(d.area==='influs'&&user.role==='manager'&&user.productFront){
+          const front=['tts','tts-action','tts-cobranca'].includes(route)?'afiliados':['influ','candidaturas','aprovacao','escopo'].includes(route)?'influs':null;
+          const identityOnly=route==='cx'&&url.searchParams.get('access')==='1';
+          if(!identityOnly){if(!front)throw jsonError(403,'PRODUCT_DENIED');auth.authorize({...ctx,area:d.area,edit:d.edit,productFront:front});}
+        }
         const managedReadRoute=audienceReadRoute||templateReadRoute||crmManagedReadUi&&user.role==='manager'&&auth.managedCrmJournal.status(user.id)!==null&&Object.hasOwn(ManagedRead.ACTIONS,route);
         const identity=route==='cx'&&url.searchParams.get('access')==='1'||route==='crm-read'&&d.action==='identity';
         if(identity)return sendJson(req,res,200,{schema:'shrigma_access_identity_v1',role:user.role==='superadmin'?'master':'manager',panel:user.role==='superadmin'?'todos':d.area,allowedPanels:user.areas,owner:user.email,brand:user.brand,brands:user.brands,brandAccess:user.brandAccess});

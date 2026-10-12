@@ -26,6 +26,10 @@ const scrypt=promisify(crypto.scrypt);
 
 const AREAS=Object.freeze(['growth','organico','influs']);
 const AREA_SET=new Set(AREAS);
+// Product delegation is narrower than the historical backend area. Preserve
+// the three installed areas; a new Afiliados delegation never inherits Influs.
+const PRODUCT_AREAS=Object.freeze({growth:'growth',organico:'organico',influs:'influs',afiliados:'influs'});
+const SLOT_PRODUCTS=Object.freeze({'influs-read':'influs','influs-write':'influs','tts-read':'afiliados','tts-write':'afiliados'});
 // Only brands already admitted by the gateway's CRM/Influs contracts.
 // Adding another brand requires review of each area's backend contract.
 const BRANDS=Object.freeze(['fish','aristo']);
@@ -169,6 +173,10 @@ function createAuth(options){
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   requested_access TEXT NOT NULL CHECK(requested_access='edit'),
   requested_at INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS user_product_grants_v1 (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  product_front TEXT NOT NULL CHECK(product_front IN ('growth','organico','influs','afiliados')),
+  scope_mac TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS user_profile_updates_v1 (
   user_id TEXT PRIMARY KEY REFERENCES users(id),request_json TEXT NOT NULL,request_mac TEXT NOT NULL,
   phase TEXT NOT NULL CHECK(phase IN ('revoking','completed','cancelled')),invite_ciphertext TEXT,invite_mac TEXT,
@@ -309,11 +317,12 @@ function createAuth(options){
  }
  const brandMac=value=>crypto.createHmac('sha256',encKey).update('identity-brand-v1:'+JSON.stringify(value)).digest('hex');
  const validBrand=(area,brand)=>AREA_SET.has(area)&&AREA_BRANDS[area].includes(brand);
+ function currentBrandMac(id,email,area,brand){const product=db.prepare('SELECT product_front FROM user_product_grants_v1 WHERE user_id=?').get(id);return brandMac([id,email,area,brand,...(product?['product-front-v1',product.product_front]:[])]);}
  function brandScope(user){
   if(user.role==='superadmin')return {brand:null,brands:[...BRANDS],brandAccess:'all'};
   const row=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(user.id);
   const p=permissions(user.id),areas=Object.keys(p);
-  if(!row||row.owner!==user.email||areas.length!==1||areas[0]!==row.area||!validBrand(row.area,row.brand)||!equalHex(row.scope_mac,brandMac([user.id,user.email,row.area,row.brand])))return {brand:null,brands:[],brandAccess:'reprovision_required'};
+  if(!row||row.owner!==user.email||areas.length!==1||areas[0]!==row.area||!validBrand(row.area,row.brand)||!equalHex(row.scope_mac,currentBrandMac(user.id,user.email,row.area,row.brand)))return {brand:null,brands:[],brandAccess:'reprovision_required'};
   for(const [kind,table]of [['read','crm_manager_current_v1'],['writer','crm_writer_auth_admission_v1']]){
    if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))continue;
    const life=db.prepare(`SELECT lifecycle_id FROM ${table} WHERE user_id=?`).get(user.id);
@@ -328,7 +337,7 @@ function createAuth(options){
   const row=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(userId);
   if(!row||!['read','writer'].includes(kind)||typeof lifecycleId!=='string')err('BRAND_BINDING_INVALID',500);
   const owner=db.prepare('SELECT * FROM users WHERE id=?').get(userId);
-  if(!owner||row.owner!==owner.email||!equalHex(row.scope_mac,brandMac([owner.id,owner.email,row.area,row.brand])))err('BRAND_BINDING_INVALID',500);
+  if(!owner||row.owner!==owner.email||!equalHex(row.scope_mac,currentBrandMac(owner.id,owner.email,row.area,row.brand)))err('BRAND_BINDING_INVALID',500);
   db.prepare('INSERT INTO user_brand_lifecycles_v1(user_id,kind,lifecycle_id,scope_mac) VALUES(?,?,?,?) ON CONFLICT(user_id,kind) DO UPDATE SET lifecycle_id=excluded.lifecycle_id,scope_mac=excluded.scope_mac').run(userId,kind,lifecycleId,brandMac([row.scope_mac,kind,lifecycleId]));
  }
  function bindCurrentBrandLifecycles(userId){
@@ -379,7 +388,25 @@ function createAuth(options){
  }
  function recordUpstreamBinding(user,slot,row){db.prepare('INSERT INTO upstream_brand_bindings_v1(user_id,slot,binding_mac) VALUES(?,?,?) ON CONFLICT(user_id,slot) DO UPDATE SET binding_mac=excluded.binding_mac').run(user.id,slot,upstreamBindingMac(user,slot,row));}
  function permissions(userId){const out={};for(const g of db.prepare('SELECT area,can_read,can_edit FROM grants WHERE user_id=? AND can_read=1').all(userId))out[g.area]={read:true,edit:g.can_edit===1};return out;}
- function publicUser(user){const p=permissions(user.id);return {id:user.id,email:user.email,role:user.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,...brandScope(user)};}
+ function productScope(user){
+  const p=permissions(user.id),areas=AREAS.filter(a=>p[a]?.read);
+  if(user.role==='superadmin')return {productFront:null,productFronts:Object.keys(PRODUCT_AREAS).filter(front=>areas.includes(PRODUCT_AREAS[front]))};
+  const row=db.prepare('SELECT * FROM user_product_grants_v1 WHERE user_id=?').get(user.id);
+  // Existing users retain their original scope. Absence does not migrate or
+  // enlarge an existing delegation; new UI invitations always select a front.
+  if(!row){requireBrandScope(user);return {productFront:null,productFronts:Object.keys(PRODUCT_AREAS).filter(front=>areas.includes(PRODUCT_AREAS[front]))};}
+  const scope=requireBrandScope(user),front=row.product_front;
+  if(!Object.hasOwn(PRODUCT_AREAS,front)||areas.length!==1||areas[0]!==PRODUCT_AREAS[front]||!equalHex(row.scope_mac,brandMac(['product-scope-v1',user.id,user.email,scope.brand,areas[0],front])))err('PRODUCT_SCOPE_INVALID',403);
+  return {productFront:front,productFronts:[front]};
+ }
+ function setProductScope(userId,front){
+  if(front===undefined){db.prepare('DELETE FROM user_product_grants_v1 WHERE user_id=?').run(userId);const row=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(userId);if(row){db.prepare('UPDATE user_brand_grants_v1 SET scope_mac=? WHERE user_id=?').run(brandMac([userId,row.owner,row.area,row.brand]),userId);bindCurrentBrandLifecycles(userId);}return;}
+  const user=db.prepare('SELECT * FROM users WHERE id=?').get(userId),scope=requireBrandScope(user),areas=Object.keys(permissions(userId));
+  if(!user||user.role!=='manager'||!Object.hasOwn(PRODUCT_AREAS,front)||areas.length!==1||areas[0]!==PRODUCT_AREAS[front])err('PRODUCT_SCOPE_INVALID',400);
+  db.prepare('INSERT INTO user_product_grants_v1 VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET product_front=excluded.product_front,scope_mac=excluded.scope_mac').run(userId,front,brandMac(['product-scope-v1',user.id,user.email,scope.brand,areas[0],front]));
+  db.prepare('UPDATE user_brand_grants_v1 SET scope_mac=? WHERE user_id=?').run(currentBrandMac(userId,user.email,areas[0],scope.brand),userId);bindCurrentBrandLifecycles(userId);
+ }
+ function publicUser(user){const p=permissions(user.id);return {id:user.id,email:user.email,role:user.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,...brandScope(user),...productScope(user)};}
  function beginBootstrap({email,token,host,origin}){
   const h=knownHost(host);if(h!==managerHost)err('HOST_DENIED',403);checkOrigin(h,origin);
   const user=findUser.get(emailAddress(email,domainSet));
@@ -447,7 +474,7 @@ function createAuth(options){
   if(h===managerHost&&row.role!=='superadmin'||area&&!(ownMasterWriter&&area==='growth'&&row.role==='superadmin')&&(row.role!=='manager'||managerAreas.length!==1||managerAreas[0]!==area))return null;
   const scope=brandScope({id:row.user_id,email:row.email,role:row.role});if(scope.brandAccess==='reprovision_required')return null;
   if(refresh)db.prepare('UPDATE sessions SET idle_expires_at=? WHERE token_hash=?').run(Math.min(row.expires_at,t+IDLE_MS),row.token_hash);
-  const user={id:row.user_id,email:row.email,role:row.role,areas:AREAS.filter(a=>perms[a]?.read),permissions:perms,...scope};
+  const user={id:row.user_id,email:row.email,role:row.role,areas:AREAS.filter(a=>perms[a]?.read),permissions:perms,...scope,...productScope({id:row.user_id,email:row.email,role:row.role})};
   const csrf=crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url');
   return {user,csrf,uiKey:publicUiKey(user.id),tokenHash:row.token_hash,host:h};
  }
@@ -474,19 +501,23 @@ function createAuth(options){
    if(!BRANDS.includes(ctx.brand))err('BRAND_INVALID',400);
    if(found.user.role!=='superadmin'&&found.user.brand!==ctx.brand)err('BRAND_DENIED',403);
   }
+  if(ctx.productFront!==undefined&&SLOT_PRODUCTS[ctx.slot]!==undefined&&ctx.productFront!==SLOT_PRODUCTS[ctx.slot])err('PRODUCT_DENIED',403);
+  const front=ctx.productFront??SLOT_PRODUCTS[ctx.slot];
+  if(front!==undefined&&(!Object.hasOwn(PRODUCT_AREAS,front)||ctx.area!==undefined&&ctx.area!==PRODUCT_AREAS[front]||!found.user.productFronts.includes(front)))err('PRODUCT_DENIED',403);
   return found.user;
  }
  function authorizeBrand(ctx,brand){if(brand===undefined)err('BRAND_REQUIRED',400);return authorize({...ctx,brand});}
  function logout(ctx){const h=requireWriteContext(ctx),found=lookup({...ctx,host:h},false);if(found){authorize({...ctx,host:h});db.prepare('DELETE FROM sessions WHERE token_hash=?').run(found.tokenHash);}return {cookie:cookie('',0)};}
  function adminContext(context){const ctx={...context,admin:true};if(ctx.method!=='POST')err('METHOD_DENIED',405);return authorize(ctx);}
- function createInvite({context,email,areas,brand,permissions:requested,requestedAccess='read',expiresMs=INVITE_MS}){
+ function createInvite({context,email,areas,brand,productFront,permissions:requested,requestedAccess='read',expiresMs=INVITE_MS}){
   adminContext(context);const e=emailAddress(email,domainSet),p=invitePermissions(areas,requested);
   if(!validBrand(areas[0],brand))err('BRAND_INVALID',400);
+  if(productFront!==undefined&&(!Object.hasOwn(PRODUCT_AREAS,productFront)||PRODUCT_AREAS[productFront]!==areas[0]))err('PRODUCT_SCOPE_INVALID',400);
   if((managedCrm||managedWriter||ownMasterWriter)&&p.growth?.edit)err('EDIT_NOT_READY',403);
   if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
   if(!Number.isSafeInteger(expiresMs)||expiresMs<5*60*1000||expiresMs>72*60*60*1000)err('INVITE_INVALID',400);
   const existing=findUser.get(e);if(existing&&existing.state!=='disabled')err('USER_EXISTS',409);
-  if(existing){const old=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(existing.id);if(old&&(old.owner!==e||old.area!==areas[0]||old.brand!==brand||!equalHex(old.scope_mac,brandMac([existing.id,e,old.area,old.brand]))))err('BRAND_CHANGE_REQUIRES_NEW_IDENTITY',409);}
+  if(existing){const old=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(existing.id);if(old&&(old.owner!==e||old.area!==areas[0]||old.brand!==brand||!equalHex(old.scope_mac,currentBrandMac(existing.id,e,old.area,old.brand))))err('BRAND_CHANGE_REQUIRES_NEW_IDENTITY',409);}
   const t=current(),id=existing?.id||crypto.randomUUID(),token=random(),host=areaHosts[areas[0]];
   db.exec('BEGIN IMMEDIATE');try{
    if(existing&&unresolvedAudienceDraft(existing.id))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
@@ -499,6 +530,7 @@ function createAuth(options){
    db.prepare('DELETE FROM grants WHERE user_id=?').run(id);
    for(const [area,g]of Object.entries(p))db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,?)').run(id,area,g.edit?1:0);
    db.prepare('INSERT INTO user_brand_grants_v1(user_id,owner,area,brand,scope_mac) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO NOTHING').run(id,e,areas[0],brand,brandMac([id,e,areas[0],brand]));
+   setProductScope(id,productFront??(existing?db.prepare('SELECT product_front FROM user_product_grants_v1 WHERE user_id=?').get(id)?.product_front:undefined));
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(id);
    if(requestedAccess==='edit')db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(id,t);
    db.prepare('INSERT INTO invites(token_hash,user_id,host,expires_at) VALUES(?,?,?,?)').run(sha(token),id,host,t+expiresMs);
@@ -519,6 +551,7 @@ function createAuth(options){
    const used=db.prepare('UPDATE invites SET used_at=? WHERE token_hash=? AND used_at IS NULL AND expires_at>?').run(acceptedAt,hash,acceptedAt);
    if(used.changes!==1)err('INVITE_DENIED',403);
    const subject=db.prepare('SELECT * FROM users WHERE id=?').get(invite.user_id);requireBrandScope(subject);
+   productScope(subject);
    const activated=db.prepare("UPDATE users SET password_hash=?,state='active',updated_at=? WHERE id=? AND state='invited'").run(passwordHash,acceptedAt,invite.user_id);
    if(activated.changes!==1)err('INVITE_DENIED',403);
    if(managedCrm&&permissions(invite.user_id).growth?.read&&managedCrm.status(invite.user_id))managedCall(()=>managedCrm.activateLifecycle(invite.user_id));
@@ -536,7 +569,8 @@ function createAuth(options){
   const read=updateTable('crm_manager_current_v1')?db.prepare('SELECT l.lifecycle_id,l.owner,l.version,l.state,l.active_generation,l.active_principal FROM crm_manager_current_v1 c JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=?').get(userId):null;
   const writer=updateTable('crm_writer_auth_admission_v1')?db.prepare('SELECT lifecycle_id,version,owner,approved FROM crm_writer_auth_admission_v1 WHERE user_id=?').get(userId):null;
   const binding=updateTable('crm_writer_auth_binding_v1')?db.prepare('SELECT lifecycle_id,version,owner,generation,credential_mac FROM crm_writer_auth_binding_v1 WHERE user_id=?').get(userId):null;
-  return brandMac(['profile-revision-v1',user,permissions(userId),db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(userId)||null,db.prepare('SELECT * FROM user_brand_lifecycles_v1 WHERE user_id=? ORDER BY kind').all(userId),db.prepare('SELECT * FROM access_requests WHERE user_id=?').get(userId)||null,read||null,writer||null,binding||null,row||null]);
+  const product=db.prepare('SELECT * FROM user_product_grants_v1 WHERE user_id=?').get(userId);
+  return brandMac(['profile-revision-v1',...(product?[product]:[]),user,permissions(userId),db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(userId)||null,db.prepare('SELECT * FROM user_brand_lifecycles_v1 WHERE user_id=? ORDER BY kind').all(userId),db.prepare('SELECT * FROM access_requests WHERE user_id=?').get(userId)||null,read||null,writer||null,binding||null,row||null]);
  }
  function updateIntent(userId){
   const row=db.prepare('SELECT * FROM user_profile_updates_v1 WHERE user_id=?').get(userId);if(!row)return null;
@@ -557,16 +591,18 @@ function createAuth(options){
   const {row,q}=intent;
   let inviteAvailable=false;
   if(row.phase==='completed'){const i=db.prepare('SELECT * FROM invites WHERE user_id=? AND used_at IS NULL AND expires_at>?').get(userId,current());inviteAvailable=!!i&&!!row.invite_ciphertext;}
-  return {state:row.phase==='completed'?'completed':updateRetired(intent)?'ready':'revoking',email:q.email,area:q.area,brand:q.brand,access:q.access,inviteAvailable,canCorrect:row.phase==='revoking'&&updateRetired(intent,false)};
+  return {state:row.phase==='completed'?'completed':updateRetired(intent)?'ready':'revoking',email:q.email,area:q.area,...(q.productFront!==undefined?{productFront:q.productFront}:{}),brand:q.brand,access:q.access,inviteAvailable,canCorrect:row.phase==='revoking'&&updateRetired(intent,false)};
  }
- function updateUserProfile({context,userId,expectedRevision,email,area,brand,access}){
+ function updateUserProfile({context,userId,expectedRevision,email,area,brand,access,productFront}){
   const actor=adminContext(context);
   if(typeof userId!=='string'||typeof expectedRevision!=='string'||!/^[a-f0-9]{64}$/.test(expectedRevision))err('USER_UPDATE_INVALID',400);
   const e=emailAddress(email,domainSet);if(!AREA_SET.has(area)||!validBrand(area,brand)||!['read','edit'].includes(access))err('USER_UPDATE_INVALID',400);
+  if(productFront!==undefined&&(!Object.hasOwn(PRODUCT_AREAS,productFront)||PRODUCT_AREAS[productFront]!==area))err('PRODUCT_SCOPE_INVALID',400);
   const old=db.prepare('SELECT * FROM users WHERE id=?').get(userId);if(!old||old.role!=='manager')err('USER_DENIED',404);
+  const oldProduct=productScope(old),targetProduct=productFront??(PRODUCT_AREAS[oldProduct.productFront]===area?oldProduct.productFront:undefined);
   const prior=updateIntent(userId);
   if(prior&&prior.row.phase==='revoking'){
-   if(prior.q.actorId===actor.id&&prior.q.originalRevision===expectedRevision&&prior.q.email===e&&prior.q.area===area&&prior.q.brand===brand&&prior.q.access===access)return {ok:true,state:profileUpdateMetadata(userId).state}; // Same intention, no second revoke.
+   if(prior.q.actorId===actor.id&&prior.q.originalRevision===expectedRevision&&prior.q.email===e&&prior.q.area===area&&prior.q.brand===brand&&prior.q.access===access&&prior.q.productFront===targetProduct)return {ok:true,state:profileUpdateMetadata(userId).state}; // Same intention, no second revoke.
    // A fresh Master-CSRF choice may correct a queued destination. The retired
    // subject, lifecycle versions and revoke operations remain unchanged.
    if(!equalHex(expectedRevision,profileRevision(userId)))err('USER_CHANGED',409);
@@ -574,7 +610,8 @@ function createAuth(options){
    const collision=findUser.get(e);if(collision&&collision.id!==userId)err('USER_EXISTS',409);
    db.exec('BEGIN IMMEDIATE');try{
     if(!equalHex(expectedRevision,profileRevision(userId))||updateIntent(userId)?.row.request_mac!==prior.row.request_mac||!updateRetired(prior,false))err('USER_CHANGED',409);
-    const q={...prior.q,actorId:actor.id,actorEmail:actor.email,originalRevision:expectedRevision,email:e,area,brand,access,requestedAt:current()};
+    const {productFront:priorFront,...preserved}=prior.q;
+    const q={...preserved,actorId:actor.id,actorEmail:actor.email,originalRevision:expectedRevision,email:e,area,brand,access,...(targetProduct!==undefined?{productFront:targetProduct}:{}),requestedAt:current()};
     db.prepare("UPDATE user_profile_updates_v1 SET request_json=?,request_mac=?,requested_at=? WHERE user_id=? AND phase='revoking' AND request_mac=?").run(JSON.stringify(q),brandMac(['profile-update-intent-v1',q]),q.requestedAt,userId,prior.row.request_mac);
     db.exec('COMMIT');
    }catch(error){db.exec('ROLLBACK');throw error;}
@@ -583,7 +620,7 @@ function createAuth(options){
   if(!equalHex(expectedRevision,profileRevision(userId)))err('USER_CHANGED',409);
   if(!['active','invited'].includes(old.state))err('USER_DENIED',404);
   const scope=requireBrandScope(old),areas=Object.keys(permissions(userId));if(areas.length!==1)err('GRANTS_INVALID',400);
-  if(old.email===e&&areas[0]===area&&scope.brand===brand){const result=setRequestedAccess({context,userId,requestedAccess:access});return {...result,state:'configured'};}
+  if(old.email===e&&areas[0]===area&&scope.brand===brand&&((oldProduct.productFront??undefined)===targetProduct||oldProduct.productFront===null&&area!=='influs'&&PRODUCT_AREAS[targetProduct]===area)){const result=setRequestedAccess({context,userId,requestedAccess:access,productFront:targetProduct});return {...result,state:'configured'};}
   const collision=findUser.get(e);if(collision&&collision.id!==userId)err('USER_EXISTS',409);
   // Unmanaged native keys cannot be certified retired by this bridge.
   const slots=db.prepare('SELECT slot,key_digest FROM upstream_credentials WHERE user_id=?').all(userId);
@@ -604,7 +641,7 @@ function createAuth(options){
    db.prepare('UPDATE grants SET can_edit=0 WHERE user_id=?').run(userId);
    const read=managedCrm?db.prepare('SELECT l.lifecycle_id,l.version FROM crm_manager_current_v1 c JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=?').get(userId):null;
    const writer=managedWriter?db.prepare('SELECT lifecycle_id,version FROM crm_writer_auth_admission_v1 WHERE user_id=?').get(userId):null;
-   const q={userId,actorId:actor.id,actorEmail:actor.email,originalRevision:expectedRevision,oldEmail:old.email,oldArea:areas[0],oldBrand:scope.brand,email:e,area,brand,access,read:read?{lifecycleId:read.lifecycle_id,version:read.version}:null,writer:writer?{lifecycleId:writer.lifecycle_id,version:writer.version}:null,requestedAt:current()};
+   const q={userId,actorId:actor.id,actorEmail:actor.email,originalRevision:expectedRevision,oldEmail:old.email,oldArea:areas[0],oldBrand:scope.brand,email:e,area,brand,access,...(targetProduct!==undefined?{productFront:targetProduct}:{}),read:read?{lifecycleId:read.lifecycle_id,version:read.version}:null,writer:writer?{lifecycleId:writer.lifecycle_id,version:writer.version}:null,requestedAt:current()};
    db.prepare("INSERT INTO user_profile_updates_v1(user_id,request_json,request_mac,phase,requested_at) VALUES(?,?,?,'revoking',?) ON CONFLICT(user_id) DO UPDATE SET request_json=excluded.request_json,request_mac=excluded.request_mac,phase='revoking',invite_ciphertext=NULL,invite_mac=NULL,requested_at=excluded.requested_at,completed_at=NULL").run(userId,JSON.stringify(q),brandMac(['profile-update-intent-v1',q]),q.requestedAt);
    db.exec('COMMIT');
   }catch(error){db.exec('ROLLBACK');throw error;}
@@ -621,7 +658,13 @@ function createAuth(options){
    db.prepare("UPDATE users SET email=?,state='invited',password_hash=NULL,totp_secret=NULL,totp_last_step=-1,updated_at=? WHERE id=? AND state='disabled'").run(q.email,t,userId);
    db.prepare('DELETE FROM upstream_brand_bindings_v1 WHERE user_id=?').run(userId);
    db.prepare('DELETE FROM grants WHERE user_id=?').run(userId);db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,0)').run(userId,q.area);
+   db.prepare('DELETE FROM user_product_grants_v1 WHERE user_id=?').run(userId);
    db.prepare('UPDATE user_brand_grants_v1 SET owner=?,area=?,brand=?,scope_mac=? WHERE user_id=?').run(q.email,q.area,q.brand,brandMac([userId,q.email,q.area,q.brand]),userId);
+   // Old lifecycles are already confirmed retired. Bind their identity MAC
+   // inside this transaction before installing the new product scope; this
+   // does not reactivate a retired READ or WRITER lifecycle.
+   bindCurrentBrandLifecycles(userId);
+   setProductScope(userId,q.productFront);
    if(q.access==='edit')db.prepare("INSERT INTO access_requests VALUES(?,'edit',?)").run(userId,t);
    if(q.area==='growth'){
     if(managedCrm)managedCall(()=>managedCrm.createLifecycle(userId));
@@ -660,7 +703,7 @@ function createAuth(options){
    const p=permissions(u.id),scope=brandScope(u);
    const crmAccess=managedAccess(u),rawWriterState=managedWriter?.publicState(u.id),writerState=scope.brandAccess==='reprovision_required'&&rawWriterState?{...rawWriterState,ready:false,canApprove:false,canRenew:false}:rawWriterState;
    const crmWriter=corporateWriter&&writerState?{...writerState,canRenew:writerState.canRenew===true&&managedCrm.renewalReady(u.id)===true&&Number.isSafeInteger(crmAccess?.expiresAt)&&crmAccess.expiresAt>current()&&crmAccess.renewalPhase===null}:writerState;
-   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...scope,...(u.role==='manager'?{profileRevision:profileRevision(u.id),...(profileUpdateMetadata(u.id)?{profileUpdate:profileUpdateMetadata(u.id)}:{})}:{}),...(crmAccess?{crmAccess}:{}),...(crmWriter?{crmWriter}:{})};
+   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...scope,...productScope(u),...(u.role==='manager'?{profileRevision:profileRevision(u.id),...(profileUpdateMetadata(u.id)?{profileUpdate:profileUpdateMetadata(u.id)}:{})}:{}),...(crmAccess?{crmAccess}:{}),...(crmWriter?{crmWriter}:{})};
   });
  }
  function renewManagedCrm({context,userId}){
@@ -706,15 +749,17 @@ function createAuth(options){
   }
   return {ok:true};
  }
- function setRequestedAccess({context,userId,requestedAccess}){
+ function setRequestedAccess({context,userId,requestedAccess,productFront}){
   adminContext(context);
   if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
-  const user=db.prepare('SELECT id,role,state FROM users WHERE id=?').get(userId);
+  const user=db.prepare('SELECT id,email,role,state FROM users WHERE id=?').get(userId);
   if(!user||user.role!=='manager'||!['active','invited'].includes(user.state))err('USER_DENIED',404);
   const p=permissions(userId);
   if(Object.keys(p).length!==1)err('GRANTS_INVALID',400);
   requireBrandScope(db.prepare('SELECT * FROM users WHERE id=?').get(userId));
+  if(productFront!==undefined&&(!Object.hasOwn(PRODUCT_AREAS,productFront)||PRODUCT_AREAS[productFront]!==Object.keys(p)[0]||Object.keys(p)[0]==='influs'&&productScope(user).productFront!==productFront))err('PRODUCT_SCOPE_INVALID',400);
   const t=current();db.exec('BEGIN IMMEDIATE');try{
+   if(productFront!==undefined)setProductScope(userId,productFront);
    if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);
    if(requestedAccess==='edit'){
@@ -779,6 +824,7 @@ function createAuth(options){
   const user=db.prepare('SELECT id,email,role,state,updated_at FROM users WHERE id=?').get(userId),grant=permissions(userId)[definition.area];
   if(!user||!['active','invited'].includes(user.state)||!grant?.read||definition.mayWrite&&!grant.edit)err('GRANT_DENIED',403);
   requireBrandScope(user);
+  const front=SLOT_PRODUCTS[slot];if(front&&!productScope(user).productFronts.includes(front))err('PRODUCT_DENIED',403);
   if(managedCrm&&user.role==='manager'&&definition.area==='growth'&&managedCrm.status(userId))err('MANAGED_CREDENTIAL_DENIED',403);
   if(slot==='growth-campaign'&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
   if(slot==='growth-campaign'&&unresolvedCampaignDelivery(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
@@ -1083,7 +1129,7 @@ function createAuth(options){
  // Native CRM scopes do not authorize Afiliados data by implication.
  function affiliatePrivateBinding(context,brand){
   if(!dashboardAffiliateRead)err('AFFILIATE_READ_NOT_ENABLED',503);
-  const ctx={...context,area:'influs',edit:false,brand,slot:'tts-read'};
+  const ctx={...context,area:'influs',productFront:'afiliados',edit:false,brand,slot:'tts-read'};
   const user=authorizeBrand(ctx,brand);
   const credential=getUpstreamCredential(ctx);
   if(!credential)return {user,readLinked:false,binding:null};
@@ -1391,4 +1437,4 @@ function createAuth(options){
  }
  return Object.freeze({...(dashboardAffiliateRead?{affiliateReadContext,setAffiliateReadCredential,affiliateSourceStatus,affiliateNativeAvailability,...(affiliateNativeConsent?{affiliateNativeConsent}: {})}:{}),...(nativeSchedulerStateChatApproval?{nativeSchedulerStateChatApproval}:{}),...(nativeSchedulerStateConsent?{nativeSchedulerStateConsent}:{}),...(nativeSchedulerBinding?{nativeSchedulerBinding}:{}),...(nativeSourceSync?{nativeSourceSync}:{}),...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady,ownMasterPublishedJourneyReadBinding,ownMasterPublishedJourneyReadReady}:{}),...(ownMasterAudienceWrite?{ownMasterAudienceWriteBinding,audienceWriterAuthorization}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
-module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};
+module.exports={createAuth,AuthError,AREAS,PRODUCT_AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};
