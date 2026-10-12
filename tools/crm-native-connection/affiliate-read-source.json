@@ -15,18 +15,18 @@
     },
     {
       "path": "assets/panels/influs.js",
-      "bytes": 289397,
-      "sha256": "f02ba09e5fc4c4cfef10bd7cb54bcca8a879cc43a0ef117945e2e1bc86943eb9"
+      "bytes": 289412,
+      "sha256": "e98277122dfb1544f27925d3314be85776fc67768de1ae34383d891cb9200acb"
     },
     {
       "path": "influs-tts.js",
-      "bytes": 120652,
-      "sha256": "588eae05882632ad3417ab2abe4db4ac1b37ccc0510553f8f861160be2d53ce2"
+      "bytes": 120671,
+      "sha256": "d0a5fa4aea13ba762d72f194504bf8d5f9542385138974517f105dc7bfdf9fa9"
     },
     {
       "path": "influs.html",
       "bytes": 100901,
-      "sha256": "4ce9793470fbd85fc58e0c4ee395cc89c6129dadb3728bb8e55daa2209b7699a"
+      "sha256": "d1c8f5263fe3465359eac9ced8b8b5ec803500c1d04d7e236da01d10bc35e263"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -110,8 +110,8 @@
     },
     {
       "path": "tests/afiliados-panel-read.test.cjs",
-      "bytes": 5653,
-      "sha256": "6733cf21a2e89ebfa2fd66442dc2d16f6b5a3a1853724200323d925a5c5ed41d"
+      "bytes": 6359,
+      "sha256": "1a3c963ea06a745706906ba546a2f479ca9888474e343cd46689bf6e8c1f95b2"
     },
     {
       "path": "tests/afiliados-read-contract.test.cjs",
@@ -127,6 +127,21 @@
       "path": "tests/afiliados-session-read.test.cjs",
       "bytes": 20526,
       "sha256": "5cd16f323308df8f3972cd5b179176621cebc33c55d833d628b3f83b1b088f7b"
+    },
+    {
+      "path": "tests/dashboard-operational-brand-ui.test.cjs",
+      "bytes": 12331,
+      "sha256": "0cf3c7d0d30798810b4e0656a245f15f28df78f59ef01f4d44c08891f826f138"
+    },
+    {
+      "path": "tests/dashboard-operational-campaign-ui-assets.test.cjs",
+      "bytes": 1497,
+      "sha256": "458976bca28bd2c515f62f0f3ffd7a896a47ddc46f6a11d9cf4f1e5730d6cf88"
+    },
+    {
+      "path": "tests/dashboard-operational-upstream-auth-boundary.test.cjs",
+      "bytes": 9106,
+      "sha256": "11f5357a3f44572f0dd01f9f1da5f74275b245f8741a0e700a1212059354f7bb"
     },
     {
       "path": "tests/product-front-split.test.cjs",

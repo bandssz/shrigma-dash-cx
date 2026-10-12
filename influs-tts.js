@@ -664,7 +664,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     try {
     if (typeof TTS_API_URL === 'undefined') { vazio('Consulta indisponível', 'Não foi possível localizar o serviço de afiliados.', true); return; }
     const frontAtual = () => typeof PRODUCT_FRONT === 'undefined' ? 'legacy' : PRODUCT_FRONT.id;
-    const front = frontAtual(), afiliados = front === 'afiliados'; let marca = marcaAtual();
+    const front = frontAtual(), afiliados = front === 'afiliados'; let marca = afiliados ? marcaAtual() : null;
     if (front === 'influs') {
       CACHE_TTS = null;
       vazio('Consulta indisponível', 'TikTok pertence à vista Afiliados, com acesso próprio.'); return;

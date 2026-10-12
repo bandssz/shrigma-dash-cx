@@ -41,7 +41,7 @@ function guard(http,{host,login}){
   const r=await http.get(host,url.pathname+url.search,ctx(login));calls.push({path:url.pathname+url.search,status:r.status});
   return new Response(r.text,{status:r.status,headers:{'content-type':'application/json'}});
  }};
- vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../services/dashboard-operational/public/guard.js'),'utf8'),{window,document,location:{origin:'https://'+host,href:'https://'+host+'/growth.html'},navigator:{},URL,URLSearchParams,Headers,Response,Request,FormData,CustomEvent:dom.CustomEvent,HTMLFormElement:dom.HTMLFormElement});
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../services/dashboard-operational/public/guard.compiled.js'),'utf8'),{window,document,location:{origin:'https://'+host,href:'https://'+host+'/growth.html'},navigator:{},URL,URLSearchParams,Headers,Response,Request,FormData,CustomEvent:dom.CustomEvent,HTMLFormElement:dom.HTMLFormElement});
  return {window,document,messages,calls,values};
 }
 

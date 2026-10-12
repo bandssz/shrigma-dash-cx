@@ -31,3 +31,9 @@ test('Afiliados thumbnail loader cannot borrow a session reference for cobranca'
 
 test('session selection, availability and source share the same parent cancel/budget signal',async()=>{const f=fixture();await f.load();const signals=f.calls.map(c=>c[2]);assert.equal(signals.length,3);assert(signals[0] instanceof AbortSignal);assert(signals.every(s=>s===signals[0]));});
 test('an early selection can be cancelled before readiness or business query',async()=>{const f=fixture({prepare:(_,s,signal)=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('Cancelled synthetic preflight')),{once:true}))});const work=f.load();assert(f.scope.READ_TTS);f.scope.READ_TTS.cancel();await work;assert.equal(f.calls.filter(c=>c[0]==='ready'||c[0]==='read').length,0);assert.equal(f.scope.READ_TTS,null);assert.equal(f.scope.DADOS,null);});
+test('legacy loader remains independent of the Afiliados brand helper and keeps its original reader',async()=>{
+ const f=fixture(),s=f.scope;delete s.PRODUCT_FRONT;delete s.marcaAtual;
+ s.chaveLeitura=()=> 'synthetic-legacy-reader';s.INFLU_ACCESS={current:s.chaveLeitura,reject:()=>{throw Error('Unexpected legacy rejection');}};
+ s.PainelRede={ler:fn=>fn()};s.fetch=async()=>{f.network++;return{status:200,ok:true,json:async()=>({janela:period,kpis:[{marca:'fish',gmv:125}],amostras:[],fila:[],regra_contrato:'atomic_v1'})};};
+ await f.load();assert.equal(f.network,1);assert.equal(f.calls.length,0);assert.equal(f.paints.length,1);assert.equal(s.DADOS.kpis[0].gmv,125);assert.equal(s.READ_TTS,null);
+});

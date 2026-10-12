@@ -41,7 +41,7 @@ function guardFixture(user,{status=200,body={ok:true}}={}){
  const d=dom('<html><body><div id="seg-marca"><button data-marca="todas">Todas</button><button data-marca="fish">Fishermans</button><button data-marca="aristo">Aristocrata</button><button data-marca="olivas">Olivas</button></div></body></html>');
  const calls=[],messages=[],events=[],window={parent:{postMessage:(...v)=>messages.push(v)},dispatchEvent:event=>events.push(event),fetch:async(url)=>{calls.push(String(url));if(url==='/auth/session')return new Response(JSON.stringify(session(user)),{status:200});assert.ok(window.ShrigmaBrandAccess,'scope is resolved before API response');return new Response(JSON.stringify(body),{status});}};
  const context={window,document:d.document,location:{origin:'https://crm.synthetic.invalid',href:'https://crm.synthetic.invalid/growth.html'},navigator:{},URL,URLSearchParams,Headers,Response,Request,FormData,CustomEvent:d.window.CustomEvent,HTMLFormElement:d.window.HTMLFormElement};
- vm.runInNewContext(fs.readFileSync(path.join(service,'public/guard.js'),'utf8'),context);
+ vm.runInNewContext(fs.readFileSync(path.join(service,'public/guard.compiled.js'),'utf8'),context);
  return {...d,calls,messages,events,window};
 }
 
