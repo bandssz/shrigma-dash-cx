@@ -10,13 +10,33 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 30056,
-      "sha256": "47ef6fdbb52306f1c0271c2c24a4e10f1d6b048f3a089c4890b4f2fac01b04cb"
+      "bytes": 30201,
+      "sha256": "44df2df02499112f94ac43d5e4eb3455b56e03bda6b03228420dc18bd55bc239"
+    },
+    {
+      "path": "assets/panels/growth.js",
+      "bytes": 1025143,
+      "sha256": "c3e8a2d98cbe1e384655900e843fb9381c3a9bd893b512154d4c76918a3d9dca"
     },
     {
       "path": "assets/panels/influs.js",
       "bytes": 289412,
       "sha256": "e98277122dfb1544f27925d3314be85776fc67768de1ae34383d891cb9200acb"
+    },
+    {
+      "path": "growth-campaign-audience-ui.js",
+      "bytes": 31431,
+      "sha256": "f2dbe818db6439ee9876d434458992c40b69cde7443c6ea6409c74876a7ca98d"
+    },
+    {
+      "path": "growth-campaign-editor.js",
+      "bytes": 54790,
+      "sha256": "a7ec304bd6b97d3a24d73d12f2ed66b98f9a4b766d64ddee54cf9f429b5aaa3e"
+    },
+    {
+      "path": "growth.html",
+      "bytes": 110841,
+      "sha256": "fb723e45f742afc2f82ce70788cd90956842a06b78e30a2118c63cda52697741"
     },
     {
       "path": "influs-tts.js",
@@ -234,6 +254,16 @@
       "sha256": "815d669a74bdf6a0b587b0e660cb43d50a59e8595dd674e55bb98ea2b5184dc8"
     },
     {
+      "path": "tests/growth-campaign-audience-feedback.test.cjs",
+      "bytes": 6475,
+      "sha256": "c277a066bebcd7f19a51c190aac013ebf4a67080e8d87239dca09378b2edbdfa"
+    },
+    {
+      "path": "tests/growth-campaign-ui.test.cjs",
+      "bytes": 38946,
+      "sha256": "fef5481ea91f8ccedebd94824d0808e6f98160eddef317315d2674d141ea85b4"
+    },
+    {
       "path": "tests/helpers/dashboard-row-brand-fixture.cjs",
       "bytes": 752,
       "sha256": "a6fded93ab05cee557853804553d863394669a7b87a335f2ee54e7f877bf6880"
@@ -246,7 +276,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2718,
-      "sha256": "581f356b01350799c0d3edc2a02c8e56462dadab585664ee300db304dfcf8c60"
+      "sha256": "0f82c23648653d00f223975e080e44537e076c29a3796836dfc11e85d1a5568a"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
