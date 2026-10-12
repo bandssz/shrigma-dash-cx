@@ -36,7 +36,7 @@
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
       "bytes": 12995,
-      "sha256": "8fae392481dd115f56863180fd7b74bb1fea79d369c0b1cd69a9066a20cb0786"
+      "sha256": "3b4a9dccfb7b8fd5337b9d7435e6cd63511c70d752100d33fdfe3fd4a7ae6854"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
