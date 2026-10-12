@@ -251,7 +251,7 @@ function createAuth(options){
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
  // Off by default: records local identity jobs, never starts remote transport
  // or a worker. The private gateway constructor owns this configuration.
- let managedCrm=null,managedWriter=null,nativeConnections=null;
+ let managedCrm=null,managedWriter=null,nativeConnections=null,affiliateNativeConsent=null;
  if(options.crmNativeEnabled!==undefined&&typeof options.crmNativeEnabled!=='boolean')err('NATIVE_CONFIG_INVALID',500);
  if(options.crmManagedRead!==undefined)try{
   managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,...(corporateWriter?{writerBindingReady:id=>managedWriter?.bindingForUser(id)!==null&&managedWriter!==null,writerRenewalBindingReady:id=>managedWriter?.bindingForRenewal(id)===true}:{}),encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
@@ -1081,16 +1081,60 @@ function createAuth(options){
  // No source data or credential is returned. The version covers the SAME
  // authenticated user's permission, brand and dedicated private tts-read slot.
  // Native CRM scopes do not authorize Afiliados data by implication.
- function affiliateReadContext(context,{brand}={}){
+ function affiliatePrivateBinding(context,brand){
   if(!dashboardAffiliateRead)err('AFFILIATE_READ_NOT_ENABLED',503);
-  if(context?.nativeBearer!==undefined)err('AFFILIATE_NATIVE_PURPOSE_REQUIRED',403);
   const ctx={...context,area:'influs',edit:false,brand,slot:'tts-read'};
   const user=authorizeBrand(ctx,brand);
   const credential=getUpstreamCredential(ctx);
-  if(!credential)return Object.freeze({readLinked:false,binding:null});
+  if(!credential)return {user,readLinked:false,binding:null};
   const row=db.prepare("SELECT encrypted_key,key_digest,updated_at FROM upstream_credentials WHERE user_id=? AND slot='tts-read'").get(user.id);
   if(!row)err('CREDENTIAL_UNAVAILABLE',503);
-  return Object.freeze({readLinked:true,binding:brandMac(['affiliate-read-current-v1',user.id,user.email,user.role,user.brandAccess,user.brand,brand,permissions(user.id).influs,row.key_digest,sha(row.encrypted_key),row.updated_at])});
+  return {user,readLinked:true,binding:brandMac(['affiliate-read-current-v1',user.id,user.email,user.role,user.brandAccess,user.brand,brand,permissions(user.id).influs,row.key_digest,sha(row.encrypted_key),row.updated_at])};
+ }
+ function affiliateReadContext(context,{brand}={}){
+  if(context?.nativeBearer!==undefined){
+   if(!affiliateNativeConsent)err('AFFILIATE_NATIVE_PURPOSE_REQUIRED',403);
+   const connection=nativeConnections.authenticate(context.nativeBearer,{scope:'crm.read',brand});
+   affiliateNativeConsent.verify({context,connectionId:connection.id,brand});
+  }
+  const state=affiliatePrivateBinding(context,brand);
+  return Object.freeze({readLinked:state.readLinked,binding:state.binding});
+ }
+ // The source authenticates the selected original holder before storage.
+ // Browser-only binding cannot issue a delegation or consent on its behalf.
+ async function setAffiliateReadCredential({context,userId,bearer,fetchImpl=globalThis.fetch}){
+  if(!dashboardAffiliateRead)err('AFFILIATE_READ_NOT_ENABLED',503);
+  if(context?.nativeBearer!==undefined)err('AFFILIATE_BROWSER_BINDING_REQUIRED',403);
+  const args={context,userId,slot:'tts-read',bearer};
+  const snapshot=()=>{
+   const user=credentialTarget(args),row=db.prepare('SELECT * FROM users WHERE id=?').get(user.id);
+   return {user,version:brandMac(['affiliate-source-target-v1',row,permissions(user.id),requireBrandScope(row),db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='tts-read'").get(user.id)||null])};
+  };
+  const before=snapshot();
+  let proof;try{proof=await require('./backend-credential-attestation.cjs').verifyCredential({slot:'tts-read',expectedOwner:before.user.email,bearer},{fetchImpl});}catch{err('AFFILIATE_SOURCE_IDENTITY_UNCONFIRMED',503);}
+  if(proof?.ok!==true||proof.slot!=='tts-read'||proof.area!=='influs'||proof.identityVerified!==true||proof.status!=='partial'||proof.readOnlyProven!==false)err('AFFILIATE_SOURCE_IDENTITY_UNCONFIRMED',503);
+  if(snapshot().version!==before.version)err('AFFILIATE_SOURCE_TARGET_CHANGED',409);
+  storeUpstreamCredential(args);
+  return {ok:true,userId,readLinked:true,readOnly:true};
+ }
+ function affiliateSourceStatus(context){
+  if(!dashboardAffiliateRead)err('AFFILIATE_READ_NOT_ENABLED',503);
+  if(context?.nativeBearer!==undefined)err('AFFILIATE_BROWSER_BINDING_REQUIRED',403);
+  adminContext(context);
+  const usersView=users({context}).filter(u=>['active','invited'].includes(u.status)&&u.permissions?.influs?.read===true&&u.brandAccess!=='reprovision_required').map(u=>{
+   const raw=db.prepare('SELECT * FROM users WHERE id=?').get(u.id),row=db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='tts-read'").get(u.id),bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='tts-read'").get(u.id);
+   const linked=!!row&&(u.role==='superadmin'||!!bound&&equalHex(bound.binding_mac,upstreamBindingMac(raw,'tts-read',row)));
+   return {id:u.id,email:u.email,role:u.role,brand:u.brand,brands:u.brands,status:u.status,linked};
+  });
+  const connections=affiliateNativeConsent?nativeConnections.list(context).filter(c=>!c.revoked&&c.expiresAt>current()&&c.scopes.includes('crm.read')).map(c=>({id:c.id,label:c.label,brands:c.brands,expiresAt:c.expiresAt,receipts:c.brands.map(brand=>affiliateNativeConsent.inspect({context,connectionId:c.id,brand}))})):[];
+  return {schema:'shrigma-affiliate-source-status-v1',users:usersView,connections,nativeConsentEnabled:!!affiliateNativeConsent,readOnly:true,operational:false};
+ }
+ function affiliateNativeAvailability(context,brand){
+  if(!affiliateNativeConsent||typeof context?.nativeBearer!=='string')err('AFFILIATE_NATIVE_PURPOSE_REQUIRED',403);
+  const connection=nativeConnections.authenticate(context.nativeBearer,{scope:'crm.read',brand});
+  const state=affiliatePrivateBinding(context,brand);
+  let consentCurrent=false;try{affiliateNativeConsent.verify({context,connectionId:connection.id,brand});consentCurrent=true;}catch(e){if(!['AFFILIATE_READ_BINDING_MISSING','AFFILIATE_NATIVE_CURRENT_CONSENT_REQUIRED'].includes(e.code))throw e;}
+  return {schema:'shrigma-affiliate-native-availability-v1',brand,sourceLinked:state.readLinked===true,consentCurrent,readOnly:true,operational:false};
  }
  // PRIVATE: bridges only reviewed GETs. No slot alias or bearer is returned.
  function managedCrmReadAuthorization(ctx){
@@ -1267,6 +1311,12 @@ function createAuth(options){
     revision:crypto.createHmac('sha256',encKey).update('native-owner-v1:'+JSON.stringify([user.id,user.email,user.role,user.state,user.password_hash])).digest('hex')};
   };
  if(options.crmNativeEnabled===true)nativeConnections=require('./crm-native-delegation.cjs').createDelegationStore({db,managerHost,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-delegation-v1:'+value).digest('hex'),consent:nativeConsent,identity:nativeIdentity});
+ if(dashboardAffiliateRead&&nativeConnections)affiliateNativeConsent=require('./afiliados-native-consent.cjs').createAffiliateNativeConsentStore({db,connections:nativeConnections,consent:nativeConsent,identity:nativeIdentity,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('affiliate-native-read-v1:'+value).digest('hex'),currentBinding:(context,brand)=>{
+  const b=affiliatePrivateBinding(context,brand);
+  if(!b.readLinked)err('AFFILIATE_READ_BINDING_MISSING',503);
+  const identity=nativeIdentity(b.user.id),{FIXED_DESTINATIONS}=require('./proxy.cjs');
+  return {ownerId:b.user.id,ownerRevision:identity.revision,credentialBindingHash:b.binding,resourceHash:sha(JSON.stringify(['original-tiktok-panel-read-v1','tts-read',FIXED_DESTINATIONS.tts,FIXED_DESTINATIONS.cx,'POST','ini','fim','project-current-brand',brand]))};
+ }});
  const nativeDatabaseVault=options.crmNativeEnabled===true&&options.crmNativeDatabaseEnabled===true?require('./native-database-vault.cjs').createDatabaseVault({enabled:true,db,consent:nativeConsent,identity:nativeIdentity,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-database-vault-v1:'+value).digest('hex')}):undefined;
   let nativeSchedulerBinding;
   if(options.crmNativeSchedulerBindingEnabled===true){
@@ -1339,6 +1389,6 @@ function createAuth(options){
   const transport=options.crmNativeSourceTransport||require('./native-source-transport.cjs').createOriginalSourceTransport({fetchImpl:options.crmNativeSourceFetch||fetch});
   nativeSourceSync=require('./native-source-sync.cjs').createSourceSync({enabled:true,db,consent:nativeConsent,identity:nativeIdentity,authorize:authorizeSource,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-source-sync-v1:'+value).digest('hex'),transport,permitDelegation:(context,connectionId)=>nativeConnections.permitSourceSync({context,connectionId})});
  }
- return Object.freeze({...(dashboardAffiliateRead?{affiliateReadContext}:{}),...(nativeSchedulerStateChatApproval?{nativeSchedulerStateChatApproval}:{}),...(nativeSchedulerStateConsent?{nativeSchedulerStateConsent}:{}),...(nativeSchedulerBinding?{nativeSchedulerBinding}:{}),...(nativeSourceSync?{nativeSourceSync}:{}),...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady,ownMasterPublishedJourneyReadBinding,ownMasterPublishedJourneyReadReady}:{}),...(ownMasterAudienceWrite?{ownMasterAudienceWriteBinding,audienceWriterAuthorization}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ return Object.freeze({...(dashboardAffiliateRead?{affiliateReadContext,setAffiliateReadCredential,affiliateSourceStatus,affiliateNativeAvailability,...(affiliateNativeConsent?{affiliateNativeConsent}: {})}:{}),...(nativeSchedulerStateChatApproval?{nativeSchedulerStateChatApproval}:{}),...(nativeSchedulerStateConsent?{nativeSchedulerStateConsent}:{}),...(nativeSchedulerBinding?{nativeSchedulerBinding}:{}),...(nativeSourceSync?{nativeSourceSync}:{}),...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady,ownMasterPublishedJourneyReadBinding,ownMasterPublishedJourneyReadReady}:{}),...(ownMasterAudienceWrite?{ownMasterAudienceWriteBinding,audienceWriterAuthorization}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
 module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};

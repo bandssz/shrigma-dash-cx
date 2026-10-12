@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 28789,
-      "sha256": "7fbc20dfb2be83fe8859479b8ce3eeea38ea39f3c28157da243fcdca34470b9c"
+      "bytes": 28884,
+      "sha256": "e23cc909baac7965627bad35027055d20223f22f3a0af6eda28b5e1b2e74d9cb"
     },
     {
       "path": "assets/panels/influs.js",
@@ -30,13 +30,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 6169,
-      "sha256": "d552db8620326c65626b725e959137b354890f6fcc9a6a0b513c158e11a79652"
+      "bytes": 6329,
+      "sha256": "63582c848fd6e7824a32745f1f0361510c1aff229649298f328cafde71ae0915"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 12932,
-      "sha256": "cb8bc53cc20ffd386c64484fdb4ab7e53e01e2fc71779b026802bd07daf10627"
+      "bytes": 12995,
+      "sha256": "8fae392481dd115f56863180fd7b74bb1fea79d369c0b1cd69a9066a20cb0786"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -45,18 +45,23 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 5710,
-      "sha256": "f0e78df68682415c71b21936e3bde708b5b98a1295757d4fe2bac39c5a7e6d42"
+      "bytes": 5773,
+      "sha256": "ae731556f7b1fc2a5dfb274b15671c6a81b8540bb596b86f48e6cee12ada92c5"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
       "bytes": 6849,
-      "sha256": "85f04bceba9949cfd655b044a8f961c2e5870b05510d3b53a1e40a93e2af0057"
+      "sha256": "5d379fb297a0f9d7c942c54ba19bfdbe7f3968ecca8842525847f6d34565a867"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
       "bytes": 5159,
       "sha256": "1c31a304aaf29cf1b08bd02e5c90e22f48fd2089594f68275f2fd42eb2a999bc"
+    },
+    {
+      "path": "services/dashboard-operational/afiliados-native-consent.cjs",
+      "bytes": 12773,
+      "sha256": "6501c565bab8673286a0d13fbf1ab56c60e4cb43d72ed20f5d6894bb333268fb"
     },
     {
       "path": "services/dashboard-operational/afiliados-read-contract.cjs",
@@ -69,14 +74,29 @@
       "sha256": "8d6c18da3070bea3f640ac82647a0f030ca68356afaa4727b2bc13e7b2d0fedb"
     },
     {
+      "path": "services/dashboard-operational/afiliados-source-operator.cjs",
+      "bytes": 8622,
+      "sha256": "f425cccfff164ac27c142243c6e1f624f0dfdb6152b220996d50a5979b5d94e3"
+    },
+    {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 128000,
-      "sha256": "8817bd1e2d9e1cbdb0e579e8cb0b759c6e9259a6db9b22feb2e8e78518610d92"
+      "bytes": 132938,
+      "sha256": "e55742d6d782f26f025808743a26768898a6c4d7539f5530882fe9fc6043f0be"
     },
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1379,
       "sha256": "6ad939234487254beb0feff73a77734bf31ba93ec3701a058ecfba3a22f01cb0"
+    },
+    {
+      "path": "services/dashboard-operational/crm-native-mcp.cjs",
+      "bytes": 29750,
+      "sha256": "6136311e06356e9e66d28b9daeae262a1a2b414d3d40c417ad6b8f178b76ede5"
+    },
+    {
+      "path": "services/dashboard-operational/crm-native-operator.cjs",
+      "bytes": 6839,
+      "sha256": "d472a65de789b8c8e3f6b50176087ecff629ba91f68f72ce01728193c1001623"
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
@@ -100,13 +120,23 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 143989,
-      "sha256": "700847f04f3feeca993e87522b48d5cb21f3cd06ebcf8a55856017ce12dcf550"
+      "bytes": 145834,
+      "sha256": "7b2e8d6609e7e49ee12286c861813ff9ba3ea54e50db4acc0b7d53163e7e440b"
     },
     {
       "path": "tests/afiliados-creator-share.test.cjs",
       "bytes": 2300,
       "sha256": "6ebcfa18d96be99525676d2df4a793dabb051849fac25a76a89f06fbebcdf467"
+    },
+    {
+      "path": "tests/afiliados-native-consent.test.cjs",
+      "bytes": 16953,
+      "sha256": "2ddb1971d65dfed3509748cf916d6e91058dcc972d12eeb11ddcf772fcb69473"
+    },
+    {
+      "path": "tests/afiliados-native-source.test.cjs",
+      "bytes": 10792,
+      "sha256": "fabefcd5b8e1698a22aced531fb3149c81e00be34e2518c37958b2cddf922e53"
     },
     {
       "path": "tests/afiliados-panel-read.test.cjs",
@@ -158,5 +188,8 @@
       "bytes": 2809,
       "sha256": "eba0f43ee1aa037475c96c76b2c993fd02f94b793e3449fe19d3473a40031117"
     }
-  ]
+  ],
+  "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
+  "privateBinding": "Dedicated tts-read per real holder; bounded original identity attestation before browser storage; no secret in responses or native connector.",
+  "realAcceptance": "Not measured; native source remains closed until genuine private binding and explicit consent."
 }

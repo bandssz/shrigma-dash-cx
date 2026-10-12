@@ -662,6 +662,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       if(!nativeContext&&nativeMcp&&await nativeMcp.handle(req,res,url))return;
       const ctx=nativeContext||{cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./crm-native-operator.cjs').handleOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
+      if(dashboardAffiliateRead&&!nativeContext&&await require('./afiliados-source-operator.cjs').handleAffiliateSourceOperator({req,res,url,ctx,auth,managerHost:s.managerHost,fetchImpl}))return;
        if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-database-operator.cjs').handleDatabaseOperator({req,res,url,ctx,auth,managerHost:s.managerHost,nativeInstaller}))return;
       if(s.crmNativeSourceSyncEnabled===true&&!nativeContext&&await require('./native-source-operator.cjs').handleSourceOperator({req,res,url,ctx,auth,managerHost:s.managerHost,source:auth.nativeSourceSync,diagnostics:s.crmNativeSourceDiagnosticsEnabled===true?sourceDiagnostics:undefined}))return;
       if(s.crmNativeSchedulerBindingEnabled===true&&!nativeContext&&await require('./native-scheduler-binding-operator.cjs').handleSchedulerBindingOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
@@ -944,6 +945,24 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       if(url.pathname==='/api/templates'&&crmPublishedJourneyRead&&(!coexistence||auth.session(ctx).user?.role==='superadmin'||['fluxos_listar','fluxos_capacidade'].includes(url.searchParams.get('acao')))){
         const action=url.searchParams.get('acao');
         const result=crmMasterTemplateRead&&action==='listar'?await masterTemplateReader.read(ctx,url.searchParams):action==='fluxos_capacidade'?publishedJourneyReader.capability(ctx,url.searchParams):await publishedJourneyReader.read(ctx,url.searchParams);
+        return sendJson(req,res,result.status,result.body);
+      }
+      if(url.pathname==='/api/native/affiliate-status'){
+        if(!dashboardAffiliateRead||!auth.affiliateNativeConsent||!ctx.nativeBearer)throw jsonError(403,'AFFILIATE_NATIVE_PURPOSE_REQUIRED');
+        const q=AffiliateRead.decision(req.method,url.searchParams);
+        return sendJson(req,res,200,auth.affiliateNativeAvailability(ctx,q.brand));
+      }
+      if(url.pathname==='/api/native/affiliate-read'){
+        if(!affiliateReader||!auth.affiliateNativeConsent||!ctx.nativeBearer)throw jsonError(403,'AFFILIATE_NATIVE_PURPOSE_REQUIRED');
+        if(req.method!=='POST')throw jsonError(405,'METHOD_DENIED');
+        if(url.search||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(400,'AFFILIATE_ARGUMENTS_INVALID');
+        const q=await readJson(req,2048);
+        if(!q||Object.getPrototypeOf(q)!==Object.prototype||Object.keys(q).sort().join(',')!=='brand,fim,ini'||!['fish','aristo'].includes(q.brand)||!AffiliateRead.validDay(q.ini)||!AffiliateRead.validDay(q.fim)||q.ini>q.fim)throw jsonError(400,'AFFILIATE_ARGUMENTS_INVALID');
+        const connection=auth.nativeConnections.authenticate(ctx.nativeBearer,{scope:'crm.read',brand:q.brand});
+        const result=await auth.affiliateNativeConsent.withRead({context:ctx,connectionId:connection.id,brand:q.brand},()=>{
+          const current=affiliateReader.availability(ctx,q.brand);
+          return affiliateReader.read(ctx,{...q,expected_binding:current.binding},origin);
+        });
         return sendJson(req,res,result.status,result.body);
       }
       if(url.pathname==='/api/affiliate-read'){
@@ -1254,7 +1273,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   };
   if(s.crmNativeEnabled===true){
     const N=require('./crm-native-mcp.cjs');
-    nativeMcp=N.createNativeMcp({auth,managerHost:s.managerHost,installer:nativeInstaller,createCampaignEnabled:crmCorporateCreate,publishedJourneyReadEnabled:crmPublishedJourneyRead,masterTemplateReadEnabled:crmMasterTemplateRead,sourceDiagnosticsEnabled:s.crmNativeSourceDiagnosticsEnabled===true&&sourceDiagnostics?.enabled===true,deliveryHealthEnabled:s.crmNativeDeliveryHealthEnabled===true&&deliveryHealth?.enabled===true,schedulerStateEnabled:s.crmNativeSchedulerStateEnabled===true&&schedulerState?.enabled===true,invoke:request=>N.dispatchJson(dispatch,request)});
+    nativeMcp=N.createNativeMcp({auth,affiliateReadEnabled:dashboardAffiliateRead&&!!auth.affiliateNativeConsent,managerHost:s.managerHost,installer:nativeInstaller,createCampaignEnabled:crmCorporateCreate,publishedJourneyReadEnabled:crmPublishedJourneyRead,masterTemplateReadEnabled:crmMasterTemplateRead,sourceDiagnosticsEnabled:s.crmNativeSourceDiagnosticsEnabled===true&&sourceDiagnostics?.enabled===true,deliveryHealthEnabled:s.crmNativeDeliveryHealthEnabled===true&&deliveryHealth?.enabled===true,schedulerStateEnabled:s.crmNativeSchedulerStateEnabled===true&&schedulerState?.enabled===true,invoke:request=>N.dispatchJson(dispatch,request)});
   }
   const server=http.createServer({maxHeaderSize:8192},(req,res)=>dispatch(req,res));
   server.headersTimeout=10000;server.requestTimeout=100000;server.keepAliveTimeout=5000;server.maxRequestsPerSocket=200;

@@ -8,6 +8,7 @@ const brand={type:'string',enum:BRANDS},id={type:'integer',minimum:1},key={type:
 const sourceRequestId={type:'string',pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'};
 const tools=[
  ['crm_status','Verificar acesso CRM','crm.read',obj(),false,false],
+ ['affiliate_read','Consultar dados atuais de Afiliados por marca','crm.read',obj({brand,ini:{type:'string',pattern:'^\\d{4}-\\d{2}-\\d{2}$'},fim:{type:'string',pattern:'^\\d{4}-\\d{2}-\\d{2}$'}},['brand','ini','fim']),true,false],
  ['crm_campaign_catalog','Consultar catálogo da marca','crm.read',obj({brand},['brand']),true,false],
  ['crm_template_catalog','Consultar templates de e-mail registrados da marca','crm.read',obj({brand,offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1}},['brand']),true,false],
  ['crm_journey_catalog','Consultar definições originais das jornadas','crm.read',obj({brand},['brand']),true,false],
@@ -73,10 +74,10 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false,affiliateReadEnabled=false}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
- const availableTools=tools.filter(t=>(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
+ const availableTools=tools.filter(t=>(affiliateReadEnabled===true&&auth.affiliateNativeConsent||t.name!=='affiliate_read')&&(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
  async function call(name,args,bearer){
   const tool=availableTools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
@@ -117,7 +118,18 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
    }
    const schedulerBindingReceipt=state.status===200&&state.body?.features?.nativeSchedulerBinding===true?await run('GET','/api/scheduler-binding-status'):undefined;
    const schedulerStateReceipt=schedulerStateEnabled&&state.status===200&&state.body?.features?.nativeSchedulerState===true?await run('GET','/api/scheduler-state-receipt'):undefined;
-   result={status:state.status,body:{...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
+   const affiliateAvailability=[];if(affiliateReadEnabled&&auth.affiliateNativeConsent&&state.status===200){for(const brand of store.authenticate(bearer).brands){try{affiliateAvailability.push(await run('GET','/api/native/affiliate-status?'+new URLSearchParams({brand})));}catch(e){affiliateAvailability.push({status:e.status||503,body:{brand,error:'AFFILIATE_AVAILABILITY_UNCONFIRMED'}});}}}
+   result={status:state.status,body:{...(affiliateReadEnabled?{affiliateAvailability}:{}),...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
+  }else if(name==='affiliate_read'){
+   // crm.read is only the original identity passport. The dedicated gateway
+   // verifies the separate CURRENT Afiliados receipt and source before/after.
+   const read=await run('POST','/api/native/affiliate-read',args);
+   if(read.status!==200)result=read;
+   else{
+    const b=read.body;
+    // The connector needs aggregate proof, not names or customer rows.
+    result={status:200,body:{schema:'shrigma-affiliate-native-aggregate-v1',brand:args.brand,janela:b.janela,gerado_em:b.gerado_em,kpis:b.kpis,amostras:b.amostras,frescor:b.frescor,filaCount:b.fila?.length??null,creatorCount:b.criadores?.length??null,openCount:Array.isArray(b.open)?b.open.length:null,targetCount:Array.isArray(b.target)?b.target.length:null,readOnly:true,operational:false}};
+   }
   }else if(name.startsWith('crm_scheduler_state_approval_')){
    // Preparing records an intention only. Confirmation is a separate human
    // decision on that exact digest; neither call performs scheduler SQL.
