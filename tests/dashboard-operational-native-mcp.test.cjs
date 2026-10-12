@@ -2,10 +2,11 @@
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
 const {Readable,Writable}=require('node:stream');
-const {createAuth}=require('../services/dashboard-operational/auth.cjs');
-const {createNativeMcp,dispatchJson,ENDPOINT,redact}=require('../services/dashboard-operational/crm-native-mcp.cjs');
-const {createServer,authOptionsFor}=require('../services/dashboard-operational/server.cjs');
-const {handleOperator}=require('../services/dashboard-operational/crm-native-operator.cjs');
+const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||require('node:path').resolve(__dirname,'../services/dashboard-operational');
+const {createAuth}=require(runtime+'/auth.cjs');
+const {createNativeMcp,dispatchJson,ENDPOINT,redact}=require(runtime+'/crm-native-mcp.cjs');
+const {createServer,authOptionsFor}=require(runtime+'/server.cjs');
+const {handleOperator}=require(runtime+'/crm-native-operator.cjs');
 const digest=x=>crypto.createHash('sha256').update(x).digest('hex');
 const host='manager.synthetic.invalid',origin='https://'+host;
 const opts={managerHost:host,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'affiliate.synthetic.invalid'},allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'master@synthetic.invalid',bootstrapTokenSha256:digest('only-local-bootstrap'),encryptionKey:crypto.randomBytes(32).toString('hex'),crmNativeEnabled:true};
@@ -120,4 +121,10 @@ test('delegations survive process restart but expiration is enforced without ren
 test('disabled native mode does not expose delegation authority',()=>{
  const off=createAuth({...opts,crmNativeEnabled:false,dbPath:':memory:'});assert.equal(off.nativeConnections,undefined);off.close();
  assert.equal(authOptionsFor({...settings,crmNativeEnabled:false}).crmNativeEnabled,undefined);
+});
+
+test('status reuses current native identity for the aggregate source callback and honors revocation',async()=>{
+ clock=1800000000000;const key=issue(),seen=[];const m=createNativeMcp({auth,managerHost:host,invoke:async({path})=>({status:200,body:path==='/auth/session'?{authenticated:true,user:{role:'superadmin'},features:{}}:{}}),dashboardReadSummary:async(context,brands)=>{seen.push({context,brands});return {sources:[{front:'growth',brand:'fish',status:200,counts:{crm_diario:2}}]};}});
+ const r=await m.call('crm_status',{},key.token);assert.equal(r.body.dashboardSources.sources[0].counts.crm_diario,2);assert.equal(seen[0].context.cookieHeader,undefined);assert.deepEqual(seen[0].brands,['fish']);
+ const revoking=createNativeMcp({auth,managerHost:host,invoke:async()=>({status:200,body:{authenticated:true,user:{role:'superadmin'},features:{}}}),dashboardReadSummary:async()=>{auth.nativeConnections.revoke({context:ctx,connectionId:key.connection.id});return {sources:[]};}});await assert.rejects(revoking.call('crm_status',{},key.token),e=>e.code==='NATIVE_AUTH_REQUIRED');
 });

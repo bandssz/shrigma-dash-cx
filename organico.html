@@ -7,7 +7,7 @@
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=ef89318de878">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-0rhL/7LrSt5EfW+CvGOGrsH+3iO6scfTvMMzutC6T0I='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-20I/o7rOqM8871iuZ5aeRvy1owL29hG7uCIH1ybWp1E='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -573,7 +573,7 @@ if(ORGANIC_V2_ROOT){window.ShrigmaOrganicRootHost=ORGANIC_V2_ROOT;window.addEven
 
 /* ---------- carga ---------- */
 const ACESSO_ORGANICO=OrganicAccess.bind({document,readExisting:()=>shrigmaChave('organico'),onAccess:()=>carrega()});
-let CARGA_ORGANICO=false;
+let CARGA_ORGANICO=false,ORGANICO_GENERATION=0,ORGANICO_QUEUED=false;
 function chaveLeitura(){return ACESSO_ORGANICO.current();}
 function avisoTela(t,d,retry=true){
   $('#aviso-carga').innerHTML=`<div class="painel" style="padding:20px"><strong>${esc(t)}</strong><div class="mini" style="margin-top:6px">${esc(d)}</div>${retry?'<br><button class="btn" id="btn-retry">Atualizar leitura</button>':''}</div>`;
@@ -595,7 +595,9 @@ function cacheOrganicoValido(p,agora=Date.now()){
 }
 // ORGANICO_CACHE_READ_END
 async function carrega(){
-  if(CARGA_ORGANICO)return;
+  if(window.ShrigmaPrepareRead&&!(await window.ShrigmaPrepareRead())){avisoTela('Sessão indisponível','Atualize a leitura para conferir novamente o acesso.');return;}
+  if(CARGA_ORGANICO){if(window.ShrigmaSimpleRead)ORGANICO_QUEUED=true;return;}
+  const readingBrand=MARCA,readingGeneration=ORGANICO_GENERATION;
   const k=chaveLeitura();
   if(!k){avisoTela('Acesso de leitura necessário','Abra Acesso de leitura para consultar Orgânico.',false);ACESSO_ORGANICO.show();return;}
   CARGA_ORGANICO=true;ACESSO_ORGANICO.setBusy(true);
@@ -620,6 +622,7 @@ async function carrega(){
         },{espera:[1500],parar:()=>controller.signal.aborted});
       }catch(e){if(controller.signal.aborted)throw e;payload=null;}
     }
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==ORGANICO_GENERATION))return;
     if(semContrato){
       API=null;COM=null;MIDIA=null;ORIGEM_LEITURA='';
       document.querySelectorAll('#area-kpis,#organico-attribution,#stories-conversions,#tab-eq tbody,#tab-posts tbody,#tab-story tbody,#tab-venda tbody,#n-grade,#n-posts,#n-stories,#n-venda,#story-rot,#venda-rot,#origem-leitura').forEach(el=>{el.textContent='';});
@@ -636,6 +639,7 @@ async function carrega(){
     if(r&&(r.status===401||r.status===403)){
       avisoTela('Acesso recusado','Informe uma chave de leitura válida para Orgânico. Os dados já exibidos não foram atualizados.',false);ACESSO_ORGANICO.reject();return;}
     if(!payload){if(r&&!r.ok)throw new Error('read_failed');throw new Error('invalid_payload');}
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==ORGANICO_GENERATION))return;
     ORIGEM_LEITURA=origem;
     API=payload;
     {const barra=$('#organico-acesso-bar');if(barra)barra.hidden=true;} // com a chave aceita, o botão de entrar some (acesso único)
@@ -656,13 +660,13 @@ async function carrega(){
      const stories=maxT((API.cx_story||[]).map(s=>s.ultima_coleta)),vendas=maxT((API.organico_attribution?.coverage||[]).map(c=>c.checked_at));
      shrigmaFrescor(API,$('#frescor'),{collections:[{name:'Stories (Instagram)',checked_at:iso(stories),required:true},{name:'Vendas (Shopify)',checked_at:iso(vendas),required:true}]});}
     if(typeof AREA_VIEW!=='undefined'&&AREA_VIEW)AREA_VIEW.resolve();
-  }catch(e){avisoTela('Não foi possível atualizar',controller.signal.aborted?'A consulta demorou além do limite. Atualize a leitura para tentar novamente.':'A consulta falhou. Os dados anteriores, se exibidos, não foram atualizados.');}
-  finally{clearTimeout(timer);CARGA_ORGANICO=false;ACESSO_ORGANICO.setBusy(false);}
+  }catch(e){if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==ORGANICO_GENERATION))return;avisoTela('Não foi possível atualizar',controller.signal.aborted?'A consulta demorou além do limite. Atualize a leitura para tentar novamente.':'A consulta falhou. Os dados anteriores, se exibidos, não foram atualizados.');}
+  finally{clearTimeout(timer);CARGA_ORGANICO=false;ACESSO_ORGANICO.setBusy(false);if(ORGANICO_QUEUED){ORGANICO_QUEUED=false;carrega();}}
 }
 
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;render();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;if(window.ShrigmaSimpleRead){ORGANICO_GENERATION++;API=null;COM=null;MIDIA=null;carrega();}else render();});
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
   b.classList.add('ativo');PER=G.preset(b.dataset.p,HOJE);render();});

@@ -8,7 +8,7 @@
 <style>body[data-product-front] [hidden]{display:none!important}</style>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=86f46577e9c7">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ocZ2rVTnp4l3ajL16pWvRlTOeMV2+EYsRctC7WBieO0='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-rjWxYHGDeENlpYBRtk/9kfj7qhTmlPbTBype2buUgpc='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -571,10 +571,11 @@ function avisoTela(titulo,detalhe,botao){
   const b=$('#btn-retry'); if(b) b.onclick=()=>{/chave|acesso/i.test(titulo)?INFLU_ACCESS.show('read',{explicit:true}):carregarInflu();};
 }
 async function carregarInflu(){
-  const seq=++INFLU_SEQ, periodo={ini:PER.ini,fim:PER.fim};
+  if(window.ShrigmaPrepareRead&&!(await window.ShrigmaPrepareRead())){avisoTela('Sessão indisponível','Atualize a leitura para conferir novamente o acesso.');return;}
+  const seq=++INFLU_SEQ, periodo={ini:PER.ini,fim:PER.fim},readingBrand=MARCA;
   if(INFLU_READ)INFLU_READ.cancel();
   const k=chaveLeitura();
-  const vigente=()=>seq===INFLU_SEQ&&(typeof INFLU_ACCESS!=='undefined'?INFLU_ACCESS.current('read'):chaveLeitura())===k;
+  const vigente=()=>seq===INFLU_SEQ&&(!window.ShrigmaSimpleRead||readingBrand===MARCA)&&(typeof INFLU_ACCESS!=='undefined'?INFLU_ACCESS.current('read'):chaveLeitura())===k;
   INFLU=null;
   if(!k){ avisoTela('Chave de acesso não informada',
     'Informe a chave no formulário de acesso. Ela será usada somente nesta página aberta.',
@@ -582,14 +583,14 @@ async function carregarInflu(){
   avisoTela('Carregando…','Lendo o cadastro e os pedidos coletados.');
   // Leitura: se o servidor engasgar, tenta de novo sozinha (1,5 s e 4 s) dentro do limite de 20 s.
   const tenta=typeof PainelRede!=='undefined'?PainelRede.ler:fn=>fn();
-  const leitura=leituraInfluLimitada((signal,ativa)=>tenta(()=>influPost({k,acao:'listar',...periodo,pilot:SEC==='meta'||(SEC==='afil'&&CANAL==='parceiros')},{signal,vigente:()=>ativa()&&vigente()}),{parar:()=>!(ativa()&&vigente())}));
+  const leitura=leituraInfluLimitada((signal,ativa)=>tenta(()=>influPost({k,acao:'listar',...periodo,...(window.ShrigmaSimpleRead?{marca:readingBrand}:{}),pilot:SEC==='meta'||(SEC==='afil'&&CANAL==='parceiros')},{signal,vigente:()=>ativa()&&vigente()}),{parar:()=>!(ativa()&&vigente())}));
   INFLU_READ=leitura;
   try{
     const novo=await leitura.promise;
     if(!vigente())return;
     if(!novo||!['roi','influs','cupons','custos','receita_cupom','termos'].every(c=>Array.isArray(novo[c]))||
        novo.janela?.ini!==periodo.ini||novo.janela?.fim!==periodo.fim)throw new Error('A resposta não confirmou os dados e o período solicitado.');
-    INFLU=novo;INFLU_ULTIMA={k,ini:periodo.ini,fim:periodo.fim,em:Date.now(),dados:novo};
+    INFLU=novo;INFLU_ULTIMA={k,marca:readingBrand,ini:periodo.ini,fim:periodo.fim,em:Date.now(),dados:novo};
     if(typeof INFLU_ACCESS!=='undefined'&&INFLU_ACCESS.refresh)INFLU_ACCESS.refresh(); // chave aceita (inclusive a que veio da entrada do site): some o botão de entrar
     renderTudo();
   }catch(e){
@@ -603,7 +604,7 @@ async function carregarInflu(){
     }
     const chaveRuim=e.status===401||e.status===403||/chave/i.test(e.message);
     const ult=INFLU_ULTIMA;
-    if(!chaveRuim&&ult&&ult.k===k&&ult.ini===periodo.ini&&ult.fim===periodo.fim){
+    if(!chaveRuim&&ult&&(!window.ShrigmaSimpleRead||ult.marca===readingBrand)&&ult.k===k&&ult.ini===periodo.ini&&ult.fim===periodo.fim){
       INFLU=ult.dados;renderTudo();
       const hora=new Date(ult.em).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
       const f=$('#faixa-alertas');if(f&&f.insertAdjacentHTML){f.insertAdjacentHTML('afterbegin',`<p class="aviso-antigo"><span class="tag alerta" title="A leitura atual não respondeu (${esc(e.message)}). A tela mostra a última leitura boa deste período, de ${hora}.">leitura de ${hora} · a atual não respondeu</span> <button type="button" class="btn sec" id="btn-retry-influ">Tentar de novo</button></p>`);const b=$('#btn-retry-influ');if(b)b.onclick=()=>carregarInflu();}
@@ -1243,9 +1244,10 @@ $('#i-f-salvar').onclick=salvarInflu;
 
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.sync();pintaMarca();renderTudo();if(typeof PRODUCT_FRONT!=='undefined'&&PRODUCT_FRONT.id==='afiliados'&&CANAL==='tiktok')carregarAbaAtiva();else if(window.renderTTS)renderTTS();if(SEC==='escopo'&&ESCOPO)ESCOPO.paint();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;if(AFFILIATES_MOUNT)AFFILIATES_MOUNT.sync();pintaMarca();if(window.ShrigmaSimpleRead){INFLU=null;INFLU_ULTIMA=null;carregarAbaAtiva();}else{renderTudo();if(typeof PRODUCT_FRONT!=='undefined'&&PRODUCT_FRONT.id==='afiliados'&&CANAL==='tiktok')carregarAbaAtiva();else if(window.renderTTS)renderTTS();}if(SEC==='escopo'&&ESCOPO)ESCOPO.paint();});
 // A leitura segue a aba visível; trocar de aba sempre relê o período atual.
-function carregarAbaAtiva(){
+async function carregarAbaAtiva(){
+  if(window.ShrigmaPrepareRead&&!(await window.ShrigmaPrepareRead())){avisoTela('Sessão indisponível','Atualize a leitura para conferir novamente o acesso.');return;}
   if(typeof PRODUCT_FRONT!=='undefined'&&(!PRODUCT_FRONT.sections.includes(SEC)||SEC==='afil'&&!PRODUCT_FRONT.channels.includes(CANAL)))return Promise.resolve();
   if(SEC==='escopo'&&ESCOPO)return ESCOPO.mount($('#area-escopo'));
   if(SEC==='afil'&&CANAL==='crm')return AFFILIATES_MOUNT?AFFILIATES_MOUNT.sync():Promise.resolve();

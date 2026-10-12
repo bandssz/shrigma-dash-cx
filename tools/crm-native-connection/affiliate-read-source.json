@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 30329,
-      "sha256": "6e22ccdaafd70e15f39f79f39f53bb2575d4d1fb891773a8c23d33b9b394e763"
+      "bytes": 30513,
+      "sha256": "58a8353b394821ba002e18b3fe08111ea1e72a7c834ee6fd55501eda94d6aca1"
     },
     {
       "path": "assets/panels/growth.js",
@@ -35,8 +35,8 @@
     },
     {
       "path": "growth.html",
-      "bytes": 110841,
-      "sha256": "fb723e45f742afc2f82ce70788cd90956842a06b78e30a2118c63cda52697741"
+      "bytes": 111591,
+      "sha256": "7b342a4cf2c03b1b441f3d75e163b26373e66efa0864210e28b79e1d2263fce8"
     },
     {
       "path": "influs-tts.js",
@@ -45,8 +45,8 @@
     },
     {
       "path": "influs.html",
-      "bytes": 100901,
-      "sha256": "d1c8f5263fe3465359eac9ced8b8b5ec803500c1d04d7e236da01d10bc35e263"
+      "bytes": 101527,
+      "sha256": "0a3673768d5761a12b8f59d24044cfbd31a202d0840d51f799c26c04f8c5bce5"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -55,13 +55,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 13120,
-      "sha256": "ab71cd12169d10bab413e8d00c77958bdedeba8a38ebac6224a5ba4a97fd68f1"
+      "bytes": 13136,
+      "sha256": "7a0edcbeaee4591d6d3e66dab15d39407febe69e557f9262bf50f8df9e136f52"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
-      "bytes": 4364,
-      "sha256": "0ce78baaf6c9f46e6aa2f60d7457d86334691cc413d9666e0f7df5543da38ca5"
+      "bytes": 4380,
+      "sha256": "9bfb0c8fd7022e62c0fab733a3ba5c435b1216259cb4f68b1b8ae97aa7094020"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
@@ -70,13 +70,18 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
-      "bytes": 6849,
-      "sha256": "393a641cdf5123ebf14122d94325f848ad32a1568708bbead1c43c17f7574976"
+      "bytes": 6865,
+      "sha256": "1bfb9405dd34424e61ec9967a9fbc9a03dbc9a06517edbd89bca5fa4a317d01f"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
       "bytes": 5159,
       "sha256": "1c31a304aaf29cf1b08bd02e5c90e22f48fd2089594f68275f2fd42eb2a999bc"
+    },
+    {
+      "path": "organico.html",
+      "bytes": 52469,
+      "sha256": "cb12f241cd874f707b1e2474772b257aa1787905833d0843566f84ff9cf2e47b"
     },
     {
       "path": "services/dashboard-operational/BCRYPT-LICENSE",
@@ -116,12 +121,12 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1379,
-      "sha256": "0df3809c2324c56ec7f535e5bcc4318df026d4990838b5c9da61f9c46f352c27"
+      "sha256": "7747dc0d70eafd1888d8cfd6fefc7aca6399a89f54c407b2b67139b3efe53591"
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 29750,
-      "sha256": "6136311e06356e9e66d28b9daeae262a1a2b414d3d40c417ad6b8f178b76ede5"
+      "bytes": 30077,
+      "sha256": "2541af1f7c02283fbd524c5b566ef59f717c9a41aeaa1caf50fb7f5e6ee35951"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -160,23 +165,23 @@
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 16215,
-      "sha256": "80f7621bf67e2eb23e2e37bd7820d9a7971f35c277cd49d375cc10219ce6ca27"
+      "bytes": 16602,
+      "sha256": "aa470b3a55f41409b3ebec80e5ebee19d1fc772c4cacca16375935f4ae47ee8d"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 13172,
-      "sha256": "3023c5e103464c0a95c071f4a2ba33cbfefd1d07a5bb18f5d881d7766a0ef7e2"
+      "bytes": 13790,
+      "sha256": "19b268857975697f4e321fce129281701ff52b54469a68435f7be97247efbb20"
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 151784,
-      "sha256": "959f4141b1892c73343e36581a4aaf8787d8504e2a9b2eba3b09e44072aa4cc1"
+      "bytes": 151908,
+      "sha256": "ebe1c514bf03bfeb8d8c0b399ccd3a3d9f5a3261acc82555dfd9698afb5c86fa"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 6242,
-      "sha256": "4e2524b46b14c0f988771850acaec6490368c8c0cb90db7583d55a10cd4b5905"
+      "bytes": 9397,
+      "sha256": "e1d217a0f8c9edab87281fbaf815e05ce338cae1f906c09731179eb704d8e6bc"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -240,8 +245,8 @@
     },
     {
       "path": "tests/dashboard-operational-brand-ui.test.cjs",
-      "bytes": 16663,
-      "sha256": "6b56ee5b57ac1bfba2095a4cb65829f693f250f4e4de29e5c3b4533644ab8ebe"
+      "bytes": 18697,
+      "sha256": "1c6913087732ce8db19c15634fb9f1a8165a1c62c6994ac94cb4a8853f030aad"
     },
     {
       "path": "tests/dashboard-operational-campaign-ui-assets.test.cjs",
@@ -262,6 +267,11 @@
       "path": "tests/dashboard-operational-managed-ui.test.cjs",
       "bytes": 11406,
       "sha256": "7953cb9701e33ac370f25b7ad701a73dfbdecefa965dcd4e3b4626ece5a9bb66"
+    },
+    {
+      "path": "tests/dashboard-operational-native-mcp.test.cjs",
+      "bytes": 14508,
+      "sha256": "08f96bf13c8caffc055820f71f84aaab4cacc1af55c65918af1ed37e1e85748f"
     },
     {
       "path": "tests/dashboard-operational-own-master-production.test.cjs",
@@ -305,8 +315,8 @@
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
-      "bytes": 12131,
-      "sha256": "67dfd40dd181da3433b4479cc3a65ab76722f5b31b21819230baab4197be6eb3"
+      "bytes": 15383,
+      "sha256": "f5154b211c1770da174c8fee826cd11b00ed318664ebb766b2d5fb276f8737c2"
     },
     {
       "path": "tests/simple-login-ui.test.cjs",
@@ -316,7 +326,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2718,
-      "sha256": "3a1e7f48a5e905e40a4b804146e6180412e428658803a3dfbec349f429d162fe"
+      "sha256": "01c2a7f60fed0494bbddaa152bc8ee274d92d60e55b1ae469960d6b2026beb2b"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",

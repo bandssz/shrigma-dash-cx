@@ -25,6 +25,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
  };
  const same=(context,front,brand,before)=>{if(current(context,front,brand).stamp!==before.stamp)fail('SERVICE_READ_ACCESS_CHANGED',403);};
  const journeys=Journeys.createReader({fetchImpl,authorize:(context,{brand})=>{const {user}=current(context,'growth',brand);if(!credentials.growth)fail('SERVICE_READ_SOURCE_NOT_LINKED',503);return {userId:user.id,binding:versions.growth+':'+user.id,credential:credentials.growth};}});
+ const templates=require('./crm-master-template-read.cjs').createReader({fetchImpl,authorize:(context,{brand})=>{const {user}=current(context,'growth',brand);if(!credentials.growth)fail('SERVICE_READ_SOURCE_NOT_LINKED',503);return {userId:user.id,binding:versions.growth+':'+user.id,credential:credentials.growth};}});
  function availability(context,brand){
   current(context,'afiliados',brand);if(brand==='olivas')fail('BRAND_READ_CONTRACT_NOT_READY',503);
   return {schema:'shrigma-affiliate-read-availability-v1',brand,readLinked:!!credentials.afiliados,binding:versions.afiliados||null,readOnly:true};
@@ -33,7 +34,9 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   let front,brand,d,affiliateCommand;
   if(route==='templates'){
    if(method!=='GET'||body!==undefined)fail('READ_ONLY');
-   const action=query.get('acao');if(!['fluxos_capacidade','fluxos_listar'].includes(action))fail('READ_ONLY');
+   const action=query.get('acao');
+   if(action==='listar'&&query.get('canal')==='email'){const result=await templates.read({...context,method},query);noSecrets(result.body);return result;}
+   if(!['fluxos_capacidade','fluxos_listar'].includes(action))fail('READ_ONLY');
    const result=action==='fluxos_capacidade'?journeys.capability(context,query):await journeys.read(context,query);noSecrets(result.body);return result;
   }
   if(route==='affiliate-read'){
@@ -65,6 +68,38 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    same(context,front,brand,before);return {status:200,body:payload};
   }finally{pending--;}
  }
- return Object.freeze({read,availability});
+ async function summary(context,brands,origin,now=Date.now()){
+  auth.authorize({...context,admin:true});
+  if(!Array.isArray(brands)||brands.length>2||brands.some(b=>!['fish','aristo'].includes(b))||new Set(brands).size!==brands.length)fail('BRAND_INVALID',400);
+  const fim=new Date(now-3*3600000).toISOString().slice(0,10),ini=new Date(now-3*3600000-29*86400000).toISOString().slice(0,10);
+  const measuredAt=new Date(now).toISOString();
+  const jobs=brands.flatMap(brand=>Object.keys(AREA).map(async front=>{
+   auth.authorize({...context,admin:true});
+   let result;
+   try{
+    const q=new URLSearchParams();let route,method='GET',body,viewBrand;
+    if(front==='growth'){route='crm-read';q.set('action','cache_growth');q.set('painel','growth');viewBrand=brand;}
+    else if(front==='organico'){route='cache';q.set('painel','organico');viewBrand=brand;}
+    else if(front==='influs'){route='influ';method='POST';body={acao:'listar',ini,fim,marca:brand};}
+    else{route='affiliate-read';method='POST';body={ini,fim,brand,expected_binding:availability(context,brand).binding};}
+    result=await read({context,route,method,query:q,body,viewBrand,origin});
+    const b=result.body,counts={},freshness={};
+    for(const [key,value]of Object.entries(b)){
+     if(Array.isArray(value)&&key!=='crm_credencial')counts[key]=value.length;
+     if(['gerado_em','_cache_gerado_em'].includes(key)&&typeof value==='string')freshness[key]=new Date(value).toISOString();
+    }
+    // Only dates from allowlisted collector fields leave this diagnostic;
+    // rows, emails, names, cookies, keys and provider error text stay private.
+    for(const rows of Object.values(b).filter(Array.isArray))for(const row of rows)for(const key of ['coletado_em','ultima_coleta','ultima_ok','ultima']){
+     const v=row?.[key];if(typeof v==='string'&&Number.isFinite(Date.parse(v))&&(!freshness[key]||Date.parse(v)>Date.parse(freshness[key])))freshness[key]=new Date(v).toISOString();
+    }
+    result={front,brand,status:200,counts,freshness,source:front==='growth'?'crm-panel-read':front==='organico'?'cache-organico':front==='influs'?'influ-listar':'tts-painel',window:front==='influs'||front==='afiliados'?{ini,fim}:null,readOnly:true};
+   }catch(e){result={front,brand,status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'SERVICE_READ_UNCONFIRMED',counts:null,freshness:null,readOnly:true};}
+   auth.authorize({...context,admin:true});return result;
+  }));
+  const sources=await Promise.all(jobs);auth.authorize({...context,admin:true});
+  return {schema:'shrigma-four-front-read-summary-v1',measuredAt,sources,readOnly:true,operational:false};
+ }
+ return Object.freeze({read,availability,summary});
 }
 module.exports={createReader,sourceKeysFromEnv};

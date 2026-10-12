@@ -20,11 +20,12 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
   assert.equal(options.headers.Authorization,'Bearer '+keys[front]);
   if(revoke)auth.simpleAccounts.update({context:adminContext,userId:created.user.id,jobTitle:'analista',fronts,brands,active:false});
   let data;
-  if(journeys)data={checked_at:STAMP,flows:[{key:'fish:synthetic',brand:'fish',name:'Jornada sintética',trigger:'synthetic',version:1,enabled:false,runtime_ready:false,published:null,published_version:null,journey_kind:null,available_steps:[]}]};
+  if(journeys&&target.searchParams.get('acao')==='listar')data={consultado_em:STAMP,templates:[{id:'1',key:'fish:email:1',brand:'fish',channel:'email',status:'APPROVED',name:'Template sintético',draft_id:null,updated_at:STAMP,components:{subject:'Assunto',body_html:'<p>Conteúdo sintético</p>'}}]};
+  else if(journeys)data={checked_at:STAMP,flows:[{key:'fish:synthetic',brand:'fish',name:'Jornada sintética',trigger:'synthetic',version:1,enabled:false,runtime_ready:false,published:null,published_version:null,journey_kind:null,available_steps:[]}]};
   else if(front==='growth')data={crm_diario:[{marca:'fish',dia:'2026-10-12',enviados:12},{marca:'aristo',dia:'2026-10-12',enviados:24}],crm_credencial:[{api_key:'synthetic-private'}]};
   else if(front==='organico')data={_escopo:'organico',_cache_gerado_em:STAMP,cx_post:[{marca:'fish',post_id:'fish-post',publicado_em:STAMP,ultima_coleta:STAMP,formato:'reel',impulsionado:false,alcance:12},{marca:'aristo',post_id:'aristo-post',publicado_em:STAMP,ultima_coleta:STAMP,formato:'reel',impulsionado:false,alcance:99}],cx_story:[],cx_organico_receita:[]};
-  else if(front==='influs')data={janela:{ini:'2026-10-01',fim:'2026-10-12'},influs:[],roi:[],cupons:[],custos:[],receita_cupom:[],termos:[]};
-  else data={janela:{ini:'2026-10-01',fim:'2026-10-12'},gerado_em:STAMP,kpis:[{marca:'fish',pedidos:2,gmv:100},{marca:'aristo',pedidos:4,gmv:200}]};
+  else if(front==='influs')data={janela:{ini:JSON.parse(options.body).ini,fim:JSON.parse(options.body).fim},influs:[],roi:[],cupons:[],custos:[],receita_cupom:[],termos:[]};
+  else data={janela:{ini:JSON.parse(options.body).ini,fim:JSON.parse(options.body).fim},gerado_em:STAMP,kpis:[{marca:'fish',pedidos:2,gmv:100},{marca:'aristo',pedidos:4,gmv:200}]};
   if(unscoped)delete data.cx_post[0].marca;if(leak)data.secret=keys[front];if(leakJourney&&journeys)data.flows[0].name=keys.afiliados;
   return new Response(JSON.stringify(data),{headers:{'content-type':'application/json'}});
  };
@@ -36,7 +37,7 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
   const headers={Host:HOST,Origin:'https://'+HOST,Cookie:cookie||login.cookie.split(';')[0],...(csrf?{'X-CSRF-Token':login.csrf}:{}),...(brand?{'X-Shrigma-View-Brand':brand}:{}),...(bytes?{'content-type':'application/json','content-length':bytes.length}:{})};
   const req=http.request({host:'127.0.0.1',port:server.address().port,path:url,method,headers},res=>{let out='';res.on('data',b=>out+=b);res.on('end',()=>resolve({status:res.statusCode,body:res.headers['content-type']?.startsWith('application/json')?JSON.parse(out):out,cookie:res.headers['set-cookie']}));});req.on('error',reject);req.end(bytes);
  });
- return {request,reads:()=>reads,keys,analyst,created};
+ return {request,reads:()=>reads,keys,analyst,created,auth,adminContext,fetchImpl,upstreams};
 }
 test('ordinary session exposes four product fronts without individual credentials or writer features',async t=>{
  const f=await fixture(t),r=await f.request('/auth/session');assert.equal(r.status,200);assert.equal(r.body.features.simpleLogin,true);assert.deepEqual(r.body.user.productFronts,['growth','organico','influs','afiliados']);assert.equal(r.body.features.campaignSubmitWrite,false);assert.equal(f.reads(),0);
@@ -88,4 +89,24 @@ test('administrator creates, resets and disables through HTTP; analyst cannot ma
  const update={action:'update',userId:created.body.user.id,jobTitle:create.jobTitle,fronts:create.fronts,brands:create.brands,active:false};assert.equal((await f.request('/auth/simple/users',{method:'POST',body:update,asAdmin:true})).status,200);
  const list=await f.request('/auth/users',{asAdmin:true});assert.equal(list.status,200,JSON.stringify(list.body));assert.equal(list.body.users.find(u=>u.id===created.body.user.id).active,false);assert(!JSON.stringify(list.body).includes(PASS));
  assert.equal((await f.request('/auth/users',{method:'POST',asAdmin:true,body:{action:'crm_reconcile'}})).status,403);
+});
+
+test('Master concrete brand reads do not use the null all-brands identity as a source brand',async t=>{
+ const f=await fixture(t);for(const brand of ['fish','aristo']){const r=await f.request('/api/crm-read?action=cache_growth&painel=growth',{asAdmin:true,brand});assert.equal(r.status,200);assert.equal(r.body.brand,brand);assert(r.body.crm_diario.every(row=>row.marca===brand));}
+ const r=await f.request('/api/influ',{asAdmin:true,method:'POST',body:{acao:'listar',ini:'2026-10-01',fim:'2026-10-12',marca:'aristo'}});assert.equal(r.status,200);assert.equal(r.body.brand,'aristo');
+});
+test('four-front native summary uses the same readers, scopes brands and returns only aggregate facts',async t=>{
+ const f=await fixture(t),reader=require(runtime+'/simple-dashboard-read.cjs').createReader({auth:f.auth,upstreams:f.upstreams,keys:f.keys,fetchImpl:f.fetchImpl,projectGrowth:(value,brand)=>({brand,crm_diario:value.crm_diario.filter(x=>x.marca===brand)})});
+ const result=await reader.summary(f.adminContext,['fish','aristo'],'https://'+HOST,Date.parse('2026-10-13T01:30:00Z'));
+ assert.equal(result.sources.length,8);assert(result.sources.every(x=>x.status===200),JSON.stringify(result.sources));assert.equal(result.sources.find(x=>x.front==='growth'&&x.brand==='fish').counts.crm_diario,1);assert.equal(result.sources.find(x=>x.front==='afiliados').window.fim,'2026-10-12');
+ for(const secret of Object.values(f.keys))assert(!JSON.stringify(result).includes(secret));assert(!JSON.stringify(result).includes('fish-post'));assert(!JSON.stringify(result).includes('private'));
+ await assert.rejects(reader.summary({host:HOST,origin:'https://'+HOST,method:'POST',cookieHeader:f.analyst.cookie.split(';')[0],csrf:f.analyst.csrf},['fish'],'https://'+HOST),e=>e.status===403);
+});
+test('summary refuses sources honestly without manufacturing zero or leaking provider errors',async t=>{
+ const f=await fixture(t),reader=require(runtime+'/simple-dashboard-read.cjs').createReader({auth:f.auth,upstreams:f.upstreams,keys:f.keys,fetchImpl:async()=>{throw Error('provider-private-value');},projectGrowth:x=>x});
+ const result=await reader.summary(f.adminContext,['fish'],'https://'+HOST);assert(result.sources.every(x=>x.status===502&&x.error==='UPSTREAM_UNAVAILABLE'&&x.counts===null),JSON.stringify(result.sources));assert(!JSON.stringify(result).includes('provider-private-value'));
+});
+
+test('simple CRM session rereads original registered email templates with the service READ credential',async t=>{
+ const f=await fixture(t,{fronts:['growth'],brands:['fish']});const r=await f.request('/api/templates?acao=listar&marca=fish&canal=email');assert.equal(r.status,200);assert.equal(r.body.templates[0].brand,'fish');assert.equal(r.body.total,1);assert.equal((await f.request('/api/templates?acao=listar&marca=aristo&canal=email')).status,403);
 });

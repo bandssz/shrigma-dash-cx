@@ -1,7 +1,7 @@
 'use strict';
 // Two reviewed public replacements over the exact existing presentation.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const FILES=['assets/panels/growth.js','assets/panels/influs.js','growth.html','influs.html','entry.js'];
+const FILES=['assets/panels/growth.js','assets/panels/influs.js','growth.html','influs.html','organico.html','entry.js'];
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 const refuse=()=>{throw Error('JOURNEY_PRESENTATION_BUILD_REFUSED');};
 function read(p){const s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.size<1||s.size>2*1024*1024)refuse();return fs.readFileSync(p);}

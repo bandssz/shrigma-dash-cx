@@ -41,10 +41,10 @@ test('actual admin form requires brand and submits email, sector and direct read
  }
 });
 
-function guardFixture(user,{status=200,body={ok:true}}={}){
+function guardFixture(user,{status=200,body={ok:true},simpleRead=false,sessionPending=false}={}){
  const d=dom('<html><body><div id="seg-marca"><button data-marca="todas">Todas</button><button data-marca="fish">Fishermans</button><button data-marca="aristo">Aristocrata</button><button data-marca="olivas">Olivas</button></div></body></html>');
- const calls=[],requests=[],messages=[],events=[],window={parent:{postMessage:(...v)=>messages.push(v)},dispatchEvent:event=>events.push(event),fetch:async(url,options)=>{calls.push(String(url));requests.push({url:String(url),options});if(url==='/auth/session')return new Response(JSON.stringify(session(user)),{status:200});assert.ok(window.ShrigmaBrandAccess,'scope is resolved before API response');return new Response(JSON.stringify(body),{status});}};
- const context={window,document:d.document,location:{origin:'https://crm.synthetic.invalid',href:'https://crm.synthetic.invalid/growth.html'},navigator:{},URL,URLSearchParams,Headers,Response,Request,FormData,CustomEvent:d.window.CustomEvent,HTMLFormElement:d.window.HTMLFormElement};
+ const calls=[],requests=[],messages=[],events=[],window={parent:{postMessage:(...v)=>messages.push(v)},dispatchEvent:event=>events.push(event),fetch:async(url,options)=>{calls.push(String(url));requests.push({url:String(url),options});if(url==='/auth/session'&&sessionPending)return new Promise(()=>{});if(url==='/auth/session')return new Response(JSON.stringify({...session(user),features:{simpleRead}}),{status:200});assert.ok(window.ShrigmaBrandAccess,'scope is resolved before API response');return new Response(JSON.stringify(body),{status});}};
+ const context={window,document:d.document,location:{origin:'https://crm.synthetic.invalid',href:'https://crm.synthetic.invalid/growth.html'},navigator:{},setTimeout:sessionPending?(fn=>{queueMicrotask(fn);return 1;}):setTimeout,clearTimeout:sessionPending?(()=>{}):clearTimeout,URL,URLSearchParams,Headers,Response,Request,FormData,CustomEvent:d.window.CustomEvent,HTMLFormElement:d.window.HTMLFormElement};
  vm.runInNewContext(fs.readFileSync(path.join(service,'public/guard.compiled.js'),'utf8'),context);
  return {...d,calls,requests,messages,events,window};
 }
@@ -116,4 +116,20 @@ test('multi-brand guard keeps only delegated selectors and carries the chosen br
  await f.window.fetch('/api/templates?acao=templates_listar&brand=fish');assert.equal(f.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),null);
  await f.window.fetch('/api/cache',{method:'POST',body:'{}',headers:{'Content-Type':'application/json'}});assert.equal(f.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),null);
  const m=guardFixture({...master,viewBrands:['fish','aristo','olivas']});await m.window.fetch('/api/cache?painel=growth');assert.equal(m.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),null);m.document.querySelector('[data-marca="olivas"]').classList.add('ativo');await m.window.fetch('/api/cache?painel=growth');assert.equal(m.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),'olivas');
+});
+
+test('simple Master selects a concrete brand for cache and CRM reads while legacy keeps aggregation',async()=>{
+ const f=guardFixture(master,{simpleRead:true});await f.window.fetch('/api/crm-read?action=cache_growth&painel=growth');
+ assert.equal(f.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),'fish');assert.equal(f.window.ShrigmaSimpleRead,true);assert.equal(f.document.querySelector('[data-marca="todas"]'),null);
+ f.document.querySelector('[data-marca="aristo"]').classList.add('ativo');await f.window.fetch('/api/cache?painel=organico');assert.equal(f.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),'aristo');
+ const legacy=guardFixture(master);await legacy.window.fetch('/api/crm-read?action=cache_growth&painel=growth');assert.equal(legacy.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),null);
+});
+
+test('first read resolves the real session and concrete brand before any source call',async()=>{
+ const f=guardFixture(master,{simpleRead:true});assert.equal(f.window.ShrigmaSimpleRead,undefined);assert.equal(await f.window.ShrigmaPrepareRead(),true);assert.equal(f.window.ShrigmaSimpleRead,true);assert.equal(f.events[0].detail.brand,'fish');assert.deepEqual(f.calls,['/auth/session']);
+ await f.window.fetch('/api/crm-read?action=cache_growth&painel=growth');assert.equal(f.requests.at(-1).options.headers.get('X-Shrigma-View-Brand'),'fish');assert.equal(f.calls.filter(x=>x==='/auth/session').length,1);
+});
+
+test('pending session reaches the preparation deadline without querying a source',async()=>{
+ const f=guardFixture(master,{simpleRead:true,sessionPending:true});assert.equal(await f.window.ShrigmaPrepareRead(),false);assert.deepEqual(f.calls,['/auth/session']);assert.equal(f.window.ShrigmaSimpleRead,undefined);
 });

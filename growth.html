@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=cdc4fef0ca42">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-imVcOEQXmluRjrqWmHL47swzL5kB+nhX2CsAI9J8Ow4='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-qVnDZm/tXZGZPfkUjqv4ofNWn+/1nVaTUoKE/tp+5AY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <style id="crm-configured-journeys-read">
 #control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
 #control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
@@ -318,6 +318,7 @@ const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&am
 GA.install(G);
 let ATTR_MODEL=GA.DEFAULT_MODEL;
 let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
+let SIMPLE_READ_GENERATION=0,SIMPLE_READ_QUEUED=false;
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
 let CONSULTA={em:null,falhou:false,antigo:false},FALHA_LEITURA='';
 // A faixa reúne o estado da leitura (falha, retrato antigo) e os alertas de dados do Início.
@@ -1061,15 +1062,18 @@ async function leCacheGrowth(k){
 }
 // GROWTH_CACHE_READ_END
 async function carregar({retryIdentity=false}={}){
+  if(window.ShrigmaPrepareRead&&!(await window.ShrigmaPrepareRead())){$('#load-state').hidden=true;$('#atualizado-em').textContent='Sessão indisponível. Atualize para tentar novamente.';return;}
   if(typeof GPR!=='undefined')GPR.clear();
   GrowthView.resolve({retry:retryIdentity});
-  if(LOADING)return;
+  if(LOADING){if(window.ShrigmaSimpleRead)SIMPLE_READ_QUEUED=true;return;}
+  const readingBrand=MARCA,readingGeneration=SIMPLE_READ_GENERATION;
   const k=chave();if(!k){mostraAcessoGrowth();return;}
   LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
   if(!API)$('#load-state').hidden=false;
   try{
     const inicioLeituraAB=Date.now();
     const {next:fresh,antigo,r,codigo}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==SIMPLE_READ_GENERATION))return;
     if(r&&r.status===503&&codigo==='CRM_ACCESS_NOT_READY'){limpaConsultaCRM();throw new Error(GrowthAccess.ACESSO_CRM_PENDENTE);}
     if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
     // Sem preparação no prazo, cai para o retrato vencido só se ele for mais novo que o já exibido.
@@ -1099,6 +1103,7 @@ async function carregar({retryIdentity=false}={}){
       :'Consultado em '+horaBR(Date.now());
     $('#atualizado-em').title=!fresh?'A preparação mais recente dos dados tem mais de 20 minutos. O painel mostra o último retrato disponível; os números não são de agora. Atualize em alguns minutos.':ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
   }catch(e){
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==SIMPLE_READ_GENERATION))return;
     $('#load-state').hidden=true;
     CONSULTA={...CONSULTA,falhou:true};FALHA_LEITURA=GrowthAccess.readError(e);
     pintaAlertas();
@@ -1114,6 +1119,7 @@ async function carregar({retryIdentity=false}={}){
     else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
+    if(SIMPLE_READ_QUEUED){SIMPLE_READ_QUEUED=false;carregar();}
   }
 }
 async function salvarTeste(){
@@ -1176,7 +1182,8 @@ function trocaMarca(next,afterConfirm=null){
     const campaign=GCE.contextStatus();
     try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();if(typeof GJG!=='undefined')GJG.preserve();}catch(e){notice(e.message);return false;}
     MARCA=next;AB_WRITE_EPOCH++;
-    ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
+    ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
+    if(window.ShrigmaSimpleRead){SIMPLE_READ_GENERATION++;API=null;render();carregar();}else render();gravaHash();
     // The editor may still hold a brand opened before the current header brand.
     notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[campaign.brand]||G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
     return true;

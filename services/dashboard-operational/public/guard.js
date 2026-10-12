@@ -7,7 +7,8 @@
  const uiKey=value=>typeof value==='string'&&/^ui-[a-f0-9]{16,128}$/.test(value);
  function reject(status=403){return new Response(JSON.stringify({erro:'Rota não autorizada pelo painel.'}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});}
  function notifyExpired(){if(window.parent!==window)window.parent.postMessage({type:'shrigma:session-expired'},location.origin);}
- function bindBrandPresentation(user){
+ function bindBrandPresentation(user,simpleRead=false){
+  window.ShrigmaSimpleRead=simpleRead===true;
   const brands=['fish','aristo','olivas'];let scope;
   if(user?.role==='superadmin'&&user.brandAccess==='all'&&user.brand===null&&Array.isArray(user.brands)&&user.brands.length===2&&['fish','aristo'].every(b=>user.brands.includes(b))){const views=user.viewBrands??user.brands;if(!Array.isArray(views)||new Set(views).size!==views.length||views.some(b=>!brands.includes(b)))throw Error('brand_scope_unavailable');scope={brand:null,brands:[...views],brandAccess:'all'};}
   else if(user?.role==='manager'&&user.brandAccess==='single'&&brands.includes(user.brand)&&Array.isArray(user.brands)&&user.brands.length===1&&user.brands[0]===user.brand)scope={brand:user.brand,brands:[user.brand],brandAccess:'single'};
@@ -22,13 +23,15 @@
    }
    document.body.dataset.brandAccess='single';document.body.dataset.brand=scope.brand;
   }
-  if(scope.brandAccess==='multiple'){
+  if(scope.brandAccess==='multiple'||simpleRead){
    for(const button of document.querySelectorAll('#seg-marca button[data-marca]'))if(!scope.brands.includes(button.dataset.marca))button.remove();
    document.body.dataset.brandAccess='multiple';
   }
+  const active=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca;
+  const initialBrand=scope.brands.includes(active)?active:scope.brands[0];
   // The operational build installs this listener in each panel's own lexical
   // scope. The server independently authorizes and projects every response.
-  window.dispatchEvent(new CustomEvent('shrigma:brand-access',{detail:scope.brandAccess==='multiple'?{...scope,brandAccess:'single',brand:scope.brands[0]}:window.ShrigmaBrandAccess}));
+  window.dispatchEvent(new CustomEvent('shrigma:brand-access',{detail:scope.brandAccess==='multiple'||simpleRead?{...scope,brandAccess:'single',brand:initialBrand}:window.ShrigmaBrandAccess}));
  }
  function stripObject(value,depth=0){
   if(depth>16)throw Error('body_too_deep');
@@ -72,7 +75,7 @@
    const state=await response.json();
    if(sequence!==sessionSequence)throw Error('session_replaced');
    if(state?.authenticated!==true||typeof state.csrf!=='string'||!state.csrf){notifyExpired();throw Error('session_expired');}
-   bindBrandPresentation(state.user);sessionState=state;
+   bindBrandPresentation(state.user,state.features?.simpleRead===true);sessionState=state;
    audienceWriter=state.features?.audienceDraft===true&&state.user?.permissions?.growth?.edit===true;
    campaignWriter=state.features?.campaignSubmitWrite===true&&state.user?.role==='manager'&&state.user.areas?.length===1&&state.user.areas[0]==='growth'&&state.user.permissions?.growth?.read===true&&state.user.permissions.growth.edit===true;
    return state;
@@ -93,6 +96,8 @@
    throw error;
   }
  }
+ // Await the existing session read before a panel captures its first brand.
+ window.ShrigmaPrepareRead=async()=>{let timer;try{return await Promise.race([csrf().then(()=>true,()=>false),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),8000);})]);}finally{clearTimeout(timer);}};
  window.fetch=async function(input,init={}){
   let url;try{url=new URL(input instanceof Request?input.url:input,location.href);}catch(_){return reject();}
   if(url.origin!==location.origin)return reject();
@@ -115,7 +120,7 @@
   const headers=new Headers(init.headers||(input instanceof Request?input.headers:{}));cleanHeaders(headers);
   if(method==='GET'&&['cx','cache','crm-read'].includes(route)&&window.ShrigmaBrandAccess){
    const scope=window.ShrigmaBrandAccess,selected=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca??scope.brand??scope.brands[0];
-   if(scope.brandAccess==='multiple'||selected==='olivas'){
+   if(scope.brandAccess==='multiple'||selected==='olivas'||sessionState?.features?.simpleRead===true){
    if(!scope.brands.includes(selected))return reject();headers.set('X-Shrigma-View-Brand',selected);
    }
   }
