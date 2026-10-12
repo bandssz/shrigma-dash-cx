@@ -47,8 +47,8 @@
     },
     {
       "path": "influs.html",
-      "bytes": 100009,
-      "sha256": "af5ffe8681934efb27dc7f393fd60e09c7f3e4ad9e7aafc584d2766c60836073"
+      "bytes": 101006,
+      "sha256": "686f8c81b0c4ea5890b80ccd1314eed244de994dd70d01d5a447fda3a703bd64"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -92,13 +92,13 @@
     },
     {
       "path": "tests/product-front-split.test.cjs",
-      "bytes": 5312,
-      "sha256": "7322d5060b2333111ff084e4a89ac026e52fe551d0862328e25f8a67e2f297ac"
+      "bytes": 6611,
+      "sha256": "f76a876cf1eecd72afdf17310ebc3a63d1ec855afeaef25e64a89ccecffde9d3"
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 22662,
-      "sha256": "32a177ee7a6a05daa085e292b54dc9fcda2c6281178ba5b04b6ac9c4b097fc0f"
+      "bytes": 23779,
+      "sha256": "3a1a24d1bb3b9ca1c4b31a71805adbadb119693bda233f4ef46c19d6f0115ab7"
     },
     {
       "path": "tools/crm-native-connection/verify-manager-access-source.cjs",

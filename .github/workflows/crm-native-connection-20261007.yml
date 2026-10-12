@@ -219,6 +219,11 @@ jobs:
       - name: Verify new individual READ and front separation in Node22 UID1000
         run: |
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /source/tests/dashboard-individual-read.test.cjs /source/tests/dashboard-individual-read-gateway.test.cjs /source/tests/product-front-split.test.cjs
+      - name: Verify unchanged legacy reader and navigation regressions in Node22 UID1000
+        run: |
+          npm install --prefix "$ACCESS_CI_DIR/dom" --ignore-scripts --no-audit --no-fund --package-lock=false linkedom@0.18.12
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$ACCESS_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /source/tests/creators-read-isolation.test.cjs /source/tests/influs-access.test.cjs /source/tests/influs-sections.test.cjs /source/tests/influs-active-read.test.cjs /source/tests/influs-affiliates-mount.test.cjs
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-name-pattern='Influs|TikTok' /source/tests/frontend-read-consistency.test.cjs
       - name: Verify individual writer coexistence preserves original Master
         run: |
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/tests/analyst-live-coexistence,dst=/tmp/coexist,readonly" --env ANALYST_COEXISTENCE_RUNTIME=/app/native-backend/runtime --env ANALYST_COEXISTENCE_SOURCE=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /tmp/coexist/coexistence.test.cjs
