@@ -220,8 +220,8 @@
     },
     {
       "path": "tests/afiliados-session-read.test.cjs",
-      "bytes": 22135,
-      "sha256": "8e417f1b406d5fa06b4c1fc002e391b1d904c34ee5533b2c27270508de9c2930"
+      "bytes": 22195,
+      "sha256": "c852a17ff752e800a25665a74cb3e138b5fe297569aeacc3d96f65c6f2a614b8"
     },
     {
       "path": "tests/claude-crm-access-states-path.test.cjs",

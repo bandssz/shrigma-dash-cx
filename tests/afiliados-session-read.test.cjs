@@ -166,7 +166,7 @@ test('actual compiled guard refreshes session/CSRF and uses only own READ body w
     const reply=new Response(JSON.stringify(data),{status:200,headers:{'Content-Type':'application/json'}});reply.json=async()=>vm.runInContext('JSON.parse('+JSON.stringify(JSON.stringify(data))+')',realm);return reply;
   };
   const window={fetch:nativeFetch,dispatchEvent(){},open(){}};window.parent=window;
-  const context=vm.createContext({window,location,document:{querySelectorAll(){return[];},body:{dataset:{}},addEventListener(){}},navigator:{},URL,Headers,Request,Response,FormData,URLSearchParams,CustomEvent,AbortController,setTimeout,clearTimeout,HTMLFormElement:class{}});
+  const context=vm.createContext({window,location,document:{querySelector(){return null;},querySelectorAll(){return[];},body:{dataset:{}},addEventListener(){}},navigator:{},URL,Headers,Request,Response,FormData,URLSearchParams,CustomEvent,AbortController,setTimeout,clearTimeout,HTMLFormElement:class{}});
   realm=context;
   new vm.Script(guard,{filename:'actual-compiled-guard.js'}).runInContext(context);
   const adapter=window.ShrigmaAffiliateAccess;
@@ -227,7 +227,7 @@ test('actual guard follows one newer CSRF refresh before a POST, without false 4
  const reply=data=>{const r=new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});r.json=async()=>vm.runInContext('JSON.parse('+JSON.stringify(JSON.stringify(data))+')',realm);return r;};
  const nativeFetch=async(url,options)=>{calls.push({url:String(url),options});if(String(url)==='/auth/session'){sessionReads++;return sessionReads===1?old.promise:reply(state);}return reply({ok:true});};
  const window={fetch:nativeFetch,dispatchEvent(){},open(){}};window.parent=window;
- realm=vm.createContext({window,location,document:{querySelectorAll(){return[];},body:{dataset:{}},addEventListener(){}},navigator:{},URL,Headers,Request,Response,FormData,URLSearchParams,CustomEvent,AbortController,setTimeout,clearTimeout,HTMLFormElement:class{}});
+ realm=vm.createContext({window,location,document:{querySelector(){return null;},querySelectorAll(){return[];},body:{dataset:{}},addEventListener(){}},navigator:{},URL,Headers,Request,Response,FormData,URLSearchParams,CustomEvent,AbortController,setTimeout,clearTimeout,HTMLFormElement:class{}});
  new vm.Script(guard).runInContext(realm);
  const work=window.fetch('/api/influ',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({acao:'listar',...period})});
  const selected=await window.ShrigmaAffiliateAccess.prepareSelection('fish');assert.equal(selected,'fish');old.resolve(reply(state));const result=await work;
