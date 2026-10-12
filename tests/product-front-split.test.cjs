@@ -3,6 +3,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const {productViewsForAreas}=require('../services/dashboard-operational/public/entry.js');
 const raw=fs.readFileSync(require.resolve('../influs.html'),'utf8'),script=[...raw.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+test('the served CSP permits the actual inline navigation script',()=>{const crypto=require('node:crypto');const policy=raw.match(/<!-- PANEL_SECURITY --><meta[^>]+content="([^"]+)"/)[1];for(const m of raw.matchAll(/<script\s*>([\s\S]*?)<\/script>/g))assert.ok(policy.includes("'sha256-"+crypto.createHash('sha256').update(m[1]).digest('base64')+"'"),'inline navigation must execute under the generated policy');});
 function panel(view){
  const elements=new Map(),reads={requireRead:0,metadata:0,tts:0};
  function element(key,dataset={}){if(elements.has(key))return elements.get(key);const classes=new Set();const e={dataset,hidden:false,textContent:'',innerHTML:'',value:'',style:{},classList:{add:x=>classes.add(x),remove:x=>classes.delete(x),toggle:(x,on)=>on===undefined?(classes.has(x)?classes.delete(x):classes.add(x)):on?classes.add(x):classes.delete(x),contains:x=>classes.has(x)},setAttribute(){},addEventListener(){},appendChild(){},prepend(){},querySelector:()=>element(key+'/child'),querySelectorAll:()=>[],insertAdjacentHTML(){},click(){this.onclick?.();}};elements.set(key,e);return e;}
