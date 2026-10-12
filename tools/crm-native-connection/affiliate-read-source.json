@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 30513,
-      "sha256": "58a8353b394821ba002e18b3fe08111ea1e72a7c834ee6fd55501eda94d6aca1"
+      "bytes": 31425,
+      "sha256": "0f0e5c56a486eb71861d14763d9b2223addae183aa5cc3e0e444aded58cd0c63"
     },
     {
       "path": "assets/panels/growth.js",
@@ -75,8 +75,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
-      "bytes": 5159,
-      "sha256": "1c31a304aaf29cf1b08bd02e5c90e22f48fd2089594f68275f2fd42eb2a999bc"
+      "bytes": 5235,
+      "sha256": "26456ef5a2c84beff951c78206f65191174320421fe68e063858bb3c880ba463"
     },
     {
       "path": "organico.html",
@@ -135,8 +135,8 @@
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
-      "bytes": 43830,
-      "sha256": "58bd906e08509fb768c3922662f10b9912f8e1bc8fffcd61abac0e3235ed3d1e"
+      "bytes": 43996,
+      "sha256": "f9bf21b9d4b37505c906a09fb82ac9c5b7cda4a2ce255167954160827072b229"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-session-read.cjs",
@@ -175,18 +175,23 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 151908,
-      "sha256": "ebe1c514bf03bfeb8d8c0b399ccd3a3d9f5a3261acc82555dfd9698afb5c86fa"
+      "bytes": 153729,
+      "sha256": "661ef1e4b7f7288fc1a04e190c4be06b72709e680a63228e964bac6bae8415a3"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 9397,
-      "sha256": "e1d217a0f8c9edab87281fbaf815e05ce338cae1f906c09731179eb704d8e6bc"
+      "bytes": 9771,
+      "sha256": "fb9dec967d46b5632fb9a5ce48379329344f1d9019fb5b0660bbfaf48da3ca15"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
       "bytes": 6562,
       "sha256": "e07e9340c681a0126ce6ca2cc32aaf56ac482289075d060028c637961522cd4e"
+    },
+    {
+      "path": "tests/ab-experiment-integration.test.cjs",
+      "bytes": 6069,
+      "sha256": "d0ec72962ce082af1683484bc0156f132c5f463b1f2c3d379194926a54298853"
     },
     {
       "path": "tests/afiliados-creator-share.test.cjs",
@@ -229,6 +234,11 @@
       "sha256": "e345328d9cf8dc42bd9d73fec48149e0ba58f5b2b635fdcd2280a5b34e9c3f6f"
     },
     {
+      "path": "tests/creators-read-isolation.test.cjs",
+      "bytes": 6486,
+      "sha256": "ea2397070cdd1f579be42cedd2537bb16060d91e15bb4d0f454162ad4daf09a1"
+    },
+    {
       "path": "tests/dashboard-central-delegation.test.cjs",
       "bytes": 14592,
       "sha256": "fe1810c3d99e61d6547402cd092df8631d8722ef6a1f991272c424147fac6d4e"
@@ -237,6 +247,11 @@
       "path": "tests/dashboard-individual-read-gateway.test.cjs",
       "bytes": 11197,
       "sha256": "36292dc01b367f6cbe18b1115c441cddcc241e054343456ed6018c5e048ceac2"
+    },
+    {
+      "path": "tests/dashboard-individual-read.test.cjs",
+      "bytes": 17162,
+      "sha256": "bd50b5138cc6b296a39d9c39d53555727b5b3c056853db302d7b8b6211f822ae"
     },
     {
       "path": "tests/dashboard-operational-brand-identity.test.cjs",
@@ -289,6 +304,11 @@
       "sha256": "815d669a74bdf6a0b587b0e660cb43d50a59e8595dd674e55bb98ea2b5184dc8"
     },
     {
+      "path": "tests/frontend-read-consistency.test.cjs",
+      "bytes": 10977,
+      "sha256": "abb69fd4924c0dc1e63693b08264d94fd197b9f6dce351452f0db77007d194b1"
+    },
+    {
       "path": "tests/growth-campaign-audience-feedback.test.cjs",
       "bytes": 6475,
       "sha256": "c277a066bebcd7f19a51c190aac013ebf4a67080e8d87239dca09378b2edbdfa"
@@ -304,6 +324,26 @@
       "sha256": "a6fded93ab05cee557853804553d863394669a7b87a335f2ee54e7f877bf6880"
     },
     {
+      "path": "tests/influs-active-read.test.cjs",
+      "bytes": 4188,
+      "sha256": "b93e98761580af702f35018a124d4cc4c9ecadcac9dad508aa489ea93172421d"
+    },
+    {
+      "path": "tests/influs-affiliates-mount.test.cjs",
+      "bytes": 8076,
+      "sha256": "78ae0f6a0d54ffebcdaa796a62b33dacc8f7ac43206153688553801bbeb0fd52"
+    },
+    {
+      "path": "tests/organico-access.test.cjs",
+      "bytes": 9331,
+      "sha256": "cd637f46d9145d7628fa44f372df5fac54c60910ed1432b0d5862188e05464f3"
+    },
+    {
+      "path": "tests/organico-render.test.cjs",
+      "bytes": 15599,
+      "sha256": "71bddaf888a80d119c98f1d41d85455fe9c0ffcc4b6d0fda93f7e34576b9cdce"
+    },
+    {
       "path": "tests/product-front-split.test.cjs",
       "bytes": 7163,
       "sha256": "446a05109029958a336f6cfdb67b0b8bd3333a975d27169d80e102f4c4f28032"
@@ -315,8 +355,8 @@
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
-      "bytes": 15383,
-      "sha256": "f5154b211c1770da174c8fee826cd11b00ed318664ebb766b2d5fb276f8737c2"
+      "bytes": 17864,
+      "sha256": "ec30564563e7033832645190fe1de7779f71e3eb42193bd03e48209827a81522"
     },
     {
       "path": "tests/simple-login-ui.test.cjs",
@@ -326,7 +366,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2718,
-      "sha256": "01c2a7f60fed0494bbddaa152bc8ee274d92d60e55b1ae469960d6b2026beb2b"
+      "sha256": "6b875a035a8db402d96a08a97b74c8948d35c1d67f00727beee8ac49731bc9f1"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",

@@ -110,3 +110,20 @@ test('summary refuses sources honestly without manufacturing zero or leaking pro
 test('simple CRM session rereads original registered email templates with the service READ credential',async t=>{
  const f=await fixture(t,{fronts:['growth'],brands:['fish']});const r=await f.request('/api/templates?acao=listar&marca=fish&canal=email');assert.equal(r.status,200);assert.equal(r.body.templates[0].brand,'fish');assert.equal(r.body.total,1);assert.equal((await f.request('/api/templates?acao=listar&marca=aristo&canal=email')).status,403);
 });
+
+test('original attribution dimension keeps SQL nulls and positions for each admitted grain',()=>{
+ const project=require(runtime+'/server.cjs').projectBrandCache,sizes={total:1,channel:1,family:1,family_channel:2,campaign:1,campaign_channel:2,flow_piece:3,piece:6};
+ for(const [grain,size]of Object.entries(sizes)){
+  const nullable={campaign:[0],campaign_channel:[0],flow_piece:[1,2],piece:[1,2,3,4,5]}[grain]||[],dimension=Array.from({length:size},(_,i)=>nullable.includes(i)?null:'synthetic');const body={crm_attribution:{daily:[{brand:'fish',grain,dimension,dia:'2026-10-12',pedidos:1,receita:12}]}};
+  const out=project(body,'fish','growth','https://'+HOST);assert.deepEqual(out.crm_attribution.daily[0].dimension,dimension);
+  for(let i=0;i<size;i++)if(!nullable.includes(i)){const invalid=[...dimension];invalid[i]=null;assert.throws(()=>project({crm_attribution:{daily:[{brand:'fish',grain,dimension:invalid}]}},'fish','growth','https://'+HOST),e=>e.projectionIssue?.field==='dimension');}
+  assert.throws(()=>project({crm_attribution:{daily:[{brand:'fish',grain,dimension:[...dimension,'extra']}] }},'fish','growth','https://'+HOST),e=>e.projectionIssue?.field==='dimension');
+ }
+ assert.throws(()=>project({crm_diario:[{brand:'fish',enviados:{private:'value'}}]},'fish','growth','https://'+HOST),e=>e.code==='BRAND_RESPONSE_UNSCOPED');
+ assert.throws(()=>project({crm_campanha:[{brand:'fish',segmentos:[null]}]},'fish','growth','https://'+HOST),e=>e.code==='BRAND_RESPONSE_UNSCOPED');
+});
+test('projection failure native summary reveals only the closed section, field and reason',async t=>{
+ const f=await fixture(t),reader=require(runtime+'/simple-dashboard-read.cjs').createReader({auth:f.auth,upstreams:f.upstreams,keys:f.keys,fetchImpl:async()=>new Response(JSON.stringify({crm_diario:[{brand:'fish',enviados:{email:'private@synthetic.invalid'}}]}),{headers:{'content-type':'application/json'}}),projectGrowth:require(runtime+'/server.cjs').projectBrandCache});
+ const result=await reader.summary(f.adminContext,['fish'],'https://'+HOST);const crm=result.sources.find(x=>x.front==='growth');
+ assert.equal(crm.status,502);assert.deepEqual(crm.diagnostic,{section:'crm_diario',reason:'field_type_invalid',field:'enviados'});assert.equal(crm.counts,null);assert(!JSON.stringify(result).includes('private@'));assert.deepEqual(Object.keys(crm.diagnostic).sort(),['field','reason','section']);assert(!Object.hasOwn(crm,'rows'));assert(!Object.hasOwn(crm,'payload'));
+});

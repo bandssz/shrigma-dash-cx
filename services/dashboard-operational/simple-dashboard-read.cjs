@@ -94,7 +94,11 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
      const v=row?.[key];if(typeof v==='string'&&Number.isFinite(Date.parse(v))&&(!freshness[key]||Date.parse(v)>Date.parse(freshness[key])))freshness[key]=new Date(v).toISOString();
     }
     result={front,brand,status:200,counts,freshness,source:front==='growth'?'crm-panel-read':front==='organico'?'cache-organico':front==='influs'?'influ-listar':'tts-painel',window:front==='influs'||front==='afiliados'?{ini,fim}:null,readOnly:true};
-   }catch(e){result={front,brand,status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'SERVICE_READ_UNCONFIRMED',counts:null,freshness:null,readOnly:true};}
+   }catch(e){
+    result={front,brand,status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'SERVICE_READ_UNCONFIRMED',counts:null,freshness:null,readOnly:true};
+    const p=e.projectionIssue;
+    if(front==='growth'&&p&&/^(crm_[a-z_]+|wa_[a-z_]+|attribution\.[a-z_]+)$/.test(p.section||'')&&['rows_type_invalid','row_type_invalid','brand_marker_invalid','field_type_invalid'].includes(p.reason)&&(!p.field||/^[a-z_]{1,64}$/.test(p.field)))result.diagnostic={section:p.section,reason:p.reason,...(p.field?{field:p.field}:{})};
+   }
    auth.authorize({...context,admin:true});return result;
   }));
   const sources=await Promise.all(jobs);auth.authorize({...context,admin:true});

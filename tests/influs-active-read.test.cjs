@@ -11,7 +11,7 @@ function fixture(source=html){
   preset:()=>({ini:'2026-09-14',fim:'2026-09-20'}),pintaMarca(){},renderTudo(){},salvarInflu(){}};
  state.window.carregarTTS=state.carregarTTS;
  const context=vm.createContext(state);
- const helper=source.indexOf('function carregarAbaAtiva(){');
+ const helper=source.indexOf('async function carregarAbaAtiva(){');
  if(helper>=0)vm.runInContext(source.slice(helper,source.indexOf('\ndocument.querySelectorAll',helper)),context);
  const start=source.indexOf("$('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;\ndocument.querySelectorAll('#presets button')");
  assert(start>0);vm.runInContext(source.slice(start,source.lastIndexOf('</script>')),context);

@@ -66,3 +66,22 @@ test('READ opt-in preserves existing managed lifecycle under writer coexistence 
   const find=a=>{const all=a.users({context}),rows=Array.isArray(all)?all:all.users;return rows.find(u=>u.id===invite.userId).crmAccess;},before=find(auth);assert(before);assert.equal(before.readOnly,undefined);auth.close();auth=A.createAuth({...opts,dashboardIndividualRead:true});assert.deepEqual(find(auth),before);
  }finally{auth.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+// Simple login keeps legacy identity off while completing fixed READ destinations.
+test('simple startup adds only fixed READ routes and preserves writer, identity and private source bindings',()=>{
+ const before={...masterEnv(),DASHBOARD_SIMPLE_READ_LOGIN:'enabled',DASHBOARD_INDIVIDUAL_READ:'disabled',DASHBOARD_SERVICE_READ_CRM_KEY:'synthetic-read-key'},snapshot=JSON.stringify(before),out=S.environmentForSimpleDashboardRead(before,before);
+ const routes=JSON.parse(out.DASHBOARD_UPSTREAMS);for(const key of ['cx','cache','influ'])assert.equal(routes[key],P.FIXED_DESTINATIONS[key]);
+ assert.equal(JSON.stringify(before),snapshot);assert.equal(out.DASHBOARD_INDIVIDUAL_READ,'disabled');assert.equal(S.settingsFromEnv(out).simpleReadMode,true);assert.equal(S.settingsFromEnv(out).dashboardIndividualRead,undefined);
+ for(const key of Object.keys(before).filter(k=>!['DASHBOARD_UPSTREAMS','DASHBOARD_UPSTREAM_HOSTS'].includes(k)))assert.equal(out[key],before[key]);
+ assert.equal(out.DASHBOARD_CRM_MANAGER_ISSUER_ID,undefined);assert.equal(out.DASHBOARD_CRM_MANAGER_PROVISIONER_TOKEN,undefined);
+});
+test('simple READ projection is idempotent and refuses an existing different destination',()=>{
+ const before={...masterEnv(),DASHBOARD_SIMPLE_READ_LOGIN:'enabled'},once=S.environmentForSimpleDashboardRead(before,before);assert.deepEqual(S.environmentForSimpleDashboardRead(once,once),once);
+ for(const key of ['cx','cache','influ']){const value={...before,DASHBOARD_UPSTREAMS:JSON.stringify({...JSON.parse(before.DASHBOARD_UPSTREAMS),[key]:'https://synthetic.invalid/unapproved'})};assert.throws(()=>S.environmentForSimpleDashboardRead(value,value),/Simple READ destination invalid/);}
+});
+test('disabled simple READ is unchanged; sandbox, synthetic and unknown flags refuse',()=>{
+ const before=masterEnv();assert.equal(S.environmentForSimpleDashboardRead({},before),before);assert.equal(S.environmentForSimpleDashboardRead({DASHBOARD_SIMPLE_READ_LOGIN:'disabled'},before),before);
+ assert.throws(()=>S.environmentForSimpleDashboardRead({DASHBOARD_SIMPLE_READ_LOGIN:'enabled'},{...before,DASHBOARD_MODE:'synthetic'}));
+ assert.throws(()=>S.environmentForSimpleDashboardRead({DASHBOARD_SIMPLE_READ_LOGIN:'enabled'},{...before,DASHBOARD_UPSTREAM_PROFILE:'crm-sandbox'}));
+ assert.throws(()=>S.environmentForSimpleDashboardRead({DASHBOARD_SIMPLE_READ_LOGIN:'true'},before));
+});

@@ -30,7 +30,8 @@ async function startExisting({manifestSha256,imageDigest}={}){
   const templates=runtime.environmentForOriginalMasterTemplateRead(requested,journeys);
   const composition=runtime.environmentForOriginalMasterIndividualCoexistence(requested,templates);
   const individual=runtime.environmentForOriginalMasterIndividualRead(requested,composition);
-  const next=runtime.environmentForOriginalMasterAffiliateRead(requested,individual);
+  const simple=runtime.environmentForSimpleDashboardRead(requested,individual);
+  const next=runtime.environmentForOriginalMasterAffiliateRead(requested,simple);
   // Only the original fixed route/profile projection is applied; no old
   // controller, observer, native activation hook, fence or receipt is invoked.
   const keys=['DASHBOARD_AFFILIATE_READ','DASHBOARD_INDIVIDUAL_READ','DASHBOARD_UPSTREAMS','DASHBOARD_UPSTREAM_HOSTS','DASHBOARD_DYNAMIC_ROUTE_MANIFEST','DASHBOARD_CRM_CAMPAIGN_WRITER_PROFILE','DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE','DASHBOARD_CRM_CORPORATE_CREATE','DASHBOARD_CRM_DRAFT_WRITE','DASHBOARD_CRM_AUDIENCE_DRAFT','DASHBOARD_CRM_MANAGED_READ','DASHBOARD_CRM_MANAGED_READ_UI','DASHBOARD_CRM_MANAGED_AUDIENCE_READ','DASHBOARD_CRM_MANAGED_TEMPLATE_READ','DASHBOARD_CRM_MANAGED_WRITER'];
