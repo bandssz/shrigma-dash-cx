@@ -264,6 +264,11 @@
       "sha256": "e4eff5fa303db87c23a834445ea06c086ea381d1efe0eb7e1bc7f45900f41e93"
     },
     {
+      "path": "tests/dashboard-operational-brand-bff.test.cjs",
+      "bytes": 48565,
+      "sha256": "95bf45ed9684d5ffc45586bed7c83ded3eb81a2277667bcdccf45814140eaeeb"
+    },
+    {
       "path": "tests/dashboard-operational-brand-identity.test.cjs",
       "bytes": 9512,
       "sha256": "b0b25e53da6402d910aa1873c2cf88647967e320914adc176d50dbb695a179fd"
@@ -376,7 +381,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2718,
-      "sha256": "725a430e5a066f042676731996d3a080d7a4cb4d8e1e496b6e2c93067ab5e99a"
+      "sha256": "5a8492cd16210d9066ef815a12a5b8db5f57e9735be3a7c4af45d2ff53095e89"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",

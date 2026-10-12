@@ -167,9 +167,9 @@ test('FULL individual WRITER cannot validate or schedule a campaign of another b
 });
 
 test('matching-brand rows cannot smuggle arbitrary scalar columns or other relations metrics',async t=>{
- const body={crm_diario:[{marca:'fish',enviados:12,other_brand_secret:'ARISTO-PRIVATE',aristo_revenue:9000,receita:8000}],crm_campanha:[{marca:'fish',campanha_id:7,other_brand_secret:'ARISTO-PRIVATE',aristo_revenue:9000}],crm_attribution:{schema_version:2,daily:[{marca:'fish',receita:100,other_brand_secret:'ARISTO-PRIVATE',aristo_revenue:9000,dimension:['email']}],coverage:[{brand:'fish',day:'2026-10-04',checked_at:'2026-10-04T05:00:00.000Z',execution_id:'PRIVATE-GLOBAL-ID'}]}};
+ const body={crm_diario:[{marca:'fish',enviados:12,other_brand_secret:'ARISTO-PRIVATE',aristo_revenue:9000,receita:8000}],crm_campanha:[{marca:'fish',campanha_id:7,other_brand_secret:'ARISTO-PRIVATE',aristo_revenue:9000}],crm_attribution:{schema_version:2,daily:[{marca:'fish',receita:100,other_brand_secret:'ARISTO-PRIVATE',aristo_revenue:9000,grain:'channel',dimension:['email']}],coverage:[{brand:'fish',day:'2026-10-04',checked_at:'2026-10-04T05:00:00.000Z',execution_id:'PRIVATE-GLOBAL-ID'}]}};
  const server=app(t,identity(),async()=>response(body)),r=await request(server,cachePath);assert.equal(r.status,200);
- assert.deepEqual(r.body.crm_diario,[{marca:'fish',enviados:12}]);assert.deepEqual(r.body.crm_campanha,[{marca:'fish',campanha_id:7}]);assert.deepEqual(r.body.crm_attribution.daily,[{marca:'fish',receita:100,dimension:['email']}]);
+ assert.deepEqual(r.body.crm_diario,[{marca:'fish',enviados:12}]);assert.deepEqual(r.body.crm_campanha,[{marca:'fish',campanha_id:7}]);assert.deepEqual(r.body.crm_attribution.daily,[{marca:'fish',receita:100,grain:'channel',dimension:['email']}]);
  assert.equal(JSON.stringify(r.body).includes('PRIVATE'),false);assert.equal(JSON.stringify(r.body).includes('9000'),false);assert.equal(JSON.stringify(r.body).includes('8000'),false);assert.equal(Object.hasOwn(r.body.crm_attribution.coverage[0],'execution_id'),false);
 });
 
