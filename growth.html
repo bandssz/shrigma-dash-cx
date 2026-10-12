@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=cdc4fef0ca42">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-qVnDZm/tXZGZPfkUjqv4ofNWn+/1nVaTUoKE/tp+5AY='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-E78bWAdDzSdlL9Zx4AnqRsbw7hlkCGG7+rc3HU1YWfQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <style id="crm-configured-journeys-read">
 #control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
 #control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
@@ -796,7 +796,7 @@ function render(){
   const car=G.carrinho(API,MARCA,ini,fim);
   $('#car-rot').textContent=car?`${car.dias} dia(s) no período`:'';
   if(!car){
-    $('#area-carrinho').innerHTML='<div class="vazio">Nenhum carrinho abandonado coletado no período. Amplie o período ou clique em Atualizar.</div>';
+    $('#area-carrinho').innerHTML=Array.isArray(API.crm_carrinho)?'<div class="vazio">Nenhum carrinho abandonado coletado no período. Amplie o período ou clique em Atualizar.</div>':'<div class="vazio">Dados de carrinho indisponíveis nesta consulta. As demais informações continuam disponíveis.</div>';
   } else {
     // Tudo abaixo usa APENAS os dias com cobertura de conversao. Misturar escopo
     // (valor do periodo inteiro contra receita so dos dias medidos) inflava o "perdido".

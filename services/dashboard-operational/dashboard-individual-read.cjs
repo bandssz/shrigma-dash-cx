@@ -67,13 +67,48 @@ function metadata(source,out){
  for(const k of ['gerado_em','_cache_gerado_em'])if(Object.hasOwn(source,k)){if(!validDate(source[k]))fail();out[k]=source[k];}
  return out;
 }
+// Optional collections have independent contracts. Drop the whole invalid block,
+// never partial rows or fabricated zeroes; leave the core read available.
+function optionalBlock(out,section,read){
+ try{out[section]=read();}
+ catch(e){
+  if(!['BRAND_READ_CONTRACT_NOT_READY','BRAND_RESPONSE_UNSCOPED','BRAND_RESPONSE_AMBIGUOUS'].includes(e.code))throw e;
+  const p=e.projectionIssue;
+  const reason=p?.reason|| (e.code==='BRAND_RESPONSE_AMBIGUOUS'?'relation_ambiguous':'contract_invalid');
+  (out.read_issues||=[]).push({section,reason,...(p?.field?{field:p.field}:{})});
+ }
+}
+function postMedia(source,posts,b){
+ if(!Array.isArray(source)||source.length>50000||!Array.isArray(posts))fail();
+ const index=new Map(),seen=new Set(),out=[];
+ for(const post of posts){
+  if(!plain(post)||typeof post.post_id!=='string'||!post.post_id||!valid(post.post_id,'text'))fail();
+  const markers=['marca','brand'].filter(k=>Object.hasOwn(post,k)),brands=markers.map(k=>brand(post[k]));
+  if(!markers.length||brands.some(v=>!v||v!==brands[0]))fail('BRAND_RESPONSE_UNSCOPED',502);
+  if(index.has(post.post_id))fail('BRAND_RESPONSE_AMBIGUOUS',502);
+  index.set(post.post_id,brands[0]);
+ }
+ for(const row of source){
+  if(!plain(row)||typeof row.post_id!=='string'||!row.post_id||!valid(row.post_id,'text'))fail();
+  if(seen.has(row.post_id))fail('BRAND_RESPONSE_AMBIGUOUS',502);seen.add(row.post_id);
+  const owner=index.get(row.post_id),markers=['marca','brand'].filter(k=>Object.hasOwn(row,k));
+  if(markers.some(k=>!brand(row[k])||brand(row[k])!==owner))fail('BRAND_RESPONSE_UNSCOPED',502);
+  // The published media SELECT has no brand. Only this same-response FK
+  // establishes ownership; an orphan or other brand never leaves the server.
+  if(owner!==b)continue;
+  if(!Object.hasOwn(row,'previa_url')||row.previa_url!==null&&(!valid(row.previa_url,'text')||!/^https:\/\/([a-z0-9-]+\.)*(cdninstagram\.com|fbcdn\.net)\//i.test(row.previa_url)))fail();
+  out.push({marca:b,brand:b,post_id:row.post_id,previa_url:row.previa_url});
+ }
+ return out;
+}
 function organic(body,b){
  if(Array.isArray(body)){if(body.length!==1)fail();body=body[0];}
  if(plain(body)&&Object.hasOwn(body,'payload'))body=body.payload;
  if(!plain(body)||body.error||body.erro||body._escopo!=='organico')fail();
  if(!['cx_post','cx_story','cx_organico_receita'].some(k=>Array.isArray(body[k])))fail();
  const out=metadata(body,{brand:b,brands:[b],brandAccess:'single',_escopo:'organico',_painel:'organico'});
- for(const k of ['cx_post','cx_story','cx_organico_receita','cx_conta_dia','cx_post_midia'])if(Object.hasOwn(body,k))out[k]=rows(body[k],b,FIELDS[k],{section:k,...(k==='cx_post'?{required:['post_id','publicado_em','formato','impulsionado'],unique:['post_id']}: {})});
+ for(const k of ['cx_post','cx_story','cx_organico_receita','cx_conta_dia'])if(Object.hasOwn(body,k))out[k]=rows(body[k],b,FIELDS[k],{section:k,...(k==='cx_post'?{required:['post_id','publicado_em','formato','impulsionado'],unique:['post_id']}: {})});
+ if(Object.hasOwn(body,'cx_post_midia'))optionalBlock(out,'cx_post_midia',()=>postMedia(body.cx_post_midia,body.cx_post,b));
  if(Object.hasOwn(body,'organico_attribution')){
   const a=body.organico_attribution;
   if(!plain(a)||a.schema_version!==1||a.window_days!==30||a.source_system!=='shopify'||a.currency!=='BRL')fail();
@@ -93,13 +128,21 @@ function creators(body,b,query){
  const ids=new Set(out.influs.map(row=>row.influ)),coupons=new Set(out.cupons.map(row=>row.codigo));
  for(const k of ['roi','custos','termos','cupons'])if(out[k].some(row=>row.influ!==null&&!ids.has(row.influ)))fail('BRAND_RESPONSE_AMBIGUOUS',502);
  if(out.receita_cupom.some(row=>!coupons.has(row.codigo)))fail('BRAND_RESPONSE_AMBIGUOUS',502);
- for(const k of ['clientes','conciliacao','saude'])if(Object.hasOwn(body,k))out[k]=rows(body[k],b,FIELDS[k],{section:k,unique:k==='clientes'?['influ']:k==='conciliacao'?['codigo']:['lane']});
- if(out.clientes?.some(row=>!ids.has(row.influ)||['pedidos','novos','recorrentes','sem_indice'].some(k=>!Number.isSafeInteger(Number(row[k]))||row[k]===null||Number(row[k])<0)||Number(row.novos)+Number(row.recorrentes)+Number(row.sem_indice)!==Number(row.pedidos)))fail();
- if(out.saude?.some(row=>!['sync_cupom','coleta_pedidos','relatorio_shopify'].includes(row.lane)||typeof row.ok!=='boolean'))fail();
- if(out.saude)for(const row of out.saude)if(!row.ok)row.detalhe='A fonte registrou falha; detalhe privado não exibido.';
- if(out.conciliacao?.some(row=>row.relatorio_cobertura!==null&&row.relatorio_cobertura!==undefined&&!['sem_coleta','parcial','completa'].includes(row.relatorio_cobertura)||row.situacao!==null&&row.situacao!==undefined&&!['relatorio_indisponivel','relatorio_parcial','fora_da_lente','ausente_no_painel','ausente_no_relatorio','diferenca_de_valor','explicada_nao_pagos','igual'].includes(row.situacao)))fail();
- if(out.conciliacao?.some(row=>['pagos','nao_pagos'].some(k=>row[k]===null||!Number.isSafeInteger(Number(row[k]))||Number(row[k])<0)||['receita_paga','receita_nao_paga'].some(k=>row[k]===null||!Number.isFinite(Number(row[k])))||!row.relatorio_cobertura||!row.situacao||row.relatorio_cobertura==='completa'&&!(row.situacao==='ausente_no_relatorio'&&row.relatorio_pedidos===null&&row.relatorio_vendas_liquidas===null)&&['relatorio_pedidos','relatorio_vendas_liquidas'].some(k=>row[k]===null||!Number.isFinite(Number(row[k])))))fail();
- if(Object.hasOwn(body,'coleta')){if(!plain(body.coleta))fail();out.coleta={};for(const [name,date]of Object.entries(body.coleta))if(brand(name)===b){if(date!==null&&!validDate(date)||Object.hasOwn(out.coleta,b))fail();out.coleta[b]=date;}}
+ for(const k of ['clientes','conciliacao','saude'])if(Object.hasOwn(body,k))optionalBlock(out,k,()=>{
+  const block=rows(body[k],b,FIELDS[k],{section:k,unique:k==='clientes'?['influ']:k==='conciliacao'?['codigo']:['lane']});
+  // The published client SQL aggregates historical orders, not the current creator catalogue.
+  if(k==='clientes'&&block.some(row=>['pedidos','novos','recorrentes','sem_indice'].some(n=>!Number.isSafeInteger(Number(row[n]))||row[n]===null||Number(row[n])<0)||Number(row.novos)+Number(row.recorrentes)+Number(row.sem_indice)!==Number(row.pedidos)))fail();
+  if(k==='saude'){
+   if(block.some(row=>!['sync_cupom','coleta_pedidos','relatorio_shopify'].includes(row.lane)||typeof row.ok!=='boolean'))fail();
+   for(const row of block)if(!row.ok)row.detalhe='A fonte registrou falha; detalhe privado não exibido.';
+  }
+  if(k==='conciliacao'){
+   if(block.some(row=>row.relatorio_cobertura!==null&&row.relatorio_cobertura!==undefined&&!['sem_coleta','parcial','completa'].includes(row.relatorio_cobertura)||row.situacao!==null&&row.situacao!==undefined&&!['relatorio_indisponivel','relatorio_parcial','fora_da_lente','ausente_no_painel','ausente_no_relatorio','diferenca_de_valor','explicada_nao_pagos','igual'].includes(row.situacao)))fail();
+   if(block.some(row=>['pagos','nao_pagos'].some(n=>row[n]===null||!Number.isSafeInteger(Number(row[n]))||Number(row[n])<0)||['receita_paga','receita_nao_paga'].some(n=>row[n]===null||!Number.isFinite(Number(row[n])))||!row.relatorio_cobertura||!row.situacao||row.relatorio_cobertura==='completa'&&!(['ausente_no_relatorio','fora_da_lente'].includes(row.situacao)&&row.relatorio_pedidos===null&&row.relatorio_vendas_liquidas===null)&&['relatorio_pedidos','relatorio_vendas_liquidas'].some(n=>row[n]===null||!Number.isFinite(Number(row[n])))))fail();
+  }
+  return block;
+ });
+ if(Object.hasOwn(body,'coleta'))optionalBlock(out,'coleta',()=>{if(!plain(body.coleta))fail();const block={};for(const [name,date]of Object.entries(body.coleta))if(brand(name)===b){if(date!==null&&!validDate(date)||Object.hasOwn(block,b))fail();block[b]=date;}return block;});
  return out;
 }
 function allowed(route,method,action,area){

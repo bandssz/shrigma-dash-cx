@@ -35,8 +35,8 @@
     },
     {
       "path": "growth.html",
-      "bytes": 111591,
-      "sha256": "7b342a4cf2c03b1b441f3d75e163b26373e66efa0864210e28b79e1d2263fce8"
+      "bytes": 111747,
+      "sha256": "254ac1f1ab5f5255f7c00916177096b2dab033136f4de32cde8474ab05e8f7ac"
     },
     {
       "path": "influs-conferencia.js",
@@ -140,8 +140,8 @@
     },
     {
       "path": "services/dashboard-operational/dashboard-individual-read.cjs",
-      "bytes": 10379,
-      "sha256": "cb6b56433c3d119a081154df9da2a6f3cea506373eba5af227d362d82ee07ab6"
+      "bytes": 12741,
+      "sha256": "49ffd179d8223ef7cb19efba76cdea7393e85d68be98f913aa0c39407f6c5768"
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
@@ -185,13 +185,13 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 155117,
-      "sha256": "62b69055f4ad64457ba8169d4cecc2bb0a0fb4deed1eefdbe1f276f01eff55c3"
+      "bytes": 155498,
+      "sha256": "fed5ae23187a96b81937a58c0fae0e796a9a1efb5a6f6903593b48ca9ad2676a"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 10858,
-      "sha256": "b2199ee5b3250cde92063f555bbaf555f75f0add57bf67a7f352cf38796cff3b"
+      "bytes": 11327,
+      "sha256": "fceea9fd6e3e3763699ba0efdca77abfb3fd17b5782f3fb78068cc62a4b9f670"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -260,8 +260,8 @@
     },
     {
       "path": "tests/dashboard-individual-read.test.cjs",
-      "bytes": 22035,
-      "sha256": "e4eff5fa303db87c23a834445ea06c086ea381d1efe0eb7e1bc7f45900f41e93"
+      "bytes": 25637,
+      "sha256": "2b3e9ec977145cf6040fca56a116a58d4a836c2a8c1b9211e71e53366f79b2c0"
     },
     {
       "path": "tests/dashboard-operational-brand-bff.test.cjs",
@@ -370,8 +370,8 @@
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
-      "bytes": 19016,
-      "sha256": "e5564fb82d0123d2be47daa9e1a79727690068c1d568435ee79e3ae759b20fa8"
+      "bytes": 20875,
+      "sha256": "fd0169e60677a89fe376e1517dd1dd2ea07ab35e1c539a6f14cda3140b016f30"
     },
     {
       "path": "tests/simple-login-ui.test.cjs",

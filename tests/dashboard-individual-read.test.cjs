@@ -97,18 +97,43 @@ test('optional creator blocks preserve brand, unknowns and actual collection tim
  const out=projectCreators(v);assert.equal(out.clientes.length,1);assert.equal(out.clientes[0].sem_indice,1);assert.equal(out.conciliacao[0].diferenca,null);assert.equal(out.saude[0].ok,false);assert.deepEqual(out.coleta,{fish:stamp});assert(!JSON.stringify(out).includes('private'));assert(!Object.hasOwn(out,'conciliacao_pedidos'));
  const absent=projectCreators(creators());for(const k of ['clientes','conciliacao','saude','coleta'])assert(!Object.hasOwn(absent,k));
 });
-test('creator client denominator cannot silently omit unknown classifications',()=>{const v=creators();v.clientes=[{marca:'fish',influ:'fixture-creator',pedidos:3,novos:1,recorrentes:1,sem_indice:0}];assert.throws(()=>projectCreators(v));});
+test('invalid client denominator makes the whole optional block unavailable, retaining core metrics',()=>{const v=creators();v.clientes=[{marca:'fish',influ:'fixture-creator',pedidos:3,novos:1,recorrentes:1,sem_indice:0}];const out=projectCreators(v);assert(!Object.hasOwn(out,'clientes'));assert.equal(out.roi[0].receita,10);assert.deepEqual(out.read_issues,[{section:'clientes',reason:'contract_invalid'}]);});
 test('organic diagnostic exposes a field name and reason without its value',()=>{const v=org();v.cx_post[0].impulsionado='private-value';assert.throws(()=>projectOrg(v),e=>{assert.deepEqual(e.projectionIssue,{section:'cx_post',reason:'field_type_invalid',field:'impulsionado'});assert(!JSON.stringify(e.projectionIssue).includes('private-value'));return true;});});
 test('creator health screen does not fabricate another brand under individual scope',()=>{
  const F=require('../influs-conferencia.js'),p={brand:'fish',brandAccess:'single',saude:[{marca:'fish',lane:'coleta_pedidos',ok:true,em:stamp}]};const rows=F.saude(p,Date.parse(stamp));assert(rows.length>0);assert(rows.every(x=>x.marca==='fish'));assert.equal(F.saude({saude:[]}).length,6);
 });
 
 test('missing reconciliation numerators refuse before the screen can manufacture zero',()=>{
- const value=creators();value.conciliacao=[{marca:'fish',codigo:'FIXTURE',relatorio_cobertura:'completa',situacao:'igual'}];assert.throws(()=>projectCreators(value));
+ const value=creators();value.conciliacao=[{marca:'fish',codigo:'FIXTURE',relatorio_cobertura:'completa',situacao:'igual'}];assert(!Object.hasOwn(projectCreators(value),'conciliacao'));
  const complete={marca:'fish',codigo:'FIXTURE',relatorio_cobertura:'completa',situacao:'igual',pagos:1,receita_paga:10,nao_pagos:0,receita_nao_paga:0,relatorio_pedidos:1,relatorio_vendas_liquidas:10};
- for(const k of ['pagos','nao_pagos','receita_paga','receita_nao_paga','relatorio_pedidos','relatorio_vendas_liquidas']){value.conciliacao=[{...complete,[k]:null}];assert.throws(()=>projectCreators(value));}
+ for(const k of ['pagos','nao_pagos','receita_paga','receita_nao_paga','relatorio_pedidos','relatorio_vendas_liquidas']){value.conciliacao=[{...complete,[k]:null}];const out=projectCreators(value);assert(!Object.hasOwn(out,'conciliacao'));assert.equal(out.roi[0].receita,10);assert.deepEqual(out.read_issues,[{section:'conciliacao',reason:'contract_invalid'}]);}
  value.conciliacao=[complete];assert.equal(projectCreators(value).conciliacao[0].nao_pagos,0);
 });
 
-test('complete report with a legitimately absent coupon retains the null pair',()=>{const v=creators();v.conciliacao=[{marca:'fish',codigo:'FIXTURE',pagos:1,receita_paga:10,nao_pagos:0,receita_nao_paga:0,relatorio_cobertura:'completa',situacao:'ausente_no_relatorio',relatorio_pedidos:null,relatorio_vendas_liquidas:null}];assert.equal(projectCreators(v).conciliacao[0].relatorio_vendas_liquidas,null);});
+test('complete report legitimately absent or outside the lens retains exactly the null pair',()=>{for(const situacao of ['ausente_no_relatorio','fora_da_lente']){const v=creators();v.conciliacao=[{marca:'fish',codigo:'FIXTURE',pagos:1,receita_paga:10,nao_pagos:0,receita_nao_paga:0,relatorio_cobertura:'completa',situacao,relatorio_pedidos:null,relatorio_vendas_liquidas:null}];assert.equal(projectCreators(v).conciliacao[0].relatorio_vendas_liquidas,null);v.conciliacao[0].relatorio_pedidos=1;assert(!Object.hasOwn(projectCreators(v),'conciliacao'));}});
 test('success flag without a confirmed source time remains unknown on the health screen',()=>{const F=require('../influs-conferencia.js'),out=F.saude({brand:'fish',brandAccess:'single',saude:[{marca:'fish',lane:'coleta_pedidos',ok:true,em:null,ultimo_ok_em:null}]});assert.equal(out.find(x=>x.lane==='coleta_pedidos').estado,'sem_registro');});
+
+
+test('published unbranded media derives ownership only from same-response post IDs',()=>{
+ const v=org();v.cx_post_midia=[{post_id:'fixture-1',tipo:'video',previa_url:'https://s.cdninstagram.com/fixture.jpg',email:'private@synthetic.invalid'},{post_id:'fixture-2',previa_url:'https://s.fbcdn.net/other.jpg'},{post_id:'orphan',previa_url:'https://s.fbcdn.net/orphan.jpg'}];
+ const out=projectOrg(v);assert.deepEqual(out.cx_post_midia,[{marca:'fish',brand:'fish',post_id:'fixture-1',previa_url:'https://s.cdninstagram.com/fixture.jpg'}]);assert(!JSON.stringify(out.cx_post_midia).includes('other'));assert(!JSON.stringify(out).includes('private@'));
+});
+for(const fault of ['cross-brand-collision','media-brand-conflict','duplicate-media','unsafe-url','malformed-row'])test('media '+fault+' drops only previews and never changes core posts',()=>{
+ const v=org();v.cx_post_midia=[{post_id:'fixture-1',previa_url:'https://s.cdninstagram.com/fixture.jpg'}];
+ if(fault==='cross-brand-collision')v.cx_post[1].post_id='fixture-1';
+ if(fault==='media-brand-conflict')v.cx_post_midia[0].marca='aristo';
+ if(fault==='duplicate-media')v.cx_post_midia.push({...v.cx_post_midia[0]});
+ if(fault==='unsafe-url')v.cx_post_midia[0].previa_url='https://cdninstagram.com.attacker.invalid/fixture.jpg';
+ if(fault==='malformed-row')v.cx_post_midia.push(null);
+ const out=projectOrg(v);assert(!Object.hasOwn(out,'cx_post_midia'));assert.equal(out.cx_post.length,1);assert.equal(out.cx_post[0].alcance,42);assert.equal(out.read_issues[0].section,'cx_post_midia');assert(!JSON.stringify(out.read_issues).includes('attacker'));
+});
+test('valid empty media differs from unavailable media',()=>{const v=org();v.cx_post_midia=[];const out=projectOrg(v);assert.deepEqual(out.cx_post_midia,[]);assert(!Object.hasOwn(out,'read_issues'));});
+test('historical client aggregate need not belong to the current creator catalogue',()=>{
+ const v=creators();v.clientes=[{marca:'fish',influ:'historical-fixture',pedidos:2,novos:1,recorrentes:1,sem_indice:0}];const out=projectCreators(v);assert.equal(out.clientes[0].pedidos,2);assert(!Object.hasOwn(out,'read_issues'));assert.equal(out.influs.length,1);
+});
+for(const section of ['clientes','conciliacao','saude','coleta'])test('invalid optional '+section+' does not remove core or publish partial totals',()=>{
+ const v=creators();v[section]=section==='coleta'?{fish:'not-a-date'}:[{marca:'fish',email:'private@synthetic.invalid'}];const out=projectCreators(v);assert(!Object.hasOwn(out,section));assert.equal(out.influs.length,1);assert.equal(out.roi[0].receita,10);assert.equal(out.read_issues[0].section,section);assert(!JSON.stringify(out).includes('private@'));
+});
+test('one invalid optional client row rejects the full collection including otherwise valid rows',()=>{
+ const v=creators();v.clientes=[{marca:'fish',influ:'fixture-creator',pedidos:1,novos:1,recorrentes:0,sem_indice:0},{marca:'fish',influ:'other-fixture',pedidos:1,novos:0,recorrentes:0,sem_indice:0}];const out=projectCreators(v);assert(!Object.hasOwn(out,'clientes'));assert.equal(out.receita_cupom[0].receita,10);
+});

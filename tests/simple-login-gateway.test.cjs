@@ -135,3 +135,16 @@ test('published shared CRM collectors are metadata and never become a fabricated
  assert.throws(()=>S.projectBrandCache({crm_fontes:[row]},'fish','growth','https://'+HOST),e=>e.code==='BRAND_READ_CONTRACT_NOT_READY');
  assert.throws(()=>S.projectBrandCache({crm_diario:[],crm_fontes:[{...row,fonte:'unreviewed'}]},'fish','growth','https://'+HOST));
 });
+
+
+test('optional cart failure keeps genuine core and marks cart unavailable rather than empty',()=>{
+ const S=require(runtime+'/server.cjs'),row={marca:'fish',dia:'2026-10-12',carrinhos:3};
+ const out=S.projectBrandCache({crm_diario:[{marca:'fish',dia:'2026-10-12',enviados:12}],crm_carrinho:[row]},'fish','growth','https://'+HOST);
+ assert.equal(out.crm_diario[0].enviados,12);assert(!Object.hasOwn(out,'crm_carrinho'));assert.deepEqual(out.read_issues,[{section:'crm_carrinho',reason:'contract_invalid'}]);
+ assert.throws(()=>S.projectBrandCache({crm_carrinho:[row]},'fish','growth','https://'+HOST),e=>e.code==='BRAND_READ_CONTRACT_NOT_READY');
+ const html=fs.readFileSync(path.resolve(__dirname,'../growth.html'),'utf8');assert.match(html,/Array\.isArray\(API\.crm_carrinho\).*Dados de carrinho indisponíveis/);
+});
+test('native summary exposes optional issue codes and aggregate core counts only',async t=>{
+ const f=await fixture(t),source={crm_diario:[{marca:'fish',dia:'2026-10-12',enviados:12}],crm_carrinho:[{marca:'fish',dia:'2026-10-12',carrinhos:3,customer_email:'private@synthetic.invalid'}]},reader=require(runtime+'/simple-dashboard-read.cjs').createReader({auth:f.auth,upstreams:f.upstreams,keys:f.keys,fetchImpl:async()=>new Response(JSON.stringify(source),{headers:{'content-type':'application/json'}}),projectGrowth:require(runtime+'/server.cjs').projectBrandCache});
+ const result=await reader.summary(f.adminContext,['fish'],'https://'+HOST),crm=result.sources.find(x=>x.front==='growth');assert.equal(crm.status,200);assert.equal(crm.counts.crm_diario,1);assert(!Object.hasOwn(crm.counts,'read_issues'));assert(!Object.hasOwn(crm.counts,'crm_carrinho'));assert.deepEqual(crm.sourceIssues,[{section:'crm_carrinho',reason:'contract_invalid'}]);assert(!JSON.stringify(result).includes('private@'));assert(!Object.hasOwn(crm,'rows'));
+});

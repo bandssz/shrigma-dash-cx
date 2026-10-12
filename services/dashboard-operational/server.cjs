@@ -418,7 +418,13 @@ function projectBrandCache(value,brand,area,origin,{templateReadAdmitted=false,a
   if(BRAND_ROWS[area].has(key)){
    const fields=CACHE_ROW_FIELDS[key];
    if(area==='growth'&&(!fields||!Object.keys(fields).length))continue;
-   out[key]=brandedRows(item,brand,fields,key);contract=true;
+   if(area==='growth'&&key==='crm_carrinho'){
+    try{out[key]=brandedRows(item,brand,fields,key);contract=true;}
+    catch(e){
+     if(!['BRAND_READ_CONTRACT_NOT_READY','BRAND_RESPONSE_UNSCOPED'].includes(e.code))throw e;
+     const p=e.projectionIssue;(out.read_issues||=[]).push({section:key,reason:p?.reason||'contract_invalid',...(p?.field?{field:p.field}:{})});
+    }
+   }else{out[key]=brandedRows(item,brand,fields,key);contract=true;}
   }
   else if(BRAND_METADATA.has(key)&&(['preview','synthetic'].includes(key)?typeof item==='boolean':brandDate(item)))out[key]=item;
   else if(area==='growth'&&key==='crm_attribution'){out[key]=attributionProjection(item,brand);contract=true;}
