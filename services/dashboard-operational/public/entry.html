@@ -10,6 +10,13 @@
 </head>
 <body data-access-panel="__PANEL__">
  <section id="entry-login" class="login-screen">
+  <aside class="login-intro" aria-label="Shrigma">
+   <div class="login-mark" aria-hidden="true">S</div>
+   <p class="eyebrow">A operação, no mesmo lugar</p>
+   <h2>Dados claros.<br>Próxima ação à vista.</h2>
+   <p>CRM, Orgânico, Influs e Afiliados. Cada pessoa acessa as frentes e marcas que precisa para trabalhar.</p>
+   <div class="login-fronts"><span>CRM</span><span>Orgânico</span><span>Influs</span><span>Afiliados</span></div>
+  </aside>
   <div class="login-card">
    <div class="brand">Shrigma</div>
    <p class="eyebrow">Acesso à operação</p>
@@ -18,7 +25,7 @@
    <form id="login-form" method="post" action="/auth/login">
     <label for="login-email">E-mail corporativo</label>
     <input id="login-email" name="email" type="email" autocomplete="username" inputmode="email" required>
-    <label for="login-password">Senha</label>
+    <div class="password-label"><label for="login-password">Senha</label><button id="login-password-toggle" type="button" aria-controls="login-password" aria-pressed="false">Mostrar</button></div>
     <input id="login-password" name="password" type="password" autocomplete="current-password" required>
     <button type="submit">Entrar</button>
    </form>

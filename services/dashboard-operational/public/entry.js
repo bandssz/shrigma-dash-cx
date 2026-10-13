@@ -88,7 +88,14 @@ function productViewsForAreas(areas,productFronts){
  if(!Array.isArray(productFronts)||new Set(productFronts).size!==productFronts.length||productFronts.some(front=>!['growth','organico','influs','afiliados'].includes(front)))return [];
  return views.filter(v=>productFronts.includes(v.view));
 }
-if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation,sessionBrandScope,productViewsForAreas};
+function initialProductView(requested,search,views){
+ const front=new URLSearchParams(search||'').get('view');
+ const area=requested==='todos'?views[0]?.area:requested;
+ // An explicit address never silently opens another front.
+ if(front)return views.find(v=>(requested==='todos'||v.area===area)&&v.view===front)||null;
+ return views.find(v=>v.area===area&&v.view===area)||views.find(v=>v.area===area)||null;
+}
+if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation,sessionBrandScope,productViewsForAreas,initialProductView};
 else (function(){'use strict';
  const AREAS={growth:{label:'CRM',page:'/growth.html'},organico:{label:'Orgânico',page:'/organico.html'},influs:{label:'Influs',page:'/influs.html'}};
  const PRODUCTS={growth:{area:'growth',label:'CRM'},organico:{area:'organico',label:'Orgânico'},influs:{area:'influs',label:'Influs'},afiliados:{area:'influs',label:'Afiliados / TikTok'}};
@@ -103,6 +110,7 @@ else (function(){'use strict';
  if(location.hash)history.replaceState(null,'',location.pathname+location.search);
  let session=null,frame=null,selected='',selectedView='',busy=false,version=0;
  const campaignButton=$('entry-campaign-open');
+ $('login-password-toggle')?.addEventListener('click',()=>{const input=$('login-password'),button=$('login-password-toggle'),visible=input.type==='password';input.type=visible?'text':'password';button.textContent=visible?'Ocultar':'Mostrar';button.setAttribute('aria-pressed',String(visible));input.focus();});
  const campaignUi=window.ShrigmaCampaignEdit?.createCampaignEditor({document,getSession:()=>session,storage:window.localStorage,locks:window.navigator?.locks,request:async q=>{
   const {response,data}=await request(q.path,{method:q.method,headers:q.headers,...(q.body?{body:JSON.stringify(q.body)}:{}),editReceipt:q.method==='GET',deadlineMs:q.method==='POST'?90000:20000});
   return {status:response.status,body:data};
@@ -210,6 +218,7 @@ else (function(){'use strict';
   shell.hidden=true;loginScreen.hidden=false;admin.hidden=true;manage.hidden=true;inviteResult.hidden=true;inviteLink.value='';
   $('admin-users').replaceChildren();$('admin-crm-reconcile').hidden=true;
   $('login-password').value='';clearSimplePasswords();$('entry-password').hidden=true;
+  $('login-password').type='password';const toggle=$('login-password-toggle');if(toggle){toggle.textContent='Mostrar';toggle.setAttribute('aria-pressed','false');}
   loginForm.hidden=!!inviteToken||!!bootstrapToken;inviteForm.hidden=!inviteToken;bootstrapForm.hidden=!bootstrapToken;message.textContent=text;
   (bootstrapToken?$('bootstrap-email'):inviteToken?$('invite-password'):$('login-email')).focus();
  }
@@ -262,11 +271,16 @@ else (function(){'use strict';
   $('entry-brand').textContent=s.user.brandAccess==='all'?'Visão gerencial · todas as marcas':brandNames(s.user.brands);
   const managerial=s.user.role==='superadmin'&&requested==='todos';
   const views=productViewsForAreas(s.user.areas,s.user.productFronts);
-  nav.replaceChildren();nav.hidden=!(managerial||views.length>1);manage.hidden=!managerial;
-  if(managerial||views.length>1)for(const v of views){const button=document.createElement('button');button.type='button';button.dataset.area=v.area;button.dataset.view=v.view;button.textContent=v.label;button.addEventListener('click',()=>openPanel(v.area,v.view));nav.append(button);}
-  const first=requested==='todos'?s.user.areas[0]:requested,view=first==='influs'&&new URL(location.href).searchParams.get('view')==='afiliados'?'afiliados':first;
-  const allowed=views.find(v=>v.area===first&&v.view===view)||views.find(v=>v.area===first);
-  if(!allowed){showLogin('Nenhum setor está delegado para este acesso.');return;}openPanel(allowed.area,allowed.view);
+  nav.replaceChildren();nav.hidden=false;manage.hidden=!managerial;
+  for(const v of views){const button=document.createElement('button');button.type='button';button.dataset.area=v.area;button.dataset.view=v.view;button.textContent=v.label;button.addEventListener('click',()=>openPanel(v.area,v.view));nav.append(button);}
+  const allowed=initialProductView(requested,location.search,views);
+  if(!allowed){
+   frame?.remove();frame=null;selected='';selectedView='';
+   frameHost.replaceChildren();const note=document.createElement('section');note.className='entry-empty';note.setAttribute('role','status');
+   const title=document.createElement('h1');title.textContent='Esta frente não está liberada para seu acesso.';
+   const help=document.createElement('p');help.textContent='Escolha uma das frentes disponíveis no menu ou peça ao administrador para atualizar seu cadastro.';
+   note.append(title,help);frameHost.append(note);return;
+  }openPanel(allowed.area,allowed.view);
  }
  window.addEventListener('message',async event=>{
   if(!session||!frame||event.source!==frame.contentWindow||event.origin!==location.origin)return;
