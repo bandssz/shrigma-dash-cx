@@ -22,7 +22,7 @@ COPY services/dashboard-operational/public/entry.js services/dashboard-operation
 COPY services/dashboard-operational/campaign-ui-assets.json ./services/dashboard-operational/
 COPY growth.html influs.html organico.html ./
 COPY assets/panels/growth.js assets/panels/influs.js assets/panels/growth.css assets/panels/organico.css assets/panels/influs.css ./assets/panels/
-COPY services/dashboard-operational/crm-presentation.css ./services/dashboard-operational/
+COPY services/dashboard-operational/crm-presentation.css services/dashboard-operational/organico-presentation.css services/dashboard-operational/influs-presentation.css ./services/dashboard-operational/
 COPY services/dashboard-operational/own-foundation/ ./services/dashboard-operational/own-foundation/
 COPY tools/native-pg-dependency/package.json tools/native-pg-dependency/package-lock.json tools/native-pg-dependency/build-driver.cjs ./tools/native-pg-dependency/
 RUN cd tools/native-pg-dependency && npm ci --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org

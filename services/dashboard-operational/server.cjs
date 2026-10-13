@@ -226,9 +226,10 @@ function fileForHost(pathname,host,s){
 }
 // This CSS is an explicit immutable native asset. The inherited public pack and
 // its historical presentation verifier remain unchanged.
-function presentationStyle(s){
-  const v=s.crmPresentationStyle;if(v===undefined)return null;
-  if(s.crmNativeEnabled!==true||!v||Object.getPrototypeOf(v)!==Object.prototype||Object.keys(v).sort().join(',')!=='bytes,path,sha256'||typeof v.path!=='string'||!path.isAbsolute(v.path)||path.basename(v.path)!=='crm-presentation.css'||!Number.isSafeInteger(v.bytes)||v.bytes<1||v.bytes>262144||!/^[a-f0-9]{64}$/.test(v.sha256||''))throw jsonError(503,'CRM_PRESENTATION_STYLE_UNAVAILABLE');
+function presentationStyle(s,area='growth'){
+  const names={growth:'crm-presentation.css',organico:'organico-presentation.css',influs:'influs-presentation.css'};
+  const v=area==='growth'?s.crmPresentationStyle:s.workspacePresentationStyles?.[area];if(v===undefined)return null;
+  if(!Object.hasOwn(names,area)||s.crmNativeEnabled!==true||!v||Object.getPrototypeOf(v)!==Object.prototype||Object.keys(v).sort().join(',')!=='bytes,path,sha256'||typeof v.path!=='string'||!path.isAbsolute(v.path)||path.basename(v.path)!==names[area]||!Number.isSafeInteger(v.bytes)||v.bytes<1||v.bytes>262144||!/^[a-f0-9]{64}$/.test(v.sha256||''))throw jsonError(503,'CRM_PRESENTATION_STYLE_UNAVAILABLE');
   try{const st=fs.lstatSync(v.path);if(fs.realpathSync(v.path)!==v.path||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size!==v.bytes)throw Error();const data=fs.readFileSync(v.path);if(data.length!==v.bytes||crypto.createHash('sha256').update(data).digest('hex')!==v.sha256)throw Error();return data;}catch{throw jsonError(503,'CRM_PRESENTATION_STYLE_UNAVAILABLE');}
 }
 function serveFile(req,res,url,host,s,auth){
@@ -246,7 +247,9 @@ function serveFile(req,res,url,host,s,auth){
   }else if(file==='/guard.js'&&s.dashboardAffiliateRead===true){
     const fixed=path.join(__dirname,'public/guard.compiled.js');
     try{const st=fs.lstatSync(fixed);if(fs.realpathSync(fixed)!==fixed||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size<1||st.size>65536)throw Error();data=fs.readFileSync(fixed);}catch{throw jsonError(503,'AFFILIATE_GUARD_UNAVAILABLE');}
-  }else if(file==='/assets/panels/growth.css'&&s.crmPresentationStyle!==undefined)data=presentationStyle(s);else try{const real=fs.realpathSync(candidate);if(!real.startsWith(realRoot+path.sep)||fs.lstatSync(candidate).isSymbolicLink()||!fs.statSync(candidate).isFile())throw Error();data=fs.readFileSync(candidate);}catch{throw jsonError(404,'NOT_FOUND');}
+  }else if(file==='/assets/panels/growth.css'&&s.crmPresentationStyle!==undefined)data=presentationStyle(s);
+  else if(['/assets/panels/organico.css','/assets/panels/influs.css'].includes(file)&&s.workspacePresentationStyles?.[path.basename(file,'.css')])data=presentationStyle(s,path.basename(file,'.css'));
+  else try{const real=fs.realpathSync(candidate);if(!real.startsWith(realRoot+path.sep)||fs.lstatSync(candidate).isSymbolicLink()||!fs.statSync(candidate).isFile())throw Error();data=fs.readFileSync(candidate);}catch{throw jsonError(404,'NOT_FOUND');}
   const metadata=typeAndCsp(file,data);if(!metadata)throw jsonError(404,'NOT_FOUND');
   res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);
   res.setHeader('Cache-Control',file.endsWith('.html')||file==='/guard.js'&&s.dashboardAffiliateRead===true?'no-store':'public, max-age=300');res.end(req.method==='HEAD'?undefined:data);
