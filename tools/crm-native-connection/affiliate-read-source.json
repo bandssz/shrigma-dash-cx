@@ -125,8 +125,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
-      "bytes": 7266,
-      "sha256": "28fd326caa764e264b14e6eca8c3e3eaca93af609e98f6a856a9c505828c52f6"
+      "bytes": 7307,
+      "sha256": "6f4e4cc9b219b1997f4361acb78896a0f5d85d65384ebe78574a6e9905be0b08"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
