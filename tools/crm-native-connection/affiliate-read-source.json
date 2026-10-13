@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 32189,
-      "sha256": "434cf33f9d7edd8e127bfe696cb7f497ddafd03edf13350ff7f45833df513736"
+      "bytes": 32231,
+      "sha256": "ed430469816ffc6313c2a59686e6734a07b00eb808b052e5cc5901818ed79ee8"
     },
     {
       "path": "afiliados-proprios.js",
@@ -105,8 +105,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 13491,
-      "sha256": "0c03d977ff4ff3b0ba9e068df556b44a0362d2f217686b170e06f3e80fefcc6d"
+      "bytes": 14289,
+      "sha256": "0a9710d420034c0aa065a02c86e1e9fde88f0dc285a814061a8f4749c0d37b98"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -115,18 +115,18 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 5952,
-      "sha256": "643290c75b3165f20008a7151d9ff02d2be443b8fbdb497f8cc27ab86ed2c39e"
+      "bytes": 6683,
+      "sha256": "f38aa2be99487fc27c797b7fbd5d1bd7d86d49216c730531a4cd3a4faf8f3eef"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 6916,
-      "sha256": "c14f7c1382d2133a1eae0761103b679b733f294e031752b3c3e5b859847fbbc6"
+      "bytes": 7037,
+      "sha256": "5febf077aab5da9607163380f7e76ba1c864129ccc455d1f61d5012d52122860"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
-      "bytes": 7264,
-      "sha256": "1a180f3758e45619cfcd180c43700c7608b19c29ad3ea36697227b063d67c4cc"
+      "bytes": 7266,
+      "sha256": "8c58b8e854cb452668759ed2b319651255f684b5f2c9ad09cd659f77089f2d54"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
@@ -185,8 +185,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 31139,
-      "sha256": "aa8eff8e214758f513990d61ab54465f5ef6cbbd66f4915d05ba5b4266de40e3"
+      "bytes": 31268,
+      "sha256": "c2cf019243b0f05e32cc65008bce5a04c0e82cd95f490423430648d41f495456"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -222,6 +222,76 @@
       "path": "services/dashboard-operational/proxy.cjs",
       "bytes": 46469,
       "sha256": "f5846b4433fa14269d46ea1d46b964d0ffab93a6aeb63acb5f75f18ce03c3752"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/app.js",
+      "bytes": 13923,
+      "sha256": "b99624be44bc4c691d48da565ccfe62068b5070ae649785221f1463cd7ebfa3f"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/index.html",
+      "bytes": 6675,
+      "sha256": "cbe6c2c2beefaaaf3f7b34106e829837e78d073d1f5a0ae90e7d5dfe021d1b0c"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/operacao.html",
+      "bytes": 6039,
+      "sha256": "b662b2e65968aa08e36556a41020402b91cfd23e01a86610ae3da1429276b049"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/tema.css",
+      "bytes": 1898,
+      "sha256": "70744ca1b865d537a183d07f9e6d08d9d4d8e4a4b0034be269aa288037ba4e96"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/chart.umd.js",
+      "bytes": 208518,
+      "sha256": "ecc3cd1eeb8c34d2178e3f59fd63ec5a3d84358c11730af0b9958dc886d7652a"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/inter-400.woff2",
+      "bytes": 23664,
+      "sha256": "8909904ab6c872eb994093482a88a28eca2cd95912d7b6fecd72103b0dc07edc"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/inter-500.woff2",
+      "bytes": 24272,
+      "sha256": "f3779f1efccc4bdcdf9c0a02ab95bf6bd092ed09c48c08cedc725889edd1d19f"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/inter-600.woff2",
+      "bytes": 24452,
+      "sha256": "f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/inter-700.woff2",
+      "bytes": 24356,
+      "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
+      "bytes": 6733,
+      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/tabler.min.css",
+      "bytes": 635394,
+      "sha256": "370a2d4e608ae518351d10528fc7dbe19b354ae5062c51b2a9cb294850d65403"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/tabler.min.js",
+      "bytes": 135181,
+      "sha256": "9d26ca1aa061a0c647305654e32efc2c8838e348b2423e9d1f4593869868e09b"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/wm-aristocrata.png",
+      "bytes": 30358,
+      "sha256": "a616658b40ef2d0a6de00c11de3b2d263dfcfb8ebd3f75a87e0f7019bef16f22"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/wm-fishermans.png",
+      "bytes": 23251,
+      "sha256": "d1bd254150745db0d2673d46334ae53a9ca4eecb6e6f07c9a546fed77de21bbc"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-session-read.cjs",
@@ -260,8 +330,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 160409,
-      "sha256": "3025e35048236e08b4412035a3a20a2dc484e7a5207f590a3dd41cc433af829e"
+      "bytes": 162627,
+      "sha256": "8883f44586b704954b6bcd16c546c7ea343cb985474b4e1537958e3eb0c2fb90"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -277,6 +347,11 @@
       "path": "tests/ab-experiment-integration.test.cjs",
       "bytes": 6069,
       "sha256": "d0ec72962ce082af1683484bc0156f132c5f463b1f2c3d379194926a54298853"
+    },
+    {
+      "path": "tests/affiliate-preview.test.cjs",
+      "bytes": 10698,
+      "sha256": "aae1e9766cb969a69713d40588db99e89a50eda43978a157fde1bb676d344460"
     },
     {
       "path": "tests/afiliados-creator-share.test.cjs",

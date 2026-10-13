@@ -93,7 +93,7 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
   if(name==='crm_status'){
    const state=await run('GET','/auth/session');
    const health=state.status===200?await run('GET','/healthz'):null;
-   const runtime=health?.status===200?{nativeMcp:health.body?.nativeMcp===true,nativeBackendManifestSha256:health.body?.nativeBackendManifestSha256||null,journeyPresentationManifestSha256:health.body?.journeyPresentationManifestSha256||null,journeyConfiguredRead:health.body?.journeyConfiguredRead===true,journeyPublicFiles:(health.body?.journeyPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256}))}:null;
+   const runtime=health?.status===200?{nativeMcp:health.body?.nativeMcp===true,nativeBackendManifestSha256:health.body?.nativeBackendManifestSha256||null,journeyPresentationManifestSha256:health.body?.journeyPresentationManifestSha256||null,journeyConfiguredRead:health.body?.journeyConfiguredRead===true,journeyPublicFiles:(health.body?.journeyPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256})),affiliatePreviewPublicFiles:(health.body?.affiliatePreviewPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256}))}:null;
    const sourcePeer=state.status===200&&state.body?.features?.nativeSourceSync===true?await run('GET','/api/source-peer'):null;
    // New READ capability is verified through the current native connection;
    // only its admitted brands are queried, and template bodies stay private.
