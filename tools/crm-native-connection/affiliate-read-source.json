@@ -35,8 +35,8 @@
     },
     {
       "path": "assets/panels/influs.js",
-      "bytes": 310173,
-      "sha256": "e816b4efd449f17355de374a38464ae09094f255850fec21df1ad7e159216cf6"
+      "bytes": 310509,
+      "sha256": "1eeb05018ffff0e889b02b028dd1bd98ab52c41c97f64392309ba42cafd91198"
     },
     {
       "path": "assets/panels/organico.css",
@@ -95,13 +95,13 @@
     },
     {
       "path": "influs-tts.js",
-      "bytes": 130874,
-      "sha256": "27b2d3904319056939479c4ff35c2cbc302a3dd97509bc06d2c1052c473bd0d1"
+      "bytes": 131224,
+      "sha256": "9844967c408bd4da5ee84fb8ffb6c59000e65db331795ce325a90ec4621518d3"
     },
     {
       "path": "influs.html",
       "bytes": 106694,
-      "sha256": "06084ab0a73fcf125e293749d53359dd16525b35b22f774610e31281373876ec"
+      "sha256": "47df4818196cddd342e04d6e7bb21ad66cb52f47a371495370b15ed85362e1b9"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",

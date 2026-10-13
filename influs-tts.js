@@ -857,7 +857,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
       ({ fila: renderFila, criadores: renderCriadores, colabs: renderColabs, canal: renderCanalAfiliados, cobranca: renderAcompanhamentoAfiliados })[PANE]();
       const f = TTS.frescorAfiliados(DADOS, m);
       const nota = document.createElement('div'); nota.className = 'nota'; nota.setAttribute('role', 'status');
-      nota.textContent = `Fonte: dados recebidos pela consulta TikTok. ${f.txt}${f.velho ? ' · dados sem coleta atual confirmada' : ''}${DADOS._caiu ? ' · leitura atual falhou; resposta anterior' : DADOS._cache ? ' · resposta anterior; atualizando' : ''}. ${PANE === 'criadores' ? 'Pedidos no período selecionado.' : 'Estado/histórico recebido; não recortado pelo período de pedidos.'}`;
+      const recorte=PANE==='criadores'?'Pedidos no período selecionado.':PANE==='canal'?'Canal e lives no período selecionado; vídeos no retrato de 30 dias indicado em cada registro.':'Estado/histórico recebido; não recortado pelo período de pedidos.';
+      const coleta=['canal','cobranca'].includes(PANE)?' O frescor geral refere-se a pedidos, amostras e colaborações; não confirma a coleta desta aba. As datas dos registros permanecem visíveis.':'';
+      nota.textContent = `Fonte: dados recebidos pela consulta TikTok. ${f.txt}${f.velho ? ' · dados sem coleta atual confirmada' : ''}${DADOS._caiu ? ' · leitura atual falhou; resposta anterior' : DADOS._cache ? ' · resposta anterior; atualizando' : ''}. ${recorte}${coleta}`;
       $('#tts-area').prepend(nota);
       return;
     }
