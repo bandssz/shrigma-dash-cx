@@ -10,13 +10,13 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 32036,
-      "sha256": "387d66400e5ea5eed907018eeca1dc57355292a23838189cff9e067a57be98cd"
+      "bytes": 32189,
+      "sha256": "434cf33f9d7edd8e127bfe696cb7f497ddafd03edf13350ff7f45833df513736"
     },
     {
       "path": "afiliados-proprios.js",
-      "bytes": 11350,
-      "sha256": "3807f78e60e5257d8c419e8ebdffad11227da2a4f91522823d8ffaf63ec71a36"
+      "bytes": 11367,
+      "sha256": "4291a5aeff75bee53e9dfa42726eb587285c67ce5b334263e84c41273cd2441b"
     },
     {
       "path": "assets/panels/growth.css",
@@ -25,8 +25,8 @@
     },
     {
       "path": "assets/panels/growth.js",
-      "bytes": 1052286,
-      "sha256": "e252ef0084719290b9a3bebbfac97a1c950bc3a86e1f0f818de0fcbf2ee251cf"
+      "bytes": 1052895,
+      "sha256": "cabc3c49d9d6061b149dd64a11b13c9a59834bb98df4257cffea8f1ff4727ad4"
     },
     {
       "path": "assets/panels/influs.css",
@@ -35,8 +35,8 @@
     },
     {
       "path": "assets/panels/influs.js",
-      "bytes": 306250,
-      "sha256": "27fc87cb3b351d8b16b77492b52663ef0d194a428d33dcbb4b2f8ce284687b1c"
+      "bytes": 306619,
+      "sha256": "8362898bf5748b1574a59893935d6083bcc826f1883aa15fc2c9535da4f7475a"
     },
     {
       "path": "assets/panels/organico.css",
@@ -65,8 +65,8 @@
     },
     {
       "path": "growth-journey-lab-ui.js",
-      "bytes": 18525,
-      "sha256": "7216aa9d65cd250dc3e2e422036f284e8405e60af53a3387676ac9e4138c8fb5"
+      "bytes": 19159,
+      "sha256": "84932428149304c6af55b102509a658e6e7b0141b82bad6f23f9062d34f36de6"
     },
     {
       "path": "growth-journey-lab.css",
@@ -86,7 +86,7 @@
     {
       "path": "growth.html",
       "bytes": 112606,
-      "sha256": "ad642489990513db2dcb919b4b34bdf7d3f2d6f37acf687081d0a97569691098"
+      "sha256": "2e1a3e9ca40d011fd4b08dea91b36f5e2b78ad4609811bb931c6ec9636ed49cb"
     },
     {
       "path": "influs-conferencia.js",
@@ -95,18 +95,13 @@
     },
     {
       "path": "influs-tts.js",
-      "bytes": 126805,
-      "sha256": "0d65dbca0d806fa8517a1abda89885528e3ebda0c07d72bf6bc4f91403007705"
+      "bytes": 127189,
+      "sha256": "a435e8c401d82a80c59a430e2fe4d05b9d0f317c700708c4bb8f80a809047f5e"
     },
     {
       "path": "influs.html",
       "bytes": 106568,
-      "sha256": "f2557a24c6cdd1837026763ae3c5ba6b0f68546537df62222b1df8cdff1764e7"
-    },
-    {
-      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 6916,
-      "sha256": "c14f7c1382d2133a1eae0761103b679b733f294e031752b3c3e5b859847fbbc6"
+      "sha256": "d1268cde131fed177b87644557dbc65040749347d54c7de3a7b157ba36a4d0e8"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
@@ -122,6 +117,11 @@
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
       "bytes": 5952,
       "sha256": "643290c75b3165f20008a7151d9ff02d2be443b8fbdb497f8cc27ab86ed2c39e"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
+      "bytes": 6916,
+      "sha256": "c14f7c1382d2133a1eae0761103b679b733f294e031752b3c3e5b859847fbbc6"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
@@ -142,11 +142,6 @@
       "path": "panel-ui.css",
       "bytes": 19028,
       "sha256": "81ac4475be5a1ecc84a49950200bd1e8e0220fac1c2cef20fc0ef86cc8c20966"
-    },
-    {
-      "path": "services/dashboard-operational/BCRYPT-LICENSE",
-      "bytes": 1530,
-      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
     },
     {
       "path": "services/dashboard-operational/afiliados-native-consent.cjs",
@@ -172,6 +167,11 @@
       "path": "services/dashboard-operational/auth.cjs",
       "bytes": 146867,
       "sha256": "9603cab48a5fe28e4c4a777220acdf37afd695a58765c060dbdadefdfe89aca9"
+    },
+    {
+      "path": "services/dashboard-operational/BCRYPT-LICENSE",
+      "bytes": 1530,
+      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
     },
     {
       "path": "services/dashboard-operational/bcrypt.mjs",
@@ -212,6 +212,11 @@
       "path": "services/dashboard-operational/organico-presentation.css",
       "bytes": 78231,
       "sha256": "3d9a84d3fea861131147dcf67ac28e7f6fdd764bdabe7e2e67358c0eba2a7542"
+    },
+    {
+      "path": "services/dashboard-operational/pack-runtime.cjs",
+      "bytes": 4159,
+      "sha256": "cc1e3c74cbb6b75f75f26786ec136d286905a1c7e0f753bab3120efa010a697f"
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
@@ -260,8 +265,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 23313,
-      "sha256": "32d7a8f71f282d9f21db749fddc84c666f1820c991e5500e949e23f1f4a02971"
+      "bytes": 25666,
+      "sha256": "4681f817ca3910e0bbd037c89582bb3ab87c0832733f0588b996ad5dcd6113a9"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -280,8 +285,8 @@
     },
     {
       "path": "tests/afiliados-daily-workspace.test.cjs",
-      "bytes": 5495,
-      "sha256": "e9c45a70c7d4dce16a993952c7729932c719c1b25ea4f8dcb77032ae793ab863"
+      "bytes": 6222,
+      "sha256": "71124ce17bc891d14bd60077a33cc739b3eb5fcef2058439d35fe47941298bb3"
     },
     {
       "path": "tests/afiliados-native-consent.test.cjs",
@@ -419,6 +424,11 @@
       "sha256": "fef5481ea91f8ccedebd94824d0808e6f98160eddef317315d2674d141ea85b4"
     },
     {
+      "path": "tests/growth-control.test.cjs",
+      "bytes": 19467,
+      "sha256": "69c104f8cbce441e8902ccc8524a2032c76e46b8880fee1fbf2a093bbcb16bad"
+    },
+    {
       "path": "tests/helpers/dashboard-row-brand-fixture.cjs",
       "bytes": 752,
       "sha256": "a6fded93ab05cee557853804553d863394669a7b87a335f2ee54e7f877bf6880"
@@ -440,8 +450,8 @@
     },
     {
       "path": "tests/journey-lab-ui.test.cjs",
-      "bytes": 8055,
-      "sha256": "a3e0d35b1ece15f4b3800af320ea7dbb3bdc9ebe6c1cd74f00353e977b85950b"
+      "bytes": 8735,
+      "sha256": "309708e15cc9957b182c30ff63905408b25216c4c7e763678b1cf3de57997025"
     },
     {
       "path": "tests/journey-lab.test.cjs",
@@ -465,8 +475,8 @@
     },
     {
       "path": "tests/own-affiliates-workspace.test.cjs",
-      "bytes": 3787,
-      "sha256": "f9079cb5dc8971a79f8eaa55b6f437d04e661cd31a993a906c80c961b61c1604"
+      "bytes": 4245,
+      "sha256": "08614e365ffe5aa5d1734f5aa67343d93c2a74c2c64a6a1b86a9483645629426"
     },
     {
       "path": "tests/presentation-style-native/style.test.cjs",
@@ -482,6 +492,11 @@
       "path": "tests/product-front-split.test.cjs",
       "bytes": 7169,
       "sha256": "afd269c865b0e32a60472713b899f6b6e3041870bed87a42327a54e6a1809838"
+    },
+    {
+      "path": "tests/simple-audience-read.test.cjs",
+      "bytes": 6358,
+      "sha256": "be9d0f6a1c66fdeac5e4775a8045cd885b49c447988cb0b687abb774a57f20b0"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",

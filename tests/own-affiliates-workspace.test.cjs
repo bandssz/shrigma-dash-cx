@@ -22,3 +22,6 @@ test('partner detail preserves unknown amounts, live reference and missing closi
 test('detail escapes labels and zero is shown only when measured',()=>{
  const {host,data}=fixture();data.candidates[1].name='<img onerror="unsafe">';data.partner_orders[0].base_elegivel=0;data.partner_orders[0].comissao=0;V.render(host,data);host.querySelector('[data-own-affiliate-detail="two"]').click();const detail=host.querySelector('[data-own-detail]');assert(!detail.querySelector('img'));assert(detail.textContent.includes('<img onerror="unsafe">'));assert.match(detail.textContent,/0,00/);
 });
+test('at-profile search finds handles stored without the at sign for both brands',()=>{
+ for(const brand of ['fish','aristo']){const {host,window,data}=fixture();data.brand=brand;data.candidates[0].handle='plainhandle';V.render(host,data);const search=host.querySelector('[data-own-search]');search.value='@plainhandle';search.dispatchEvent(new window.Event('input'));assert.equal(host.querySelector('[data-own-count]').textContent,'1 de 2 cadastros');}
+});

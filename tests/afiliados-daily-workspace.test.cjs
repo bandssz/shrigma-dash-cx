@@ -31,3 +31,8 @@ test('deadline control filters decision and dispatch separately, preserving thei
 test('dispatch-only queue still supports deadlines without a synthetic decision request',()=>{
  const f=dom({fila:[],envio:[{marca:'fish',username:'dispatch',product_title:'Sample',envio_expira_em:new Date(NOW+2*3600000).toISOString()}],regra:[]},'renderFila');f.q('#tts-amostra-prazo').value='vencido';f.q('#tts-amostra-prazo').onchange();assert.equal(f.q('.tts-envio .tts-item').hidden,true);assert.equal(f.q('.tts-fila'),null);
 });
+test('expired samples never show zero hours and absent own-brand GMV never becomes zero',()=>{
+ assert.equal(TTS.horasAteAfiliados(new Date(NOW-1).toISOString(),NOW),-1);assert.equal(TTS.horasAteAfiliados(new Date(NOW).toISOString(),NOW),-1);assert.equal(TTS.horasAteAfiliados('invalid',NOW),null);
+ const x={marca:'fish',username:'synthetic',nickname:'Synthetic',application_id:'1',product_title:'Sample',approve_expira_em:new Date(NOW-60000).toISOString(),pedidos_90d:3,gmv_90d_marca:null};
+ const f=dom({fila:[x],envio:[],regra:[]},'renderFila');assert.match(f.area.textContent,/3 ped\. · GMV indisponível/);assert.equal(f.q('.tts-item').dataset.prazo,'vencido');assert.equal(f.q('.tts-item-prazo').textContent,'-1');
+});
