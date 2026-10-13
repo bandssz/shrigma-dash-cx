@@ -77,4 +77,59 @@ function createDiagnosticsController({enabled=false,driver,auth,coreFactory=crea
  async function close(){closing=true;if(core)await core.close();return {closed:true,operational:false};}
  return Object.freeze({status,authorize,authorizeNative,inspect,close,enabled:ready});
 }
-module.exports=Object.freeze({createDiagnosticsController,SCOPE});
+
+// Separate purpose receipt over the unchanged original connection store.
+function withNativeDiagnosticsApproval({db,connections,managerHost,identity,mac,now=Date.now}={}){
+ if(!db?.prepare||!connections?.authenticate||typeof managerHost!=='string'||[identity,mac,now].some(v=>typeof v!=='function'))throw Error('NATIVE_CONFIG_INVALID');
+ const plain=x=>x&&Object.getPrototypeOf(x)===Object.prototype,BRANDS=['fish','aristo'],deny=fail,authenticate=(...args)=>connections.authenticate(...args);
+ const time=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)deny('NATIVE_CLOCK_INVALID',500);return t;};
+ db.exec(`CREATE TABLE IF NOT EXISTS crm_native_source_diagnostics_approval_v1(
+ connection_id TEXT NOT NULL REFERENCES crm_native_connections_v1(id),
+ owner_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL,request_id TEXT NOT NULL,
+ binding_json TEXT NOT NULL,connection_hash TEXT NOT NULL,happened_at INTEGER NOT NULL,
+ binding_mac TEXT NOT NULL,PRIMARY KEY(connection_id,brand,request_id));`);
+ function diagnosticBinding(value,ownerId){
+  const keys=['schema','ownerId','ownerRevision','brand','requestId','operationId','sourceBindingHash','profileRevision','credentialBindingHash','resourceHash'];
+  const h=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x),uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(x);
+  if(!plain(value)||Object.keys(value).sort().join(',')!==keys.sort().join(',')||value.schema!=='shrigma-source-diagnostics-consent-v1'||value.ownerId!==ownerId||!BRANDS.includes(value.brand)||!uuid(value.requestId)||!uuid(value.operationId)||!Number.isSafeInteger(value.profileRevision)||value.profileRevision<1||['ownerRevision','sourceBindingHash','credentialBindingHash','resourceHash'].some(k=>!h(value[k])))deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  return JSON.stringify(Object.fromEntries(Object.keys(value).sort().map(k=>[k,value[k]])));
+ }
+ const nativeDiagnosticConnectionHash=r=>sha(JSON.stringify([r.id,r.user_id,r.host,r.token_hash,r.brands_json,r.scopes_json,r.auth_revision,r.created_at,r.expires_at,r.binding_mac]));
+ const nativeDiagnosticSeal=r=>mac(JSON.stringify(['source-diagnostics-native-approval-v1',r.connection_id,r.owner_id,r.brand,r.request_id,r.binding_json,r.connection_hash,r.happened_at]));
+ function nativeDiagnosticConnection(context,brand){
+  if(typeof context?.nativeBearer!=='string')deny('NATIVE_DIAGNOSTICS_NATIVE_REQUIRED');
+  const p=authenticate(context.nativeBearer,{scope:'crm.source-diagnostics',brand});
+  if(authenticate(context.nativeBearer,{scope:'crm.source-sync',brand}).id!==p.id)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  const owner=identity(p.userId),row=db.prepare('SELECT * FROM crm_native_connections_v1 WHERE id=? AND user_id=?').get(p.id,p.userId);
+  if(!owner||owner.role!=='superadmin'||owner.active!==true||owner.canEditGrowth!==true||!row||row.host!==managerHost||row.revoked_at!==null||row.expires_at<=time()||row.auth_revision!==owner.revision)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  return {owner,row};
+ }
+ function nativeDiagnosticRecord(context,brand,requestId){
+  const {row,owner}=nativeDiagnosticConnection(context,brand),r=db.prepare('SELECT * FROM crm_native_source_diagnostics_approval_v1 WHERE connection_id=? AND brand=? AND request_id=?').get(row.id,brand,requestId);
+  if(!r)return null;
+  if(r.owner_id!==row.user_id||r.connection_hash!==nativeDiagnosticConnectionHash(row)||r.binding_mac!==nativeDiagnosticSeal(r)||!Number.isSafeInteger(r.happened_at)||r.happened_at>time())deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  let b;try{b=JSON.parse(r.binding_json);}catch{deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');}
+  if(diagnosticBinding(b,row.user_id)!==r.binding_json||b.ownerRevision!==owner.revision||b.brand!==brand||b.requestId!==requestId)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  return b;
+ }
+ function permitNativeSourceDiagnostics({context,binding,approved,purpose}={}){
+  if(context?.method!=='POST'||approved!==true||purpose!=='crm.source-diagnostics')deny('NATIVE_DIAGNOSTICS_CONFIRMATION_REQUIRED');
+  const {row,owner}=nativeDiagnosticConnection(context,binding?.brand),json=diagnosticBinding(binding,row.user_id);
+  if(binding.ownerRevision!==owner.revision)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  db.exec('BEGIN IMMEDIATE');try{
+   const fresh=nativeDiagnosticConnection(context,binding.brand);
+   if(nativeDiagnosticConnectionHash(fresh.row)!==nativeDiagnosticConnectionHash(row))deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+   const prior=nativeDiagnosticRecord(context,binding.brand,binding.requestId);
+   if(prior){if(JSON.stringify(prior)!==json)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');db.exec('COMMIT');return {authorized:true};}
+   const r={connection_id:row.id,owner_id:row.user_id,brand:binding.brand,request_id:binding.requestId,binding_json:json,connection_hash:nativeDiagnosticConnectionHash(row),happened_at:time()};
+   db.prepare('INSERT INTO crm_native_source_diagnostics_approval_v1 VALUES(?,?,?,?,?,?,?,?)').run(r.connection_id,r.owner_id,r.brand,r.request_id,r.binding_json,r.connection_hash,r.happened_at,nativeDiagnosticSeal(r));
+   nativeDiagnosticRecord(context,binding.brand,binding.requestId);db.exec('COMMIT');return {authorized:true};
+  }catch(e){db.exec('ROLLBACK');throw e;}
+ }
+ function sourceDiagnosticsConsent(value={}){
+  if(value.context?.nativeBearer!==undefined){const p=connections.authenticate(value.context.nativeBearer,{scope:SCOPE,brand:value.brand});if(p.id!==value.connectionId)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');const receipt=nativeDiagnosticRecord(value.context,value.brand,value.requestId);if(receipt)return Object.freeze(receipt);}
+  return connections.sourceDiagnosticsConsent(value);
+ }
+ return Object.freeze({...connections,permitNativeSourceDiagnostics,sourceDiagnosticsConsent});
+}
+module.exports=Object.freeze({createDiagnosticsController,withNativeDiagnosticsApproval,SCOPE});

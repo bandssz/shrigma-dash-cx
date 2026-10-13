@@ -1426,6 +1426,7 @@ function createAuth(options){
     revision:crypto.createHmac('sha256',encKey).update('native-owner-v1:'+JSON.stringify([user.id,user.email,user.role,user.state,user.password_hash])).digest('hex')};
   };
  if(options.crmNativeEnabled===true)nativeConnections=require('./crm-native-delegation.cjs').createDelegationStore({db,managerHost,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-delegation-v1:'+value).digest('hex'),consent:nativeConsent,identity:nativeIdentity});
+ if(nativeConnections&&options.crmNativeSourceDiagnosticsEnabled===true)nativeConnections=require('./native-source-diagnostics-controller.cjs').withNativeDiagnosticsApproval({db,connections:nativeConnections,managerHost,identity:nativeIdentity,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-delegation-v1:'+value).digest('hex')});
  if(dashboardAffiliateRead&&nativeConnections)affiliateNativeConsent=require('./afiliados-native-consent.cjs').createAffiliateNativeConsentStore({db,connections:nativeConnections,consent:nativeConsent,identity:nativeIdentity,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('affiliate-native-read-v1:'+value).digest('hex'),currentBinding:(context,brand)=>{
   const b=affiliatePrivateBinding(context,brand);
   if(!b.readLinked)err('AFFILIATE_READ_BINDING_MISSING',503);

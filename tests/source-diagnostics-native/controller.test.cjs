@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),a=require('node:assert/strict'),crypto=require('node:crypto'),path=require('node:path'),{DatabaseSync}=require('node:sqlite'),{EventEmitter}=require('node:events');
 const root=process.env.SOURCE_DIAGNOSTICS_TEST_RUNTIME||path.resolve(__dirname,'../../services/dashboard-operational');
-const {createDelegationStore}=require(root+'/crm-native-delegation.cjs'),{createDatabaseVault}=require(root+'/native-database-vault.cjs'),S=require(root+'/native-source-sync.cjs'),D=require(root+'/native-source-diagnostics.cjs'),{createDiagnosticsController}=require(root+'/native-source-diagnostics-controller.cjs');
+const {createDelegationStore}=require(root+'/crm-native-delegation.cjs'),{createDatabaseVault}=require(root+'/native-database-vault.cjs'),S=require(root+'/native-source-sync.cjs'),D=require(root+'/native-source-diagnostics.cjs'),{createDiagnosticsController,withNativeDiagnosticsApproval}=require(root+'/native-source-diagnostics-controller.cjs');
 const requestId='11111111-1111-4111-8111-111111111111',otherRequest='22222222-2222-4222-8222-222222222222',operationId='33333333-3333-4333-8333-333333333333';
 const secret='SyntheticOnly.DiagnosticPassword',sourceKey='SyntheticOnly.SourceKey.1234567890123456789',canon=x=>JSON.stringify(x,(_k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 async function fixture(t,{enabled=true}={}){
@@ -12,7 +12,7 @@ async function fixture(t,{enabled=true}={}){
  const decrypt=x=>{const [iv,b,tag]=x.split('.'),c=crypto.createDecipheriv('aes-256-gcm',key,Buffer.from(iv,'hex'));c.setAuthTag(Buffer.from(tag,'hex'));return Buffer.concat([c.update(Buffer.from(b,'hex')),c.final()]).toString('utf8');};
  const identity=()=>({role:'superadmin',active:state.active,canEditGrowth:state.edit,revision:state.revision});
  const consent=c=>{if(c?.nativeBearer!==undefined||c?.method!=='POST'||c.csrf!==browser.csrf)throw Error('Fixture browser denied');return {userId:c.owner||'fixture-master',sessionHash:'c'.repeat(64)};};
- const store=createDelegationStore({db,managerHost:'fixture.invalid',identity,consent,mac});
+ const store=withNativeDiagnosticsApproval({db,connections:createDelegationStore({db,managerHost:'fixture.invalid',identity,consent,mac}),managerHost:'fixture.invalid',identity,mac});
  const issue=()=>store.issue({context:browser,brands:['fish'],scopes:['crm.read','db.inspect']});
  const connection=issue();store.permitSourceSync({context:browser,connectionId:connection.connection.id});
  const native=store.context(connection.token);

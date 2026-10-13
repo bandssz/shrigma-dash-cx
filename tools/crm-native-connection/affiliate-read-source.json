@@ -170,8 +170,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 147063,
-      "sha256": "7ffb3a3068e19053ad47a0453ef7fb5a75e6bae443a1dc4c2c6a2951821e8ab2"
+      "bytes": 147420,
+      "sha256": "f47928e51fe7b3c5e5f48667b1ac00ce64317ded665a60dfd9b7995bad7dc31f"
     },
     {
       "path": "services/dashboard-operational/BCRYPT-LICENSE",
@@ -187,11 +187,6 @@
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1379,
       "sha256": "a69c36bff923295ebbf75be4ef8a93ff5d577731d600efdb13a90c9cfb86f902"
-    },
-    {
-      "path": "services/dashboard-operational/crm-native-delegation.cjs",
-      "bytes": 27815,
-      "sha256": "63db0fd43889b261d24b6ec9e6d79578e18a0e0825cb41762ea3610c08348f31"
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
@@ -235,8 +230,8 @@
     },
     {
       "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
-      "bytes": 6797,
-      "sha256": "609743b3a10083f4de0745f5049654898f71b8524f8230f351f758a41e0a91ad"
+      "bytes": 12666,
+      "sha256": "d1f24dd44ca3c17c4fc6f65ffd9b6817c9ff137ccbdf35ae876fbde865bb8211"
     },
     {
       "path": "services/dashboard-operational/native-source-sync.cjs",
@@ -670,8 +665,8 @@
     },
     {
       "path": "tests/source-diagnostics-native/controller.test.cjs",
-      "bytes": 15010,
-      "sha256": "00ddba2a0f8983bd2c1e5b6c72f176fd0ce605139a2a7c9796554dfb00a9d0e0"
+      "bytes": 15131,
+      "sha256": "2f0c4b6c8fb457485c9095b1dced3b953517722139968acb92c2dba66db96c52"
     },
     {
       "path": "tests/source-diagnostics-native/gateway.test.cjs",
