@@ -4,7 +4,7 @@
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {Readable,Writable}=require('node:stream');
 const runtime=process.env.SOURCE_SYNC_TEST_RUNTIME||path.resolve(__dirname,'../../services/dashboard-operational');
-const {createAuth}=require(runtime+'/auth.cjs'),{settingsFromEnv,createServer}=require(runtime+'/server.cjs'),P=require(runtime+'/proxy.cjs');
+const {createAuth}=require(runtime+'/auth.cjs'),{settingsFromEnv,createServer,authOptionsFor}=require(runtime+'/server.cjs'),P=require(runtime+'/proxy.cjs');
 const host='gerencial.shrigma.com.br',origin='https://'+host,email='felipebandeira@oaristocrata.com',sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const requestId='cccccccc-cccc-4ccc-8ccc-cccccccccccc',sourceBearer='isolated-source-service-key-000000000000',revision='79861de6f9c3628885e7840858011180b5af9899',query='bb89faf525f58f9c5075878888c1be6fcf4992200310a4867cdd2871fb570086';
 const originalResponse=(value,url)=>{const r=new Response(JSON.stringify(value),{status:200,headers:{'Content-Type':'application/json'}});Object.defineProperty(r,'url',{value:String(url)});return r;};
@@ -42,7 +42,7 @@ test('fresh source setting is a single explicit brand and UUID, disabled by defa
  const f=await fixture(t);
  a.equal(f.settings.crmNativeSourceFreshReadRequest,undefined);
  const request={brand:'aristo',requestId:'44444444-4444-4444-8444-444444444444'};
- const configured=settingsFromEnv({...f.env,DASHBOARD_SOURCE_FRESH_READ_REQUEST:JSON.stringify(request)});a.deepEqual(configured.crmNativeSourceFreshReadRequest,request);
+ const configured=settingsFromEnv({...f.env,DASHBOARD_SOURCE_FRESH_READ_REQUEST:JSON.stringify(request)});a.deepEqual(configured.crmNativeSourceFreshReadRequest,request);a.deepEqual(authOptionsFor(configured).crmNativeSourceFreshReadRequest,request);
  for(const value of ['true','{"brand":"aristo","requestId":"wrong"}','{"brand":"olivas","requestId":"44444444-4444-4444-8444-444444444444"}'])a.throws(()=>settingsFromEnv({...f.env,DASHBOARD_SOURCE_FRESH_READ_REQUEST:value}),/Fresh source read configuration invalid/);
  a.throws(()=>settingsFromEnv({...f.env,DASHBOARD_NATIVE_SHOPIFY_SOURCE:'disabled',DASHBOARD_SOURCE_FRESH_READ_REQUEST:JSON.stringify(request)}),/Fresh source read configuration invalid/);
 });

@@ -365,8 +365,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 167369,
-      "sha256": "78022161ced880f858db130ef10b425a030a2225b6e593058f0af57b3a65c2cc"
+      "bytes": 167493,
+      "sha256": "e9c5ea157aebaae15b46f7976482c2483fd9973785eee50f3f96481219f3c688"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -650,8 +650,8 @@
     },
     {
       "path": "tests/source-sync-native/root-runtime.test.cjs",
-      "bytes": 9393,
-      "sha256": "af1e68934adc47bd01eacf3ee06c0d8f81c60cd3517d8acbf28e53069a7e7abd"
+      "bytes": 9488,
+      "sha256": "ab2247bfec0ad13f394c174078766379c1df3fcd714cf6d650a2e0d3983d7b96"
     },
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
