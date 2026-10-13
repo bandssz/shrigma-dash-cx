@@ -36,3 +36,12 @@ test('expired samples never show zero hours and absent own-brand GMV never becom
  const x={marca:'fish',username:'synthetic',nickname:'Synthetic',application_id:'1',product_title:'Sample',approve_expira_em:new Date(NOW-60000).toISOString(),pedidos_90d:3,gmv_90d_marca:null};
  const f=dom({fila:[x],envio:[],regra:[]},'renderFila');assert.match(f.area.textContent,/3 ped\. · GMV indisponível/);assert.equal(f.q('.tts-item').dataset.prazo,'vencido');assert.equal(f.q('.tts-item-prazo').textContent,'-1');
 });
+test('expanded source renders canal, content and follow-up without starting a sending service',()=>{
+ const {document}=parseHTML('<main id="tts-area"></main>');const area=document.getElementById('tts-area');
+ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const DADOS={canal:[{marca:'fish',dia:'2026-10-01',gmv:null,gmv_afiliado:123}],canal_total:[],lives:[],videos:[{marca:'fish',username:'synthetic',titulo:'<script>unsafe</script>',gmv:12,retrato_em:'2026-10-01'}],cobranca:[{marca:'fish',enviadas:2,falhas:0}],cobranca_pendentes:[{marca:'fish',pendentes:4}],cobranca_pulos:[],cobranca_fila:[]};
+ const scope={document,TTS,DADOS,marcaAtual:()=> 'fish',$:s=>document.querySelector(s),esc,nf:String,rf:x=>'R$ '+x,valorTTS:(x,f)=>x==null?'indisponível':f(x),fetch(){throw Error('No network');},acaoTTS(){throw Error('No writes');}};
+ const begin=source.indexOf('  function tabelaLeituraAfiliados('),end=source.indexOf('\n  function renderFila()',begin);assert(begin>0&&end>begin);
+ vm.runInNewContext(source.slice(begin,end)+'\nrenderCanalAfiliados();',scope);assert.match(area.textContent,/Canal por dia/);assert.match(area.textContent,/indisponível/);assert.match(area.textContent,/R\$ 123/);assert.equal(area.querySelector('script'),null);assert.match(area.textContent,/A fonte não devolveu este bloco/);
+ vm.runInNewContext('renderAcompanhamentoAfiliados();',scope);assert.match(area.textContent,/Pendências de conteúdo/);assert.match(area.textContent,/4/);assert.equal(area.querySelector('button,select,input'),null);
+});

@@ -113,6 +113,8 @@ test('four-front native summary uses the same readers, scopes brands and returns
  const f=await fixture(t),reader=require(runtime+'/simple-dashboard-read.cjs').createReader({auth:f.auth,upstreams:f.upstreams,keys:f.keys,fetchImpl:f.fetchImpl,projectGrowth:(value,brand)=>({brand,crm_diario:value.crm_diario.filter(x=>x.marca===brand)})});
  const result=await reader.summary(f.adminContext,['fish','aristo'],'https://'+HOST,Date.parse('2026-10-13T01:30:00Z'));
  assert.equal(result.sources.length,8);assert(result.sources.every(x=>x.status===200),JSON.stringify(result.sources));assert.equal(result.sources.find(x=>x.front==='growth'&&x.brand==='fish').counts.crm_diario,1);assert.equal(result.sources.find(x=>x.front==='afiliados').window.fim,'2026-10-12');
+ const fish=result.sources.find(x=>x.front==='afiliados'&&x.brand==='fish').affiliate90d,aristo=result.sources.find(x=>x.front==='afiliados'&&x.brand==='aristo').affiliate90d;
+ assert.deepEqual(fish.window,{ini:'2026-07-15',fim:'2026-10-12'});assert.deepEqual(fish.metrics,{gmv:100,pedidos:2,criadores:null,comissao:null});assert.equal(aristo.metrics.gmv,200);assert.equal(fish.readOnly,true);
  for(const secret of Object.values(f.keys))assert(!JSON.stringify(result).includes(secret));assert(!JSON.stringify(result).includes('fish-post'));assert(!JSON.stringify(result).includes('private'));
  await assert.rejects(reader.summary({host:HOST,origin:'https://'+HOST,method:'POST',cookieHeader:f.analyst.cookie.split(';')[0],csrf:f.analyst.csrf},['fish'],'https://'+HOST),e=>e.status===403);
 });

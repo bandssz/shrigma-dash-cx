@@ -20,14 +20,14 @@
     soma(arr, k) { return (arr || []).reduce((a, x) => a + (+x[k] || 0), 0); },
 
     // Explicit Afiliados READ only. A received empty array differs from an absent block.
-    ABAS_AFILIADOS: ['fila', 'criadores', 'colabs'],
+    ABAS_AFILIADOS: ['fila', 'criadores', 'colabs', 'canal', 'cobranca'],
     abaAfiliados(pane) { return TTS.ABAS_AFILIADOS.includes(pane) ? pane : 'fila'; },
     numeroAfiliados(v) {
       if (typeof v !== 'number' && !(typeof v === 'string' && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(v.trim()))) return null;
       const n = Number(v); return Number.isFinite(n) ? n : null;
     },
     blocoAfiliados(p, marca, campo) {
-      const campos = ['kpis', 'amostras', 'fila', 'envio', 'criadores', 'target', 'open', 'frescor'];
+      const campos = ['kpis', 'amostras', 'fila', 'envio', 'criadores', 'target', 'open', 'frescor', 'serie', 'canal', 'canal_total', 'lives', 'videos', 'live_produtos', 'cobranca', 'cobranca_fila', 'cobranca_regra', 'cobranca_pendentes', 'cobranca_pulos'];
       if (!TTS.MARCAS.includes(marca) || !campos.includes(campo) || !Array.isArray(p?.[campo]) ||
           p[campo].some(x => !x || typeof x !== 'object' || Array.isArray(x) || !TTS.MARCAS.includes(x.marca)))
         return { estado: 'indisponivel', rows: null };
@@ -35,7 +35,7 @@
       return { estado: rows.length ? 'pronto' : 'vazio', rows };
     },
     disponibilidadeAfiliados(p, marca, pane) {
-      const campos = { fila: ['fila', 'envio'], criadores: ['criadores'], colabs: ['target', 'open'] }[pane];
+      const campos = { fila: ['fila', 'envio'], criadores: ['criadores'], colabs: ['target', 'open'], canal: ['canal', 'canal_total'], cobranca: ['cobranca', 'cobranca_pendentes'] }[pane];
       if (!campos) return { estado: 'indisponivel', ausentes: [], count: null };
       const blocos = campos.map(c => [c, TTS.blocoAfiliados(p, marca, c)]);
       const ausentes = blocos.filter(([, b]) => b.estado === 'indisponivel').map(([c]) => c);
@@ -817,13 +817,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
 
   function renderKpisTTS() {
     const kp = $('#tts-kpis'); if (kp?.dataset) kp.dataset.pane = PANE;
-    if (PANE === 'canal') { kp.innerHTML = cardsCanal(); return; }
     const afiliados = typeof PRODUCT_FRONT !== 'undefined' && PRODUCT_FRONT.id === 'afiliados';
+    if (PANE === 'canal' && !afiliados) { kp.innerHTML = cardsCanal(); return; }
     const m = marcaAtual(), k = afiliados ? TTS.kpisAfiliados(DADOS, m) : TTS.kpis(DADOS, m), j = DADOS.janela || {};
     const urg = k.urgente ? (typeof PRODUCT_FRONT !== "undefined" && PRODUCT_FRONT.id === "afiliados" ? TTS.horasAteAfiliados(k.urgente) : TTS.horasAte(k.urgente)) : null;
     const cards = [
       { r: 'GMV via afiliado', v: rf(k.gmv), s: `${nf(k.pedidos)} pedidos · ${nf(k.criadores)} criadores venderam · ${String(j.ini||'').split('-').slice(1).reverse().join('/')} a ${String(j.fim||'').split('-').slice(1).reverse().join('/')}` },
-      { r: 'Comissão paga', v: rf(k.comissao), s: afiliados && (k.gmv === null || k.comissao === null) ? 'dados de comissão indisponíveis' : k.comissaoPct !== null ? `${pf(k.comissaoPct, 1)} do GMV` : 'sem pedido na janela' },
+      { r: 'Comissão atribuída', v: rf(k.comissao), s: afiliados && (k.gmv === null || k.comissao === null) ? 'dados de comissão indisponíveis' : k.comissaoPct !== null ? `${pf(k.comissaoPct, 1)} do GMV · não comprova pagamento` : 'sem pedido na janela' },
       { r: 'Vídeo × Live', v: k.pctVideo === null ? '—' : `${pf(k.pctVideo)} <span class="mini">vídeo</span>`, s: k.pctVideo === null ? (afiliados ? 'percentual indisponível ou base menor que 30 pedidos' : 'base menor que 30 pedidos') : `${pf(k.pctLive)} live · resto shop/link`, title: 'percentual do GMV por formato de conteúdo que gerou o pedido' },
       { r: 'Amostras pendentes', v: `<span class="${k.pendentes && urg !== null && urg < 24 ? 'vm' : ''}">${nf(k.pendentes)}</span>`, s: (afiliados && k.pendentes === null ? 'dados de pendências indisponíveis' : k.pendentes ? (urg === null ? 'aguardando decisão' : urg < 0 ? 'há pedido vencido' : `a mais urgente vence em ${urg < 24 ? urg + ' h' : Math.round(urg / 24) + ' d'}`) : 'nada a decidir agora') + ' · agora', title: 'estado atual da fila no TikTok — não depende do período selecionado' },
       { r: 'Perda operacional', v: k.perdaPct === null ? nf(k.perda) : pf(k.perdaPct), s: `${nf(k.perda)} de ${nf(k.amostrasTotal)} amostras · ${afiliados ? 'histórico recebido' : 'histórico completo'}`, title: 'venceu sem decisão ou aprovada e não enviada. Histórico completo — a API do TikTok não devolve a data do pedido de amostra, então não dá para recortar por período' },
@@ -854,7 +854,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
         $('#tts-area').innerHTML = `<div class="vazio" role="status"><strong>Dados desta aba indisponíveis</strong><br>A consulta não confirmou os blocos: ${estado.ausentes.map(esc).join(', ')}. Ausência de resposta não significa fila vazia ou resultado zero.</div>`;
         return;
       }
-      ({ fila: renderFila, criadores: renderCriadores, colabs: renderColabs })[PANE]();
+      ({ fila: renderFila, criadores: renderCriadores, colabs: renderColabs, canal: renderCanalAfiliados, cobranca: renderAcompanhamentoAfiliados })[PANE]();
       const f = TTS.frescorAfiliados(DADOS, m);
       const nota = document.createElement('div'); nota.className = 'nota'; nota.setAttribute('role', 'status');
       nota.textContent = `Fonte: dados recebidos pela consulta TikTok. ${f.txt}${f.velho ? ' · dados sem coleta atual confirmada' : ''}${DADOS._caiu ? ' · leitura atual falhou; resposta anterior' : DADOS._cache ? ' · resposta anterior; atualizando' : ''}. ${PANE === 'criadores' ? 'Pedidos no período selecionado.' : 'Estado/histórico recebido; não recortado pelo período de pedidos.'}`;
@@ -866,6 +866,27 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     document.querySelectorAll('#tts-abas button').forEach(b => { b.classList.toggle('ativo', b.dataset.p === PANE); const s = b.querySelector('.n'); if (s) s.textContent = n[b.dataset.p] ?? ''; });
     renderKpisTTS();   // a linha de cartões muda com a aba (Canal = loja inteira; demais = afiliado)
     ({ fila: renderFila, criadores: renderCriadores, colabs: renderColabs, cobranca: renderCobranca, canal: renderCanal, regras: renderRegras })[PANE]();
+  }
+
+  function tabelaLeituraAfiliados(titulo,rows,colunas,nota='') {
+    const count=Array.isArray(rows)?rows.length:null;
+    return `<section class="tts-leitura"><div class="painel-cab"><h3>${esc(titulo)}</h3><span class="tag nulo">${count===null?'indisponível':nf(count)}</span></div>${nota?`<p class="nota">${esc(nota)}</p>`:''}${count===null?'<p class="vazio">A fonte não devolveu este bloco.</p>':count===0?'<p class="vazio">Nenhum registro recebido neste recorte.</p>':`<div class="rolagem" tabindex="0"><table class="comparativo"><thead><tr>${colunas.map(([nome])=>`<th>${esc(nome)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${colunas.map(([,key,format])=>`<td>${format?valorTTS(row[key],format):esc(row[key]??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}</section>`;
+  }
+  function renderCanalAfiliados() {
+    const m=marcaAtual(),bloco=k=>TTS.blocoAfiliados(DADOS,m,k).rows;
+    $('#tts-area').innerHTML=`<p class="nota">Resultados da sua loja. Pedidos de afiliados, total do canal e conteúdo têm recortes próprios; não some os GMVs entre eles.</p>`+
+      tabelaLeituraAfiliados('Canal por dia',bloco('canal'),[['Dia','dia'],['GMV da loja','gmv',rf],['GMV afiliado','gmv_afiliado',rf],['Live','gmv_live',rf],['Vídeo','gmv_video',rf],['Pedidos','pedidos',nf],['Origem','origem_estado']])+
+      tabelaLeituraAfiliados('Lives no período',bloco('lives'),[['Quando','inicio_em'],['Criador','username'],['Título','titulo'],['Origem','origem'],['GMV','gmv',rf],['Pedidos','pedidos',nf],['Espectadores','espectadores',nf]],'Até 60 sessões entre marcas; a lista pode ser parcial.')+
+      tabelaLeituraAfiliados('Vídeos com resultado',bloco('videos'),[['Criador','username'],['Título','titulo'],['Publicado','publicado_em'],['GMV','gmv',rf],['Pedidos','pedidos',nf],['Visualizações','visualizacoes',nf],['Retrato','retrato_em']],'Até 30 vídeos entre marcas. Métricas acumuladas do retrato de 30 dias, independentes do período de pedidos.')+
+      tabelaLeituraAfiliados('Produtos vendidos nas lives',bloco('live_produtos'),[['Live','live_id'],['Produto','nome'],['GMV direto','gmv_direto',rf],['Pedidos','pedidos',nf],['Cliques','cliques',nf]],'Produtos da própria loja devolvidos pela plataforma; até 400 registros entre marcas.');
+  }
+  function renderAcompanhamentoAfiliados() {
+    const m=marcaAtual(),bloco=k=>TTS.blocoAfiliados(DADOS,m,k).rows;
+    $('#tts-area').innerHTML='<p class="nota">Acompanhe quem deve conteúdo e quem respondeu. As mensagens e as regras ativas permanecem no canal original.</p>'+
+      tabelaLeituraAfiliados('Pendências de conteúdo',bloco('cobranca_pendentes'),[['Criadores pendentes','pendentes',nf]])+
+      tabelaLeituraAfiliados('Resultado das cobranças',bloco('cobranca'),[['Enviadas','enviadas',nf],['Falhas','falhas',nf],['Simulações','simuladas',nf],['Última','ultima']])+
+      tabelaLeituraAfiliados('Acompanhamento de conversas',bloco('cobranca_pulos'),[['Criador','username'],['Etapa','etapa'],['Motivo','motivo'],['Sem ler','nao_lidas',nf],['Última interação','ultima_msg_em']])+
+      tabelaLeituraAfiliados('Histórico recente',bloco('cobranca_fila'),[['Criador','username'],['Etapa','etapa'],['Tentativa','tentativa',nf],['Simulação','dry_run'],['Sucesso','ok'],['Quando','enviado_em']]);
   }
 
   function renderFila() {

@@ -17,7 +17,20 @@ const FIELDS = Object.freeze({
   target: fields('colab_id nome status', 'invited_count showcase_count content_creator_count product_count comissao_pct produtos_fora_do_ar', 'inicio_em fim_em', 'has_free_sample', 'produtos'),
   frescor: fields('erros', '', 'ultima_ok ultima', 'ultima_ok_todas'),
   autorizacao: fields('loja seller_name ultimo_erro_canal', '', 'autorizado_em refresh_expira_em', 'expira_em_breve', 'granted_scopes escopos_faltando'),
-  escopos: fields('', '', 'verificado_em autorizado_em', 'conferido_apos_autorizar', 'mudou_desde_autorizacao aguardando_tiktok nao_medido')
+  escopos: fields('', '', 'verificado_em autorizado_em', 'conferido_apos_autorizar', 'mudou_desde_autorizacao aguardando_tiktok nao_medido'),
+  serie: fields('', 'gmv pedidos', 'dia'),
+  canal: fields('origem_estado origem_modelo', 'gmv gmv_live gmv_video gmv_vitrine gmv_afiliado gmv_proprio gmv_ads pedidos visitantes reembolso gmv_saldo_nao_afiliado gmv_ajuste_origem gmv_ajuste_origem_absoluto', 'dia'),
+  canal_total: fields('origem_estado origem_modelo', 'dias gmv gmv_live gmv_video gmv_vitrine gmv_afiliado gmv_proprio gmv_ads pedidos visitantes reembolso pct_afiliado pct_live pct_video pct_vitrine pct_gmv_max conversao_pct ticket_medio gmv_saldo_nao_afiliado gmv_ajuste_origem gmv_ajuste_origem_absoluto origem_dias_divergentes origem_dias_indisponiveis', 'ultimo_dia'),
+  lives: fields('live_id username origem titulo', 'duracao_min gmv gmv_24h pedidos pedidos_criados compradores espectadores cliques impressoes_produto ctr_pct clique_pedido_pct novos_seguidores', 'dia inicio_em fim_em atualizado_em'),
+  live_produtos: fields('live_id product_id nome', 'gmv_direto pedidos pedidos_criados compradores impressoes cliques ctr_pct clique_pedido_pct gpm'),
+  videos: fields('video_id username origem titulo', 'gmv gpm pedidos visualizacoes ctr_pct duracao_s', 'retrato_em publicado_em'),
+  cobranca: fields('', 'enviadas falhas simuladas', 'ultima'),
+  // Message bodies, provider errors and customer/contact details are not needed
+  // to follow up the creator pipeline and do not leave this READ projection.
+  cobranca_fila: fields('etapa username', 'tentativa', 'enviado_em', 'dry_run ok'),
+  cobranca_regra: fields('cobranca_modo', 'cobranca_max_dia cobranca_max_tentativas cobranca_dias_entre'),
+  cobranca_pendentes: fields('', 'pendentes'),
+  cobranca_pulos: fields('etapa username motivo ultima_msg_de', 'tentativa nao_lidas', 'ultima_msg_em visto_em')
 });
 function refuse(code) { throw Object.assign(new Error(code), {code, status: 502}); }
 function validDate(value) {

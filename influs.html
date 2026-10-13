@@ -8,7 +8,7 @@
 <style>body[data-product-front] [hidden]{display:none!important}</style>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=b6c5561e5609">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-zT0T8CgaJ7dscOfeXXOafxOkCMjigTm5UvMyUKCCi2g='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-UIfupLL3n4Co8YShrmEBd7f9JaAo4adMR54UzLgDupQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -248,7 +248,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=8362898bf574"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=e816b4efd449"></script>
 <script>
 const $=s=>document.querySelector(s);
 // This view selector never grants data access or borrows another front's key.
@@ -451,7 +451,8 @@ function preset(p){
   if(p==='mesant'){const f=dm(HOJE.slice(0,8)+'01',-1);return {ini:f.slice(0,8)+'01',fim:f};}
   return {ini:dm(HOJE,-(+p-1)),fim:HOJE};
 }
-let PER=preset('mes'); // abre em Este mês (decisão do Felipe, 28/09)
+let PER=preset(PRODUCT_FRONT.id==='afiliados'?'90':'mes');
+if(PRODUCT_FRONT.id==='afiliados')document.querySelectorAll('#presets button').forEach(b=>b.classList.toggle('ativo',b.dataset.p==='90'));
 const LOGO={
   aristo:'https://oaristocrata.com/cdn/shop/files/Mascote.png?height=96',
   fish:'https://fishermans.com.br/cdn/shop/files/simbolo_isolado_RGB.svg',

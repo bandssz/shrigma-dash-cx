@@ -11,12 +11,12 @@ const Audiences=require('./crm-master-audience-read.cjs');
 const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
 const AREA={growth:'growth',organico:'organico',influs:'influs',afiliados:'influs'};
 function sourceKeysFromEnv(env){
- const names={growth:'DASHBOARD_SERVICE_READ_CRM_KEY',organico:'DASHBOARD_SERVICE_READ_ORGANICO_KEY',influs:'DASHBOARD_SERVICE_READ_INFLUS_KEY',afiliados:'DASHBOARD_SERVICE_READ_AFILIADOS_KEY'};
+ const names={growth:'DASHBOARD_SERVICE_READ_CRM_KEY',organico:'DASHBOARD_SERVICE_READ_ORGANICO_KEY',influs:'DASHBOARD_SERVICE_READ_INFLUS_KEY',afiliados:'DASHBOARD_SERVICE_READ_AFILIADOS_KEY',audiences:'DASHBOARD_SERVICE_READ_AUDIENCE_KEY'};
  const out={};for(const [front,name]of Object.entries(names)){const value=env[name];if(value!==undefined){if(typeof value!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(value))fail('SERVICE_READ_CONFIG_INVALID',500);out[front]=value;}}
  return Object.freeze(out);
 }
 function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth,growthDiagnostics}={}){
- if(!auth?.authorizeBrand||!auth?.authorize||typeof fetchImpl!=='function'||typeof projectGrowth!=='function'||Object.keys(keys).some(k=>!Object.hasOwn(AREA,k)))fail('SERVICE_READ_CONFIG_INVALID',500);
+ if(!auth?.authorizeBrand||!auth?.authorize||typeof fetchImpl!=='function'||typeof projectGrowth!=='function'||Object.keys(keys).some(k=>!Object.hasOwn(AREA,k)&&k!=='audiences'))fail('SERVICE_READ_CONFIG_INVALID',500);
  const credentials=Object.freeze({...keys}),versions=Object.fromEntries(Object.keys(credentials).map(front=>[front,crypto.randomBytes(32).toString('hex')]));
  const noSecrets=value=>{const serialized=JSON.stringify(value);for(const secret of Object.values(credentials))if(serialized.includes(secret))fail('BRAND_RESPONSE_UNSCOPED',502);};
  let pending=0;
@@ -37,7 +37,9 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    if(method!=='GET'||body!==undefined||!['segmentos_listar','segmento_obter'].includes(query.get('acao')))fail('READ_ONLY');
    const decision=decide(route,method,query,body);if(decision.edit)fail('READ_ONLY');
    brand=query.get('brand');const before=current(context,'growth',brand);if(brand==='olivas')fail('BRAND_READ_CONTRACT_NOT_READY',503);
-   const credential=credentials.growth;if(!credential)fail('SERVICE_READ_SOURCE_NOT_LINKED',503);
+   // Original audience authentication requires its own hashed READ principal.
+   // A legacy cache READ key is not promoted or reused as an operator credential.
+   const credential=credentials.audiences;if(!credential)fail('AUDIENCE_READ_SOURCE_NOT_LINKED',503);
    if(upstreams?.segments?.href!==require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)fail('SERVICE_READ_DESTINATION_INVALID',503);
    if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
    try{
@@ -98,7 +100,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    let payload=front==='growth'?projectGrowth(result.body,brand,'growth',origin):front==='afiliados'?AffiliateProjection.project(result.body,{brand,ini:body.ini,fim:body.fim,credential}):Individual.project(result.body,{area:front,brand,query:body||Object.fromEntries(query),credential});
    if(front==='growth'){
     payload=Journeys.capabilities(payload,origin,true);
-    if(upstreams?.segments?.href===require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)payload.capabilities={...(payload.capabilities||{}),segments:{read:true,save:false,count:false,operation:false,send:false,brands:[brand],contract_version:'crm-audience-v2'},endpoints:{...(payload.capabilities?.endpoints||{}),segments:origin+'/api/segments'}};
+    if(upstreams?.segments?.href===require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)payload.capabilities={...(payload.capabilities||{}),segments:{read:!!credentials.audiences,save:false,count:false,operation:false,send:false,brands:[brand],contract_version:'crm-audience-v2'},endpoints:{...(payload.capabilities?.endpoints||{}),segments:origin+'/api/segments'}};
     if(typeof growthDiagnostics==='function')payload.cart_contract=growthDiagnostics(result.body,brand);
    }
    same(context,front,brand,before);return {status:200,body:payload};
@@ -154,6 +156,14 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    }catch(e){result.audiences={status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'AUDIENCE_READ_UNCONFIRMED',countReturned:null,limit:100,offset:0,readOnly:true};}
   }
   for(const result of sources.filter(x=>x.front==='afiliados')){
+   // Same admitted technical READ, fixed 90-day window, aggregate metrics only.
+   // This does not copy a personal token or start a collector.
+   try{
+    const from=new Date(now-3*3600000-89*86400000).toISOString().slice(0,10);
+    const r=await read({context,route:'affiliate-read',method:'POST',query:new URLSearchParams(),body:{brand:result.brand,ini:from,fim,expected_binding:availability(context,result.brand).binding},origin}),b=r.body;
+    const total=field=>!Array.isArray(b.kpis)||!b.kpis.length||b.kpis.some(x=>x[field]===null||x[field]===undefined||!Number.isFinite(Number(x[field])))?null:b.kpis.reduce((n,x)=>n+Number(x[field]),0);
+    result.affiliate90d={status:200,window:{ini:from,fim},metrics:Object.fromEntries(['gmv','pedidos','criadores','comissao'].map(k=>[k,total(k)])),counts:Object.fromEntries(['serie','canal','canal_total','lives','videos','live_produtos','cobranca','cobranca_pendentes'].filter(k=>Array.isArray(b[k])).map(k=>[k,b[k].length])),collection:b.frescor?.map(x=>({ultima_ok:x.ultima_ok??null,ultima:x.ultima??null,ultima_ok_todas:x.ultima_ok_todas??null,hasErrors:!!x.erros}))??null,readOnly:true};
+   }catch(e){result.affiliate90d={status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'AFFILIATE_SOURCE_UNCONFIRMED',metrics:null,readOnly:true};}
    try{
     const r=await read({context,route:'affiliate-own-read',method:'POST',query:new URLSearchParams(),body:{brand:result.brand,ini,fim},origin}),b=r.body;
     result.ownAffiliates={status:200,counts:Object.fromEntries(['programs','candidates','links','partner_orders','fechamento'].filter(k=>Array.isArray(b[k])).map(k=>[k,b[k].length])),gerado_em:b.gerado_em||null,source:b.source,readOnly:true};

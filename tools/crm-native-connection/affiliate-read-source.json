@@ -35,8 +35,8 @@
     },
     {
       "path": "assets/panels/influs.js",
-      "bytes": 306619,
-      "sha256": "8362898bf5748b1574a59893935d6083bcc826f1883aa15fc2c9535da4f7475a"
+      "bytes": 310173,
+      "sha256": "e816b4efd449f17355de374a38464ae09094f255850fec21df1ad7e159216cf6"
     },
     {
       "path": "assets/panels/organico.css",
@@ -95,13 +95,13 @@
     },
     {
       "path": "influs-tts.js",
-      "bytes": 127189,
-      "sha256": "a435e8c401d82a80c59a430e2fe4d05b9d0f317c700708c4bb8f80a809047f5e"
+      "bytes": 130874,
+      "sha256": "27b2d3904319056939479c4ff35c2cbc302a3dd97509bc06d2c1052c473bd0d1"
     },
     {
       "path": "influs.html",
-      "bytes": 106568,
-      "sha256": "d1268cde131fed177b87644557dbc65040749347d54c7de3a7b157ba36a4d0e8"
+      "bytes": 106694,
+      "sha256": "06084ab0a73fcf125e293749d53359dd16525b35b22f774610e31281373876ec"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
@@ -150,8 +150,8 @@
     },
     {
       "path": "services/dashboard-operational/afiliados-read-contract.cjs",
-      "bytes": 5530,
-      "sha256": "2243e191986f1985a7337eff9fb38037d1af06144b210219be6b2ea1c4e4625d"
+      "bytes": 7261,
+      "sha256": "44e9334e63917cc7f38b8986961804b5d5fc7b1787c8f702413b2a409acd99e7"
     },
     {
       "path": "services/dashboard-operational/afiliados-read.cjs",
@@ -265,8 +265,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 25666,
-      "sha256": "4681f817ca3910e0bbd037c89582bb3ab87c0832733f0588b996ad5dcd6113a9"
+      "bytes": 27246,
+      "sha256": "e221430f7056c542d679ceeda4c008fddd408e1efbcdf2176cb419246d9fc4ad"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -285,8 +285,8 @@
     },
     {
       "path": "tests/afiliados-daily-workspace.test.cjs",
-      "bytes": 6222,
-      "sha256": "71124ce17bc891d14bd60077a33cc739b3eb5fcef2058439d35fe47941298bb3"
+      "bytes": 7825,
+      "sha256": "9bf61c8cb064356471d2f159a6eb24662950ecd0f474af627a7366756e7927c9"
     },
     {
       "path": "tests/afiliados-native-consent.test.cjs",
@@ -305,8 +305,8 @@
     },
     {
       "path": "tests/afiliados-read-contract.test.cjs",
-      "bytes": 6128,
-      "sha256": "ce9305ce59eea3b89ca2a8bd537c6071b501851c405cedbae3d3a6c335f34e3f"
+      "bytes": 8042,
+      "sha256": "4096a230625365a6b4b83fdabddd8ba97cfa42d4d54cb372ccb47742ffec8522"
     },
     {
       "path": "tests/afiliados-read-gateway.test.cjs",
@@ -495,8 +495,8 @@
     },
     {
       "path": "tests/simple-audience-read.test.cjs",
-      "bytes": 6358,
-      "sha256": "be9d0f6a1c66fdeac5e4775a8045cd885b49c447988cb0b687abb774a57f20b0"
+      "bytes": 6975,
+      "sha256": "a27aa850dd10d52603b96013351b67bb3f574bf0bdc7b9ee98574953a3c5abe7"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
@@ -505,8 +505,8 @@
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
-      "bytes": 40502,
-      "sha256": "9892643729c70c108934d52603845a78e61a7ca01a5c44f2bbae7c10e228f3bd"
+      "bytes": 40896,
+      "sha256": "1d6c41b3bc3dbc35aa7164e4b0998368d6ddb731059d097edcda28c47171fc15"
     },
     {
       "path": "tests/simple-login-ui.test.cjs",

@@ -70,3 +70,12 @@ test('projection does not mutate input or share mutable arrays', () => {
   const value = source(), before = structuredClone(value), out = project(value, scope);
   out.target[0].produtos.push('extra'); assert.deepEqual(value, before);
 });
+test('September source datasets survive per brand, without message bodies or provider errors',()=>{
+ const value=source();
+ Object.assign(value,{serie:[{marca:'fish',dia:'2026-10-01',gmv:'12.34',pedidos:1}],canal:[{marca:'fish',dia:'2026-10-01',gmv:null,gmv_afiliado:12.34,origem_estado:'indisponivel'},{marca:'aristo',dia:'2026-10-01',gmv:900}],canal_total:[{marca:'fish',dias:1,gmv:null,gmv_afiliado:12.34,ultimo_dia:'2026-10-01'}],lives:[{marca:'fish',live_id:'synthetic-live',titulo:'Synthetic live',gmv:null,pedidos:0,inicio_em:'2026-10-01T12:00:00Z'}],live_produtos:[{marca:'fish',live_id:'synthetic-live',nome:'Synthetic product',gmv_direto:12.34}],videos:[{marca:'fish',video_id:'123456789',username:'synthetic',gmv:'12.34',retrato_em:'2026-10-01'}],cobranca:[{marca:'fish',enviadas:1,falhas:0,simuladas:2}],cobranca_pendentes:[{marca:'fish',pendentes:4}],cobranca_fila:[{marca:'fish',username:'synthetic',etapa:'amostra_sem_video',ok:false,dry_run:true,texto:'private message body',erro:'private provider data'}],cobranca_pulos:[{marca:'fish',username:'synthetic',motivo:'respondeu',nao_lidas:1,ultimo_texto:'private conversation'}]});
+ const out=project(value,scope);assert.equal(out.canal.length,1);assert.equal(out.canal[0].gmv,null);assert.equal(out.videos[0].gmv,'12.34');assert.equal(out.lives[0].pedidos,0);assert.equal(out.cobranca_fila[0].ok,false);assert.equal(out.cobranca_pendentes[0].pendentes,4);assert(!JSON.stringify(out).includes('private'));assert.equal(out.live_produtos[0].nome,'Synthetic product');
+});
+test('additional source blocks keep missing, empty and invalid metrics distinct',()=>{
+ const value=source();value.videos=[];assert.deepEqual(project(value,scope).videos,[]);assert.equal(Object.hasOwn(project(value,scope),'lives'),false);
+ value.canal=[{marca:'fish',dia:'2026-10-01',gmv:false}];assert.throws(()=>project(value,scope),{code:'AFFILIATE_SOURCE_FIELD_INVALID'});
+});
