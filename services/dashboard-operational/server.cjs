@@ -11,7 +11,10 @@ const AREA_PAGE=Object.freeze({growth:'/growth.html',organico:'/organico.html',i
 const AREA_ENTRY=Object.freeze({growth:'/crm/index.html',organico:'/organico/index.html',influs:'/creators/index.html'});
 const MIME=Object.freeze({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml','.woff2':'font/woff2','.txt':'text/plain; charset=utf-8'});
 const AFFILIATE_PREVIEW='/previas/afiliados/';
-const AFFILIATE_PREVIEW_FILES=Object.freeze(['index.html','app.js','tema.css','operacao.html','vendor/LICENSES.txt','vendor/chart.umd.js','vendor/inter-400.woff2','vendor/inter-500.woff2','vendor/inter-600.woff2','vendor/inter-700.woff2','vendor/tabler.min.css','vendor/tabler.min.js','vendor/wm-aristocrata.png','vendor/wm-fishermans.png']);
+const AFFILIATE_PREVIEW_FILES=Object.freeze(['index.html','app.js','daily.js','tema.css','operacao.html','vendor/LICENSES.txt','vendor/chart.umd.js','vendor/inter-400.woff2','vendor/inter-500.woff2','vendor/inter-600.woff2','vendor/inter-700.woff2','vendor/tabler.min.css','vendor/tabler.min.js','vendor/wm-aristocrata.png','vendor/wm-fishermans.png']);
+const CRM_PREVIEW='/previas/crm/';
+const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','journey-engine.js','journey-ui.js']);
+const CRM_PREVIEW_FILES=Object.freeze([...CRM_PREVIEW_OWN_FILES,...AFFILIATE_PREVIEW_FILES.filter(n=>n==='tema.css'||n.startsWith('vendor/'))]);
 const jsonError=(status,code)=>Object.assign(new Error(code),{status,code});
 const LOGIN_PENDING_PER_SOCKET=8,LOGIN_SOCKET_KEYS_MAX=1024;
 const LOGIN_BODY_TIMEOUT_MS=10*1000;
@@ -236,12 +239,14 @@ function presentationStyle(s,area='growth'){
 }
 function serveFile(req,res,url,host,s,auth){
   if(!['GET','HEAD'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
-  if(url.pathname==='/previas/afiliados'||url.pathname.startsWith(AFFILIATE_PREVIEW)){
-    if(s.simpleReadMode!==true||host!==s.managerHost&&host!==s.areaHosts.influs)throw jsonError(404,'NOT_FOUND');
-    auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area:'influs',productFront:'afiliados',edit:false});
-    if(url.pathname==='/previas/afiliados'){res.writeHead(308,{Location:AFFILIATE_PREVIEW+url.search});return res.end();}
-    const name=url.pathname.slice(AFFILIATE_PREVIEW.length)||'index.html';if(!AFFILIATE_PREVIEW_FILES.includes(name))throw jsonError(404,'NOT_FOUND');
-    const root=path.join(__dirname,'public/afiliados-preview'),file=path.join(root,name);let data;
+  if(url.pathname==='/previas/afiliados'||url.pathname.startsWith(AFFILIATE_PREVIEW)||url.pathname==='/previas/crm'||url.pathname.startsWith(CRM_PREVIEW)){
+    const crm=url.pathname==='/previas/crm'||url.pathname.startsWith(CRM_PREVIEW),prefix=crm?CRM_PREVIEW:AFFILIATE_PREVIEW,area=crm?'growth':'influs';
+    if(s.simpleReadMode!==true||host!==s.managerHost&&host!==s.areaHosts[area])throw jsonError(404,'NOT_FOUND');
+    auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area,productFront:crm?'growth':'afiliados',edit:false});
+    if(url.pathname===prefix.slice(0,-1)){res.writeHead(308,{Location:prefix+url.search});return res.end();}
+    const name=url.pathname.slice(prefix.length)||'index.html';if(!(crm?CRM_PREVIEW_FILES:AFFILIATE_PREVIEW_FILES).includes(name))throw jsonError(404,'NOT_FOUND');
+    // Reuse the installed kit; CRM-only accounts receive it through their own route.
+    const root=path.join(__dirname,crm&&CRM_PREVIEW_OWN_FILES.includes(name)?'public/crm-preview':'public/afiliados-preview'),file=path.join(root,name);let data;
     try{const st=fs.lstatSync(file);if(fs.realpathSync(file)!==file||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size<1||st.size>2*1024*1024)throw Error();data=fs.readFileSync(file);}catch{throw jsonError(503,'AFFILIATE_PREVIEW_ASSET_UNAVAILABLE');}
     const metadata=typeAndCsp(name,data);res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);res.setHeader('Cache-Control','no-store');return res.end(req.method==='HEAD'?undefined:data);
   }
@@ -586,8 +591,8 @@ async function templateOwnershipWriteGate(user,action,{isolatedSandbox=false,adm
  }
 }
 function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime,nativeInstaller,sourcePeerTransport,sourceDiagnostics,deliveryHealth,schedulerState}={}){
-  const affiliatePreviewPublicFiles=s.simpleReadMode===true?AFFILIATE_PREVIEW_FILES.map(name=>{
-    const file=path.join(__dirname,'public/afiliados-preview',name),st=fs.lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||fs.realpathSync(file)!==file||st.size>2*1024*1024)throw Error('AFFILIATE_PREVIEW_ASSET_UNAVAILABLE');const bytes=fs.readFileSync(file);return {path:AFFILIATE_PREVIEW+name,bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
+  const affiliatePreviewPublicFiles=s.simpleReadMode===true?[...AFFILIATE_PREVIEW_FILES.map(name=>({name,prefix:AFFILIATE_PREVIEW,root:'public/afiliados-preview'})),...CRM_PREVIEW_FILES.map(name=>({name,prefix:CRM_PREVIEW,root:CRM_PREVIEW_OWN_FILES.includes(name)?'public/crm-preview':'public/afiliados-preview'}))].map(({name,prefix,root})=>{
+    const file=path.join(__dirname,root,name),st=fs.lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||fs.realpathSync(file)!==file||st.size>2*1024*1024)throw Error('AFFILIATE_PREVIEW_ASSET_UNAVAILABLE');const bytes=fs.readFileSync(file);return {path:prefix+name,bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
   }):undefined;
   if(!auth)throw Error('Auth required');
   if(!Number.isInteger(loginBodyTimeoutMs)||loginBodyTimeoutMs<1||loginBodyTimeoutMs>LOGIN_BODY_TIMEOUT_MS)throw Error('Invalid login body timeout');

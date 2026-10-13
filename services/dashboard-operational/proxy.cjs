@@ -459,7 +459,13 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&!campaignSubmit&&
     (!plain(parsed?.operation)||parsed.operation.action!=='salvar'||parsed.operation.brand!==query.get('brand')))
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
-  const sourceDiagnostic=capture&&result.status!==200?{...diagnostic('source-response',result.status),...(typeof parsed?.error==='string'&&/^[A-Z0-9_]{1,80}$/.test(parsed.error)?{sourceCode:parsed.error}:{}),...(typeof parsed?.sqlstate==='string'&&/^[A-Z0-9]{5}$/.test(parsed.sqlstate)?{sqlState:parsed.sqlstate}:{})}:undefined;
+  // Exact legacy responses distinguish SQL cache refusal from the Node catch.
+  // Raw provider messages never enter diagnostic logs.
+  const legacyCode=parsed?.erro==='cache indisponível'?'CRM_CACHE_UNAVAILABLE':parsed?.erro==='consulta indisponível'?'CRM_READER_UNCLASSIFIED':null;
+  const headerCode=result.headers.get('x-shrigma-error-code'),requestId=result.headers.get('x-shrigma-request-id'),sqlState=parsed?.sqlstate||result.headers.get('x-shrigma-sqlstate');
+  const safeCodes=new Set(['SERVICE_DISABLED','SERVICE_STOPPING','ADMISSION_FULL','QUERY_DEADLINE','SQL_FAILED','DRIVER_FAILED','RESULT_SHAPE_INVALID','RESPONSE_FAILED','HANDLER_FAILED','CACHE_UNAVAILABLE','SQL_503_UNCLASSIFIED']);
+  const sourceCode=safeCodes.has(parsed?.error)?parsed.error:safeCodes.has(headerCode)?headerCode:legacyCode;
+  const sourceDiagnostic=capture&&result.status!==200?{...diagnostic('source-response',result.status),...(sourceCode?{sourceCode}:{}),...(typeof sqlState==='string'&&/^[A-Z0-9]{5}$/.test(sqlState)?{sqlState}:{}),...(/^[a-f0-9-]{36}$/.test(requestId||'')?{requestId}:{})}:undefined;
   return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite||ownMasterAudienceCount||ownMasterAudienceContextReview?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route}),...(sourceDiagnostic?{sourceDiagnostic}:{})};
 }
 module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,SANDBOX_CAMPAIGN_DESTINATION,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

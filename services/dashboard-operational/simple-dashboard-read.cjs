@@ -20,11 +20,15 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
  const credentials=Object.freeze({...keys}),versions=Object.fromEntries(Object.keys(credentials).map(front=>[front,crypto.randomBytes(32).toString('hex')]));
  const noSecrets=value=>{const serialized=JSON.stringify(value);for(const secret of Object.values(credentials))if(serialized.includes(secret))fail('BRAND_RESPONSE_UNSCOPED',502);};
  let pending=0;
+ // Concurrent brand projections share only an identical upstream GET in flight.
+ // No TTL, stale response or authorization result is retained.
+ const growthReads=new Map();
  const readFailures=[];
  function recordFailure(error,{front,brand,started}){
   if(front!=='growth'||Number(error.status)<500)return;
   const d=error.sourceDiagnostic||{},issue=error.projectionIssue;
   const row={event:'DASHBOARD_READ_FAILURE',id:crypto.randomUUID(),at:new Date().toISOString(),front,brand,route:'crm-read',method:'GET',status:Number.isInteger(error.status)?error.status:503,code:/^[A-Z_]{1,80}$/.test(error.code||'')?error.code:'SERVICE_READ_UNCONFIRMED',elapsedMs:Math.max(0,Date.now()-started),stage:/^[a-z-]{1,40}$/.test(d.stage||'')?d.stage:issue?'projection':'source-read',...(Number.isInteger(d.httpStatus)?{sourceStatus:d.httpStatus}:{}),...Object.fromEntries(['sourceCode','transportCode','errorType','sqlState'].filter(k=>typeof d[k]==='string'&&/^[A-Za-z0-9_]{1,80}$/.test(d[k])).map(k=>[k,d[k]]))};
+  if(/^[a-f0-9-]{36}$/.test(d.requestId||''))row.sourceRequestId=d.requestId;
   if(issue&&/^[a-z_.]{1,80}$/.test(issue.section||''))row.projection={section:issue.section,...(/^[a-z_]{1,80}$/.test(issue.reason||'')?{reason:issue.reason}:{}),...(/^[a-z_]{1,64}$/.test(issue.field||'')?{field:issue.field}:{})};
   noSecrets(row);readFailures.push(row);if(readFailures.length>32)readFailures.shift();
   try{if(typeof onReadFailure==='function')onReadFailure({...row});}catch{}
@@ -104,7 +108,13 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
   const started=Date.now();
   try{
-   const result=await forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,captureReadDiagnostic:front==='growth',fetchImpl});
+   const call=()=>forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,captureReadDiagnostic:front==='growth',fetchImpl});
+   let result;
+   if(front==='growth'){
+    const key=JSON.stringify([targetRoute,query.toString(),origin]);let inFlight=growthReads.get(key);
+    if(!inFlight){inFlight=call();growthReads.set(key,inFlight);inFlight.then(()=>{if(growthReads.get(key)===inFlight)growthReads.delete(key);},()=>{if(growthReads.get(key)===inFlight)growthReads.delete(key);});}
+    result=await inFlight;
+   }else result=await call();
    same(context,front,brand,before);if(result.status!==200)throw Object.assign(Error('SERVICE_READ_SOURCE_REFUSED'),{code:'SERVICE_READ_SOURCE_REFUSED',status:503,sourceDiagnostic:result.sourceDiagnostic});
    noSecrets(result.body);
    let payload=front==='growth'?projectGrowth(result.body,brand,'growth',origin):front==='afiliados'?AffiliateProjection.project(result.body,{brand,ini:body.ini,fim:body.fim,credential}):Individual.project(result.body,{area:front,brand,query:body||Object.fromEntries(query),credential});
