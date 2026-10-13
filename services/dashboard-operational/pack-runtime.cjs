@@ -27,7 +27,7 @@ function pack(dist,output){
  if(fs.existsSync(destination)){const s=fs.lstatSync(destination);if(!s.isDirectory()||s.isSymbolicLink()||fs.readdirSync(destination).length)throw Error('PACK_DESTINATION_INVALID');}
  const files=[...PUBLIC_FILES.map(f=>entry('public/'+f,regularFile(path.join(publicRoot,f)))),...RUNTIME_FILES.map(f=>entry('runtime/'+f,regularFile(path.join(__dirname,f))))].sort((a,b)=>a.path.localeCompare(b.path));
  const stats=validateFiles(files),raw=Buffer.from(JSON.stringify(files));if(raw.length>MAX_BYTES)throw Error('PACK_RAW_BYTES_INVALID');
- const wrapper={schema:SCHEMA_V2,sha256:sha(raw),brotliBase64:zlib.brotliCompressSync(raw,{params:{[zlib.constants.BROTLI_PARAM_QUALITY]:9}}).toString('base64')};
+ const wrapper={schema:SCHEMA_V2,sha256:sha(raw),brotliBase64:zlib.brotliCompressSync(raw,{params:{[zlib.constants.BROTLI_PARAM_QUALITY]:11}}).toString('base64')};
  const packed=JSON.stringify(wrapper);if(Buffer.byteLength(packed)>MAX_PACK_BYTES)throw Error('PACK_TRANSPORT_TOO_LARGE');decodePack(packed,wrapper.sha256);
  const smallFiles=['bootstrap.cjs','artifact-policy.cjs'];
  const mounts=smallFiles.map(file=>({type:'file',mountPath:'/app/'+file,content:regularFile(path.join(__dirname,file)).toString('utf8')}));

@@ -7,6 +7,7 @@ const Individual=require('./dashboard-individual-read.cjs');
 const Affiliate=require('./afiliados-read.cjs');
 const AffiliateProjection=require('./afiliados-read-contract.cjs');
 const Journeys=require('./crm-published-journey-read.cjs');
+const Audiences=require('./crm-master-audience-read.cjs');
 const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
 const AREA={growth:'growth',organico:'organico',influs:'influs',afiliados:'influs'};
 function sourceKeysFromEnv(env){
@@ -32,6 +33,22 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
  }
  async function read({context,route,method,query,body,viewBrand,origin}){
   let front,brand,d,affiliateCommand;
+  if(route==='segments'){
+   if(method!=='GET'||body!==undefined||!['segmentos_listar','segmento_obter'].includes(query.get('acao')))fail('READ_ONLY');
+   const decision=decide(route,method,query,body);if(decision.edit)fail('READ_ONLY');
+   brand=query.get('brand');const before=current(context,'growth',brand);if(brand==='olivas')fail('BRAND_READ_CONTRACT_NOT_READY',503);
+   const credential=credentials.growth;if(!credential)fail('SERVICE_READ_SOURCE_NOT_LINKED',503);
+   if(upstreams?.segments?.href!==require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)fail('SERVICE_READ_DESTINATION_INVALID',503);
+   if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
+   try{
+    const raw=await forward({route,method,query,user:before.user,credential,upstreams,origin,fetchImpl});
+    same(context,'growth',brand,before);
+    const checked=Audiences.validateAudienceRead(raw,{brand,action:decision.action,query,secrets:Object.values(credentials)});
+    const payload=JSON.parse(JSON.stringify(checked.body));
+    for(const record of payload.segments||[payload.segment].filter(Boolean))record.updated_by='Equipe CRM';
+    noSecrets(payload);same(context,'growth',brand,before);return {status:checked.status,body:payload};
+   }finally{pending--;}
+  }
   if(route==='affiliate-own-read'){
    if(method!=='POST'||query.size||!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).sort().join(',')!=='brand,fim,ini')fail('READ_ONLY');
    front='afiliados';brand=body.brand;
@@ -79,7 +96,11 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    same(context,front,brand,before);if(result.status!==200)fail('SERVICE_READ_SOURCE_REFUSED',503);
    noSecrets(result.body);
    let payload=front==='growth'?projectGrowth(result.body,brand,'growth',origin):front==='afiliados'?AffiliateProjection.project(result.body,{brand,ini:body.ini,fim:body.fim,credential}):Individual.project(result.body,{area:front,brand,query:body||Object.fromEntries(query),credential});
-   if(front==='growth'){payload=Journeys.capabilities(payload,origin,true);if(typeof growthDiagnostics==='function')payload.cart_contract=growthDiagnostics(result.body,brand);}
+   if(front==='growth'){
+    payload=Journeys.capabilities(payload,origin,true);
+    if(upstreams?.segments?.href===require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)payload.capabilities={...(payload.capabilities||{}),segments:{read:true,save:false,count:false,operation:false,send:false,brands:[brand],contract_version:'crm-audience-v2'},endpoints:{...(payload.capabilities?.endpoints||{}),segments:origin+'/api/segments'}};
+    if(typeof growthDiagnostics==='function')payload.cart_contract=growthDiagnostics(result.body,brand);
+   }
    same(context,front,brand,before);return {status:200,body:payload};
   }finally{pending--;}
  }
@@ -126,6 +147,12 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    auth.authorize({...context,admin:true});return result;
   }));
   const sources=await Promise.all(jobs);auth.authorize({...context,admin:true});
+  for(const result of sources.filter(x=>x.front==='growth')){
+   try{
+    const query=new URLSearchParams({acao:'segmentos_listar',brand:result.brand,offset:'0',limit:'100'}),r=await read({context,route:'segments',method:'GET',query,origin});
+    result.audiences={status:r.status,countReturned:r.status===200?r.body.segments.length:null,limit:100,offset:0,catalogCurrent:r.status===200?r.body.catalog.current:null,readOnly:true,...(r.body.error?{error:r.body.error}:{})};
+   }catch(e){result.audiences={status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'AUDIENCE_READ_UNCONFIRMED',countReturned:null,limit:100,offset:0,readOnly:true};}
+  }
   for(const result of sources.filter(x=>x.front==='afiliados')){
    try{
     const r=await read({context,route:'affiliate-own-read',method:'POST',query:new URLSearchParams(),body:{brand:result.brand,ini,fim},origin}),b=r.body;
