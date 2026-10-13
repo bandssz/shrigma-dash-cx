@@ -998,6 +998,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }
         throw jsonError(404,'NOT_FOUND');
       }
+      if(url.pathname==='/api/affiliate-own-read'&&simpleReader){
+        if(req.method!=='POST')throw jsonError(405,'METHOD_DENIED');
+        if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,1024),result=await simpleReader.read({context:ctx,route:'affiliate-own-read',method:req.method,query:url.searchParams,body,origin});return sendJson(req,res,result.status,result.body);
+      }
       if(url.pathname==='/api/templates'&&simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route:'templates',method:req.method,query:url.searchParams,origin});return sendJson(req,res,result.status,result.body);}
       if(url.pathname==='/api/templates'&&crmPublishedJourneyRead&&(!coexistence||auth.session(ctx).user?.role==='superadmin'||['fluxos_listar','fluxos_capacidade'].includes(url.searchParams.get('acao')))){
         const action=url.searchParams.get('acao');

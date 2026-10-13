@@ -32,6 +32,21 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
  }
  async function read({context,route,method,query,body,viewBrand,origin}){
   let front,brand,d,affiliateCommand;
+  if(route==='affiliate-own-read'){
+   if(method!=='POST'||query.size||!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).sort().join(',')!=='brand,fim,ini')fail('READ_ONLY');
+   front='afiliados';brand=body.brand;
+   const check=decide('influ','POST',new URLSearchParams(),{acao:'listar',marca:brand,ini:body.ini,fim:body.fim,pilot:true});
+   if(check.edit)fail('READ_ONLY');
+   const before=current(context,front,brand);if(brand==='olivas')fail('BRAND_READ_CONTRACT_NOT_READY',503);
+   const credential=credentials.afiliados;if(!credential)fail('SERVICE_READ_SOURCE_NOT_LINKED',503);
+   if(upstreams?.influ?.href!==FIXED_DESTINATIONS.influ)fail('SERVICE_READ_DESTINATION_INVALID',503);
+   if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
+   try{
+    const result=await forward({route:'influ',method:'POST',query:new URLSearchParams(),body:{acao:'listar',marca:brand,ini:body.ini,fim:body.fim,pilot:true},user:before.user,credential,upstreams,origin,fetchImpl});
+    same(context,front,brand,before);if(result.status!==200)fail('SERVICE_READ_SOURCE_REFUSED',503);noSecrets(result.body);
+    const payload=Individual.ownAffiliates(result.body,brand,body);same(context,front,brand,before);return {status:200,body:payload};
+   }finally{pending--;}
+  }
   if(route==='templates'){
    if(method!=='GET'||body!==undefined)fail('READ_ONLY');
    const action=query.get('acao');
@@ -110,7 +125,16 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    auth.authorize({...context,admin:true});return result;
   }));
   const sources=await Promise.all(jobs);auth.authorize({...context,admin:true});
-  return {schema:'shrigma-four-front-read-summary-v1',measuredAt,sources,readOnly:true,operational:false};
+  for(const result of sources.filter(x=>x.front==='afiliados')){
+   try{
+    const r=await read({context,route:'affiliate-own-read',method:'POST',query:new URLSearchParams(),body:{brand:result.brand,ini,fim},origin}),b=r.body;
+    result.ownAffiliates={status:200,counts:Object.fromEntries(['programs','candidates','links','partner_orders','fechamento'].filter(k=>Array.isArray(b[k])).map(k=>[k,b[k].length])),gerado_em:b.gerado_em||null,source:b.source,readOnly:true};
+   }catch(e){result.ownAffiliates={status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'OWN_AFFILIATE_SOURCE_UNCONFIRMED',counts:null,readOnly:true};}
+  }
+  let accountSummary;
+  try{const people=auth.simpleAccounts?.list({context}),managers=people?.filter(p=>!p.administrator&&p.active);if(managers)accountSummary={activeManagers:managers.length,byFront:Object.fromEntries(Object.keys(AREA).map(front=>[front,managers.filter(p=>p.fronts.includes(front)).length]))};}catch{}
+  auth.authorize({...context,admin:true});
+  return {schema:'shrigma-four-front-read-summary-v1',measuredAt,sources,...(accountSummary?{accountSummary}:{}),readOnly:true,operational:false};
  }
  return Object.freeze({read,availability,summary});
 }

@@ -157,4 +157,33 @@ function project(body,{area,brand:b,query={},credential}={}){
  if(area==='influs')return creators(body,b,query);
  fail();
 }
-module.exports={allowed,project,rows,FIELDS};
+function ownAffiliates(body,b,query){
+ if(!BRANDS.includes(b)||!plain(body)||body.error||body.erro||!plain(body.janela)||body.janela.ini!==query.ini||body.janela.fim!==query.fim)fail();
+ const p=body.pilot;
+ if(!plain(p)||p.schema!=='creator_pilot_v1'||p.erro||p.since!==query.ini||p.until!==query.fim)fail('OWN_AFFILIATE_SOURCE_UNCONFIRMED');
+ const definitions={
+  programs:spec('basis state link_base','rate payment_day version','updated_at'),
+  candidates:spec('id name handle source state','version','created_at updated_at'),
+  links:spec('ref candidate_id state url','version','created_at updated_at'),
+  partner_orders:spec('ref','pedidos receita_liquida_com_frete pedidos_com_base pedidos_sem_base pedidos_base_estimada base_elegivel comissao','primeiro_dia ultimo_dia','comissao_fechada'),
+  fechamento:spec('ref competencia','pedidos base_elegivel pedidos_sem_base comissao','prazo','base_fechada mes_encerrado')
+ };
+ const out=metadata(body,{schema:'shrigma-own-affiliates-read-v1',brand:b,janela:{ini:query.ini,fim:query.fim},source:'crm_partner_pilot_original',readOnly:true});
+ for(const k of ['programs','candidates','links'])out[k]=rows(p[k],b,definitions[k],{section:k,unique:k==='programs'?['marca']:k==='candidates'?['id']:['ref'],required:k==='programs'?['rate','state']:k==='candidates'?['id','name','state']:['ref','candidate_id','state']});
+ const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(v),ids=new Set(out.candidates.map(x=>x.id)),refs=new Set(out.links.map(x=>x.ref));
+ if(out.programs.length!==1||out.programs.some(x=>x.rate===null||Number(x.rate)<0||Number(x.rate)>1)||out.candidates.some(x=>!uuid(x.id)||!['novo','em_analise','aprovado_piloto','pausado','recusado'].includes(x.state))||out.links.some(x=>!ids.has(x.candidate_id)||!['ativo','pausado','revogado'].includes(x.state)||!(/^[a-z0-9_-]{1,100}$/i.test(x.ref))))fail('OWN_AFFILIATE_SOURCE_UNCONFIRMED');
+ const validLink=url=>{if(url===null)return true;try{const u=new URL(url);return u.protocol==='https:'&&!u.username&&!u.password&&(b==='fish'?['fishermans.com.br','www.fishermans.com.br']:['oaristocrata.com','www.oaristocrata.com','oaristocrata.com.br','www.oaristocrata.com.br']).includes(u.hostname);}catch{return false;}};
+ if(out.links.some(x=>!Object.hasOwn(x,'url')||!validLink(x.url)||x.state!=='ativo'&&x.url!==null))fail('OWN_AFFILIATE_SOURCE_UNCONFIRMED');
+ const liveCandidates=new Set();for(const link of out.links)if(link.state!=='revogado'){if(liveCandidates.has(link.candidate_id))fail('OWN_AFFILIATE_SOURCE_UNCONFIRMED');liveCandidates.add(link.candidate_id);}
+ for(const k of ['partner_orders','fechamento'])if(Object.hasOwn(p,k))optionalBlock(out,k,()=>{
+  const value=rows(p[k],b,definitions[k],{section:k,unique:k==='fechamento'?['ref','competencia']:['ref'],required:['ref','pedidos']});
+  if(value.some(x=>!refs.has(x.ref)||!Number.isSafeInteger(Number(x.pedidos))||Number(x.pedidos)<0))fail();
+  const rateConfirmed=p.commission_rate!==null&&p.commission_rate!==undefined&&valid(p.commission_rate,'metric')&&Number(p.commission_rate)===Number(out.programs[0].rate);
+  for(const row of value)if(Object.hasOwn(row,'comissao')&&!rateConfirmed)row.comissao=null;
+  return value;
+ });
+ // Global max(rate), tracking_active and payout flags are not per-brand proof.
+ // Payments, contacts, individual orders, notes and Meta blocks never leave here.
+ return out;
+}
+module.exports={allowed,project,rows,FIELDS,ownAffiliates};

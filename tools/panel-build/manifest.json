@@ -169,6 +169,7 @@
       "painel-tabelas.js",
       "panel-bridge.js",
       "ui/affiliates-v2/affiliates-v2.js",
+      "afiliados-proprios.js",
       "influs-affiliates-mount.js"
     ]
   }

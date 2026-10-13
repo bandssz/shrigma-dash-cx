@@ -4,7 +4,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
 const {createAuth}=require(runtime+'/auth.cjs'),{createServer}=require(runtime+'/server.cjs'),{FIXED_DESTINATIONS}=require(runtime+'/proxy.cjs');
 const HOST='gerencial.synthetic.invalid',PASS='synthetic-password-2026',STAMP='2026-10-12T15:00:00-03:00';
-async function fixture(t,{fronts=['growth','organico','influs','afiliados'],brands=['fish','aristo','olivas'],missing=false,revoke=false,unscoped=false,leak=false,leakJourney=false}={}){
+async function fixture(t,{fronts=['growth','organico','influs','afiliados'],brands=['fish','aristo','olivas'],missing=false,revoke=false,unscoped=false,leak=false,leakJourney=false,ownPartners=false}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'simple-gateway-')),boot='synthetic-bootstrap-token',areaHosts={growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influs.synthetic.invalid'};
  const auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),managerHost:HOST,areaHosts,allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'admin@synthetic.invalid',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,8),simpleReadMode:true});
  await auth.completeBootstrap({email:'admin@synthetic.invalid',token:boot,password:PASS,host:HOST,origin:'https://'+HOST});
@@ -17,7 +17,7 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
  const upstreams=Object.fromEntries(['crm-read','cx','cache','influ','tts'].map(k=>[k,new URL(FIXED_DESTINATIONS[k])]));let reads=0;
  const fetchImpl=async(url,options)=>{
   reads++;assert(!options.headers.Cookie);assert(!options.headers.Origin);const target=new URL(url),journeys=target.href.startsWith('https://n8n.shrigma.com.br/webhook/crm-template-api-242c0db6ddb8'),front=journeys||target.href.startsWith(FIXED_DESTINATIONS['crm-read'])?'growth':target.href.startsWith(FIXED_DESTINATIONS.influ)?'influs':target.href.startsWith(FIXED_DESTINATIONS.tts)?'afiliados':'organico';
-  assert.equal(options.headers.Authorization,'Bearer '+keys[front]);
+  const own=front==='influs'&&JSON.parse(options.body||'{}').pilot===true;assert.equal(options.headers.Authorization,'Bearer '+keys[own?'afiliados':front]);
   if(revoke)auth.simpleAccounts.update({context:adminContext,userId:created.user.id,jobTitle:'analista',fronts,brands,active:false});
   let data;
   if(journeys&&target.searchParams.get('acao')==='listar')data={consultado_em:STAMP,templates:[{id:'1',key:'fish:email:1',brand:'fish',channel:'email',status:'APPROVED',name:'Template sintético',draft_id:null,updated_at:STAMP,components:{subject:'Assunto',body_html:'<p>Conteúdo sintético</p>'}}]};
@@ -26,6 +26,7 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
   else if(front==='organico')data={_escopo:'organico',_cache_gerado_em:STAMP,cx_post:[{marca:'fish',post_id:'fish-post',publicado_em:STAMP,ultima_coleta:STAMP,formato:'reel',impulsionado:false,alcance:12},{marca:'aristo',post_id:'aristo-post',publicado_em:STAMP,ultima_coleta:STAMP,formato:'reel',impulsionado:false,alcance:99}],cx_story:[],cx_organico_receita:[]};
   else if(front==='influs')data={janela:{ini:JSON.parse(options.body).ini,fim:JSON.parse(options.body).fim},influs:[],roi:[],cupons:[],custos:[],receita_cupom:[],termos:[]};
   else data={janela:{ini:JSON.parse(options.body).ini,fim:JSON.parse(options.body).fim},gerado_em:STAMP,kpis:[{marca:'fish',pedidos:2,gmv:100},{marca:'aristo',pedidos:4,gmv:200}]};
+  if(ownPartners&&front==='influs')data.pilot={schema:'creator_pilot_v1',since:data.janela.ini,until:data.janela.fim,programs:[{marca:'fish',rate:0.05,state:'piloto_interno'}],candidates:[{marca:'fish',id:'10000000-0000-4000-8000-000000000001',name:'Synthetic affiliate',state:'aprovado_piloto'}],links:[{marca:'fish',candidate_id:'10000000-0000-4000-8000-000000000001',ref:'fixture-ref',state:'ativo',url:'https://fishermans.com.br/?ref=fixture-ref'}],partner_orders:[]};
   if(unscoped)delete data.cx_post[0].marca;if(leak)data.secret=keys[front];if(leakJourney&&journeys)data.flows[0].name=keys.afiliados;
   return new Response(JSON.stringify(data),{headers:{'content-type':'application/json'}});
  };
@@ -147,4 +148,22 @@ test('optional cart failure keeps genuine core and marks cart unavailable rather
 test('native summary exposes optional issue codes and aggregate core counts only',async t=>{
  const f=await fixture(t),source={crm_diario:[{marca:'fish',dia:'2026-10-12',enviados:12}],crm_carrinho:[{marca:'fish',dia:'2026-10-12',carrinhos:3,customer_email:'private@synthetic.invalid'}]},reader=require(runtime+'/simple-dashboard-read.cjs').createReader({auth:f.auth,upstreams:f.upstreams,keys:f.keys,fetchImpl:async()=>new Response(JSON.stringify(source),{headers:{'content-type':'application/json'}}),projectGrowth:require(runtime+'/server.cjs').projectBrandCache});
  const result=await reader.summary(f.adminContext,['fish'],'https://'+HOST),crm=result.sources.find(x=>x.front==='growth');assert.equal(crm.status,200);assert.equal(crm.counts.crm_diario,1);assert(!Object.hasOwn(crm.counts,'read_issues'));assert(!Object.hasOwn(crm.counts,'crm_carrinho'));assert.deepEqual(crm.sourceIssues,[{section:'crm_carrinho',reason:'contract_invalid'}]);assert(!JSON.stringify(result).includes('private@'));assert(!Object.hasOwn(crm,'rows'));
+});
+
+
+test('store partners use only Afiliados permission and its private READ key; no Influencer delegation needed',async t=>{
+ const f=await fixture(t,{fronts:['afiliados'],brands:['fish'],ownPartners:true}),body={brand:'fish',ini:'2026-10-01',fim:'2026-10-12'};
+ const r=await f.request('/api/affiliate-own-read',{method:'POST',body});assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.candidates.length,1);assert.equal(r.body.candidates[0].name,'Synthetic affiliate');assert.equal(r.body.readOnly,true);assert(!Object.hasOwn(r.body,'roi'));
+ assert.equal((await f.request('/api/affiliate-own-read',{method:'POST',body:{...body,brand:'aristo'}})).status,403);
+ assert.equal((await f.request('/api/affiliate-own-read',{method:'POST',body,csrf:false})).status,403);
+ assert.equal((await f.request('/api/affiliate-own-read',{method:'POST',body:{...body,action:'approve'}})).status,403);
+ assert.equal((await f.request('/api/affiliate-own-read')).status,405);assert.equal(f.reads(),1);
+});
+test('Influs permission alone cannot read store affiliates',async t=>{const f=await fixture(t,{fronts:['influs'],brands:['fish'],ownPartners:true});assert.equal((await f.request('/api/affiliate-own-read',{method:'POST',body:{brand:'fish',ini:'2026-10-01',fim:'2026-10-12'}})).status,403);assert.equal(f.reads(),0);});
+test('native confirmation counts real simple accounts and store affiliates without publishing identities',async t=>{
+ const f=await fixture(t,{fronts:['afiliados'],brands:['fish'],ownPartners:true}),reader=require(runtime+'/simple-dashboard-read.cjs').createReader({auth:f.auth,upstreams:f.upstreams,keys:f.keys,fetchImpl:f.fetchImpl,projectGrowth:require(runtime+'/server.cjs').projectBrandCache});
+ const result=await reader.summary(f.adminContext,['fish','aristo'],'https://'+HOST),fish=result.sources.find(x=>x.front==='afiliados'&&x.brand==='fish'),aristo=result.sources.find(x=>x.front==='afiliados'&&x.brand==='aristo');
+ assert.equal(result.sources.length,8);assert(result.sources.every(x=>x.status===200));assert.equal(fish.ownAffiliates.status,200);assert.deepEqual(fish.ownAffiliates.counts,{programs:1,candidates:1,links:1,partner_orders:0});assert.equal(fish.ownAffiliates.source,'crm_partner_pilot_original');
+ assert(aristo.ownAffiliates.status>=400);assert.equal(aristo.ownAffiliates.counts,null);assert.equal(result.accountSummary.activeManagers,1);assert.deepEqual(result.accountSummary.byFront,{growth:0,organico:0,influs:0,afiliados:1});
+ const text=JSON.stringify(result);for(const value of ['analista@','Synthetic affiliate','fixture-ref',f.created.user.id,...Object.values(f.keys)])assert(!text.includes(value));
 });

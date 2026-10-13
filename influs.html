@@ -8,7 +8,7 @@
 <style>body[data-product-front] [hidden]{display:none!important}</style>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=86f46577e9c7">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-rjWxYHGDeENlpYBRtk/9kfj7qhTmlPbTBype2buUgpc='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-gkbRAGVHAc4uILLadwDB5CZtpXnJk0KEGiZ5ZmNSzGo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -248,14 +248,14 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=b499b6122df6"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=34a749172ad1"></script>
 <script>
 const $=s=>document.querySelector(s);
 // This view selector never grants data access or borrows another front's key.
 function influsProductFront(view){
  if(view===null||view===undefined)return {id:'legacy',label:'Influs / Afiliados',section:'creators',channel:'parceiros',sections:['creators','meta','afil','escopo','diagnostico'],channels:['crm','parceiros','tiktok','meli','shopee']};
  const afiliados=view==='afiliados';
- return {id:afiliados?'afiliados':'influs',label:afiliados?'Afiliados':'Influs',section:afiliados?'afil':'creators',channel:afiliados?'tiktok':'parceiros',sections:afiliados?['afil']:['creators','meta','afil','escopo','diagnostico'],channels:afiliados?['crm','tiktok']:['parceiros']};
+ return {id:afiliados?'afiliados':'influs',label:afiliados?'Afiliados':'Influs',section:afiliados?'afil':'creators',channel:'parceiros',sections:afiliados?['afil']:['creators','meta','afil','escopo','diagnostico'],channels:afiliados?['parceiros','tiktok']:['parceiros']};
 }
 function influsProductView(){
  const query=typeof location==='undefined'?'':String(location.search||String(location.href||'').split('?')[1]?.split('#')[0]||'');
@@ -1251,6 +1251,7 @@ async function carregarAbaAtiva(){
   if(typeof PRODUCT_FRONT!=='undefined'&&(!PRODUCT_FRONT.sections.includes(SEC)||SEC==='afil'&&!PRODUCT_FRONT.channels.includes(CANAL)))return Promise.resolve();
   if(SEC==='escopo'&&ESCOPO)return ESCOPO.mount($('#area-escopo'));
   if(SEC==='afil'&&CANAL==='crm')return AFFILIATES_MOUNT?AFFILIATES_MOUNT.sync():Promise.resolve();
+  if(SEC==='afil'&&CANAL==='parceiros'&&typeof PRODUCT_FRONT!=='undefined'&&PRODUCT_FRONT.id==='afiliados')return carregarAfiliadosProprios();
   if(SEC==='afil'&&CANAL==='tiktok')return typeof window.carregarTTS==='function'?window.carregarTTS():Promise.resolve();
   return carregarInflu();
 }
@@ -1266,6 +1267,20 @@ document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>{
 // Canais de afiliados. O TikTok só é carregado quando o canal dele é aberto — abrir Afiliados em
 // Parceiros não dispara a consulta pesada do TikTok Shop.
 let CANAL='parceiros';
+let OWN_AFFILIATE_SEQ=0,OWN_AFFILIATE_ABORT=null;
+async function carregarAfiliadosProprios(){
+ const host=$('#area-partners'),seq=++OWN_AFFILIATE_SEQ;OWN_AFFILIATE_ABORT?.abort();const controller=new AbortController();OWN_AFFILIATE_ABORT=controller;
+ const brand=MARCA,period={...PER},current=()=>seq===OWN_AFFILIATE_SEQ&&MARCA===brand&&PER.ini===period.ini&&PER.fim===period.fim&&SEC==='afil'&&CANAL==='parceiros'&&typeof PRODUCT_FRONT!=='undefined'&&PRODUCT_FRONT.id==='afiliados';
+ host.innerHTML='<section class="painel"><h2>Afiliados próprios</h2><p role="status">Consultando o programa da loja…</p></section>';
+ try{
+  if(!window.ShrigmaSimpleRead||!window.ShrigmaOwnAffiliates)throw Error();
+  const r=await fetch('/api/affiliate-own-read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brand,ini:period.ini,fim:period.fim}),signal:controller.signal});
+  if(!r.ok)throw Error();const data=await r.json();if(!current())return;
+  if(data.brand!==brand||data.janela?.ini!==period.ini||data.janela?.fim!==period.fim)throw Error();
+  window.ShrigmaOwnAffiliates.render(host,data);host.querySelector('[data-own-affiliates-refresh]')?.addEventListener('click',()=>carregarAbaAtiva());
+ }catch(e){if(current()&&e.name!=='AbortError')window.ShrigmaOwnAffiliates?.render(host,null);}
+ finally{if(OWN_AFFILIATE_ABORT===controller)OWN_AFFILIATE_ABORT=null;}
+}
 // Root injeta explicitamente gateway + vínculo de marca após admissão. Sem adaptador padrão.
 const AFFILIATES_MOUNT=window.ShrigmaAffiliatesMount?ShrigmaAffiliatesMount.bind({document,element:$('#affiliates-v2-root'),view:window.ShrigmaAffiliatesV2,
   getSelection:()=>MARCA,isActive:()=>SEC==='afil'&&CANAL==='crm',getFilters:()=>({period:{start:PER.ini,end:PER.fim}})}):null;
@@ -1277,7 +1292,8 @@ function trocaCanal(c){
   document.querySelectorAll('#sec-afil .canal').forEach(x=>{x.hidden=x.dataset.plataforma!==c;});
   document.body.classList.toggle('sec-partners',SEC==='afil'&&c==='parceiros');
   if(c==='tiktok')carregarAbaAtiva();
-  if(c==='parceiros'&&window.CREATORS_PILOT)window.CREATORS_PILOT.render();
+  if(c==='parceiros'&&typeof PRODUCT_FRONT!=='undefined'&&PRODUCT_FRONT.id==='afiliados')carregarAbaAtiva();
+  else if(c==='parceiros'&&window.CREATORS_PILOT)window.CREATORS_PILOT.render();
 }
 document.querySelectorAll('#canais button').forEach(b=>b.onclick=()=>{if(!b.disabled&&CANAL!==b.dataset.c)trocaCanal(b.dataset.c);});
 if(window.CreatorsPilotUI)window.CREATORS_PILOT=CreatorsPilotUI.bind({document,getData:()=>INFLU,getMarca:()=>MARCA,getPeriod:()=>PER,getSection:()=>SEC==='afil'?(CANAL==='parceiros'?'partners':CANAL):SEC,key:chaveEscritaInflu,endpoint:()=>INFLU_API_URL,reload:carregarInflu});
@@ -1305,6 +1321,7 @@ document.querySelector('.area-lateral').setAttribute('aria-label','Navegação d
 document.querySelectorAll('#secoes button').forEach(b=>{b.hidden=!PRODUCT_FRONT.sections.includes(b.dataset.s);b.classList.toggle('ativo',b.dataset.s===SEC);if(b.dataset.s==='afil'&&PRODUCT_FRONT.id==='influs')b.innerHTML='Parceiros do site<small>seleção e acompanhamento</small>';});
 document.querySelectorAll('#sec-creators,#sec-afil,#sec-meta,#sec-diagnostico,#sec-escopo').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
 document.querySelectorAll('#canais button').forEach(b=>{b.hidden=!PRODUCT_FRONT.channels.includes(b.dataset.c);b.classList.toggle('ativo',b.dataset.c===CANAL);});
+if(PRODUCT_FRONT.id==='afiliados')$('#canais [data-c="parceiros"]').textContent='Afiliados próprios';
 document.querySelectorAll('#sec-afil .canal').forEach(x=>{x.hidden=x.dataset.plataforma!==CANAL;});
 document.body.classList.toggle('sec-afil',SEC==='afil');document.body.classList.toggle('sec-partners',SEC==='afil'&&CANAL==='parceiros');
 if(PRODUCT_FRONT.id==='afiliados')$('#influ-access').hidden=true;
