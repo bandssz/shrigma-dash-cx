@@ -20,8 +20,8 @@
     },
     {
       "path": "assets/panels/growth.js",
-      "bytes": 1025143,
-      "sha256": "c3e8a2d98cbe1e384655900e843fb9381c3a9bd893b512154d4c76918a3d9dca"
+      "bytes": 1025465,
+      "sha256": "5896a151642e3ca1cb62e96d4e7088397995a621d404e3d20209fbfa8234e987"
     },
     {
       "path": "assets/panels/influs.js",
@@ -39,9 +39,14 @@
       "sha256": "a7ec304bd6b97d3a24d73d12f2ed66b98f9a4b766d64ddee54cf9f429b5aaa3e"
     },
     {
+      "path": "growth-data.js",
+      "bytes": 25414,
+      "sha256": "f122e35608f93086c2aa0477e1ddef938e9628c1b0322376809a1b0e89a1bcc5"
+    },
+    {
       "path": "growth.html",
-      "bytes": 111747,
-      "sha256": "254ac1f1ab5f5255f7c00916177096b2dab033136f4de32cde8474ab05e8f7ac"
+      "bytes": 112145,
+      "sha256": "b1990bea54c38bac94520b1506c1befbe4f20ea7230eb82b95e62d798b272f7e"
     },
     {
       "path": "influs-conferencia.js",
@@ -190,8 +195,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 159335,
-      "sha256": "b93ef2a34ec75201fc5fd2e886ea381d35ccbb467ee44ffc20a4acc0e8e24359"
+      "bytes": 159354,
+      "sha256": "1c49ea38bc10c29fb0ceb0badef64315c915f646f7cd53d3ea014f9321167d82"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -245,8 +250,8 @@
     },
     {
       "path": "tests/cart-contract-summary.test.cjs",
-      "bytes": 2230,
-      "sha256": "39469b821fc22bcbafcf10fbd28c90b8c526a4711ab9003173ed5e2cf7c2b463"
+      "bytes": 5898,
+      "sha256": "00ab41d779de9664317fd84bf2fc0b7f31670cc3bf68b98663aabc3c361f0d6c"
     },
     {
       "path": "tests/claude-crm-access-states-path.test.cjs",
@@ -396,7 +401,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2718,
-      "sha256": "0cc1b768a83f63027b7442f03108ab12b9e53d5e6bc0cbf187b64e2cf2f1a721"
+      "sha256": "893395d683e201e6c1159ee147c028d1e165aa7ddfd724a5b11ddd6469ae35c5"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -413,5 +418,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Synthetic multi-brand signup, save/reopen, session retirement and server slice tests pass locally; this candidate is not installed. No production analyst READ/WRITE or source provisioning is claimed.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Separate WRITE permission per product front and one original candidate review action; unavailable until a distinct legitimate service writer is bound. Cart diagnostics contain only counts and field names."
+  "candidatePurpose": "Observed nullable return revenue in Fish cart: preserve known counts, return NULL aggregate and display incomplete revenue/unrecovered value as unavailable, never zero or a partial complete total. Existing affiliate write remains gated by its own legitimate service key."
 }

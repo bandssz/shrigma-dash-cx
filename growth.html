@@ -7,7 +7,7 @@
 <title>CRM · Grupo Shrigma</title>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=cdc4fef0ca42">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-E78bWAdDzSdlL9Zx4AnqRsbw7hlkCGG7+rc3HU1YWfQ='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AtvDAgcsj9/7bH3GHOTdRzSF2lM1N/CpsjlmwuJSvuo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <style id="crm-configured-journeys-read">
 #control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
 #control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
@@ -307,7 +307,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=c3e8a2d98cbe"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=5896a151642e"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -816,8 +816,8 @@ function render(){
     const nImaturos=new Set(imaturos).size;
     $('#area-carrinho').innerHTML=`
       <div class="funil">
-        <div class="funil-num"><b>${rf(Math.max(0,car.valor-(car.receitaVoltaram||0)))}</b>
-          <span>abandonados e não recuperados em ${car.dias} dia(s) · ${rf(car.receitaVoltaram)} voltou</span></div>
+        <div class="funil-num"><b>${car.receitaVoltaram===null?'Indisponível':rf(Math.max(0,car.valor-car.receitaVoltaram))}</b>
+          <span>abandonados e não recuperados em ${car.dias} dia(s) · ${car.receitaVoltaram===null?'receita de retorno indisponível':rf(car.receitaVoltaram)+' voltou'}</span></div>
         <div class="funil-barra" title="Voltaram e compraram em até 72h">
           <i style="width:${car.carrinhos?Math.max(.6,100*car.voltaram/car.carrinhos):0}%"></i></div>
         <div class="funil-leg">
@@ -831,6 +831,7 @@ function render(){
             <span>fechados pelo fluxo · ${nf(car.recuperados)} de ${nf(car.voltaramMedidos)} que voltaram</span>
             <span>${car.voltaramMedidos?Math.round(100*car.recuperados/car.voltaramMedidos)+'% do resgate é do CRM':'participação do CRM sem base: ninguém voltou'}</span>
           </div></div>`:''}
+        ${car.receitaVoltaramDiasIndisponiveis?`<div class="mini" style="margin-top:6px">Receita de retorno indisponível em ${car.receitaVoltaramDiasIndisponiveis} dia(s). A receita total e o valor não recuperado não foram calculados; as contagens conhecidas permanecem visíveis.</div>`:''}
         ${nImaturos?`<div class="mini" style="margin-top:6px">${nImaturos} dia(s) ainda em maturação: um carrinho tem até 72h para virar venda, então os dias recentes sempre aparecem abaixo do que vão fechar.</div>`:''}
         ${naoMedidos?`<div class="mini" style="margin-top:6px">${naoMedidos} dia(s) sem coleta de conversão — excluídos da fatia do CRM em vez de contarem como zero.</div>`:''}
         <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${car.carrinhos?Math.round(100*car.consent/car.carrinhos)+'%':'sem base'}).</div>

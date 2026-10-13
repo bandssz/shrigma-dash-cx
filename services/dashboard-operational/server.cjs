@@ -377,7 +377,7 @@ function brandedRows(rows,brand,fields,relation){
   if(brands[0]!==brand)continue;
   if(relation==='crm_carrinho')for(const key of REQUIRED_CRM_CART_FIELDS){
    if(!Object.hasOwn(row,key))throw refused('field_absent',key);
-   if(!['recuperados','receita_recuperada'].includes(key)&&row[key]===null)throw refused('field_null_invalid',key);
+   if(!['recuperados','receita_recuperada','receita_voltaram'].includes(key)&&row[key]===null)throw refused('field_null_invalid',key);
   }
   // G.carrinho uses the recovery count to decide whether revenue is measured.
   // A mismatched pair would silently turn unknown revenue into a numeric zero.
