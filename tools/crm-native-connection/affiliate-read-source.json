@@ -225,8 +225,8 @@
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
-      "bytes": 47235,
-      "sha256": "568b788fbb6f31a949dc64657fcc7e09aa5d03d24db88a6b2c0a7c3180ab1136"
+      "bytes": 47256,
+      "sha256": "1695ddd29851d3d111058f8bd0c19075c4d2cc63789026f519882e4259b82e0f"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/app.js",

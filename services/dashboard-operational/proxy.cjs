@@ -463,7 +463,7 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   // Raw provider messages never enter diagnostic logs.
   const legacyCode=parsed?.erro==='cache indisponível'?'CRM_CACHE_UNAVAILABLE':parsed?.erro==='consulta indisponível'?'CRM_READER_UNCLASSIFIED':null;
   const headerCode=result.headers.get('x-shrigma-error-code'),requestId=result.headers.get('x-shrigma-request-id'),sqlState=parsed?.sqlstate||result.headers.get('x-shrigma-sqlstate');
-  const safeCodes=new Set(['SERVICE_DISABLED','SERVICE_STOPPING','ADMISSION_FULL','QUERY_DEADLINE','SQL_FAILED','DRIVER_FAILED','RESULT_SHAPE_INVALID','RESPONSE_FAILED','HANDLER_FAILED','CACHE_UNAVAILABLE','SQL_503_UNCLASSIFIED']);
+  const safeCodes=new Set(['CACHE_READ_REFUSED','SERVICE_DISABLED','SERVICE_STOPPING','ADMISSION_FULL','QUERY_DEADLINE','SQL_FAILED','DRIVER_FAILED','RESULT_SHAPE_INVALID','RESPONSE_FAILED','HANDLER_FAILED','CACHE_UNAVAILABLE','SQL_503_UNCLASSIFIED']);
   const sourceCode=safeCodes.has(parsed?.error)?parsed.error:safeCodes.has(headerCode)?headerCode:legacyCode;
   const sourceDiagnostic=capture&&result.status!==200?{...diagnostic('source-response',result.status),...(sourceCode?{sourceCode}:{}),...(typeof sqlState==='string'&&/^[A-Z0-9]{5}$/.test(sqlState)?{sqlState}:{}),...(/^[a-f0-9-]{36}$/.test(requestId||'')?{requestId}:{})}:undefined;
   return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite||ownMasterAudienceCount||ownMasterAudienceContextReview?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route}),...(sourceDiagnostic?{sourceDiagnostic}:{})};
