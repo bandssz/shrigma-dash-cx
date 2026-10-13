@@ -115,6 +115,20 @@
     },
     // Horas até um prazo (negativo = vencido). null sem prazo.
     horasAte(iso, agora) { if (!iso) return null; return Math.round((new Date(iso).getTime() - (agora || Date.now())) / 36e5); },
+    faixaPrazo(iso, agora = Date.now()) {
+      const at=typeof iso==='string'&&iso.trim()?Date.parse(iso):NaN;
+      if(!Number.isFinite(at)||!Number.isFinite(agora))return 'desconhecido';
+      const ms=at-agora;return ms<=0?'vencido':ms<=86400000?'24h':'depois';
+    },
+    selecionaCriadores(rows,{busca='',campo='gmv',direcao='desc'}={}) {
+      const normalize=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+      const q=normalize(busca).trim().replace(/^@/,''),fields=['gmv','pedidos','comissao','fulfillment_pct','amostras_completas'];
+      if(!fields.includes(campo))campo='gmv';const sign=direcao==='asc'?1:-1;
+      return (rows||[]).filter(c=>!q||normalize([c.nickname,c.username].filter(Boolean).join(' ')).includes(q)).slice().sort((a,b)=>{
+        const x=TTS.numeroAfiliados(a[campo]),y=TTS.numeroAfiliados(b[campo]);if(x===null&&y!==null)return 1;if(y===null&&x!==null)return -1;
+        return (x===null||y===null?0:(x-y)*sign)||String(a.nickname||a.username||'').localeCompare(String(b.nickname||b.username||''),'pt-BR');
+      });
+    },
     // Nenhuma marca visivel pode ser encoberta pela coleta mais recente de outra.
     frescor(p, marca, agora, limiteH) {
       const f = TTS.filtra(p.frescor, marca);
@@ -862,9 +876,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     let html = `<div class="tts-trava"><div><p id="tts-manual-status" role="status" aria-live="polite">Decisões protegidas. Consulte a disponibilidade antes de decidir.</p>
       <p class="mini">Com a chave do painel, a disponibilidade é conferida sozinha e cada decisão pede só uma confirmação. Se os botões ficarem cinza, decida no Seller Center.</p></div>
       <button class="btn tts-btn" id="tts-manual-check" type="button">Consultar disponibilidade</button></div>`;
+    const clock=Date.now(),bands=[['','Todos os prazos'],['vencido','Vencidas'],['24h','Até 24 horas'],['depois','Depois de 24 horas'],['desconhecido','Prazo desconhecido']];
+    if(afiliados&&(fila.length||envio.length))html+=`<div class="tts-filtros"><label><span class="mini">Priorizar por prazo da plataforma</span><select id="tts-amostra-prazo">${bands.map(([value,label])=>{const count=(!value?fila.length+envio.length:fila.filter(x=>TTS.faixaPrazo(x.approve_expira_em,clock)===value).length+envio.filter(x=>TTS.faixaPrazo(x.envio_expira_em,clock)===value).length);return `<option value="${value}">${label} (${count})</option>`;}).join('')}</select></label><span class="mini" id="tts-envio-conta">${envio.length} aguardando expedição</span></div><p class="mini">Prazo de decisão e prazo de expedição são etapas diferentes. A consulta não comprova envio de produto; prazos ausentes continuam desconhecidos.</p>`;
+    let queueFilter=null;
+    const filterDispatch=()=>{const band=$('#tts-amostra-prazo')?.value||'';let count=0;document.querySelectorAll('#tts-area .tts-envio .tts-item').forEach(li=>{const ok=!band||li.dataset.prazo===band;li.hidden=!ok;if(ok)count++;});const counter=$('#tts-envio-conta');if(counter)counter.textContent=count+' de '+envio.length+' aguardando expedição';};
+    const bindDeadline=()=>{const control=$('#tts-amostra-prazo');if(control)control.onchange=()=>{filterDispatch();queueFilter?.();};};
     if (envio.length) html += `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Aprovadas e ainda não enviadas <span class="tag alerta">${envio.length}</span></h3><span class="mini" title="prazo de envio da plataforma; passou = SELLER_NOT_SHIP_CANCELLED">enviar antes do prazo</span></div>
-      <ul class="tts-envio">${envio.map(e => `<li class="tts-item">${produtoCelTTS(e)}<div class="tts-item-meta">${todas ? tag(e.marca) : ''}<span>@${esc(e.username)}</span><span class="mini tabn">pedido ${esc(e.order_id || '—')}</span></div><div class="tts-item-prazo">${prazo(TTS.horasAte(e.envio_expira_em))}</div></li>`).join('')}</ul>`;
-    if (!fila.length) { $('#tts-area').innerHTML = html + '<div class="vazio">Nenhum pedido de amostra aguardando decisão.</div>'; travaAmostrasTTS(); return; }
+      <ul class="tts-envio">${envio.map(e => `<li class="tts-item" data-prazo="${TTS.faixaPrazo(e.envio_expira_em,clock)}">${produtoCelTTS(e)}<div class="tts-item-meta">${todas ? tag(e.marca) : ''}<span>@${esc(e.username)}</span><span class="mini tabn">pedido ${esc(e.order_id || '—')}</span></div><div class="tts-item-prazo">${prazo(TTS.horasAte(e.envio_expira_em))}</div></li>`).join('')}</ul>`;
+    if (!fila.length) { $('#tts-area').innerHTML = html + '<div class="vazio">Nenhum pedido de amostra aguardando decisão.</div>'; bindDeadline();travaAmostrasTTS(); return; }
     const sugestoes = [...new Set(fila.map(x => x.tier.rot))];
     // Um cartão por criador: quem pede várias amostras aparece uma vez, com cada produto numa linha.
     const grupos = [];
@@ -882,7 +901,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
             <div title="% das amostras recebidas (todas as marcas, 90 dias) que viraram conteúdo; 0% = sem histórico recente. Aqui: completas / pedidas nesta marca"><dt>Postagem</dt><dd class="tabn">${pf(x.fulfillment_pct)} <span class="mini">${nf(x.amostras_completas)}/${nf(x.amostras_total)} aqui</span></dd></div>
             <div title="pedidos · GMV que esse criador já gerou para esta marca nos últimos 90 dias"><dt>Vendeu aqui 90d</dt><dd class="tabn">${x.pedidos_90d ? `${nf(x.pedidos_90d)} ped. · R$ ${nf(Math.round(x.gmv_90d_marca))}` : '—'}</dd></div>
           </dl>${g.itens.length > 1 ? `<span class="tag neutro">${g.itens.length} pedidos</span>` : ''}</header>
-        <ul class="tts-itens">${g.itens.map(i => `<li class="tts-item" data-busca="${esc([i.nickname, i.username, i.product_title, i.sku_name, produtoTTS(i.marca, i.product_title)?.rotulo].filter(Boolean).join(' ').toLowerCase())}" data-sug="${esc(i.tier.rot)}">
+        <ul class="tts-itens">${g.itens.map(i => `<li class="tts-item" data-prazo="${TTS.faixaPrazo(i.approve_expira_em,clock)}" data-busca="${esc([i.nickname, i.username, i.product_title, i.sku_name, produtoTTS(i.marca, i.product_title)?.rotulo].filter(Boolean).join(' ').toLowerCase())}" data-sug="${esc(i.tier.rot)}">
           ${produtoCelTTS(i, i.is_approvable === false ? `<span class="tag alerta" title="${esc(i.motivo_nao_aprovavel || '')}">não aprovável</span>` : '')}
           <div class="tts-item-prazo" title="prazo da plataforma para decidir; vencido vira OVERDUE_CANCELLED">${prazo(i.horas)}</div>
           <div class="tts-acoes" data-marca="${esc(i.marca)}" data-id="${esc(i.application_id)}"><span class="tag ${i.tier.cls} tts-sug" title="${esc(i.tier.det)}">${i.tier.rot}</span><button class="btn tts-btn tts-ok" ${i.is_approvable === false ? 'disabled data-plataforma-bloqueada="true" title="plataforma não permite aprovar"' : ''}>Aprovar</button><button class="btn tts-btn tts-nao">Rejeitar</button></div></li>`).join('')}</ul></article>`; }).join('')}</div>`;
@@ -890,14 +909,15 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     travaAmostrasTTS();
     const busca = $('#tts-fila-busca'), sug = $('#tts-fila-sug'), conta = $('#tts-fila-conta');
     const filtra = () => {
-      const q = String(busca?.value || '').trim().toLowerCase(), t = sug?.value || '';
+      const q = String(busca?.value || '').trim().toLowerCase(), t = sug?.value || '',band=$('#tts-amostra-prazo')?.value||'';
       let n = 0;
-      document.querySelectorAll('#tts-area .tts-fila .tts-item').forEach(li => { const ok = (!q || (li.dataset.busca || '').includes(q)) && (!t || li.dataset.sug === t); li.hidden = !ok; if (ok) n++; });
+      document.querySelectorAll('#tts-area .tts-fila .tts-item').forEach(li => { const ok = (!q || (li.dataset.busca || '').includes(q)) && (!t || li.dataset.sug === t)&&(!band||li.dataset.prazo===band); li.hidden = !ok; if (ok) n++; });
       document.querySelectorAll('#tts-area .tts-fila .tts-cr').forEach(c => { c.hidden = ![...c.querySelectorAll('.tts-item')].some(li => !li.hidden); });
       if (conta) conta.textContent = n === fila.length ? `${fila.length} pedido(s) de ${grupos.length} criador(es)` : `${n} de ${fila.length} pedido(s)`;
     };
     if (busca) busca.oninput = filtra;
     if (sug) sug.onchange = filtra;
+    queueFilter=filtra;bindDeadline();
     // Rejeição: a Marcela escolhe um dos três motivos que a TikTok aceita e pode deixar uma observação curta.
     const MOTIVOS = { NOT_MATCH: 'Perfil não combina', INSUFFICIENT_STOCK: 'Sem estoque', OTHER: 'Outro motivo' };
     const motivoBox = td => {
@@ -958,6 +978,15 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const afiliados = typeof PRODUCT_FRONT !== 'undefined' && PRODUCT_FRONT.id === 'afiliados';
     // The original reader caps the creator ranking at 300 across brands. Use the source KPI total, never the returned ranking sum.
     const tot = afiliados ? (TTS.totalGmvAfiliados(lista) === null ? null : TTS.kpisAfiliados(DADOS, m).gmv) : TTS.soma(lista, 'gmv');
+    if(afiliados){
+      const area=$('#tts-area'),profile=u=>/^[A-Za-z0-9._]{2,30}$/.test(String(u||''))?`<a href="https://www.tiktok.com/@${esc(u)}" target="_blank" rel="noopener noreferrer">@${esc(u)}</a>`:`@${esc(u||'—')}`;
+      const rowsHtml=rows=>rows.map((c,i)=>`<tr><td class="tabn">${i+1}</td><td><div class="nome">${esc(c.nickname||c.username||'Criador sem nome')}</div><span class="mini">${profile(c.username)}${c.seguidores?' · '+nf(c.seguidores)+' seg.':''}</span></td><td>${tag(c.marca)}</td><td class="num tabn">${nf(c.pedidos)}</td><td class="num tabn">${rf(c.gmv)}</td><td class="num tabn">${pf(TTS.participacaoAfiliados(c.gmv,tot),1)}</td><td class="num tabn">${rf(c.comissao)}</td><td class="num tabn">${pf(c.pct_video)}</td><td class="num tabn">${rf(c.gmv_30d)}</td><td class="num tabn">${pf(c.fulfillment_pct)}</td><td class="num tabn">${c.amostras_total?nf(c.amostras_completas)+'/'+nf(c.amostras_total):'—'}</td></tr>`).join('');
+      area.innerHTML=`<div class="tts-filtros" role="search"><label class="tts-busca"><span class="mini">Buscar criador</span><input type="search" id="tts-criador-busca" placeholder="nome ou @perfil" autocomplete="off"></label><label><span class="mini">Ordenar por</span><select id="tts-criador-ordem"><option value="gmv">GMV na marca</option><option value="pedidos">Pedidos</option><option value="comissao">Comissão</option><option value="fulfillment_pct">Taxa de postagem</option><option value="amostras_completas">Amostras completas</option></select></label><label><span class="mini">Direção</span><select id="tts-criador-direcao"><option value="desc">Maior primeiro</option><option value="asc">Menor primeiro</option></select></label><span class="mini" id="tts-criador-conta" aria-live="polite">${lista.length} criadores nesta consulta</span></div><p class="nota">Resultados da sua operação no período selecionado. A fonte retorna até 300 criadores entre marcas; isto não é uma busca de todo o mercado. A fatia usa o GMV total da marca, mesmo ao filtrar.</p><div class="rolagem"><table class="comparativo"><thead><tr><th>#</th><th>Criador</th><th>Marca</th><th class="num">Pedidos</th><th class="num">GMV</th><th class="num">Fatia</th><th class="num">Comissão</th><th class="num">Vídeo</th><th class="num">GMV 30d TikTok</th><th class="num">Postagem</th><th class="num">Amostras</th></tr></thead><tbody id="tts-criador-rows">${rowsHtml(TTS.selecionaCriadores(lista))}</tbody></table></div><p id="tts-criador-vazio" class="vazio" hidden>Nenhum criador corresponde à busca nesta consulta.</p>`;
+      // The legacy unit renderer supplies HTML only; real DOM controls use the same rows.
+      if(typeof area.querySelector!=='function')return;
+      const busca=area.querySelector('#tts-criador-busca'),ordem=area.querySelector('#tts-criador-ordem'),direcao=area.querySelector('#tts-criador-direcao'),body=area.querySelector('#tts-criador-rows'),conta=area.querySelector('#tts-criador-conta'),empty=area.querySelector('#tts-criador-vazio');
+      const filter=()=>{const rows=TTS.selecionaCriadores(lista,{busca:busca.value,campo:ordem.value,direcao:direcao.value});body.innerHTML=rowsHtml(rows);conta.textContent=rows.length+' de '+lista.length+' criadores nesta consulta';empty.hidden=rows.length>0;};busca.oninput=filter;ordem.onchange=filter;direcao.onchange=filter;return;
+    }
     $('#tts-area').innerHTML = `<div class="rolagem"><table class="comparativo"><thead><tr>
       <th>#</th><th>Criador</th><th>Marca</th><th class="num">Pedidos</th><th class="num">GMV</th><th class="num" title="participação no GMV da janela">Fatia</th>
       <th class="num">Comissão</th><th class="num" title="% do GMV vindo de vídeo (resto: live, shop, link)">Vídeo</th>
