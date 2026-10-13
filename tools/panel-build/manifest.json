@@ -40,7 +40,8 @@
       "growth-journey-graph-ui.css",
       "growth-workspace.css",
       "growth-ab-experiment.css",
-      "growth-published-flows.css"
+      "growth-published-flows.css",
+      "growth-journey-lab.css"
     ],
     "scripts": [
       "frescor.js",
@@ -108,7 +109,9 @@
       "growth-journey-graph-editor.js",
       "growth-journey-graph-api.js",
       "growth-journey-graph-ui.js",
-      "panel-bridge.js"
+      "panel-bridge.js",
+      "growth-journey-lab.js",
+      "growth-journey-lab-ui.js"
     ]
   },
   "organico": {
