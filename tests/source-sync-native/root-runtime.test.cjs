@@ -37,3 +37,12 @@ test('source stays absent by default and private binding rejects a wrong origina
  const on=await fixture(t);await a.rejects(async()=>on.auth.nativeSourceSync.bind({context:{...on.ctx,csrf:'wrong'},bearer:sourceBearer,brands:['fish'],privateNetwork:true}),e=>e.code==='SOURCE_SPECIFIC_AUTHORIZATION_REQUIRED'&&e.status===403);a.equal(on.calls.length,0);a.equal(on.auth.nativeSourceSync.status(on.ctx).linked,false);
  a.throws(()=>settingsFromEnv({...on.env,DASHBOARD_NATIVE_MCP:'disabled'}),/source connection configuration invalid/);
 });
+
+test('fresh source setting is a single explicit brand and UUID, disabled by default',async t=>{
+ const f=await fixture(t);
+ a.equal(f.settings.crmNativeSourceFreshReadRequest,undefined);
+ const request={brand:'aristo',requestId:'44444444-4444-4444-8444-444444444444'};
+ const configured=settingsFromEnv({...f.env,DASHBOARD_SOURCE_FRESH_READ_REQUEST:JSON.stringify(request)});a.deepEqual(configured.crmNativeSourceFreshReadRequest,request);
+ for(const value of ['true','{"brand":"aristo","requestId":"wrong"}','{"brand":"olivas","requestId":"44444444-4444-4444-8444-444444444444"}'])a.throws(()=>settingsFromEnv({...f.env,DASHBOARD_SOURCE_FRESH_READ_REQUEST:value}),/Fresh source read configuration invalid/);
+ a.throws(()=>settingsFromEnv({...f.env,DASHBOARD_NATIVE_SHOPIFY_SOURCE:'disabled',DASHBOARD_SOURCE_FRESH_READ_REQUEST:JSON.stringify(request)}),/Fresh source read configuration invalid/);
+});

@@ -15,7 +15,7 @@ function fixture(opts={}){
  const response=(status,b)=>({status,revision:D.REVISION,body:b});
  function original(x,full=false){const value={operation_id:'66666666-6666-4666-8666-666666666666',idempotency_key:x.idempotency_key,brand:x.brand,state:'claimed',query_sha256:D.QUERY,bulk_operation_id:null,next_chunk:0,chunks:null,error_code:null};return full?{...value,kind:'run',scheduled_for:x.scheduled_for,source_sha256:null,last_chunk:null,last_chunk_sha256:null,last_receipt:null}:value;}
  async function transport(q){calls.push(q);assert(Object.keys(q).every(k=>['method','path','body','bearer'].includes(k)));assert(q.path==='/healthz'||q.path==='/v1/run'||q.path.startsWith('/v1/operations/'));if(opts.hook)await opts.hook(q,source,state);if(opts.fail)throw Error(key);if(q.path==='/healthz')return response(200,{service:'crm-shopify-sync',enabled:true,revision:opts.healthRevision||D.REVISION,product_semantics:'v2',stopping:false});assert.equal(typeof q.bearer,'string');if(opts.unauthorized||q.bearer!==(state.serviceKey||key))return response(401,{error:'UNAUTHORIZED'});if(q.method==='POST'){const x=q.body;operations.set(x.idempotency_key,x);if(opts.lost)throw Error(key);const b=original(x);if(opts.postBad)b.brand='aristo'===x.brand?'fish':'aristo';return response(opts.http503?503:202,opts.http503?{error:'SYNC_UNAVAILABLE'}:b);}const x=operations.get(q.path.slice('/v1/operations/'.length));if(!x)return response(503,{error:'SYNC_UNAVAILABLE'});const b=original(x,true);if(opts.completed){b.state='completed';b.bulk_operation_id='gid://shopify/BulkOperation/123';b.chunks=1;b.next_chunk=1;b.source_sha256='d'.repeat(64);b.last_receipt={status:'ready',customers:key};}if(opts.getBad)b.scheduled_for='2026-10-07T14:00:00.000Z';if(opts.large)return {...response(200,b),body:{oversized:'x'.repeat(32769)}};if(opts.redirect)return {...response(200,b),status:302,headers:{'X-CRM-Shopify-Sync-Revision':D.REVISION,Location:'https://invalid'}};if(opts.getPatch)Object.assign(b,opts.getPatch);return response(200,b);}
- const args={enabled:true,db,consent,identity,authorize,encrypt,decrypt,mac,transport,now:()=>time,uuid:()=>crypto.randomUUID(),timeoutMs:opts.timeoutMs||1000,permitDelegation:(c,connectionId)=>{consent(c);return {connection:{id:connectionId,scopes:['crm.source-sync']}};}};
+ const args={enabled:true,db,consent,identity,authorize,encrypt,decrypt,mac,transport,now:()=>time,uuid:()=>crypto.randomUUID(),timeoutMs:opts.timeoutMs||1000,...(opts.freshReadRequest?{freshReadRequest:opts.freshReadRequest}:{}),permitDelegation:(c,connectionId)=>{consent(c);return {connection:{id:connectionId,scopes:['crm.source-sync']}};}};
  source=D.createSourceSync(args);if(!opts.db)source.bind({context:ctx,bearer:key,brands:opts.bindBrands||['fish','aristo'],privateNetwork:true});return {source,args,db,state,calls,operations,response,opts};
 }
 
@@ -43,3 +43,45 @@ for(const resultPatch of [{nextChunk:7},{nextChunk:51,totalChunks:11,lastChunk:6
 test('HMAC tampering of progress fails closed before GET transport',async()=>{const f=await prepared({getPatch:progress});try{await inspect(f);f.db.prepare("UPDATE crm_native_source_attempt_v1 SET data=replace(data,'\"nextChunk\":7','\"nextChunk\":8')").run();const n=f.calls.length;await assert.rejects(inspect(f),{code:'SOURCE_INTEGRITY'});assert.equal(f.calls.length,n);}finally{f.db.close();}});
 test('GET401 after key epoch retains progress, does not become POST refusal or release new intention',async()=>{const f=await prepared({getPatch:progress});try{const prior=await inspect(f);f.source.bind({context:ctx,bearer:correctedKey,brands:['aristo'],privateNetwork:true});f.opts.unauthorized=true;const r=await inspect(f);assert.equal(r.attempt,'key_refused');assert.deepEqual(r.operation,prior.operation);assert.equal(data(f).postRefusal,null);assert(!f.source.status(ctx).newIntentBrands.includes('aristo'));await assert.rejects(f.source.run({context:ctx,brand:'aristo',requestId:other}),{code:'SOURCE_ATTEMPT_PENDING'});assert.equal(posts(f),1);}finally{f.db.close();}});
 test('lost current scope forbids persisted historical progress before any transport',async()=>{const f=await prepared({getPatch:progress});try{await inspect(f);f.state.scope=false;const n=f.calls.length;assert.throws(()=>f.source.list(ctx),{code:'SOURCE_SPECIFIC_AUTHORIZATION_REQUIRED'});await assert.rejects(inspect(f));assert.equal(f.calls.length,n);}finally{f.db.close();}});
+
+test('explicit new fresh read checks original chunk uncertainty by GET and preserves the old operation',async()=>{
+ const f=await prepared({freshReadRequest:{brand:'aristo',requestId:other},getPatch:{...progress,next_chunk:7,last_chunk:7}});await inspect(f);try{
+  const before=data(f),r=await f.source.run({context:ctx,brand:'aristo',requestId:other});assert.equal(r.attempt,'confirmed');assert.equal(posts(f),2);
+  const old=data(f);for(const k of ['requestId','ownerId','brand','ownerRevision','binding','credentialRevision','credentialSeal','privatePayload','createdAt'])assert.equal(old[k],before[k]);assert.equal(old.result.state,'chunk_uncertain');
+  const calls=f.calls.map(x=>x.method+':'+x.path);assert(calls.some(x=>x.startsWith('GET:/v1/operations/')));assert.equal(f.calls.filter(x=>x.method==='POST').length,2);
+  const firstPayload=f.calls.find(x=>x.method==='POST').body,newPayload=f.calls.filter(x=>x.method==='POST')[1].body;assert.notEqual(firstPayload.idempotency_key,newPayload.idempotency_key);
+  await f.source.run({context:ctx,brand:'aristo',requestId:id});assert.equal(posts(f),2);
+  await assert.rejects(f.source.run({context:ctx,brand:'aristo',requestId:third}),{code:'SOURCE_ATTEMPT_PENDING'});
+ }finally{f.db.close();}
+});
+test('fresh override accepts only the configured nonce and pending final-chunk trio; default stays closed',async()=>{
+ for(const patch of [{...progress,next_chunk:7,last_chunk:6},{...progress,next_chunk:11,last_chunk:10},{...progress,state:'ingesting',next_chunk:7,last_chunk:7},{...progress,state:'start_uncertain',next_chunk:7,last_chunk:7},{...progress,last_chunk:null}]){
+  const f=await prepared({freshReadRequest:{brand:'aristo',requestId:other},getPatch:patch});await inspect(f);try{await assert.rejects(f.source.run({context:ctx,brand:'aristo',requestId:other}),{code:'SOURCE_ATTEMPT_PENDING'});assert.equal(posts(f),1);}finally{f.db.close();}
+ }
+ const f=await prepared({getPatch:{...progress,next_chunk:7,last_chunk:7}});try{await inspect(f);await assert.rejects(f.source.run({context:ctx,brand:'aristo',requestId:other}),{code:'SOURCE_ATTEMPT_PENDING'});assert.equal(posts(f),1);}finally{f.db.close();}
+});
+test('a lost new fresh-read POST remains uncertain; it cannot reserve a second intention or replay either POST',async()=>{
+ const f=await prepared({freshReadRequest:{brand:'aristo',requestId:other},getPatch:{...progress,next_chunk:7,last_chunk:7}});await inspect(f);try{
+  f.opts.lost=true;const r=await f.source.run({context:ctx,brand:'aristo',requestId:other});assert.equal(r.attempt,'uncertain');assert.equal(posts(f),2);
+  await f.source.run({context:ctx,brand:'aristo',requestId:other});assert.equal(posts(f),2);
+  await assert.rejects(f.source.run({context:ctx,brand:'aristo',requestId:third}),{code:'SOURCE_ATTEMPT_PENDING'});assert.equal(posts(f),2);
+ }finally{f.db.close();}
+});
+test('fresh preflight cannot proceed when original GET is refused or binding changes',async()=>{
+ const f=await prepared({freshReadRequest:{brand:'aristo',requestId:other},getPatch:{...progress,next_chunk:7,last_chunk:7}});await inspect(f);try{
+  f.opts.fail=true;await assert.rejects(f.source.run({context:ctx,brand:'aristo',requestId:other}),{code:'SOURCE_ATTEMPT_PENDING'});assert.equal(posts(f),1);
+ }finally{f.db.close();}
+ const g=await prepared({freshReadRequest:{brand:'aristo',requestId:other},getPatch:{...progress,next_chunk:7,last_chunk:7}});await inspect(g);try{
+  g.opts.hook=async q=>{if(q.path.startsWith('/v1/operations/'))g.state.binding='d'.repeat(64);};
+  await assert.rejects(g.source.run({context:ctx,brand:'aristo',requestId:other}),{code:'SOURCE_BINDING_CHANGED'});assert.equal(posts(g),1);
+ }finally{g.db.close();}
+});
+test('fresh option validation refuses a generic boolean, other fields and non-v4 operation ID',()=>{
+ const f=fixture();try{for(const freshReadRequest of [true,{brand:'aristo',requestId:other,allowAll:true},{brand:'olivas',requestId:other},{brand:'aristo',requestId:'wrong'}])assert.throws(()=>D.createSourceSync({...f.args,freshReadRequest}),{code:'SOURCE_CONFIGURATION_REQUIRED'});}finally{f.db.close();}
+});
+
+test('two calls of the approved fresh nonce reserve a single new original POST',async()=>{
+ const f=await prepared({freshReadRequest:{brand:'aristo',requestId:other},getPatch:{...progress,next_chunk:7,last_chunk:7}});await inspect(f);let release,enter;
+ const entered=new Promise(r=>enter=r),held=new Promise(r=>release=r);f.opts.hook=async q=>{if(q.method==='POST'){enter();await held;}};
+ try{const first=f.source.run({context:ctx,brand:'aristo',requestId:other});await entered;await f.source.run({context:ctx,brand:'aristo',requestId:other});release();await first;assert.equal(posts(f),2);assert.equal(f.db.prepare('SELECT count(*) AS n FROM crm_native_source_attempt_v1').get().n,2);}finally{release?.();f.db.close();}
+});

@@ -111,6 +111,24 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
  async function read({context,route,method,query,body,viewBrand,origin}){
   let front,brand,d,affiliateCommand;
   if(route==='segments'){
+   if(method==='POST'&&body?.acao==='segmento_contar'){
+    if(query.size||Object.keys(body).sort().join(',')!=='acao,brand,expected_catalog_hash,expected_version,id'||!['fish','aristo'].includes(body.brand)||! /^[a-f0-9-]{36}$/.test(body.id||'')||!Number.isSafeInteger(body.expected_version)||body.expected_version<1||! /^[a-f0-9]{64}$/.test(body.expected_catalog_hash||''))fail('AUDIENCE_COUNT_REQUEST_INVALID',400);
+    brand=body.brand;const owner=current(context,'growth',brand),credential=credentials.audiences;if(!credential)fail('AUDIENCE_READ_SOURCE_NOT_LINKED',503);
+    const get=async q=>read({context:{...context,method:'GET'},route:'segments',method:'GET',query:new URLSearchParams(q),origin});
+    const catalog=await get({acao:'segmentos_listar',brand,limit:'1',offset:'0'}),saved=await get({acao:'segmento_obter',brand,id:body.id});
+    if(catalog.status!==200||saved.status!==200)return saved.status!==200?saved:catalog;
+    if(catalog.body.capabilities.count!==true)fail('SEGMENT_UNAVAILABLE',503);
+    if(catalog.body.catalog.catalog_hash!==body.expected_catalog_hash||saved.body.segment.version!==body.expected_version||!saved.body.segment.semantic_context.current)fail('SEGMENT_CATALOG_CHANGED',409);
+    same(context,'growth',brand,owner);if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
+    let raw;try{raw=await forward({route,method,query,body,user:owner.user,credential,upstreams,origin,simpleAudienceCount:true,fetchImpl});}finally{pending--;}
+    same(context,'growth',brand,owner);
+    const checked=require('./crm-master-audience-count.cjs').validateAudienceCount(raw,{brand,request:body,originalDefinition:saved.body.segment.definition,nowMs:Date.now(),secrets:Object.values(credentials)});
+    if(checked.status!==200)return checked;
+    const after=await get({acao:'segmentos_listar',brand,limit:'1',offset:'0'}),latest=await get({acao:'segmento_obter',brand,id:body.id});
+    same(context,'growth',brand,owner);
+    if(after.status!==200||latest.status!==200||after.body.catalog.catalog_hash!==body.expected_catalog_hash||latest.body.segment.version!==body.expected_version||JSON.stringify(latest.body.segment.definition)!==JSON.stringify(saved.body.segment.definition))fail('SEGMENT_CATALOG_CHANGED',409);
+    noSecrets(checked.body);return checked;
+   }
    if(method!=='GET'||body!==undefined||!['segmentos_listar','segmento_obter'].includes(query.get('acao')))fail('READ_ONLY');
    const decision=decide(route,method,query,body);if(decision.edit)fail('READ_ONLY');
    brand=query.get('brand');const before=current(context,'growth',brand);if(brand==='olivas')fail('BRAND_READ_CONTRACT_NOT_READY',503);
@@ -120,10 +138,11 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    if(upstreams?.segments?.href!==require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)fail('SERVICE_READ_DESTINATION_INVALID',503);
    if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
    try{
-    const raw=await forward({route,method,query,user:before.user,credential,upstreams,origin,fetchImpl});
+    const raw=await forward({route,method,query,user:before.user,credential,upstreams,origin,simpleAudienceRead:true,fetchImpl});
     same(context,'growth',brand,before);
     const checked=Audiences.validateAudienceRead(raw,{brand,action:decision.action,query,secrets:Object.values(credentials)});
     const payload=JSON.parse(JSON.stringify(checked.body));
+    if(checked.status===200&&decision.action==='segmentos_listar')payload.capabilities.count=checked.sourceCapabilities.count===true;
     for(const record of payload.segments||[payload.segment].filter(Boolean))record.updated_by='Equipe CRM';
     noSecrets(payload);same(context,'growth',brand,before);return {status:checked.status,body:payload};
    }finally{pending--;}
@@ -237,6 +256,8 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    try{
     const query=new URLSearchParams({acao:'segmentos_listar',brand:result.brand,offset:'0',limit:'100'}),r=await read({context,route:'segments',method:'GET',query,origin});
     result.audiences={status:r.status,countReturned:r.status===200?r.body.segments.length:null,limit:100,offset:0,catalogCurrent:r.status===200?r.body.catalog.current:null,readOnly:true,...(r.body.error?{error:r.body.error}:{})};
+    const sample=r.body.segments?.find(s=>!s.archived&&s.semantic_context.current);
+    if(sample&&r.body.capabilities?.count===true){try{const counted=await read({context:{...context,method:'POST'},route:'segments',method:'POST',query:new URLSearchParams(),body:{acao:'segmento_contar',brand:result.brand,id:sample.id,expected_version:sample.version,expected_catalog_hash:r.body.catalog.catalog_hash},origin});result.audiences.countProbe={status:counted.status,id:sample.id,version:sample.version,eligible_count:counted.body.eligible_count??null,source_confirmed:counted.body.source_confirmed===true,checked_at:counted.body.checked_at??null,...(counted.body.error?{error:counted.body.error}:{})};}catch(e){result.audiences.countProbe={status:e.status||503,error:e.code||'AUDIENCE_COUNT_UNCONFIRMED',eligible_count:null};}}
    }catch(e){result.audiences={status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'AUDIENCE_READ_UNCONFIRMED',countReturned:null,limit:100,offset:0,readOnly:true};}
   }
   for(const result of sources.filter(x=>x.front==='afiliados')){

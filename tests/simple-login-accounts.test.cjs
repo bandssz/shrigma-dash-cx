@@ -15,7 +15,7 @@ async function fixture({legacy=false}={}){
  await auth.completeBootstrap({email:options.bootstrapAdminEmail,token:TOKEN,password:PASSWORD,host:HOST,origin:ORIGIN});
  if(legacy){auth.close();auth=createAuth({...options,simpleReadMode:true});}
  const login=await auth.login({email:options.bootstrapAdminEmail,password:PASSWORD,host:HOST,origin:ORIGIN,ip:'synthetic'});
- return {get auth(){return auth;},dbPath,admin:context(login),adminLogin:login,setTime:t=>{time=t;},reopen(simpleReadMode){auth.close();auth=createAuth({...options,simpleReadMode});},close(){auth.close();fs.rmSync(directory,{recursive:true,force:true});}};
+ return {options,get auth(){return auth;},dbPath,admin:context(login),adminLogin:login,setTime:t=>{time=t;},reopen(simpleReadMode){auth.close();auth=createAuth({...options,simpleReadMode});},close(){auth.close();fs.rmSync(directory,{recursive:true,force:true});}};
 }
 test('writing is an explicit subset of fronts and never expands the sibling Influs front',async()=>{
  const f=await fixture();try{
@@ -128,4 +128,51 @@ test('simple sessions keep logout and the existing attempt limit',async()=>{
   for(let i=0;i<5;i++)await assert.rejects(f.auth.login({email:created.user.email,password:'synthetic-wrong-password',host:HOST,origin:ORIGIN,ip:'synthetic'}),e=>e.code==='AUTH_INVALID');
   await assert.rejects(f.auth.login({email:created.user.email,password:PASSWORD,host:HOST,origin:ORIGIN,ip:'synthetic'}),e=>e.code==='AUTH_RATE_LIMIT');
  }finally{f.close();}
+});
+
+const Lab=require(runtime+'/public/crm-preview/journey-engine.js');
+function labStore(brand='aristo'){const draft=Lab.duplicate({brand,key:brand+':carrinho',name:'Carrinho sintético',published_version:1,published:{steps:[{channel:'email',wait_min:60,enabled:true,template_name:'Primeiro'},{channel:'email',wait_min:1440,enabled:true,template_name:'Segundo'}]}},{brand,id:'synthetic-draft'});return {schema:Lab.SCHEMA,drafts:[draft],runs:[]};}
+test('server test drafts reopen after restart, isolate account and brand, and compare revision atomically',async()=>{
+ const f=await fixture();try{
+  const row=await f.auth.simpleAccounts.create({context:f.admin,email:'crm@synthetic.invalid',password:PASSWORD,jobTitle:'gestor de CRM',fronts:['growth'],brands:['fish','aristo'],writeFronts:['growth']});
+  const login=await f.auth.login({email:row.user.email,password:PASSWORD,host:HOST,origin:ORIGIN}),ctx=context(login),store=labStore();
+  assert.equal(f.auth.simpleAccounts.labRead({context:ctx,brand:'aristo'}).revision,0);
+  const saved=f.auth.simpleAccounts.labSave({context:ctx,brand:'aristo',expected_revision:0,store});assert.equal(saved.revision,1);assert.equal(saved.executes,false);assert.deepEqual(saved.store,store);
+  assert.throws(()=>f.auth.simpleAccounts.labSave({context:ctx,brand:'aristo',expected_revision:0,store}),e=>e.code==='LAB_VERSION_CHANGED'&&e.status===409);
+  assert.equal(f.auth.simpleAccounts.labRead({context:ctx,brand:'fish'}).revision,0);
+  assert.equal(f.auth.simpleAccounts.labRead({context:f.admin,brand:'aristo'}).revision,0);
+  f.reopen(true);assert.deepEqual(f.auth.simpleAccounts.labRead({context:ctx,brand:'aristo'}).store,store);
+  const changed=structuredClone(store);changed.drafts[0]=Lab.saveDraft(store.drafts[0],{...store.drafts[0],name:'Nova revisão'});
+  assert.equal(f.auth.simpleAccounts.labSave({context:ctx,brand:'aristo',expected_revision:1,store:changed}).revision,2);
+ }finally{f.close();}
+});
+test('server test persistence refuses READ-only, wrong brand, missing CSRF, revoked session and real contact fields',async()=>{
+ const f=await fixture();try{
+  const row=await f.auth.simpleAccounts.create({context:f.admin,email:'readonly-crm@synthetic.invalid',password:PASSWORD,jobTitle:'gestor de CRM',fronts:['growth'],brands:['aristo']});
+  const login=await f.auth.login({email:row.user.email,password:PASSWORD,host:HOST,origin:ORIGIN}),ctx=context(login),store=labStore();
+  assert.throws(()=>f.auth.simpleAccounts.labSave({context:ctx,brand:'aristo',expected_revision:0,store}),e=>e.code==='PRODUCT_WRITE_DENIED');
+  assert.throws(()=>f.auth.simpleAccounts.labRead({context:ctx,brand:'fish'}),e=>e.code==='BRAND_DENIED');
+  assert.throws(()=>f.auth.simpleAccounts.labSave({context:{...f.admin,csrf:'invalid'},brand:'aristo',expected_revision:0,store}),e=>e.code==='CSRF_DENIED');
+  for(const mutate of [d=>d.recipient='synthetic@example.invalid',d=>d.productionEnabled=true,d=>d.steps[0].to='synthetic@example.invalid']){const bad=structuredClone(store);mutate(bad.drafts[0]);assert.throws(()=>f.auth.simpleAccounts.labSave({context:f.admin,brand:'aristo',expected_revision:0,store:bad}));}
+  f.auth.simpleAccounts.update({context:f.admin,userId:row.user.id,jobTitle:row.user.jobTitle,fronts:['growth'],brands:['aristo'],active:false});
+  assert.throws(()=>f.auth.simpleAccounts.labRead({context:ctx,brand:'aristo'}),e=>e.code==='SESSION_REQUIRED');
+  assert.equal(f.auth.simpleAccounts.labRead({context:f.admin,brand:'aristo'}).revision,0);
+ }finally{f.close();}
+});
+
+test('actual cookie HTTP route saves and reopens a server test draft while refusing missing CSRF',async()=>{
+ const f=await fixture(),{Readable,Writable}=require('node:stream'),{createServer}=require(runtime+'/server.cjs'),engine=require(runtime+'/public/crm-preview/journey-engine.js');
+ const server=createServer({...f.options,mode:'demo',publicDir:path.join(runtime,'public')},{auth:f.auth,fetchImpl:()=>{throw Error('NO_REMOTE_WRITE')}});
+ try{
+  const request=async(method,url,body,csrf=f.admin.csrf)=>{
+   const req=Readable.from(body===undefined?[]:[Buffer.from(JSON.stringify(body))]);req.method=method;req.url=url;req.headers={host:HOST,origin:ORIGIN,cookie:f.admin.cookieHeader,...(csrf?{'x-csrf-token':csrf}:{}),...(body===undefined?{}:{'content-type':'application/json'})};req.socket={remoteAddress:'synthetic'};
+   const chunks=[],res=new Writable({write(chunk,_encoding,cb){chunks.push(chunk);cb();}});res.statusCode=200;res.setHeader=()=>{};res.getHeader=()=>undefined;const done=new Promise(r=>res.once('finish',r));server.emit('request',req,res);await done;return {status:res.statusCode,body:JSON.parse(Buffer.concat(chunks).toString())};
+  };
+  const d=engine.createDraft({brand:'aristo',id:'synthetic-server-draft'}),store={schema:engine.SCHEMA,drafts:[d],runs:[]};
+  const empty=await request('GET','/api/journey-lab?brand=aristo');assert.equal(empty.status,200,JSON.stringify(empty));assert.equal(empty.body.revision,0);
+  const denied=await request('POST','/api/journey-lab',{brand:'aristo',expected_revision:0,store},'');assert.equal(denied.status,403);
+  const saved=await request('POST','/api/journey-lab',{brand:'aristo',expected_revision:0,store});assert.equal(saved.status,200,JSON.stringify(saved));assert.equal(saved.body.revision,1);
+  const reopened=await request('GET','/api/journey-lab?brand=aristo');assert.deepEqual(reopened.body.store,store);assert.equal(reopened.body.executes,false);
+  const conflict=await request('POST','/api/journey-lab',{brand:'aristo',expected_revision:0,store});assert.equal(conflict.status,409);assert.equal(conflict.body.error,'LAB_VERSION_CHANGED');
+ }finally{server.close();f.close();}
 });

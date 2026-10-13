@@ -46,3 +46,77 @@ test('Tabler public catalog loads, filters and reopens source rules in each bran
  vm.runInContext(fs.readFileSync(crm+'app.js','utf8'),ctx);await tick();a.match(document.getElementById('audience-list').textContent,/Público sintético/);a.match(document.getElementById('audience-fields').textContent,brand==='fish'?/Quantidade de compras$/:/indisponível/);document.querySelector('[data-audience-detail]').click();await tick();a.match(document.getElementById('audience-detail').textContent,/v2/);a.match(document.getElementById('audience-detail').textContent,/in_list/);a.equal(calls.length,2);a(calls.every(c=>!c.options.method||c.options.method==='GET'));a.match(document.querySelector('.sidebar-bottom a').href,/legacy=1/);
 }});
 test('public source refusal remains an error, never an empty or zero result',async()=>{const {document,window}=parseHTML(fs.readFileSync(crm+'index.html','utf8'));elements(document,window);const session={authenticated:true,user:{id:'test',brands:['fish'],permissions:{growth:{read:true}}}},ctx=vm.createContext({window:{ShrigmaReadSession:async()=>session,ShrigmaJourneyLabUI:{instance:null}},document,location:{pathname:'/app/crm/',search:'?brand=fish&view=audiences'},history:{replaceState(){}},URLSearchParams,AbortController,Date,Intl,fetch:async()=>({ok:false,status:503,json:async()=>({error:'AUDIENCE_READ_SOURCE_NOT_LINKED'})})});vm.runInContext(fs.readFileSync(crm+'app.js','utf8'),ctx);await tick();a.match(document.getElementById('error').textContent,/HTTP 503.*AUDIENCE_READ_SOURCE_NOT_LINKED/);a.equal(document.getElementById('audience-list').textContent,'');a.equal(document.getElementById('audience-time').textContent,'');});
+
+function serverLab(db,{values=new Map(),losePost=false,refuseRead=false,reader=false,accountChanged=false,holdPost=false,hangPost=false,requestTimeoutMs=15000,publicRows=[]}={}){
+ const {document,window}=parseHTML('<main id="host"></main>');elements(document,window);
+ const host=document.getElementById('host'),calls=[],session={authenticated:true,user:{id:'synthetic-account',role:reader?'manager':'superadmin',brands:['fish'],permissions:{growth:{read:true}},productWriteFronts:reader?[]:['growth']}};
+ let uuid=0,postStarted=false,account='synthetic-account',refuse=refuseRead,releasePost;const postHeld=new Promise(r=>releasePost=r);
+ const sessionValue=()=>({...session,user:{...session.user,id:account}});
+ const app=UI.create({host,engine,serverStorage:true,requestTimeoutMs,storage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)},uuid:()=>String(++uuid),now:()=>0,getSession:async()=>sessionValue(),fetchImpl:async(url,options)=>{
+  calls.push({url,method:options.method});
+  if(url.startsWith('/api/journey-lab')){
+   if(options.method==='POST'){
+    postStarted=true;const b=JSON.parse(options.body);
+    a.equal(b.brand,'fish');a.equal(options.credentials,'same-origin');
+    if(b.expected_revision!==db.revision)return {ok:false,status:409,json:async()=>({error:'LAB_VERSION_CHANGED'})};
+    db.revision++;db.store=structuredClone(b.store);
+    if(holdPost)await postHeld;if(hangPost)await new Promise(()=>{});if(accountChanged)account='other-account';if(losePost)throw Error('lost response');
+   }else if(postStarted&&refuse)throw Error('read unavailable');
+   return {ok:true,status:200,json:async()=>({persistence:'server',userId:'synthetic-account',brand:'fish',revision:db.revision,store:structuredClone(db.store),executes:false})};
+  }
+  if(url.startsWith('/api/segments'))return {ok:true,status:200,json:async()=>({segments:publicRows})};
+  return {ok:true,status:200,json:async()=>url.includes('capacidade')?{contract:'crm-published-journey-read-v1',brand:'fish',read:true,readOnly:true,write:false}:{checked_at:'2026-10-13T20:00:00Z',flows:[{brand:'fish',key:'fish:carrinho',name:'Carrinho',version:1,published_version:1,published:{steps:[{channel:'email',wait_min:60,enabled:true,template_name:'First'},{channel:'email',wait_min:1440,enabled:true,template_name:'Second'}]}}]}};
+ }});
+ app.sync({brand:'fish',section:'regua',tab:'lab'});
+ return {app,calls,host,window,q:s=>host.querySelector(s),allowRead(){refuse=false;},setAccount(id){account=id;},releasePost};
+}
+const emptyServer=()=>({revision:0,store:engine.readStore(null)});
+test('server draft survives a new browser and recovered POST response never repeats the write',async()=>{
+ const db=emptyServer(),f=serverLab(db,{losePost:true});await f.app.read();
+ f.q('[data-lab-copy]').click();f.q('[data-lab-copy]').click();await tick();await tick();
+ a.equal(f.calls.filter(x=>x.method==='POST').length,1);a.equal(db.revision,1);a.equal(f.app.state().serverSaved,true);
+ const g=serverLab(db);await g.app.read();a(g.q('[data-lab-name]'));a.match(g.host.textContent,/salvo no servidor/);a.equal(g.calls.filter(x=>x.method==='POST').length,0);
+ g.q('[data-lab-name]').value='Cópia do segundo computador';g.q('[data-lab-name]').dispatchEvent(new g.window.Event('input'));a.match(g.host.querySelector('.editor-mode').textContent,/não salvo no servidor/);
+ g.q('[data-lab-save]').click();await tick();await tick();a.equal(db.revision,2);
+ const h=serverLab(db);await h.app.read();a.equal(h.q('[data-lab-name]').value,'Cópia do segundo computador');
+});
+test('unconfirmed server save blocks every new POST until the same server copy is reopened',async()=>{
+ const db=emptyServer(),f=serverLab(db,{losePost:true,refuseRead:true});await f.app.read();f.q('[data-lab-copy]').click();await tick();await tick();
+ a.equal(db.revision,1);a.equal(f.app.state().serverSaved,false);a.match(f.host.textContent,/Não foi possível confirmar a gravação/);
+ f.q('[data-lab-copy]').click();await tick();a.equal(f.calls.filter(x=>x.method==='POST').length,1);
+ f.allowRead();f.q('[data-lab-reopen]').click();await tick();await tick();a.equal(f.app.state().serverSaved,true);a.equal(f.calls.filter(x=>x.method==='POST').length,1);
+});
+test('concurrent browser conflict preserves entered fields and requires explicit server reopen',async()=>{
+ const db=emptyServer(),f=serverLab(db);await f.app.read();f.q('[data-lab-copy]').click();await tick();await tick();
+ const g=serverLab(db);await g.app.read();f.q('[data-lab-name]').value='Primeiro computador';f.q('[data-lab-save]').click();await tick();await tick();
+ g.q('[data-lab-name]').value='Segundo computador';g.q('[data-lab-save]').click();await tick();await tick();
+ a.equal(db.revision,2);a.equal(g.q('[data-lab-name]').value,'Segundo computador');a.match(g.host.textContent,/outro computador/);
+ g.q('[data-lab-reopen]').click();await tick();await tick();a.equal(g.q('[data-lab-name]').value,'Primeiro computador');
+});
+test('read-only server session cannot duplicate or write test drafts',async()=>{
+ const db=emptyServer(),f=serverLab(db,{reader:true});await f.app.read();a.equal(f.q('[data-lab-copy]').disabled,true);f.q('[data-lab-copy]').click();await tick();a.equal(db.revision,0);a.equal(f.calls.filter(x=>x.method==='POST').length,0);
+});
+test('account change after server commit cannot mark the previous account draft as saved',async()=>{
+ const db=emptyServer(),f=serverLab(db,{accountChanged:true});await f.app.read();f.q('[data-lab-copy]').click();await tick();await tick();a.equal(db.revision,1);a.equal(f.app.state().serverSaved,false);a.equal(f.calls.filter(x=>x.method==='POST').length,1);
+});
+
+test('account changed before save issues no POST and clears previous editor',async()=>{
+ const db=emptyServer(),f=serverLab(db);await f.app.read();f.setAccount('different-account');f.q('[data-lab-copy]').click();await tick();await tick();a.equal(db.revision,0);a.equal(f.calls.filter(x=>x.method==='POST').length,0);a.equal(f.q('[data-lab-name]'),null);a.match(f.host.textContent,/Acesso mudou/);
+});
+test('server save locks editing while a delayed write is pending',async()=>{
+ const db=emptyServer(),f=serverLab(db);await f.app.read();f.q('[data-lab-copy]').click();await tick();await tick();
+ const g=serverLab(db,{holdPost:true});await g.app.read();g.q('[data-lab-name]').value='Versão em gravação';g.q('[data-lab-save]').click();await tick();a.equal(g.q('[data-lab-name]').disabled,true);a.equal(g.q('[data-lab-save]').disabled,true);
+ g.releasePost();await tick();await tick();a.equal(g.q('[data-lab-name]').value,'Versão em gravação');a.equal(g.q('[data-lab-name]').disabled,false);
+});
+test('timed-out POST is reconciled by GET and a corrupt browser cache does not block a valid server draft',async()=>{
+ const db=emptyServer(),f=serverLab(db,{hangPost:true,requestTimeoutMs:10});await f.app.read();f.q('[data-lab-copy]').click();await new Promise(r=>setTimeout(r,40));a.equal(f.calls.filter(x=>x.method==='POST').length,1);a.equal(f.app.state().busy,false);a.equal(f.app.state().serverSaved,true);
+ const values=new Map([['shrigma:journey-lab:v1:synthetic-account:fish','corrupt synthetic cache']]),g=serverLab(db,{values});await g.app.read();a.equal(g.app.state().serverSaved,true);a(g.q('[data-lab-name]'));
+});
+test('create, trigger, saved public reference, add step and duplicate persist separately on server',async()=>{
+ const db=emptyServer(),id='11111111-1111-4111-8111-111111111111',f=serverLab(db,{publicRows:[{id,brand:'fish',name:'Público sintético',version:4,archived:false,semantic_context:{current:true}}]});await f.app.read();f.q('[data-lab-create]').click();await tick();await tick();a.equal(db.store.drafts[0].source.key,'fish:test');
+ f.q('[data-lab-trigger]').value='order_paid';f.q('[data-lab-audience-ref]').value=id;f.q('[data-lab-purchase-exit]').checked=false;f.q('[data-lab-add]').click();await tick();await tick();
+ let d=db.store.drafts[0];a.equal(d.trigger,'order_paid');a.equal(d.audienceRef.id,id);a.equal(d.audienceRef.version,4);a.equal(d.steps.length,2);a.equal(d.exitOnPurchase,false);a.equal(d.productionEnabled,false);
+ f.q('[data-lab-copy-draft]').click();await tick();await tick();a.equal(db.store.drafts.length,2);a.notEqual(db.store.drafts[0].id,db.store.drafts[1].id);
+ f.q('[data-lab-remove]').click();await tick();await tick();a.equal(db.store.drafts[1].steps.length,1);a.equal(db.store.drafts[0].steps.length,2);
+ const g=serverLab(db);await g.app.read();a.equal(g.app.state().drafts,2);a.equal(db.store.runs.length,0);
+});

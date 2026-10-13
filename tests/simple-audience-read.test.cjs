@@ -21,7 +21,7 @@ function fixture({brand='fish',front='growth',mixed=false,refused=false,revoke=f
  return {reader,calls:()=>calls,brand};
 }
 const request=(f,action='segmentos_listar',extra={})=>f.reader.read({context:{},route:'segments',method:'GET',query:new URLSearchParams({acao:action,brand:f.brand,...(action==='segmentos_listar'?{limit:'50',offset:'0'}:{id:ID}),...extra}),origin:'https://crm.synthetic.invalid'});
-test('both brands load and reopen actual definitions through service READ without promoting writes',async()=>{for(const brand of ['fish','aristo']){const f=fixture({brand}),list=await request(f),get=await request(f,'segmento_obter');assert.equal(list.status,200);assert.equal(get.status,200);assert.equal(get.body.segment.id,list.body.segments[0].id);assert.deepEqual(list.body.capabilities,{draft:false,count:false,send:false});assert.equal(list.body.segments[0].updated_by,'Equipe CRM');assert(!JSON.stringify(list.body).includes(KEY));assert.equal(f.calls(),2);}});
+test('both brands load definitions and retain original COUNT without promoting writes',async()=>{for(const brand of ['fish','aristo']){const f=fixture({brand}),list=await request(f),get=await request(f,'segmento_obter');assert.equal(list.status,200);assert.equal(get.body.segment.id,list.body.segments[0].id);assert.deepEqual(list.body.capabilities,{draft:false,count:true,send:false});assert.equal(list.body.segments[0].updated_by,'Equipe CRM');assert(!JSON.stringify(list.body).includes(KEY));assert.equal(f.calls(),2);}});
 test('wrong front, crossed brand and all mutations are refused before source contact',async()=>{const f=fixture({front:'afiliados'});await assert.rejects(request(f),e=>e.status===403);assert.equal(f.calls(),0);const g=fixture();await assert.rejects(request(g,'segmento_contar'),e=>e.code==='READ_ONLY');await assert.rejects(g.reader.read({context:{},route:'segments',method:'POST',query:new URLSearchParams(),body:{acao:'segmento_salvar'},origin:'https://crm.synthetic.invalid'}),e=>e.code==='READ_ONLY');assert.equal(g.calls(),0);await assert.rejects(request(g,'segmentos_listar',{brand:'aristo'}));assert.equal(g.calls(),0);});
 test('mixed source rows and source refusals remain failures, never empty public lists',async()=>{const mixed=await request(fixture({mixed:true}));assert.equal(mixed.status,502);assert(!Object.hasOwn(mixed.body,'segments'));const refused=await request(fixture({refused:true}));assert.equal(refused.status,403);assert.equal(refused.body.error,'SEGMENT_ACCESS_DENIED');});
 test('revocation during the read discards the response',async()=>{await assert.rejects(request(fixture({revoke:true})),e=>e.status===403);});
@@ -82,3 +82,38 @@ test('failure after a known COMMIT preserves the grant and does not retry INSERT
 test('failed connection close is reported independently of a known committed grant',async t=>{const f=keyInstallFixture(t,{endRefused:true}),r=await f.installer.install(f.context,f.args);assert.equal(r.body.state,'committed');assert.equal(r.body.catalogueCommitted,true);assert.equal(r.body.connectionClosed,false);assert.equal(r.body.error,'PUBLIC_READ_CLOSE_UNCONFIRMED');assert.equal(f.linked.length,0);assert.equal(f.ended(),1);});
 test('status protects parameter logging before sending the private key hash',async t=>{const f=keyInstallFixture(t,{commitUncertain:true});await f.installer.install(f.context,f.args);const start=f.queries.length;await f.installer.status(f.context,{operationId:f.args.operationId});const read=f.queries.slice(start);assert(read[0].sql.includes('READ ONLY'));assert(read[0].sql.includes('log_parameter_max_length=0'));assert(read[0].sql.includes('log_parameter_max_length_on_error=0'));assert(read.some(q=>q.sql.startsWith('SELECT count(*)=1')));assert(!read.some(q=>q.sql.startsWith('INSERT')));});
 test('exclusive journal collision never overwrites the predecessor or starts SQL',async t=>{const f=keyInstallFixture(t,{raceJournal:true});await assert.rejects(f.installer.install(f.context,f.args),e=>e.code==='EEXIST');assert.equal(require('node:fs').readFileSync(f.root+'/publics-read-key-operation.json','utf8'),'OTHER ORIGINAL JOURNAL');assert.equal(f.connected(),0);assert.equal(f.linked.length,0);assert.equal(f.queries.length,0);});
+
+function countFixture({brand='fish',unknown=false,refuse=false,change=false,revoke=false}={}){
+ const calls=[],stamp=()=>new Date().toISOString();let active=true,catalogCalls=0;
+ const list=brand==='fish'?17:7,definition={schema_version:'crm-audience-v2',brand,name:'Público sintético',rule:{op:'in_list',list_id:list}},user={id:'synthetic-reader',role:'manager',areas:['growth'],productFronts:['growth'],brands:[brand],permissions:{growth:{read:true,edit:false}}};
+ const canonical=v=>Array.isArray(v)?'['+v.map(canonical).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}':JSON.stringify(v);
+ const hash=require('node:crypto').createHash('sha256').update(canonical(definition)).digest('hex');
+ const catalog={brand,current:true,currency:'BRL',timezone:'America/Sao_Paulo',shop_id:null,fields:[],products:[],origins:[],lists:[{id:list,brand,name:'Lista sintética',available:true}],coverage:'unconfirmed',checked_at:stamp(),catalog_hash:'a'.repeat(64)};
+ const row={id:ID,brand,name:definition.name,definition,version:1,archived:false,created_at:stamp(),updated_at:stamp(),updated_by:'panel:synthetic-reader',semantic_context:{currency:'BRL',timezone:'America/Sao_Paulo',current:true}};
+ const reader=createReader({auth:{authorize:()=>user,authorizeBrand(_c,b){if(!active||b!==brand)throw Object.assign(Error('ACCESS_DENIED'),{status:403,code:'ACCESS_DENIED'});return user;}},upstreams:{segments:new URL(P.REVIEWED_DYNAMIC.routes.segments)},keys:{audiences:KEY},projectGrowth:()=>({brand}),fetchImpl:async(url,options)=>{
+  assert.equal(options.headers.Authorization,'Bearer '+KEY);
+  calls.push({url,method:options.method});const q=new URL(url).searchParams;
+  let body;if(options.method==='POST'){assert.deepEqual(JSON.parse(options.body),{acao:'segmento_contar',brand,id:ID,expected_version:1,expected_catalog_hash:'a'.repeat(64)});if(revoke)active=false;if(refuse)return new Response(JSON.stringify({error:'SEGMENT_UNAVAILABLE'}),{status:503,headers:{'content-type':'application/json'}});
+   body={source_confirmed:!unknown,eligible_count:unknown?null:42,checked_at:stamp(),definition,definition_hash:hash,base_list_id:list,transport_supported:false,unknown_reason:unknown?'external_source_unavailable':null,segment_id:ID,version:1};
+  }else if(q.get('acao')==='segmento_obter')body={segment:row};
+  else{catalogCalls++;body={segments:[row],limit:Number(q.get('limit')),offset:Number(q.get('offset')),catalog:{...catalog,catalog_hash:change&&catalogCalls>1?'b'.repeat(64):catalog.catalog_hash},capabilities:{draft:false,count:true,send:false}};}
+  return new Response(JSON.stringify(body),{headers:{'content-type':'application/json'}});
+ }});
+ const request=(extra={})=>reader.read({context:{},route:'segments',method:'POST',query:new URLSearchParams(),body:{acao:'segmento_contar',brand,id:ID,expected_version:1,expected_catalog_hash:'a'.repeat(64),...extra},origin:'https://crm.synthetic.invalid'});
+ return {request,calls};
+}
+test('saved COUNT uses the original READ grant in both brands and rechecks catalog and version',async()=>{
+ for(const brand of ['fish','aristo']){const f=countFixture({brand}),r=await f.request();assert.equal(r.status,200,JSON.stringify({r,calls:f.calls}));assert.equal(r.body.eligible_count,42);assert.equal(r.body.transport_supported,false);assert.deepEqual(f.calls.map(c=>c.method),['GET','GET','POST','GET','GET']);assert(!JSON.stringify(r).includes(KEY));}
+});
+test('external COUNT unavailable is null rather than zero, and a source refusal stays refused',async()=>{
+ const f=countFixture({unknown:true}),r=await f.request();assert.equal(r.status,200);assert.equal(r.body.source_confirmed,false);assert.equal(r.body.eligible_count,null);assert.equal(r.body.unknown_reason,'external_source_unavailable');
+ const g=countFixture({refuse:true}),e=await g.request();assert.equal(e.status,503);assert.equal(e.body.error,'SEGMENT_UNAVAILABLE');assert.equal(g.calls.length,3);
+});
+test('COUNT discards changes in catalog or login during the original query',async()=>{
+ await assert.rejects(countFixture({change:true}).request(),e=>e.code==='SEGMENT_CATALOG_CHANGED');await assert.rejects(countFixture({revoke:true}).request(),e=>e.code==='ACCESS_DENIED');
+});
+test('READ count cannot accept a draft mutation, alternate destination or extra fields',async()=>{
+ const f=countFixture();await assert.rejects(f.request({definition:{}}),e=>e.code==='AUDIENCE_COUNT_REQUEST_INVALID');await assert.rejects(f.request({acao:'segmento_salvar'}),e=>e.code==='READ_ONLY');assert.equal(f.calls.length,0);
+ const user={role:'manager',permissions:{growth:{read:true,edit:false}}};let calls=0;
+ await assert.rejects(P.forward({route:'segments',method:'POST',query:new URLSearchParams(),body:{acao:'segmento_contar',brand:'fish',id:ID,expected_version:1,expected_catalog_hash:'a'.repeat(64)},user,credential:KEY,upstreams:{segments:new URL('https://synthetic.invalid/')},simpleAudienceCount:true,fetchImpl:async()=>{calls++;}}),e=>e.code==='AUDIENCE_READ_SCOPE_DENIED');assert.equal(calls,0);
+});

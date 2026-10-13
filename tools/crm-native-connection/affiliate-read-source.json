@@ -170,8 +170,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 146867,
-      "sha256": "9603cab48a5fe28e4c4a777220acdf37afd695a58765c060dbdadefdfe89aca9"
+      "bytes": 146974,
+      "sha256": "9c879bc25307a598bd7f79f2829f63e7d6c456e6799a2c641b6fe95754852e6e"
     },
     {
       "path": "services/dashboard-operational/BCRYPT-LICENSE",
@@ -186,7 +186,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1379,
-      "sha256": "2c8370b447c690bc02665411e64110fb48d03607d8ead2036b8e3d9d5c78800f"
+      "sha256": "a69c36bff923295ebbf75be4ef8a93ff5d577731d600efdb13a90c9cfb86f902"
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
@@ -214,6 +214,11 @@
       "sha256": "b6c5561e56097716b31c48ee51f02c0c5977ed574b812c77c4bd580a5e7fed74"
     },
     {
+      "path": "services/dashboard-operational/native-source-sync.cjs",
+      "bytes": 24743,
+      "sha256": "c2791d4d37bef0d84b1c90408874bcd2eab60e194beeee48c6e6dd86ea1d9a8d"
+    },
+    {
       "path": "services/dashboard-operational/organico-presentation.css",
       "bytes": 78231,
       "sha256": "3d9a84d3fea861131147dcf67ac28e7f6fdd764bdabe7e2e67358c0eba2a7542"
@@ -225,8 +230,8 @@
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
-      "bytes": 47256,
-      "sha256": "1695ddd29851d3d111058f8bd0c19075c4d2cc63789026f519882e4259b82e0f"
+      "bytes": 47970,
+      "sha256": "75e61fe5c9a58b4915c5a02ac157969274f766c014a732752a80ef609695ba12"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/app.js",
@@ -310,8 +315,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 17742,
-      "sha256": "21596fd6b14993f20c598e4f521b7cc2f69350880bfed508cb333f4eb10ce77b"
+      "bytes": 19659,
+      "sha256": "9101b905c18a40ad3e040849487876bf64f097ad516ede662dcdc46874696353"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
@@ -320,13 +325,13 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
-      "bytes": 9489,
-      "sha256": "236495b6e6769b7c047a723e4cf1f0df067f2a45932c036fa517d25ec19d9261"
+      "bytes": 11782,
+      "sha256": "9d87cb3d7c9eff2b3424b5d88fe7d17ad9d4070f8667c260cb485509ca1a06b4"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 25307,
-      "sha256": "dd91a01e84528292181ee9cd7fce4409c350818f869c629c8c8979dca7b9b8a2"
+      "bytes": 36133,
+      "sha256": "40f78e13e4f6eec3f2161cf577c619110a81b7ec29104ed03925f281f7200d1e"
     },
     {
       "path": "services/dashboard-operational/public/entry.compiled.js",
@@ -350,28 +355,28 @@
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 16774,
-      "sha256": "9379f6390f73dbb5282afdb356f8881502446a55687c1e8746a11c6f63f7bf7a"
+      "bytes": 16788,
+      "sha256": "b965c2ea84c39fc6923c57dad33eabe09029e2a8a0e58f7294beb94b22accb93"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 14083,
-      "sha256": "800828d91995f78e140f927a596e7a00692e5e06498dfdd2209e3be07b62ab52"
+      "bytes": 14097,
+      "sha256": "b6f96f8cb980ccbb0241d6304b430bcb8fd0e5c8500744f1e426ee4f3db2f422"
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 165769,
-      "sha256": "76ad255c47465a8339ede414390d8cc8d95203742c2f13ffde522e66b2e93df3"
+      "bytes": 167369,
+      "sha256": "78022161ced880f858db130ef10b425a030a2225b6e593058f0af57b3a65c2cc"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 42035,
-      "sha256": "7f3c903b82221553b654ee8c289680e685eea97a6ca46981d12e0a9f1d02243b"
+      "bytes": 45310,
+      "sha256": "83c4f972ff8be265096747e6a4aa15be9892bd9c54c7f48d1558d86409b36478"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
-      "bytes": 11473,
-      "sha256": "f23ff394a7d863b8076b9fb036b2f64c8f8d4c3afbf50baab0ec36b0124f6a76"
+      "bytes": 14081,
+      "sha256": "ceda5116ac03a39a7a4682679381c966f0569958f82d4b83f993fc61ca608a21"
     },
     {
       "path": "tests/ab-experiment-integration.test.cjs",
@@ -610,18 +615,18 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 25623,
-      "sha256": "db22f5d4c118954c934482e6a7cc54a75445e3ea2cacbf5bc97d754270c721d5"
+      "bytes": 34150,
+      "sha256": "502292103d26115fd0ceddf6c0faa6c5eb5a79f7147c1f03cafed1cc61338daf"
     },
     {
       "path": "tests/simple-audience-read.test.cjs",
-      "bytes": 19990,
-      "sha256": "5192aedca6893e1d4a02f687d68b6e99d832f306750c6a259a05b0f32e02c669"
+      "bytes": 25032,
+      "sha256": "becee1ea2d2ae2872b46cfe19754e925cbf7b1c9ed82e1e78b3cb097b6a0cba4"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
-      "bytes": 12914,
-      "sha256": "01208707b06d9eefe7f5c8b3382278ff30656276a06a5b7909d2cd55e246cba1"
+      "bytes": 18603,
+      "sha256": "88bea651e597621d49bbe06fa0a4b628b5090b7496b43f90d6274e8c6b4fb2c1"
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
@@ -634,9 +639,24 @@
       "sha256": "408e52964c1ed85220d4801c9c9a6f473e7f3bfa338841989f86bdb41c79e38e"
     },
     {
+      "path": "tests/source-sync-native/epoch.test.cjs",
+      "bytes": 18476,
+      "sha256": "dd3fc44034a1566291fdf61eedf9fc4ef6a96f08965fcb9cb713a846fd9eb45b"
+    },
+    {
+      "path": "tests/source-sync-native/progress.test.cjs",
+      "bytes": 18533,
+      "sha256": "0cb40539a32e854f8add6ec168cb060487ee2ed4923ed38cd47db8c0ed180ae7"
+    },
+    {
+      "path": "tests/source-sync-native/root-runtime.test.cjs",
+      "bytes": 9393,
+      "sha256": "af1e68934adc47bd01eacf3ee06c0d8f81c60cd3517d8acbf28e53069a7e7abd"
+    },
+    {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2719,
-      "sha256": "f1d0f3f6e6f86e4a1c596a2a7c1ee5ab31e3d7a41cb96e10cb42bd04dbfd416a"
+      "sha256": "01d31ffb2ce8a149fd0dc15548c726225cd148663764403c23d1849007d9ced1"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -651,7 +671,7 @@
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
-  "realAcceptance": "Previous UI/read package installed as39d170f. This delta has local compiled-page and engine tests; production user acceptance and real journey transport are not claimed.",
+  "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
   "candidatePurpose": "UI Tabler validada em produção; ação original de revisão de afiliados; Públicos READ com emissor IAM fixo separado e privado; sete cenários de jornadas sintéticas."
 }

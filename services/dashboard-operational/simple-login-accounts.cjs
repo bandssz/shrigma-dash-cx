@@ -34,6 +34,8 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
  // Names, notes, contacts and source credentials are never copied here.
  db.exec(`CREATE TABLE IF NOT EXISTS simple_affiliate_edits_v1(request_id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),candidate_id TEXT NOT NULL,expected_version INTEGER NOT NULL,binding TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('reserved','uncertain','confirmed','rejected','not_sent')),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
  CREATE UNIQUE INDEX IF NOT EXISTS simple_affiliate_edits_pending_v1 ON simple_affiliate_edits_v1(brand,candidate_id) WHERE state IN ('reserved','uncertain');`);
+ // Test drafts only. Reuses the login database; never enrolls or sends.
+ db.exec(`CREATE TABLE IF NOT EXISTS simple_journey_lab_v1(user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),revision INTEGER NOT NULL CHECK(revision>0),payload_json TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,brand));`);
  const find=id=>db.prepare('SELECT * FROM users WHERE id=?').get(id);
  const stamp=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)fail('CLOCK_INVALID',500);return t;};
  const snapshot=row=>JSON.stringify([row?.id,row?.role,row?.state,row?.password_hash,row?.updated_at,row?.job_title,row?.simple_fronts_json,row?.simple_brands_json,row?.simple_write_fronts_json]);
@@ -112,6 +114,33 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   }
   return state;
  }
- return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit});
+ function labOwner(context,brand,write=false){
+  if(!['fish','aristo'].includes(brand))fail('LAB_BRAND_INVALID');
+  // Local test edits require CSRF and delegated WRITE, without borrowing the
+  // legacy campaign writer or granting any remote mutation.
+  const user=authorizeUser({...context,area:'growth',productFront:'growth',brand,edit:false});
+  if(write&&user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth'))fail('PRODUCT_WRITE_DENIED',403);
+  return user;
+ }
+ function labRead({context,brand}){
+  const user=labOwner(context,brand),row=db.prepare('SELECT * FROM simple_journey_lab_v1 WHERE user_id=? AND brand=?').get(user.id,brand);
+  const engine=require('./public/crm-preview/journey-engine.js'),store=engine.readStore(row?.payload_json??null);
+  if(store.drafts.some(d=>d.brand!==brand)||store.runs.some(r=>r.draft.brand!==brand))fail('LAB_STORAGE_INVALID',503);
+  return {persistence:'server',userId:user.id,brand,revision:row?.revision||0,store,savedAt:row?new Date(row.updated_at).toISOString():null,executes:false};
+ }
+ function labSave({context,brand,expected_revision,store}){
+  const user=labOwner(context,brand,true);
+  if(!Number.isSafeInteger(expected_revision)||expected_revision<0||expected_revision>=2147483647)fail('LAB_REVISION_INVALID');
+  const serialized=JSON.stringify(store),checked=require('./public/crm-preview/journey-engine.js').readStore(serialized);
+  if(checked.drafts.some(d=>d.brand!==brand)||checked.runs.some(r=>r.draft.brand!==brand))fail('LAB_BRAND_INVALID');
+  return transaction(()=>{
+   if(labOwner(context,brand,true).id!==user.id)fail('LAB_ACCESS_CHANGED',403);
+   const row=db.prepare('SELECT revision FROM simple_journey_lab_v1 WHERE user_id=? AND brand=?').get(user.id,brand);
+   if((row?.revision||0)!==expected_revision)fail('LAB_VERSION_CHANGED',409);
+   const t=stamp();db.prepare('INSERT INTO simple_journey_lab_v1(user_id,brand,revision,payload_json,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,brand) DO UPDATE SET revision=excluded.revision,payload_json=excluded.payload_json,updated_at=excluded.updated_at').run(user.id,brand,expected_revision+1,serialized,t,t);
+   return labRead({context,brand});
+  });
+ }
+ return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave});
 }
 module.exports={createSimpleAccounts,profile,FRONTS,BRANDS};
