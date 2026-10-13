@@ -27,6 +27,7 @@ const tools=[
  ['crm_source_sync_run','Solicitar atualização da fonte original com uma intenção nova','crm.source-sync',obj({brand,requestId:sourceRequestId},['brand','requestId']),false,true],
  ['crm_source_sync_inspect','Reler a intenção original da fonte sem reenviar POST','crm.source-sync',obj({brand,requestId:sourceRequestId},['brand','requestId']),false,false],
  ['crm_source_diagnostics','Diagnosticar por leitura a mesma intenção original da fonte','crm.source-diagnostics',obj({brand,requestId:sourceRequestId},['brand','requestId']),true,false],
+ ['crm_source_diagnostics_confirm','Confirmar autorização explícita de diagnóstico da tentativa pelo conector','crm.source-diagnostics',obj({brand,requestId:sourceRequestId,purpose:{type:'string',enum:['crm.source-diagnostics']},approved:{type:'boolean'}},['brand','requestId','purpose','approved']),false,false],
  ['crm_email_health','Consultar saúde agregada original de e-mail da marca e fila compartilhada','crm.delivery-health',obj({brand},['brand']),true,false],
  ['crm_scheduler_state_approval_prepare','Preparar aprovação específica de leitura das travas do agendador','crm.iam',obj(),false,false],
  ['crm_scheduler_state_approval_confirm','Registrar aprovação ou recusa da intenção específica de leitura','crm.iam',obj({approvalId:sourceRequestId,intentHash:audienceHash,decision:{type:'string',enum:['approve','deny']}},['approvalId','intentHash','decision']),false,false],
@@ -80,7 +81,7 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
  const serviceAffiliateRead=typeof affiliateServiceRead==='function';
- const availableTools=tools.filter(t=>(publicReadKeyInstallEnabled===true||!t.name.startsWith('crm_publics_read_key_'))&&(serviceAffiliateRead||affiliateReadEnabled===true&&auth.affiliateNativeConsent||t.name!=='affiliate_read')&&(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
+ const availableTools=tools.filter(t=>(publicReadKeyInstallEnabled===true||!t.name.startsWith('crm_publics_read_key_'))&&(serviceAffiliateRead||affiliateReadEnabled===true&&auth.affiliateNativeConsent||t.name!=='affiliate_read')&&(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||!t.name.startsWith('crm_source_diagnostics'))&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
  async function call(name,args,bearer){
   const tool=availableTools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
@@ -204,6 +205,8 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
    }
   }else if(name==='crm_email_health'){
    result=await run('GET','/api/delivery-health?'+new URLSearchParams(args));
+  }else if(name==='crm_source_diagnostics_confirm'){
+   result=await run('POST','/api/source-diagnostics-approval',args);
   }else if(name==='crm_source_diagnostics'){
    result=await run('GET','/api/source-diagnostics?'+new URLSearchParams(args));
   }else if(name.startsWith('crm_source_sync_')){

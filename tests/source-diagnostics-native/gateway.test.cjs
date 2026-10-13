@@ -50,7 +50,28 @@ test('diagnostic route has native-only exact GET contract and cannot accept supp
 test('capability OFF hides MCP tool and diagnostic page section and denies diagnostic action',async t=>{
  const f=await fixture(t,{enabled:false});const page=await f.request('GET','/auth/native-source');a.equal(page.status,200);a.doesNotMatch(page.body,/id="diagnostics"/);
  const list=await f.request('POST','/api/native/mcp',{jsonrpc:'2.0',id:1,method:'tools/list'},true);a.equal(list.body.result.tools.some(x=>x.name==='crm_source_diagnostics'),false);
+ a.equal(list.body.result.tools.some(x=>x.name==='crm_source_diagnostics_confirm'),false);
  const result=await f.request('POST','/auth/native-source-settings',{action:'diagnostics-status'});a.equal(result.status,400);a.equal(f.reads.length,0);
+});
+
+test('actual native confirmation records explicit same-attempt consent without dispatching a source or SQL read',async t=>{
+ const f=await fixture(t);await f.prepare();const args={brand:'fish',requestId,purpose:'crm.source-diagnostics',approved:true};
+ const denied=await f.rpc('crm_source_diagnostics_confirm',args);a.equal(denied.body.result.structuredContent.error,'NATIVE_SCOPE_DENIED');a.equal(f.reads.length,0);
+ const grant=await f.request('POST','/auth/native-source-settings',{action:'authorize-diagnostics',...selection(f),consent:true});a.equal(grant.status,200);const before=f.calls.length;
+ const confirmed=await f.rpc('crm_source_diagnostics_confirm',args);a.equal(confirmed.body.result.structuredContent.status,200,JSON.stringify(confirmed));a.equal(confirmed.body.result.structuredContent.body.authorized,true);a.equal(f.reads.length,0);a.equal(f.calls.length,before);
+ const again=await f.rpc('crm_source_diagnostics_confirm',args);a.deepEqual(again.body.result.structuredContent,confirmed.body.result.structuredContent);a.equal(f.reads.length,0);
+ const read=await f.rpc('crm_source_diagnostics',{brand:'fish',requestId});a.equal(read.body.result.structuredContent.status,200);a.equal(f.reads.length,1);a.equal(f.calls.length,before);
+});
+test('native approval HTTP cannot take actor or context from JSON, use a browser cookie, or confirm an unapproved purpose',async t=>{
+ const f=await fixture(t);await f.prepare();await f.request('POST','/auth/native-source-settings',{action:'authorize-diagnostics',...selection(f),consent:true});
+ const args={brand:'fish',requestId,purpose:'crm.source-diagnostics',approved:true};
+ // A raw bearer header is not an internal dispatcher context. The original
+ // MCP authenticates it first; the ordinary HTTP route still refuses it.
+ a.equal((await f.request('POST','/api/source-diagnostics-approval',{...args,context:{nativeBearer:'forged'}},true)).status,403);
+ const context=await f.rpc('crm_source_diagnostics_confirm',{...args,context:{nativeBearer:'forged'}});a.equal(context.body.result.structuredContent.error,'NATIVE_ARGUMENTS_INVALID');
+ a.equal((await f.request('POST','/api/source-diagnostics-approval',args)).status,403);
+ const bad=await f.rpc('crm_source_diagnostics_confirm',{...args,approved:false});a.equal(bad.body.result.structuredContent.status,403);a.equal(bad.body.result.structuredContent.body.error,'NATIVE_DIAGNOSTICS_CONFIRMATION_REQUIRED');
+ const supplied=await f.rpc('crm_source_diagnostics_confirm',{...args,ownerId:'forged'});a.equal(supplied.body.result.structuredContent.error,'NATIVE_ARGUMENTS_INVALID');a.equal(f.reads.length,0);
 });
 test('revoking original connection suppresses the diagnostic result through actual native MCP',async t=>{
  const f=await fixture(t);await f.prepare();const permit=await f.request('POST','/auth/native-source-settings',{action:'authorize-diagnostics',...selection(f),consent:true});a.equal(permit.status,200);f.auth.nativeConnections.revoke({context:f.ctx,connectionId:f.issued.connection.id});const result=await f.rpc('crm_source_diagnostics',{brand:'fish',requestId});a.equal(result.status,401);a.equal(f.reads.length,0);

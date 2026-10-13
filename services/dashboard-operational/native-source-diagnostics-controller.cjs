@@ -56,6 +56,14 @@ function createDiagnosticsController({enabled=false,driver,auth,coreFactory=crea
   current(context,q,binding);
   return {authorized:true,scope:SCOPE,brand,requestId,operationId:binding.operationId,operational:false};
  }
+ function authorizeNative({context,...value}={}){
+  requireReady();
+  if(!exact(value,['brand','requestId','purpose','approved'])||context?.method!=='POST'||context?.nativeBearer===undefined||value.purpose!==SCOPE||value.approved!==true||typeof store.permitNativeSourceDiagnostics!=='function')fail('NATIVE_DIAGNOSTICS_CONFIRMATION_REQUIRED');
+  const q=input(context,{brand:value.brand,requestId:value.requestId}),binding=snapshot(context,q);
+  store.permitNativeSourceDiagnostics({context,binding,approved:true,purpose:SCOPE});
+  current(context,q,binding);
+  return {authorized:true,scope:SCOPE,brand:q.brand,requestId:q.requestId,operationId:binding.operationId,operational:false};
+ }
  async function inspect({context,...value}={}){
   requireReady();if(active)fail('SOURCE_DIAGNOSTICS_BUSY',409);
   const q=input(context,value),privateContext=Object.freeze({...context}),binding=current(privateContext,q);
@@ -67,6 +75,6 @@ function createDiagnosticsController({enabled=false,driver,auth,coreFactory=crea
   }finally{if(active===call)active=null;}
  }
  async function close(){closing=true;if(core)await core.close();return {closed:true,operational:false};}
- return Object.freeze({status,authorize,inspect,close,enabled:ready});
+ return Object.freeze({status,authorize,authorizeNative,inspect,close,enabled:ready});
 }
 module.exports=Object.freeze({createDiagnosticsController,SCOPE});

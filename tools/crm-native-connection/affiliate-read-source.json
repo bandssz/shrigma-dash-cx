@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 32515,
-      "sha256": "ed7eb7091aa0847f29a7249a4f188076bd834d2ba2c44c9b91971a09fa49696e"
+      "bytes": 33075,
+      "sha256": "307598b6c12a47bebe717ab59bb2e7558dc99dddeb17e5aae60956017a1e8391"
     },
     {
       "path": "afiliados-proprios.js",
@@ -189,9 +189,14 @@
       "sha256": "a69c36bff923295ebbf75be4ef8a93ff5d577731d600efdb13a90c9cfb86f902"
     },
     {
+      "path": "services/dashboard-operational/crm-native-delegation.cjs",
+      "bytes": 27815,
+      "sha256": "63db0fd43889b261d24b6ec9e6d79578e18a0e0825cb41762ea3610c08348f31"
+    },
+    {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 32352,
-      "sha256": "fddc9359f05c98c42c17a478d799418e04ceeb1e1bc60a30648f1092334e3ebb"
+      "bytes": 32803,
+      "sha256": "f848bbba7fee44e275a659d8a7136ec9a40380b3497bf62158d471904cb8ee8e"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -227,6 +232,11 @@
       "path": "services/dashboard-operational/journey-internal-test-transport.cjs",
       "bytes": 3839,
       "sha256": "48e67f9728fbf63fe9214dc0e10f3c12fb83527f779f7b50717c0cb4e4944493"
+    },
+    {
+      "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
+      "bytes": 6797,
+      "sha256": "609743b3a10083f4de0745f5049654898f71b8524f8230f351f758a41e0a91ad"
     },
     {
       "path": "services/dashboard-operational/native-source-sync.cjs",
@@ -345,8 +355,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 42907,
-      "sha256": "020c39b79ab180ede30b509acac19bc4cbac3cf73a57ee1e3509d09d94b27f42"
+      "bytes": 42975,
+      "sha256": "a43356a8e482d132191c1a396d3508e3623daddb6f932c77bafb39c6ec9d4877"
     },
     {
       "path": "services/dashboard-operational/public/entry.compiled.js",
@@ -380,8 +390,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 169214,
-      "sha256": "c12e267f62d405662b94ac256c60edecbeb050b03e2ed835b63bb3e9e092b6ee"
+      "bytes": 170139,
+      "sha256": "115ead100414792b9f9fa44779290121625c281254bfb197854d70484c3a8e92"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -659,6 +669,16 @@
       "sha256": "408e52964c1ed85220d4801c9c9a6f473e7f3bfa338841989f86bdb41c79e38e"
     },
     {
+      "path": "tests/source-diagnostics-native/controller.test.cjs",
+      "bytes": 15010,
+      "sha256": "00ddba2a0f8983bd2c1e5b6c72f176fd0ce605139a2a7c9796554dfb00a9d0e0"
+    },
+    {
+      "path": "tests/source-diagnostics-native/gateway.test.cjs",
+      "bytes": 13816,
+      "sha256": "466f2a22601bec3a3820e3aaa1700565bddf434a66b69ba196af7a1bb89c7dcf"
+    },
+    {
       "path": "tests/source-sync-native/epoch.test.cjs",
       "bytes": 18476,
       "sha256": "dd3fc44034a1566291fdf61eedf9fc4ef6a96f08965fcb9cb713a846fd9eb45b"
@@ -676,7 +696,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2719,
-      "sha256": "01d31ffb2ce8a149fd0dc15548c726225cd148663764403c23d1849007d9ced1"
+      "sha256": "cc77a5c3a3df5b2c1387ace4c6b9b639c0861b632478c89ebccfb91a934af6db"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",

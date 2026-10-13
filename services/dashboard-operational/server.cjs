@@ -825,6 +825,16 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(keys.length!==1||keys[0]!=='brand'||!['fish','aristo'].includes(url.searchParams.get('brand')))throw jsonError(400,'DELIVERY_HEALTH_ARGUMENTS_INVALID');
         return sendJson(req,res,200,await deliveryHealth.inspect({context:ctx,brand:url.searchParams.get('brand')}));
       }
+      if(url.pathname==='/api/source-diagnostics-approval'){
+        if(s.crmNativeSourceDiagnosticsEnabled!==true||sourceDiagnostics?.enabled!==true)throw jsonError(503,'SOURCE_DIAGNOSTICS_NOT_ADMITTED');
+        if(host!==s.managerHost||ctx.nativeBearer===undefined)throw jsonError(403,'NATIVE_DIAGNOSTICS_NATIVE_REQUIRED');
+        auth.authorize({...ctx,admin:true});
+        if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
+        if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,1024);
+        if(!body||Object.keys(body).sort().join(',')!=='approved,brand,purpose,requestId')throw jsonError(400,'SOURCE_DIAGNOSTICS_ARGUMENTS_INVALID');
+        return sendJson(req,res,200,sourceDiagnostics.authorizeNative({...body,context:ctx}));
+      }
       if(url.pathname==='/api/source-diagnostics'){
         if(s.crmNativeSourceDiagnosticsEnabled!==true||sourceDiagnostics?.enabled!==true)throw jsonError(503,'SOURCE_DIAGNOSTICS_NOT_ADMITTED');
         if(host!==s.managerHost||ctx.nativeBearer===undefined)throw jsonError(403,'SOURCE_DIAGNOSTICS_NATIVE_REQUIRED');

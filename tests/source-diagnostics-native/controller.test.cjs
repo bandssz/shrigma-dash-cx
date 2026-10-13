@@ -93,3 +93,31 @@ test('reload retains original audited grant and sealed operation without upstrea
 test('capability OFF cannot grant consent or open PG',async t=>{
  const f=await fixture(t,{enabled:false});a.throws(f.grant,{code:'SOURCE_DIAGNOSTICS_NOT_ADMITTED'});await a.rejects(f.inspect(),{code:'SOURCE_DIAGNOSTICS_NOT_ADMITTED'});a.equal(f.sql.length,0);
 });
+
+const nativeApproval=f=>f.controller.authorizeNative({context:{...f.native,method:'POST'},brand:'fish',requestId,purpose:'crm.source-diagnostics',approved:true});
+test('explicit native confirmation preserves connection scopes, browser receipts and source; then enables the fixed READ',async t=>{
+ const f=await fixture(t);f.grant();
+ const before=f.db.prepare('SELECT * FROM crm_native_connections_v1 WHERE id=?').get(f.connection.connection.id),browser=f.db.prepare('SELECT * FROM crm_native_source_diagnostics_consent_v1').all(),sourceCalls=f.calls.length;
+ const result=nativeApproval(f);a.equal(result.authorized,true);a.equal(result.operationId,operationId);a.equal(result.requestId,requestId);a.equal(result.scope,'crm.source-diagnostics');a.equal(f.sql.length,0);a.equal(f.calls.length,sourceCalls);
+ nativeApproval(f);a.equal(f.db.prepare('SELECT count(*) AS n FROM crm_native_source_diagnostics_approval_v1').get().n,1);
+ a.deepEqual(f.db.prepare('SELECT * FROM crm_native_connections_v1 WHERE id=?').get(f.connection.connection.id),before);a.deepEqual(f.db.prepare('SELECT * FROM crm_native_source_diagnostics_consent_v1').all(),browser);
+ const columns=f.db.prepare('PRAGMA table_info(crm_native_source_diagnostics_approval_v1)').all().map(x=>x.name);a(!columns.includes('session_hash'));a(!columns.includes('cookie'));a(!JSON.stringify(result).includes(secret));a(!JSON.stringify(result).includes(sourceKey));
+ f.db.prepare('DELETE FROM crm_native_source_diagnostics_consent_v1').run();
+ const read=await f.inspect();a.equal(read.operation.operationId,operationId);a.equal(read.operation.completedByOriginal,false);a.equal(f.calls.length,sourceCalls);a.equal(f.sql.filter(x=>x===D.READ_SQL).length,1);
+});
+test('native confirmation does not infer permission, actor, operation or affirmative consent',async t=>{
+ const f=await fixture(t),base={brand:'fish',requestId,purpose:'crm.source-diagnostics',approved:true};
+ a.throws(()=>f.controller.authorizeNative({context:{...f.native,method:'POST'},...base}),{code:'NATIVE_SCOPE_DENIED'});
+ f.grant();for(const delta of [{approved:false},{purpose:'db.inspect'},{operationId},{ownerId:'fixture-other'},{requestId:otherRequest},{brand:'aristo'}])a.throws(()=>f.controller.authorizeNative({context:{...f.native,method:'POST'},...base,...delta}));
+ for(const context of [f.browser,{...f.native,method:'GET'}])a.throws(()=>f.controller.authorizeNative({context,...base}));
+ a.equal(f.db.prepare('SELECT count(*) AS n FROM crm_native_source_diagnostics_approval_v1').get().n,0);a.equal(f.sql.length,0);
+});
+test('tampered native receipt cannot fall back to the still-valid browser receipt or reseal itself',async t=>{
+ const f=await fixture(t);f.grant();nativeApproval(f);f.db.prepare("UPDATE crm_native_source_diagnostics_approval_v1 SET binding_json=replace(binding_json,'fish','aristo')").run();
+ await a.rejects(f.inspect(),{code:'NATIVE_DIAGNOSTICS_BINDING_REFUSED'});a.throws(()=>nativeApproval(f),{code:'NATIVE_DIAGNOSTICS_BINDING_REFUSED'});a.equal(f.sql.length,0);
+});
+for(const change of ['owner','database','source','connection'])test('native CURRENT '+change+' drift refuses before SQL and does not rewrite the receipt',async t=>{
+ const f=await fixture(t);f.grant();nativeApproval(f);const before=f.db.prepare('SELECT * FROM crm_native_source_diagnostics_approval_v1').all();
+ if(change==='owner')f.state.revision='e'.repeat(64);if(change==='database')f.vault.bind({context:f.browser,username:'fixture_reader',password:secret+'2',privateNetwork:true});if(change==='source')f.source.bind({context:f.browser,bearer:sourceKey,brands:['fish'],privateNetwork:true});if(change==='connection')f.store.revoke({context:f.browser,connectionId:f.connection.connection.id});
+ await a.rejects(f.inspect());a.throws(()=>nativeApproval(f));a.deepEqual(f.db.prepare('SELECT * FROM crm_native_source_diagnostics_approval_v1').all(),before);a.equal(f.sql.length,0);
+});

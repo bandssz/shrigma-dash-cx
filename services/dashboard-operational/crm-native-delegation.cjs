@@ -31,6 +31,13 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
  actor_id TEXT NOT NULL REFERENCES users(id),session_hash TEXT NOT NULL,brand TEXT NOT NULL,
  request_id TEXT NOT NULL,binding_json TEXT NOT NULL,prior_scopes_hash TEXT NOT NULL,
  new_scopes_hash TEXT NOT NULL,happened_at INTEGER NOT NULL,binding_mac TEXT NOT NULL);`);
+ // Native approval is not a browser session or a scope promotion. Keep its
+ // own receipt, bound to the existing connection and the exact source attempt.
+ db.exec(`CREATE TABLE IF NOT EXISTS crm_native_source_diagnostics_approval_v1(
+ connection_id TEXT NOT NULL REFERENCES crm_native_connections_v1(id),
+ owner_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL,request_id TEXT NOT NULL,
+ binding_json TEXT NOT NULL,connection_hash TEXT NOT NULL,happened_at INTEGER NOT NULL,
+ binding_mac TEXT NOT NULL,PRIMARY KEY(connection_id,brand,request_id));`);
  db.exec(`CREATE TABLE IF NOT EXISTS crm_native_delivery_health_consent_v1(
  id INTEGER PRIMARY KEY,connection_id TEXT NOT NULL REFERENCES crm_native_connections_v1(id),
  actor_id TEXT NOT NULL REFERENCES users(id),session_hash TEXT NOT NULL,brand TEXT NOT NULL,
@@ -129,6 +136,38 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
   return JSON.stringify(Object.fromEntries(Object.keys(value).sort().map(k=>[k,value[k]])));
  }
  const diagnosticSeal=r=>mac(JSON.stringify(['source-diagnostics-consent-v1',r.connection_id,r.actor_id,r.session_hash,r.brand,r.request_id,r.binding_json,r.prior_scopes_hash,r.new_scopes_hash,r.happened_at]));
+ const nativeDiagnosticConnectionHash=r=>sha(JSON.stringify([r.id,r.user_id,r.host,r.token_hash,r.brands_json,r.scopes_json,r.auth_revision,r.created_at,r.expires_at,r.binding_mac]));
+ const nativeDiagnosticSeal=r=>mac(JSON.stringify(['source-diagnostics-native-approval-v1',r.connection_id,r.owner_id,r.brand,r.request_id,r.binding_json,r.connection_hash,r.happened_at]));
+ function nativeDiagnosticConnection(context,brand){
+  if(typeof context?.nativeBearer!=='string')deny('NATIVE_DIAGNOSTICS_NATIVE_REQUIRED');
+  const p=authenticate(context.nativeBearer,{scope:'crm.source-diagnostics',brand});
+  if(authenticate(context.nativeBearer,{scope:'crm.source-sync',brand}).id!==p.id)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  const owner=identity(p.userId),row=db.prepare('SELECT * FROM crm_native_connections_v1 WHERE id=? AND user_id=?').get(p.id,p.userId);
+  if(!owner||owner.role!=='superadmin'||owner.active!==true||owner.canEditGrowth!==true||!row||!valid(row)||row.host!==managerHost||row.revoked_at!==null||row.expires_at<=time()||row.auth_revision!==owner.revision)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  return {owner,row};
+ }
+ function nativeDiagnosticRecord(context,brand,requestId){
+  const {row,owner}=nativeDiagnosticConnection(context,brand),r=db.prepare('SELECT * FROM crm_native_source_diagnostics_approval_v1 WHERE connection_id=? AND brand=? AND request_id=?').get(row.id,brand,requestId);
+  if(!r)return null;
+  if(r.owner_id!==row.user_id||r.connection_hash!==nativeDiagnosticConnectionHash(row)||r.binding_mac!==nativeDiagnosticSeal(r)||!Number.isSafeInteger(r.happened_at)||r.happened_at>time())deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  let b;try{b=JSON.parse(r.binding_json);}catch{deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');}
+  if(diagnosticBinding(b,row.user_id)!==r.binding_json||b.ownerRevision!==owner.revision||b.brand!==brand||b.requestId!==requestId)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  return b;
+ }
+ function permitNativeSourceDiagnostics({context,binding,approved,purpose}={}){
+  if(context?.method!=='POST'||approved!==true||purpose!=='crm.source-diagnostics')deny('NATIVE_DIAGNOSTICS_CONFIRMATION_REQUIRED');
+  const {row,owner}=nativeDiagnosticConnection(context,binding?.brand),json=diagnosticBinding(binding,row.user_id);
+  if(binding.ownerRevision!==owner.revision)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+  db.exec('BEGIN IMMEDIATE');try{
+   const fresh=nativeDiagnosticConnection(context,binding.brand);
+   if(nativeDiagnosticConnectionHash(fresh.row)!==nativeDiagnosticConnectionHash(row))deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
+   const prior=nativeDiagnosticRecord(context,binding.brand,binding.requestId);
+   if(prior){if(JSON.stringify(prior)!==json)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');db.exec('COMMIT');return {authorized:true};}
+   const r={connection_id:row.id,owner_id:row.user_id,brand:binding.brand,request_id:binding.requestId,binding_json:json,connection_hash:nativeDiagnosticConnectionHash(row),happened_at:time()};
+   db.prepare('INSERT INTO crm_native_source_diagnostics_approval_v1 VALUES(?,?,?,?,?,?,?,?)').run(r.connection_id,r.owner_id,r.brand,r.request_id,r.binding_json,r.connection_hash,r.happened_at,nativeDiagnosticSeal(r));
+   nativeDiagnosticRecord(context,binding.brand,binding.requestId);db.exec('COMMIT');return {authorized:true};
+  }catch(e){db.exec('ROLLBACK');throw e;}
+ }
  function permitSourceDiagnostics({context,connectionId,binding}={}){
   const proof=consent(context),owner=identity(proof.userId),json=diagnosticBinding(binding,proof.userId);
   if(!owner||owner.role!=='superadmin'||owner.active!==true||owner.canEditGrowth!==true||owner.revision!==binding.ownerRevision||!/^[a-f0-9]{64}$/.test(proof.sessionHash||''))deny('NATIVE_OWNER_REQUIRED');
@@ -152,6 +191,7 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
   const owner=identity(ownerId),row=db.prepare('SELECT * FROM crm_native_connections_v1 WHERE id=? AND user_id=?').get(connectionId,ownerId);
   if(!owner||owner.role!=='superadmin'||owner.active!==true||owner.canEditGrowth!==true||!row||!valid(row)||row.revoked_at!==null||row.expires_at<=time()||row.auth_revision!==owner.revision)deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');
   const view=project(row);if(!view.brands.includes(brand)||!['crm.source-sync','crm.source-diagnostics'].every(s=>view.scopes.includes(s)))deny('NATIVE_SCOPE_DENIED');
+  if(context?.nativeBearer!==undefined){const native=nativeDiagnosticRecord(context,brand,requestId);if(native)return Object.freeze(native);}
   const r=db.prepare('SELECT * FROM crm_native_source_diagnostics_consent_v1 WHERE connection_id=? AND brand=? AND request_id=? ORDER BY id DESC LIMIT 1').get(connectionId,brand,requestId);
   if(!r||r.actor_id!==ownerId||r.binding_mac!==diagnosticSeal(r))deny('NATIVE_DIAGNOSTICS_CONSENT_REQUIRED');
   let b;try{b=JSON.parse(r.binding_json);}catch{deny('NATIVE_DIAGNOSTICS_BINDING_REFUSED');}
@@ -207,6 +247,6 @@ function createDelegationStore({db,managerHost,consent,identity,mac,now=Date.now
   // Stable read-only fingerprint; the new purpose does not edit existing scopes.
   return Object.freeze({ownerId:row.user_id,ownerRevision:owner.revision,connectionHash:healthConnectionHash(row)});
  }
- return Object.freeze({issue,authenticate,context,list,revoke,schedulerDiagnosticOwner,permitInspection,permitSourceSync,permitSourceDiagnostics,sourceDiagnosticsConsent,deliveryHealthOwner,permitDeliveryHealth,deliveryHealthConsent});
+ return Object.freeze({issue,authenticate,context,list,revoke,schedulerDiagnosticOwner,permitInspection,permitSourceSync,permitSourceDiagnostics,permitNativeSourceDiagnostics,sourceDiagnosticsConsent,deliveryHealthOwner,permitDeliveryHealth,deliveryHealthConsent});
 }
 module.exports={createDelegationStore,SCOPES,BRANDS};
