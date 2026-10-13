@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
 const {createReader}=require(runtime+'/simple-dashboard-read.cjs'),P=require(runtime+'/proxy.cjs');
 const KEY='synthetic-service-read-key',STAMP='2026-10-13T09:00:00.000Z',ID='00000000-0000-4000-8000-000000000001';
-function fixture({brand='fish',front='growth',mixed=false,refused=false,revoke=false,missing=false}={}){
+function fixture({brand='fish',front='growth',mixed=false,refused=false,revoke=false,missing=false,dnsFailures=0,dnsRevoke=false}={}){
  let calls=0,active=true;
  const user={id:'synthetic-reader',role:'manager',areas:[front],permissions:{growth:{read:true,edit:false}},productFronts:[front],brands:[brand],jobTitle:'gestor de CRM'};
  const auth={authorize(){return user},authorizeBrand(_ctx,b){if(!active||front!=='growth'||b!==brand)throw Object.assign(Error('ACCESS_DENIED'),{code:'ACCESS_DENIED',status:403});return user}};
@@ -11,7 +11,7 @@ function fixture({brand='fish',front='growth',mixed=false,refused=false,revoke=f
  const catalog={brand,current:true,currency:'BRL',timezone:'America/Sao_Paulo',shop_id:null,fields:[],products:[],origins:[],lists:[{id:17,brand,name:'Lista sintética',available:true}],coverage:'unconfirmed',checked_at:STAMP,catalog_hash:'a'.repeat(64)};
  const upstreams={segments:new URL(P.REVIEWED_DYNAMIC.routes.segments),'crm-read':new URL(P.FIXED_DESTINATIONS['crm-read'])};
  const reader=createReader({auth,upstreams,keys:{growth:'synthetic-cache-only-key',...(!missing?{audiences:KEY}:{})},projectGrowth:()=>({brand}),fetchImpl:async(url,options)=>{
-  calls++;assert.equal(options.method,'GET');const q=new URL(url).searchParams;assert.equal(options.headers.Authorization,'Bearer '+(q.get('action')==='cache_growth'?'synthetic-cache-only-key':KEY));
+  calls++;if(calls<=dnsFailures){if(dnsRevoke)active=false;throw Object.assign(new TypeError('private synthetic diagnostics'),{cause:{code:'EAI_AGAIN'}});}assert.equal(options.method,'GET');const q=new URL(url).searchParams;assert.equal(options.headers.Authorization,'Bearer '+(q.get('action')==='cache_growth'?'synthetic-cache-only-key':KEY));
   if(q.get('action')==='cache_growth')return new Response('{}',{headers:{'content-type':'application/json'}});
   if(refused)return new Response(JSON.stringify({error:'SEGMENT_ACCESS_DENIED'}),{status:403,headers:{'content-type':'application/json'}});
   const body=q.get('acao')==='segmento_obter'?{segment:{...row}}:{segments:[{...row}],limit:Number(q.get('limit')),offset:Number(q.get('offset')),catalog,capabilities:{draft:true,count:true,send:false}};
@@ -116,4 +116,17 @@ test('READ count cannot accept a draft mutation, alternate destination or extra 
  const f=countFixture();await assert.rejects(f.request({definition:{}}),e=>e.code==='AUDIENCE_COUNT_REQUEST_INVALID');await assert.rejects(f.request({acao:'segmento_salvar'}),e=>e.code==='READ_ONLY');assert.equal(f.calls.length,0);
  const user={role:'manager',permissions:{growth:{read:true,edit:false}}};let calls=0;
  await assert.rejects(P.forward({route:'segments',method:'POST',query:new URLSearchParams(),body:{acao:'segmento_contar',brand:'fish',id:ID,expected_version:1,expected_catalog_hash:'a'.repeat(64)},user,credential:KEY,upstreams:{segments:new URL('https://synthetic.invalid/')},simpleAudienceCount:true,fetchImpl:async()=>{calls++;}}),e=>e.code==='AUDIENCE_READ_SCOPE_DENIED');assert.equal(calls,0);
+});
+
+test('public READ retries one DNS failure before HTTP, never an HTTP refusal or another mutation',async()=>{
+ const f=fixture({dnsFailures:1}),r=await request(f);assert.equal(r.status,200);assert.equal(f.calls(),2);
+ const g=fixture({dnsFailures:2});await assert.rejects(request(g),e=>e.code==='UPSTREAM_UNAVAILABLE');assert.equal(g.calls(),2);
+ const h=fixture({refused:true}),refused=await request(h);assert.equal(refused.status,403);assert.equal(h.calls(),1);
+});
+test('DNS retry rechecks current brand permission before making a second GET',async()=>{
+ const f=fixture({dnsFailures:1,dnsRevoke:true});await assert.rejects(request(f),e=>e.code==='ACCESS_DENIED');assert.equal(f.calls(),1);
+});
+test('CRM cache retries only DNS before HTTP and emits no raw error data',async()=>{
+ let calls=0;const f=diagnosticFixture(async()=>{calls++;if(calls===1)throw Object.assign(new TypeError('private@synthetic.invalid password=secret'),{cause:{code:'EAI_AGAIN'}});return new Response('{}',{headers:{'content-type':'application/json'}});});
+ const r=await f.request();assert.equal(r.status,200);assert.equal(calls,2);assert.equal(f.events[0].event,'DASHBOARD_READ_DNS_RETRY');assert(!JSON.stringify(f.events).includes('secret'));assert(!JSON.stringify(f.events).includes('private@'));
 });

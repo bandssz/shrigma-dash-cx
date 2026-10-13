@@ -108,6 +108,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   current(context,'afiliados',brand);if(brand==='olivas')fail('BRAND_READ_CONTRACT_NOT_READY',503);
   return {schema:'shrigma-affiliate-read-availability-v1',brand,readLinked:!!credentials.afiliados,binding:versions.afiliados||null,readOnly:true};
  }
+ async function readDnsOnce(invoke,stillCurrent,{front,brand}){try{return await invoke();}catch(e){if(e.readDnsTemporary!==true)throw e;stillCurrent();try{onReadFailure?.({event:'DASHBOARD_READ_DNS_RETRY',front,brand,code:'EAI_AGAIN',at:new Date().toISOString(),retry:1});}catch{}await new Promise(resolve=>setTimeout(resolve,250));stillCurrent();return invoke();}}
  async function read({context,route,method,query,body,viewBrand,origin}){
   let front,brand,d,affiliateCommand;
   if(route==='segments'){
@@ -138,7 +139,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    if(upstreams?.segments?.href!==require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)fail('SERVICE_READ_DESTINATION_INVALID',503);
    if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
    try{
-    const raw=await forward({route,method,query,user:before.user,credential,upstreams,origin,simpleAudienceRead:true,fetchImpl});
+    const raw=await readDnsOnce(()=>forward({route,method,query,user:before.user,credential,upstreams,origin,simpleAudienceRead:true,fetchImpl}),()=>same(context,'growth',brand,before),{front:'growth',brand});
     same(context,'growth',brand,before);
     const checked=Audiences.validateAudienceRead(raw,{brand,action:decision.action,query,secrets:Object.values(credentials)});
     const payload=JSON.parse(JSON.stringify(checked.body));
@@ -191,7 +192,8 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
   const started=Date.now();
   try{
-   const call=()=>forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,captureReadDiagnostic:front==='growth',fetchImpl});
+   const sourceCall=()=>forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,captureReadDiagnostic:front==='growth',fetchImpl});
+   const call=()=>method==='GET'?readDnsOnce(sourceCall,()=>same(context,front,brand,before),{front,brand}):sourceCall();
    let result;
    if(front==='growth'){
     const key=JSON.stringify([targetRoute,query.toString(),origin]);let inFlight=growthReads.get(key);

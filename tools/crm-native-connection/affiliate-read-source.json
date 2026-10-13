@@ -230,8 +230,8 @@
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
-      "bytes": 47970,
-      "sha256": "75e61fe5c9a58b4915c5a02ac157969274f766c014a732752a80ef609695ba12"
+      "bytes": 48078,
+      "sha256": "19c52c1c242ce99392283c92d2de6f3f5a538461ed014df7c5bd669cc2608a67"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/app.js",
@@ -370,8 +370,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 45310,
-      "sha256": "83c4f972ff8be265096747e6a4aa15be9892bd9c54c7f48d1558d86409b36478"
+      "bytes": 45884,
+      "sha256": "2376a9e1ddbc96b01c0c07434f3313166a3858279e8d05faf464500b173f03ad"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -620,8 +620,8 @@
     },
     {
       "path": "tests/simple-audience-read.test.cjs",
-      "bytes": 25032,
-      "sha256": "becee1ea2d2ae2872b46cfe19754e925cbf7b1c9ed82e1e78b3cb097b6a0cba4"
+      "bytes": 26491,
+      "sha256": "2a78736548ac0a0b61c99297457002ec43513381d700cea6f9f222416ae77716"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",

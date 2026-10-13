@@ -449,7 +449,7 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   const capture=captureReadDiagnostic===true&&route==='crm-read'&&method==='GET'&&d.action==='cache_growth';
   const diagnostic=(stage,status,error)=>({stage,httpStatus:Number.isInteger(status)?status:null,...(typeof error?.name==='string'&&/^[A-Za-z]{1,40}$/.test(error.name)?{errorType:error.name}:{}),...(typeof error?.cause?.code==='string'&&/^[A-Z0-9_]{1,64}$/.test(error.cause.code)?{transportCode:error.cause.code}:{})});
   const refused=(code,meta)=>{const e=new ProxyError(502,code);if(capture)e.sourceDiagnostic=meta;return e;};
-  let result;try{result=await fetchImpl(url,options);}catch(e){throw refused('UPSTREAM_UNAVAILABLE',diagnostic('transport',null,e));}
+  let result;try{result=await fetchImpl(url,options);}catch(e){const meta=diagnostic('transport',null,e),error=refused('UPSTREAM_UNAVAILABLE',meta);if(method==='GET'&&meta.transportCode==='EAI_AGAIN')error.readDnsTemporary=true;throw error;}
   // A remote credential rejection must not invalidate the browser's local session.
   if(result.status===401){try{await result.body?.cancel();}catch{}return {status:503,body:{error:'UPSTREAM_CREDENTIAL_REJECTED'},...(capture?{sourceDiagnostic:diagnostic('credential',401)}:{})};}
   if(result.status>=300&&result.status<400){try{await result.body?.cancel();}catch{}throw refused('UPSTREAM_REDIRECT_DENIED',diagnostic('redirect',result.status));}
