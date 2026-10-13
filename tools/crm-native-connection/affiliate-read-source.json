@@ -120,8 +120,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 7152,
-      "sha256": "eaab736a36004762a720b391171b6b7572b60238d4ca8b977f6c122e9e4d529d"
+      "bytes": 7388,
+      "sha256": "af2c816179a94256ea4cc2c37a3e811cc822e12b0445b33ef158362c6cfefbe4"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
