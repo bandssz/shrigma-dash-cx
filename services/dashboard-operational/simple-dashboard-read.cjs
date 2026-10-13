@@ -182,7 +182,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   let accountSummary;
   try{const people=auth.simpleAccounts?.list({context}),managers=people?.filter(p=>!p.administrator&&p.active);if(managers)accountSummary={activeManagers:managers.length,byFront:Object.fromEntries(Object.keys(AREA).map(front=>[front,managers.filter(p=>p.fronts.includes(front)).length]))};}catch{}
   auth.authorize({...context,admin:true});
-  return {schema:'shrigma-four-front-read-summary-v1',measuredAt,sources,...(accountSummary?{accountSummary}:{}),readFailures:readFailures.map(row=>({...row})),readOnly:true,operational:false};
+  return {schema:'shrigma-four-front-read-summary-v1',measuredAt,sources,...(accountSummary?{accountSummary}:{}),readFailures:readFailures.filter(row=>brands.includes(row.brand)).map(row=>({...row})),readOnly:true,operational:false};
  }
  return Object.freeze({read,availability,summary});
 }

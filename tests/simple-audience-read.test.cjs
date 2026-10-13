@@ -40,7 +40,7 @@ function diagnosticFixture(fetchImpl,projectionError){
  const auth={authorize:()=>user,authorizeBrand:()=>user};
  const reader=createReader({auth,upstreams:{'crm-read':new URL(P.FIXED_DESTINATIONS['crm-read'])},keys:{growth:KEY},fetchImpl,projectGrowth:()=>{if(projectionError)throw projectionError;return {brand:'aristo'};},onReadFailure:e=>events.push(e)});
  const request=()=>reader.read({context:{},route:'crm-read',method:'GET',query:new URLSearchParams({action:'cache_growth',painel:'growth'}),viewBrand:'aristo',origin:'https://crm.synthetic.invalid'});
- return {request,events};
+ return {request,events,reader};
 }
 test('CRM refusal records actual HTTP, original code and SQLSTATE without raw messages',async()=>{
  const f=diagnosticFixture(async()=>new Response(JSON.stringify({error:'CACHE_READ_REFUSED',sqlstate:'55P03',message:'private@synthetic.invalid password=secret',detail:KEY}),{status:503,headers:{'content-type':'application/json'}}));
@@ -58,3 +58,5 @@ test('CRM projection failure records exact closed section and field',async()=>{
  const e=Object.assign(Error('BRAND_RESPONSE_UNSCOPED'),{status:502,code:'BRAND_RESPONSE_UNSCOPED',projectionIssue:{section:'crm_carrinho',reason:'field_type_invalid',field:'receita'}});
  const f=diagnosticFixture(async()=>new Response('{}',{headers:{'content-type':'application/json'}}),e);await assert.rejects(f.request());assert.deepEqual(f.events[0].projection,{section:'crm_carrinho',reason:'field_type_invalid',field:'receita'});assert.equal(f.events[0].stage,'projection');
 });
+
+test('native source summary returns only refusal metadata for the delegated brands',async()=>{const f=diagnosticFixture(async()=>new Response(JSON.stringify({error:'CACHE_READ_REFUSED'}),{status:503,headers:{'content-type':'application/json'}}));await assert.rejects(f.request());const r=await f.reader.summary({},['fish'],'https://crm.synthetic.invalid');assert(r.readFailures.length>0);assert(r.readFailures.every(x=>x.brand==='fish'));assert(f.events.some(x=>x.brand==='aristo'));});

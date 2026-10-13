@@ -265,8 +265,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 28776,
-      "sha256": "7e7b58359dbd4098f6a37d1885d9fa06cc7128185f5b0b8bd8436e1b908fb4b7"
+      "bytes": 28816,
+      "sha256": "7a3d5ed91bbb194f2fa5430dd9919dac4b2a98443d6b8857d9c27df895bf5772"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -495,8 +495,8 @@
     },
     {
       "path": "tests/simple-audience-read.test.cjs",
-      "bytes": 10091,
-      "sha256": "e6985afb9cff86404dc7d426b2c87ba50470c9f631b8d7314c7dae7a8e7377fc"
+      "bytes": 10586,
+      "sha256": "03a0210d9ef5431a6adbf807b8b75bd8f34c379c8307a64f7dc6e2d5ccc9a7c7"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
