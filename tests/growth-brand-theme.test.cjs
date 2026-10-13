@@ -19,11 +19,11 @@ function contrast(a,b){const x=luminance(a),y=luminance(b);return (Math.max(x,y)
 test('brand changes select isolated CRM tokens while other panels and status semantics stay untouched',()=>{
  const fish=tokens('growth','fish'),aristo=tokens('growth','aristo'),all=tokens('growth','todas'),olivas=tokens('growth','olivas');
  assert.equal(fish['--crm-accent'],'#0b2942');assert.equal(aristo['--crm-accent'],'#0c3c21');
- assert.equal(fish['--crm-sidebar-bg'],'#0b2942');assert.equal(aristo['--crm-sidebar-bg'],'#0c3c21');assert.equal(aristo['--fundo'],'#f7f4ec');
+ assert.equal(fish['--crm-sidebar-bg'],'#0b2942');assert.equal(aristo['--crm-sidebar-bg'],'#0c3c21');assert.equal(aristo['--fundo'],'#f5f6f3');
  assert.equal(all['--crm-accent'],'#244b73');assert.equal(olivas['--crm-accent'],'var(--marca-texto)');
  for(const panel of ['cx','organico','influs'])for(const brand of ['fish','aristo','olivas'])assert.deepEqual(tokens(panel,brand),{});
  for(const theme of [fish,aristo,all,olivas]){
-  assert.equal(theme['--fundo'],theme===aristo?'#f7f4ec':'#fff');assert.equal(theme['--texto'],'#202d3a');
+  assert.equal(theme['--fundo'],'#f5f6f3');assert.equal(theme['--texto'],'#24372e');
   for(const key of ['--ruim','--ruim-bg','--bom','--bom-bg'])assert.equal(theme[key],undefined);
  }
  for(const rule of themes.filter(r=>r.selector.includes('data-marca'))){
