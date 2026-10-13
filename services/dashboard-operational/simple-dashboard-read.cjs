@@ -15,11 +15,20 @@ function sourceKeysFromEnv(env){
  const out={};for(const [front,name]of Object.entries(names)){const value=env[name];if(value!==undefined){if(typeof value!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(value))fail('SERVICE_READ_CONFIG_INVALID',500);out[front]=value;}}
  return Object.freeze(out);
 }
-function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth,growthDiagnostics}={}){
+function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth,growthDiagnostics,onReadFailure}={}){
  if(!auth?.authorizeBrand||!auth?.authorize||typeof fetchImpl!=='function'||typeof projectGrowth!=='function'||Object.keys(keys).some(k=>!Object.hasOwn(AREA,k)&&k!=='audiences'))fail('SERVICE_READ_CONFIG_INVALID',500);
  const credentials=Object.freeze({...keys}),versions=Object.fromEntries(Object.keys(credentials).map(front=>[front,crypto.randomBytes(32).toString('hex')]));
  const noSecrets=value=>{const serialized=JSON.stringify(value);for(const secret of Object.values(credentials))if(serialized.includes(secret))fail('BRAND_RESPONSE_UNSCOPED',502);};
  let pending=0;
+ const readFailures=[];
+ function recordFailure(error,{front,brand,started}){
+  if(front!=='growth'||Number(error.status)<500)return;
+  const d=error.sourceDiagnostic||{},issue=error.projectionIssue;
+  const row={event:'DASHBOARD_READ_FAILURE',id:crypto.randomUUID(),at:new Date().toISOString(),front,brand,route:'crm-read',method:'GET',status:Number.isInteger(error.status)?error.status:503,code:/^[A-Z_]{1,80}$/.test(error.code||'')?error.code:'SERVICE_READ_UNCONFIRMED',elapsedMs:Math.max(0,Date.now()-started),stage:/^[a-z-]{1,40}$/.test(d.stage||'')?d.stage:issue?'projection':'source-read',...(Number.isInteger(d.httpStatus)?{sourceStatus:d.httpStatus}:{}),...Object.fromEntries(['sourceCode','transportCode','errorType','sqlState'].filter(k=>typeof d[k]==='string'&&/^[A-Za-z0-9_]{1,80}$/.test(d[k])).map(k=>[k,d[k]]))};
+  if(issue&&/^[a-z_.]{1,80}$/.test(issue.section||''))row.projection={section:issue.section,...(/^[a-z_]{1,80}$/.test(issue.reason||'')?{reason:issue.reason}:{}),...(/^[a-z_]{1,64}$/.test(issue.field||'')?{field:issue.field}:{})};
+  noSecrets(row);readFailures.push(row);if(readFailures.length>32)readFailures.shift();
+  try{if(typeof onReadFailure==='function')onReadFailure({...row});}catch{}
+ }
  const current=(context,front,brand)=>{
   const user=auth.authorizeBrand({...context,area:AREA[front],productFront:front,edit:false},brand);
   return {user,stamp:JSON.stringify([user.id,user.role,user.areas,user.permissions,user.productFronts,user.productWriteFronts,user.brands,user.jobTitle])};
@@ -93,9 +102,10 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   const targetRoute=route==='affiliate-read'?'tts':route;
   if(upstreams?.[targetRoute]?.href!==FIXED_DESTINATIONS[targetRoute])fail('SERVICE_READ_DESTINATION_INVALID',503);
   if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
+  const started=Date.now();
   try{
-   const result=await forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,fetchImpl});
-   same(context,front,brand,before);if(result.status!==200)fail('SERVICE_READ_SOURCE_REFUSED',503);
+   const result=await forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,captureReadDiagnostic:front==='growth',fetchImpl});
+   same(context,front,brand,before);if(result.status!==200)throw Object.assign(Error('SERVICE_READ_SOURCE_REFUSED'),{code:'SERVICE_READ_SOURCE_REFUSED',status:503,sourceDiagnostic:result.sourceDiagnostic});
    noSecrets(result.body);
    let payload=front==='growth'?projectGrowth(result.body,brand,'growth',origin):front==='afiliados'?AffiliateProjection.project(result.body,{brand,ini:body.ini,fim:body.fim,credential}):Individual.project(result.body,{area:front,brand,query:body||Object.fromEntries(query),credential});
    if(front==='growth'){
@@ -104,7 +114,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
     if(typeof growthDiagnostics==='function')payload.cart_contract=growthDiagnostics(result.body,brand);
    }
    same(context,front,brand,before);return {status:200,body:payload};
-  }finally{pending--;}
+  }catch(error){recordFailure(error,{front,brand,started});throw error;}finally{pending--;}
  }
  async function summary(context,brands,origin,now=Date.now()){
   auth.authorize({...context,admin:true});
@@ -172,7 +182,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   let accountSummary;
   try{const people=auth.simpleAccounts?.list({context}),managers=people?.filter(p=>!p.administrator&&p.active);if(managers)accountSummary={activeManagers:managers.length,byFront:Object.fromEntries(Object.keys(AREA).map(front=>[front,managers.filter(p=>p.fronts.includes(front)).length]))};}catch{}
   auth.authorize({...context,admin:true});
-  return {schema:'shrigma-four-front-read-summary-v1',measuredAt,sources,...(accountSummary?{accountSummary}:{}),readOnly:true,operational:false};
+  return {schema:'shrigma-four-front-read-summary-v1',measuredAt,sources,...(accountSummary?{accountSummary}:{}),readFailures:readFailures.map(row=>({...row})),readOnly:true,operational:false};
  }
  return Object.freeze({read,availability,summary});
 }

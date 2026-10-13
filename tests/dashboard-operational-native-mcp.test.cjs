@@ -112,6 +112,30 @@ test('canonical gateway dispatch authenticates the native principal and retains 
 test('redaction preserves actual campaign definition addresses and original operation key',()=>{
  assert.deepEqual(redact({from_email:'campaign@synthetic.invalid',reply_to:'reply@synthetic.invalid',idempotency_key:'original-key',token:'secret',csrf:'secret',email:'private@synthetic.invalid',owner:'private'}),{from_email:'campaign@synthetic.invalid',reply_to:'reply@synthetic.invalid',idempotency_key:'original-key'});
 });
+
+test('service affiliate READ uses the already linked source and preserves aggregate privacy',async()=>{
+ const key=issue(),calls=[];
+ const m=createNativeMcp({auth,managerHost:host,invoke:async()=>assert.fail('legacy binding must not run'),affiliateServiceRead:async(context,args)=>{
+  assert.equal(context.nativeBearer,key.token);calls.push(args);return {status:200,body:{brand:'fish',janela:{ini:args.ini,fim:args.fim},kpis:[{marca:'fish',gmv:25}],canal:[{marca:'fish',dia:args.ini,gmv:null}],lives:[{marca:'fish',live_id:'original-live',gmv:12,username:'private-name',titulo:'private-title'}]}};
+ }});
+ const r=(await m.call('affiliate_read',{brand:'fish',ini:'2026-10-01',fim:'2026-10-13'},key.token));
+ assert.equal(calls.length,1);assert.equal(r.status,200);assert.equal(r.body.canal[0].gmv,null);assert.equal(r.body.lives[0].live_id,'original-live');assert(!JSON.stringify(r).includes('private-name'));assert(!JSON.stringify(r).includes('private-title'));assert.equal(r.body.readOnly,true);
+});
+test('service affiliate READ rejects an undelegated brand before source dispatch',async()=>{
+ const key=issue(),m=createNativeMcp({auth,managerHost:host,invoke:async()=>assert.fail('legacy dispatch'),affiliateServiceRead:async()=>assert.fail('must not read crossed brand')});
+ await assert.rejects(m.call('affiliate_read',{brand:'aristo',ini:'2026-10-01',fim:'2026-10-13'},key.token),e=>e.code==='BRAND_DENIED');
+});
+test('service affiliate READ rechecks the original delegation after the source responds',async()=>{
+ const key=issue(),m=createNativeMcp({auth,managerHost:host,invoke:async()=>assert.fail('legacy dispatch'),affiliateServiceRead:async()=>{
+  auth.nativeConnections.revoke({context:ctx,connectionId:key.connection.id});return {status:200,body:{brand:'fish',janela:{ini:'2026-10-01',fim:'2026-10-13'},kpis:[]}};
+ }});
+ await assert.rejects(m.call('affiliate_read',{brand:'fish',ini:'2026-10-01',fim:'2026-10-13'},key.token),e=>e.code==='NATIVE_AUTH_REQUIRED');
+});
+test('service affiliate source failure remains unavailable, not a fabricated empty result',async()=>{
+ const key=issue(),m=createNativeMcp({auth,managerHost:host,invoke:async()=>assert.fail('legacy dispatch'),affiliateServiceRead:async()=>({status:503,body:{error:'SERVICE_READ_SOURCE_REFUSED'}})});
+ const r=(await m.call('affiliate_read',{brand:'fish',ini:'2026-10-01',fim:'2026-10-13'},key.token));assert.equal(r.status,503);assert(!Object.hasOwn(r.body,'kpis'));
+});
+
 test('delegations survive process restart but expiration is enforced without renewal or cookie fabrication',()=>{
  // Drain live connections from prior tests to keep the consent cap meaningful.
  for(const c of auth.nativeConnections.list(ctx))if(!c.revoked)auth.nativeConnections.revoke({context:ctx,connectionId:c.id});

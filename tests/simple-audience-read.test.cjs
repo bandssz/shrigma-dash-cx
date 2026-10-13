@@ -34,3 +34,27 @@ test('existing browser client lists and reopens service READ DTOs in both brands
   const listed=await client.list();const opened=await client.open(listed.segments[0].id);assert.equal(opened.segment.id,ID);assert.equal(opened.segment.brand,brand);assert.equal(client.capabilities().save,false);assert.equal(f.calls(),2);
  }
 });
+
+function diagnosticFixture(fetchImpl,projectionError){
+ const events=[],user={id:'synthetic-admin',role:'superadmin',areas:['growth'],productFronts:['growth'],brands:['aristo']};
+ const auth={authorize:()=>user,authorizeBrand:()=>user};
+ const reader=createReader({auth,upstreams:{'crm-read':new URL(P.FIXED_DESTINATIONS['crm-read'])},keys:{growth:KEY},fetchImpl,projectGrowth:()=>{if(projectionError)throw projectionError;return {brand:'aristo'};},onReadFailure:e=>events.push(e)});
+ const request=()=>reader.read({context:{},route:'crm-read',method:'GET',query:new URLSearchParams({action:'cache_growth',painel:'growth'}),viewBrand:'aristo',origin:'https://crm.synthetic.invalid'});
+ return {request,events};
+}
+test('CRM refusal records actual HTTP, original code and SQLSTATE without raw messages',async()=>{
+ const f=diagnosticFixture(async()=>new Response(JSON.stringify({error:'CACHE_READ_REFUSED',sqlstate:'55P03',message:'private@synthetic.invalid password=secret',detail:KEY}),{status:503,headers:{'content-type':'application/json'}}));
+ await assert.rejects(f.request(),e=>e.code==='SERVICE_READ_SOURCE_REFUSED');assert.equal(f.events.length,1);
+ const e=f.events[0];assert.equal(e.brand,'aristo');assert.equal(e.sourceStatus,503);assert.equal(e.sourceCode,'CACHE_READ_REFUSED');assert.equal(e.sqlState,'55P03');assert.equal(e.stage,'source-response');assert(!JSON.stringify(e).includes(KEY));assert(!JSON.stringify(e).includes('private@'));assert(!JSON.stringify(e).includes('secret'));
+});
+test('CRM transport refusal retains cause code and drops connection strings and stack',async()=>{
+ const f=diagnosticFixture(async()=>{throw Object.assign(new TypeError('postgresql://private:secret@host/db'),{cause:{code:'ECONNRESET'},stack:'private-stack'});});
+ await assert.rejects(f.request(),e=>e.code==='UPSTREAM_UNAVAILABLE');assert.equal(f.events[0].transportCode,'ECONNRESET');assert.equal(f.events[0].errorType,'TypeError');assert.equal(f.events[0].stage,'transport');assert(!JSON.stringify(f.events).includes('private'));assert(!JSON.stringify(f.events).includes('postgresql'));
+});
+test('CRM malformed response records stage and source HTTP without response contents',async()=>{
+ const f=diagnosticFixture(async()=>new Response('private@synthetic.invalid not-json',{status:200,headers:{'content-type':'application/json'}}));await assert.rejects(f.request(),e=>e.code==='UPSTREAM_INVALID_JSON');assert.equal(f.events[0].stage,'json');assert.equal(f.events[0].sourceStatus,200);assert(!JSON.stringify(f.events).includes('private@'));
+});
+test('CRM projection failure records exact closed section and field',async()=>{
+ const e=Object.assign(Error('BRAND_RESPONSE_UNSCOPED'),{status:502,code:'BRAND_RESPONSE_UNSCOPED',projectionIssue:{section:'crm_carrinho',reason:'field_type_invalid',field:'receita'}});
+ const f=diagnosticFixture(async()=>new Response('{}',{headers:{'content-type':'application/json'}}),e);await assert.rejects(f.request());assert.deepEqual(f.events[0].projection,{section:'crm_carrinho',reason:'field_type_invalid',field:'receita'});assert.equal(f.events[0].stage,'projection');
+});

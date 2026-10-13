@@ -185,8 +185,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 30077,
-      "sha256": "2541af1f7c02283fbd524c5b566ef59f717c9a41aeaa1caf50fb7f5e6ee35951"
+      "bytes": 31139,
+      "sha256": "aa8eff8e214758f513990d61ab54465f5ef6cbbd66f4915d05ba5b4266de40e3"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -220,8 +220,8 @@
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
-      "bytes": 45258,
-      "sha256": "972edd12eb9b11a5aefa83f180a0deb2bdf0fa8a9039f2006b76e706ffb563f8"
+      "bytes": 46469,
+      "sha256": "f5846b4433fa14269d46ea1d46b964d0ffab93a6aeb63acb5f75f18ce03c3752"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-session-read.cjs",
@@ -260,13 +260,13 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 159759,
-      "sha256": "d88fe458d2e4587a073c6ad963601b29614f0bcb3f5b7edea3754dc5263386ae"
+      "bytes": 160409,
+      "sha256": "3025e35048236e08b4412035a3a20a2dc484e7a5207f590a3dd41cc433af829e"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 27246,
-      "sha256": "e221430f7056c542d679ceeda4c008fddd408e1efbcdf2176cb419246d9fc4ad"
+      "bytes": 28776,
+      "sha256": "7e7b58359dbd4098f6a37d1885d9fa06cc7128185f5b0b8bd8436e1b908fb4b7"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -385,8 +385,8 @@
     },
     {
       "path": "tests/dashboard-operational-native-mcp.test.cjs",
-      "bytes": 14508,
-      "sha256": "08f96bf13c8caffc055820f71f84aaab4cacc1af55c65918af1ed37e1e85748f"
+      "bytes": 16962,
+      "sha256": "da94b0f74f7b2a4f42a1d655c5108721d26bce5fd05304f66f1b22bed6ac89d9"
     },
     {
       "path": "tests/dashboard-operational-own-master-production.test.cjs",
@@ -495,8 +495,8 @@
     },
     {
       "path": "tests/simple-audience-read.test.cjs",
-      "bytes": 6975,
-      "sha256": "a27aa850dd10d52603b96013351b67bb3f574bf0bdc7b9ee98574953a3c5abe7"
+      "bytes": 10091,
+      "sha256": "e6985afb9cff86404dc7d426b2c87ba50470c9f631b8d7314c7dae7a8e7377fc"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",

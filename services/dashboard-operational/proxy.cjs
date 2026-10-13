@@ -408,7 +408,7 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,captureReadDiagnostic=false,fetchImpl=fetch}){
   if(require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)&&route==='campaigns'&&user?.role!=='superadmin')throw new ProxyError(403,'EDIT_NOT_READY');
   const d=decide(route,method,query,body,{crmCampaignSubmitWrite}),target=upstreams[route];
   const campaignSubmit=crmCampaignSubmitWrite===true&&route==='campaigns'&&(target?.href===SANDBOX_CAMPAIGN_DESTINATION||require('./crm-manager-runtime.cjs').isCampaignWriterDescriptor(crmCorporateWriter)&&target?.href===REVIEWED_DYNAMIC.routes.campaigns);
@@ -443,19 +443,23 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
     if(keyInBody)payload.k=credential;
     options.headers['Content-Type']='application/json';options.body=JSON.stringify(payload);
   }
-  let result;try{result=await fetchImpl(url,options);}catch{throw new ProxyError(502,'UPSTREAM_UNAVAILABLE');}
+  const capture=captureReadDiagnostic===true&&route==='crm-read'&&method==='GET'&&d.action==='cache_growth';
+  const diagnostic=(stage,status,error)=>({stage,httpStatus:Number.isInteger(status)?status:null,...(typeof error?.name==='string'&&/^[A-Za-z]{1,40}$/.test(error.name)?{errorType:error.name}:{}),...(typeof error?.cause?.code==='string'&&/^[A-Z0-9_]{1,64}$/.test(error.cause.code)?{transportCode:error.cause.code}:{})});
+  const refused=(code,meta)=>{const e=new ProxyError(502,code);if(capture)e.sourceDiagnostic=meta;return e;};
+  let result;try{result=await fetchImpl(url,options);}catch(e){throw refused('UPSTREAM_UNAVAILABLE',diagnostic('transport',null,e));}
   // A remote credential rejection must not invalidate the browser's local session.
-  if(result.status===401){try{await result.body?.cancel();}catch{}return {status:503,body:{error:'UPSTREAM_CREDENTIAL_REJECTED'}};}
-  if(result.status>=300&&result.status<400){try{await result.body?.cancel();}catch{}throw new ProxyError(502,'UPSTREAM_REDIRECT_DENIED');}
-  if(!/^application\/json(?:;|$)/i.test(result.headers.get('content-type')||'')){try{await result.body?.cancel();}catch{}throw new ProxyError(502,'UPSTREAM_CONTENT_TYPE_DENIED');}
-  const bytes=await readResponse(result,route==='crm-read'&&d.action==='cache_growth'?MAX_CRM_CACHE_RESPONSE:route==='candidaturas'&&d.action==='print'?MAX_PRINT_RESPONSE:route==='campaigns_media'?MAX_MEDIA_RESPONSE:MAX_RESPONSE);
-  let parsed;try{parsed=JSON.parse(bytes.toString('utf8'));}catch{throw new ProxyError(502,'UPSTREAM_INVALID_JSON');}
+  if(result.status===401){try{await result.body?.cancel();}catch{}return {status:503,body:{error:'UPSTREAM_CREDENTIAL_REJECTED'},...(capture?{sourceDiagnostic:diagnostic('credential',401)}:{})};}
+  if(result.status>=300&&result.status<400){try{await result.body?.cancel();}catch{}throw refused('UPSTREAM_REDIRECT_DENIED',diagnostic('redirect',result.status));}
+  if(!/^application\/json(?:;|$)/i.test(result.headers.get('content-type')||'')){try{await result.body?.cancel();}catch{}throw refused('UPSTREAM_CONTENT_TYPE_DENIED',diagnostic('content-type',result.status));}
+  let bytes;try{bytes=await readResponse(result,route==='crm-read'&&d.action==='cache_growth'?MAX_CRM_CACHE_RESPONSE:route==='candidaturas'&&d.action==='print'?MAX_PRINT_RESPONSE:route==='campaigns_media'?MAX_MEDIA_RESPONSE:MAX_RESPONSE);}catch(e){if(capture)e.sourceDiagnostic=diagnostic('response-body',result.status,e);throw e;}
+  let parsed;try{parsed=JSON.parse(bytes.toString('utf8'));}catch(e){throw refused('UPSTREAM_INVALID_JSON',diagnostic('json',result.status,e));}
   if(route==='campaigns'&&d.action==='campanha_salvar'&&result.status>=200&&result.status<300&&
     (!plain(parsed?.campaign)||parsed.campaign.status!=='draft'||parsed.campaign.sent!==0||parsed.campaign.started_at||(campaignSubmit?parsed.campaign.send_at!==(body.definition.send_at??null):parsed.campaign.send_at!==null)||parsed.campaign.definition?.brand!==body.brand))
     throw new ProxyError(502,'UPSTREAM_DRAFT_UNCONFIRMED');
   if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&!campaignSubmit&&
     (!plain(parsed?.operation)||parsed.operation.action!=='salvar'||parsed.operation.brand!==query.get('brand')))
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
-  return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite||ownMasterAudienceCount||ownMasterAudienceContextReview?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route})};
+  const sourceDiagnostic=capture&&result.status!==200?{...diagnostic('source-response',result.status),...(typeof parsed?.error==='string'&&/^[A-Z0-9_]{1,80}$/.test(parsed.error)?{sourceCode:parsed.error}:{}),...(typeof parsed?.sqlstate==='string'&&/^[A-Z0-9]{5}$/.test(parsed.sqlstate)?{sqlState:parsed.sqlstate}:{})}:undefined;
+  return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite||ownMasterAudienceCount||ownMasterAudienceContextReview?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route}),...(sourceDiagnostic?{sourceDiagnostic}:{})};
 }
 module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,SANDBOX_CAMPAIGN_DESTINATION,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

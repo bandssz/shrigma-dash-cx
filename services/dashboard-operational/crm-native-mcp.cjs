@@ -74,10 +74,11 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false,affiliateReadEnabled=false,dashboardReadSummary}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false,affiliateReadEnabled=false,dashboardReadSummary,affiliateServiceRead,affiliateServiceAvailability}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
- const availableTools=tools.filter(t=>(affiliateReadEnabled===true&&auth.affiliateNativeConsent||t.name!=='affiliate_read')&&(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
+ const serviceAffiliateRead=typeof affiliateServiceRead==='function';
+ const availableTools=tools.filter(t=>(serviceAffiliateRead||affiliateReadEnabled===true&&auth.affiliateNativeConsent||t.name!=='affiliate_read')&&(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
  async function call(name,args,bearer){
   const tool=availableTools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
@@ -118,19 +119,23 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
    }
    const schedulerBindingReceipt=state.status===200&&state.body?.features?.nativeSchedulerBinding===true?await run('GET','/api/scheduler-binding-status'):undefined;
    const schedulerStateReceipt=schedulerStateEnabled&&state.status===200&&state.body?.features?.nativeSchedulerState===true?await run('GET','/api/scheduler-state-receipt'):undefined;
-   const affiliateAvailability=[];if(affiliateReadEnabled&&auth.affiliateNativeConsent&&state.status===200){for(const brand of store.authenticate(bearer).brands){try{affiliateAvailability.push(await run('GET','/api/native/affiliate-status?'+new URLSearchParams({brand})));}catch(e){affiliateAvailability.push({status:e.status||503,body:{brand,error:'AFFILIATE_AVAILABILITY_UNCONFIRMED'}});}}}
+   const affiliateAvailability=[];if((serviceAffiliateRead||affiliateReadEnabled&&auth.affiliateNativeConsent)&&state.status===200){for(const brand of store.authenticate(bearer).brands){try{affiliateAvailability.push(serviceAffiliateRead&&typeof affiliateServiceAvailability==='function'?await affiliateServiceAvailability(context,brand):await run('GET','/api/native/affiliate-status?'+new URLSearchParams({brand})));}catch(e){affiliateAvailability.push({status:e.status||503,body:{brand,error:'AFFILIATE_AVAILABILITY_UNCONFIRMED'}});}}}
    const dashboardSources=state.status===200&&state.body?.user?.role==='superadmin'&&typeof dashboardReadSummary==='function'?await dashboardReadSummary(context,[...store.authenticate(bearer).brands]):undefined;
    store.authenticate(bearer,{scope:'crm.read'});
-   result={status:state.status,body:{...(dashboardSources?{dashboardSources}:{}),...(affiliateReadEnabled?{affiliateAvailability}:{}),...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
+   result={status:state.status,body:{...(dashboardSources?{dashboardSources}:{}),...(serviceAffiliateRead||affiliateReadEnabled?{affiliateAvailability}:{}),...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
   }else if(name==='affiliate_read'){
-   // crm.read is only the original identity passport. The dedicated gateway
-   // verifies the separate CURRENT Afiliados receipt and source before/after.
-   const read=await run('POST','/api/native/affiliate-read',args);
+   // Simple login uses the already admitted service READ key. The callback
+   // requires the actual Master and rechecks front/brand through simpleReader.
+   // Legacy native connections retain their separate source consent path.
+   const read=serviceAffiliateRead?await affiliateServiceRead(context,args):await run('POST','/api/native/affiliate-read',args);
+   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
    if(read.status!==200)result=read;
    else{
     const b=read.body;
+    if(serviceAffiliateRead&&(b?.brand!==args.brand||b?.janela?.ini!==args.ini||b?.janela?.fim!==args.fim))fail('AFFILIATE_NATIVE_SOURCE_SCOPE_INVALID',502);
     // The connector needs aggregate proof, not names or customer rows.
-    result={status:200,body:{schema:'shrigma-affiliate-native-aggregate-v1',brand:args.brand,janela:b.janela,gerado_em:b.gerado_em,kpis:b.kpis,amostras:b.amostras,frescor:b.frescor,filaCount:b.fila?.length??null,creatorCount:b.criadores?.length??null,openCount:Array.isArray(b.open)?b.open.length:null,targetCount:Array.isArray(b.target)?b.target.length:null,readOnly:true,operational:false}};
+    const metricRows=(name,omit=[])=>Array.isArray(b[name])?b[name].map(row=>Object.fromEntries(Object.entries(row).filter(([key])=>!omit.includes(key)))):undefined;
+    result={status:200,body:{schema:'shrigma-affiliate-native-aggregate-v1',brand:args.brand,janela:b.janela,gerado_em:b.gerado_em,kpis:b.kpis,amostras:b.amostras,frescor:b.frescor,filaCount:b.fila?.length??null,creatorCount:b.criadores?.length??null,openCount:Array.isArray(b.open)?b.open.length:null,targetCount:Array.isArray(b.target)?b.target.length:null,...(serviceAffiliateRead?Object.fromEntries(['serie','canal','canal_total','lives','live_produtos','videos'].map(name=>[name,metricRows(name,['username','nickname','titulo','nome'])]).filter(([,rows])=>rows!==undefined)):{}),readOnly:true,operational:false}};
    }
   }else if(name.startsWith('crm_scheduler_state_approval_')){
    // Preparing records an intention only. Confirmation is a separate human
