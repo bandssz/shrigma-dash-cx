@@ -13,7 +13,7 @@
  }
  function matches(candidate,link,{search='',state='',linkState=''}={}){
   return (!state||candidate.state===state)&&(!linkState||(linkState==='active'?link?.state==='ativo':link?.state!=='ativo'))&&
-   (!normalize(search)||normalize([candidate.name,candidate.handle,link?.ref].join(' ')).includes(normalize(search)));
+   (!normalize(search)||normalize([candidate.name,candidate.handle,link?.ref].join(' ')).includes(normalize(search).replace(/^@/,'')));
  }
  function detail(c,link,order,closings){
   const address=link?.state==='ativo'&&link.url?`<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">Abrir link</a>`:'Sem link ativo';

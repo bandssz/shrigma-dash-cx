@@ -115,6 +115,7 @@
     },
     // Horas até um prazo (negativo = vencido). null sem prazo.
     horasAte(iso, agora) { if (!iso) return null; return Math.round((new Date(iso).getTime() - (agora || Date.now())) / 36e5); },
+    horasAteAfiliados(iso, agora=Date.now()) { if(!iso)return null;const h=(Date.parse(iso)-agora)/36e5;return Number.isFinite(h)?h<=0?-1:Math.round(h):null; },
     faixaPrazo(iso, agora = Date.now()) {
       const at=typeof iso==='string'&&iso.trim()?Date.parse(iso):NaN;
       if(!Number.isFinite(at)||!Number.isFinite(agora))return 'desconhecido';
@@ -379,7 +380,7 @@
         det: x.decisao_motivo || t?.det || 'Motivo desta decisão não informado.' };
     },
     filaAfiliados(p, marca, agora) {
-      return TTS.filtra(p.fila, marca).map(x => ({ ...x, horas: TTS.horasAte(x.approve_expira_em, agora), tier: TTS.rotuloAfiliados(x) }))
+      return TTS.filtra(p.fila, marca).map(x => ({ ...x, horas: TTS.horasAteAfiliados(x.approve_expira_em, agora), tier: TTS.rotuloAfiliados(x) }))
         .sort((a, b) => (a.horas ?? 1e9) - (b.horas ?? 1e9));
     },
     // Target collab: taxa convidado→conteúdo, só com base >= 10 convidados.
@@ -819,7 +820,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     if (PANE === 'canal') { kp.innerHTML = cardsCanal(); return; }
     const afiliados = typeof PRODUCT_FRONT !== 'undefined' && PRODUCT_FRONT.id === 'afiliados';
     const m = marcaAtual(), k = afiliados ? TTS.kpisAfiliados(DADOS, m) : TTS.kpis(DADOS, m), j = DADOS.janela || {};
-    const urg = k.urgente ? TTS.horasAte(k.urgente) : null;
+    const urg = k.urgente ? (typeof PRODUCT_FRONT !== "undefined" && PRODUCT_FRONT.id === "afiliados" ? TTS.horasAteAfiliados(k.urgente) : TTS.horasAte(k.urgente)) : null;
     const cards = [
       { r: 'GMV via afiliado', v: rf(k.gmv), s: `${nf(k.pedidos)} pedidos · ${nf(k.criadores)} criadores venderam · ${String(j.ini||'').split('-').slice(1).reverse().join('/')} a ${String(j.fim||'').split('-').slice(1).reverse().join('/')}` },
       { r: 'Comissão paga', v: rf(k.comissao), s: afiliados && (k.gmv === null || k.comissao === null) ? 'dados de comissão indisponíveis' : k.comissaoPct !== null ? `${pf(k.comissaoPct, 1)} do GMV` : 'sem pedido na janela' },
@@ -882,7 +883,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
     const filterDispatch=()=>{const band=$('#tts-amostra-prazo')?.value||'';let count=0;document.querySelectorAll('#tts-area .tts-envio .tts-item').forEach(li=>{const ok=!band||li.dataset.prazo===band;li.hidden=!ok;if(ok)count++;});const counter=$('#tts-envio-conta');if(counter)counter.textContent=count+' de '+envio.length+' aguardando expedição';};
     const bindDeadline=()=>{const control=$('#tts-amostra-prazo');if(control)control.onchange=()=>{filterDispatch();queueFilter?.();};};
     if (envio.length) html += `<div class="painel-cab" style="margin-top:4px"><h3 style="margin:0">Aprovadas e ainda não enviadas <span class="tag alerta">${envio.length}</span></h3><span class="mini" title="prazo de envio da plataforma; passou = SELLER_NOT_SHIP_CANCELLED">enviar antes do prazo</span></div>
-      <ul class="tts-envio">${envio.map(e => `<li class="tts-item" data-prazo="${TTS.faixaPrazo(e.envio_expira_em,clock)}">${produtoCelTTS(e)}<div class="tts-item-meta">${todas ? tag(e.marca) : ''}<span>@${esc(e.username)}</span><span class="mini tabn">pedido ${esc(e.order_id || '—')}</span></div><div class="tts-item-prazo">${prazo(TTS.horasAte(e.envio_expira_em))}</div></li>`).join('')}</ul>`;
+      <ul class="tts-envio">${envio.map(e => `<li class="tts-item" data-prazo="${TTS.faixaPrazo(e.envio_expira_em,clock)}">${produtoCelTTS(e)}<div class="tts-item-meta">${todas ? tag(e.marca) : ''}<span>@${esc(e.username)}</span><span class="mini tabn">pedido ${esc(e.order_id || '—')}</span></div><div class="tts-item-prazo">${prazo(afiliados?TTS.horasAteAfiliados(e.envio_expira_em,clock):TTS.horasAte(e.envio_expira_em))}</div></li>`).join('')}</ul>`;
     if (!fila.length) { $('#tts-area').innerHTML = html + '<div class="vazio">Nenhum pedido de amostra aguardando decisão.</div>'; bindDeadline();travaAmostrasTTS(); return; }
     const sugestoes = [...new Set(fila.map(x => x.tier.rot))];
     // Um cartão por criador: quem pede várias amostras aparece uma vez, com cada produto numa linha.
@@ -899,7 +900,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') (function 
           <dl class="tts-cr-nums">
             <div title="GMV do criador no TikTok Shop nos últimos 30 dias, todas as lojas (dado da plataforma)"><dt>GMV 30d (R$)</dt><dd class="tabn">${x.gmv_30d === null || x.gmv_30d === undefined ? '—' : nf(Math.round(x.gmv_30d))}</dd></div>
             <div title="% das amostras recebidas (todas as marcas, 90 dias) que viraram conteúdo; 0% = sem histórico recente. Aqui: completas / pedidas nesta marca"><dt>Postagem</dt><dd class="tabn">${pf(x.fulfillment_pct)} <span class="mini">${nf(x.amostras_completas)}/${nf(x.amostras_total)} aqui</span></dd></div>
-            <div title="pedidos · GMV que esse criador já gerou para esta marca nos últimos 90 dias"><dt>Vendeu aqui 90d</dt><dd class="tabn">${x.pedidos_90d ? `${nf(x.pedidos_90d)} ped. · R$ ${nf(Math.round(x.gmv_90d_marca))}` : '—'}</dd></div>
+            <div title="pedidos · GMV que esse criador já gerou para esta marca nos últimos 90 dias"><dt>Vendeu aqui 90d</dt><dd class="tabn">${x.pedidos_90d ? `${nf(x.pedidos_90d)} ped. · ${x.gmv_90d_marca==null?'GMV indisponível':'R$ '+nf(Math.round(x.gmv_90d_marca))}` : '—'}</dd></div>
           </dl>${g.itens.length > 1 ? `<span class="tag neutro">${g.itens.length} pedidos</span>` : ''}</header>
         <ul class="tts-itens">${g.itens.map(i => `<li class="tts-item" data-prazo="${TTS.faixaPrazo(i.approve_expira_em,clock)}" data-busca="${esc([i.nickname, i.username, i.product_title, i.sku_name, produtoTTS(i.marca, i.product_title)?.rotulo].filter(Boolean).join(' ').toLowerCase())}" data-sug="${esc(i.tier.rot)}">
           ${produtoCelTTS(i, i.is_approvable === false ? `<span class="tag alerta" title="${esc(i.motivo_nao_aprovavel || '')}">não aprovável</span>` : '')}
