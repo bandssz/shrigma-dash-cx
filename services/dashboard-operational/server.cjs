@@ -1065,6 +1065,22 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const body=await readJson(req,1000000);if(!body||Object.keys(body).sort().join(',')!=='brand,expected_revision,store')throw jsonError(400,'LAB_ARGUMENTS_INVALID');
         return sendJson(req,res,200,auth.simpleAccounts.labSave({context:ctx,...body}));
       }
+      if(url.pathname==='/api/journey-test'&&s.simpleReadMode===true&&auth.simpleAccounts?.journeyTest){
+        if(nativeContext)throw jsonError(403,'TEST_COOKIE_REQUIRED');
+        const test=auth.simpleAccounts.journeyTest;
+        if(req.method==='GET'){
+          if(url.searchParams.size!==1||!url.searchParams.has('brand'))throw jsonError(400,'TEST_ARGUMENTS_INVALID');
+          const brand=url.searchParams.get('brand');auth.simpleAccounts.labRead({context:ctx,brand});
+          const availability=test.availability(ctx,brand);
+          return sendJson(req,res,200,{...availability,tests:availability.available?test.list(ctx,brand):[]});
+        }
+        if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
+        if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,2048),{action,...args}=body||{};
+        if(action==='start'&&Object.keys(args).sort().join(',')==='brand,draftId,requestId,version')return sendJson(req,res,201,test.start(ctx,args));
+        if(action==='control'&&['brand','requestId'].every(k=>Object.hasOwn(args,k))&&Object.keys(args).every(k=>['brand','requestId','paused','purchase','optOut'].includes(k)))return sendJson(req,res,200,test.control(ctx,args));
+        throw jsonError(400,'TEST_ARGUMENTS_INVALID');
+      }
       if(url.pathname==='/api/affiliate-own-read'&&simpleReader){
         if(req.method!=='POST')throw jsonError(405,'METHOD_DENIED');
         if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
@@ -1441,6 +1457,10 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   }
   const server=http.createServer({maxHeaderSize:8192},(req,res)=>dispatch(req,res));
   server.headersTimeout=10000;server.requestTimeout=100000;server.keepAliveTimeout=5000;server.maxRequestsPerSocket=200;
+  if(s.simpleReadMode===true&&auth.simpleAccounts?.journeyTest){
+    let timer;server.once('listening',()=>{timer=setInterval(()=>{Promise.resolve().then(()=>auth.simpleAccounts.journeyTest.tick()).catch(()=>{});},5000);timer.unref();});
+    server.once('close',()=>clearInterval(timer));
+  }
   if(managedCrmRuntime){if(!coexistence)server.once('listening',kickManagedCrm);server.once('close',()=>{Promise.resolve().then(()=>managedCrmRuntime.close()).catch(()=>{});});}
   return server;
 }

@@ -47,13 +47,21 @@ test('Tabler public catalog loads, filters and reopens source rules in each bran
 }});
 test('public source refusal remains an error, never an empty or zero result',async()=>{const {document,window}=parseHTML(fs.readFileSync(crm+'index.html','utf8'));elements(document,window);const session={authenticated:true,user:{id:'test',brands:['fish'],permissions:{growth:{read:true}}}},ctx=vm.createContext({window:{ShrigmaReadSession:async()=>session,ShrigmaJourneyLabUI:{instance:null}},document,location:{pathname:'/app/crm/',search:'?brand=fish&view=audiences'},history:{replaceState(){}},URLSearchParams,AbortController,Date,Intl,fetch:async()=>({ok:false,status:503,json:async()=>({error:'AUDIENCE_READ_SOURCE_NOT_LINKED'})})});vm.runInContext(fs.readFileSync(crm+'app.js','utf8'),ctx);await tick();a.match(document.getElementById('error').textContent,/HTTP 503.*AUDIENCE_READ_SOURCE_NOT_LINKED/);a.equal(document.getElementById('audience-list').textContent,'');a.equal(document.getElementById('audience-time').textContent,'');});
 
-function serverLab(db,{values=new Map(),losePost=false,refuseRead=false,reader=false,accountChanged=false,holdPost=false,hangPost=false,requestTimeoutMs=15000,publicRows=[]}={}){
+function serverLab(db,{values=new Map(),losePost=false,refuseRead=false,reader=false,accountChanged=false,holdPost=false,hangPost=false,requestTimeoutMs=15000,publicRows=[],internal=false,loseTestPost=false,refuseTestRead=false}={}){
  const {document,window}=parseHTML('<main id="host"></main>');elements(document,window);
- const host=document.getElementById('host'),calls=[],session={authenticated:true,user:{id:'synthetic-account',role:reader?'manager':'superadmin',brands:['fish'],permissions:{growth:{read:true}},productWriteFronts:reader?[]:['growth']}};
+ const host=document.getElementById('host'),calls=[],session={authenticated:true,csrf:'synthetic-csrf',user:{id:'synthetic-account',role:reader?'manager':'superadmin',brands:['fish'],permissions:{growth:{read:true}},productWriteFronts:reader?[]:['growth']}};
  let uuid=0,postStarted=false,account='synthetic-account',refuse=refuseRead,releasePost;const postHeld=new Promise(r=>releasePost=r);
  const sessionValue=()=>({...session,user:{...session.user,id:account}});
  const app=UI.create({host,engine,serverStorage:true,requestTimeoutMs,storage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)},uuid:()=>String(++uuid),now:()=>0,getSession:async()=>sessionValue(),fetchImpl:async(url,options)=>{
   calls.push({url,method:options.method});
+  if(url.startsWith('/api/journey-test')){
+   if(options.method==='POST'){
+    a.equal(options.headers['X-CSRF-Token'],'synthetic-csrf');const b=JSON.parse(options.body);
+    db.tests=[{requestId:b.requestId,brand:b.brand,draftId:b.draftId,version:b.version,mode:'internal',recipient:'current-corporate-account',status:'waiting',paused:false,steps:[],accepted:0,uncertain:0,delivered:null,productionAudienceSelected:false}];
+    if(loseTestPost)throw Error('lost test response');return {ok:true,status:201,json:async()=>db.tests[0]};
+   }
+   return {ok:!refuseTestRead,status:refuseTestRead?503:200,json:async()=>({available:internal,mode:'internal',productionAudienceSelected:false,tests:db.tests||[],...(!internal?{error:'TEST_TX_BINDING_REQUIRED'}:{})})};
+  }
   if(url.startsWith('/api/journey-lab')){
    if(options.method==='POST'){
     postStarted=true;const b=JSON.parse(options.body);
@@ -119,4 +127,25 @@ test('create, trigger, saved public reference, add step and duplicate persist se
  f.q('[data-lab-copy-draft]').click();await tick();await tick();a.equal(db.store.drafts.length,2);a.notEqual(db.store.drafts[0].id,db.store.drafts[1].id);
  f.q('[data-lab-remove]').click();await tick();await tick();a.equal(db.store.drafts[1].steps.length,1);a.equal(db.store.drafts[0].steps.length,2);
  const g=serverLab(db);await g.app.read();a.equal(g.app.state().drafts,2);a.equal(db.store.runs.length,0);
+});
+
+test('internal TEST controls start once with the saved revision and recover a lost POST by GET',async()=>{
+ const db=emptyServer(),f=serverLab(db,{internal:true,loseTestPost:true});await f.app.read();f.q('[data-lab-create]').click();await tick();await tick();
+ a.equal(f.q('[data-lab-internal-start]').disabled,true);f.q('[data-lab-internal-read]').click();await tick();await tick();a.equal(f.q('[data-lab-internal-start]').disabled,false);
+ f.q('[data-lab-internal-start]').click();f.q('[data-lab-internal-start]').click();await tick();await tick();
+ a.equal(f.calls.filter(x=>x.url==='/api/journey-test'&&x.method==='POST').length,1);a.match(f.q('[data-lab-internal-state]').textContent,/Aguardando prazo/);a.equal(f.q('[data-lab-internal-start]').disabled,true);
+ a.equal(db.tests[0].version,db.store.drafts[0].revision);a.equal(db.tests[0].delivered,null);
+});
+test('unconfirmed internal TEST survives reload and permits only status reads',async()=>{
+ const db=emptyServer(),values=new Map(),f=serverLab(db,{values,internal:true,loseTestPost:true});await f.app.read();f.q('[data-lab-create]').click();await tick();await tick();
+ f.q('[data-lab-internal-read]').click();await tick();await tick();
+ const original=db.tests;Object.defineProperty(db,'tests',{configurable:true,get(){return []},set(){}});
+ f.q('[data-lab-internal-start]').click();await tick();await tick();a.equal(f.q('[data-lab-internal-start]').disabled,true);
+ const g=serverLab(db,{values,internal:true});await g.app.read();g.q('[data-lab-internal-read]').click();await tick();await tick();a.equal(g.q('[data-lab-internal-start]').disabled,true);a(g.calls.every(x=>x.method==='GET'));
+ a([...values.keys()].some(k=>k.endsWith(':internal-pending')));delete db.tests;db.tests=original;
+});
+test('internal TEST cannot start with unsaved edits or after an account change',async()=>{
+ const db=emptyServer(),f=serverLab(db,{internal:true});await f.app.read();f.q('[data-lab-create]').click();await tick();await tick();f.q('[data-lab-internal-read]').click();await tick();await tick();
+ f.q('[data-lab-name]').value='Unsaved internal edit';f.q('[data-lab-internal-start]').click();await tick();a.equal(f.calls.filter(x=>x.url==='/api/journey-test'&&x.method==='POST').length,0);a.equal(f.q('[data-lab-name]').value,'Unsaved internal edit');
+ f.q('[data-lab-save]').click();await tick();await tick();f.q('[data-lab-internal-read]').click();await tick();await tick();f.setAccount('other-account');f.q('[data-lab-internal-start]').click();await tick();await tick();a.equal(f.calls.filter(x=>x.url==='/api/journey-test'&&x.method==='POST').length,0);a.equal(f.q('[data-lab-name]'),null);
 });

@@ -26,7 +26,7 @@ function profile(row){
   return {jobTitle:row.job_title,fronts,brands,writeFronts};
  }catch{fail('SIMPLE_PROFILE_INVALID',403);}
 }
-function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now=Date.now}={}){
+function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now=Date.now,journeyTestTransport}={}){
  if(!db||![authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now].every(v=>typeof v==='function'))fail('SIMPLE_ACCOUNT_CONFIG',500);
  const columns=db.prepare('PRAGMA table_info(users)').all();
  for(const [name,type]of [['job_title','TEXT'],['simple_fronts_json','TEXT'],['simple_brands_json','TEXT'],['simple_write_fronts_json','TEXT']])if(!columns.some(c=>c.name===name))db.exec(`ALTER TABLE users ADD COLUMN ${name} ${type}`);
@@ -141,6 +141,13 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
    return labRead({context,brand});
   });
  }
- return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave});
+ const internalBinding=journeyTestTransport||require('./journey-internal-test-binding.cjs').createBindingReader();
+ const internalSend=journeyTestTransport?.send||require('./journey-internal-test-transport.cjs').createTransport({privateApi:internalBinding.privateApi});
+ const journeyTest=require('./journey-internal-test-runtime.cjs').createRunner({db,now,engine:require('./public/crm-preview/journey-engine.js'),
+  authorize:(context,brand)=>labOwner(context,brand,true),
+  currentIdentity:id=>{const row=find(id);if(!row)return null;const v=view(row);return {...v,role:row.role};},
+  getDraft:(context,brand,draftId)=>{const draft=labRead({context,brand}).store.drafts.find(d=>d.id===draftId);if(!draft)fail('TEST_DRAFT_NOT_FOUND',404);return draft;},
+  getBinding:internalBinding.getBinding,send:internalSend});
+ return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,journeyTest});
 }
 module.exports={createSimpleAccounts,profile,FRONTS,BRANDS};

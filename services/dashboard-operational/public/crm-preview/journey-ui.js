@@ -22,6 +22,7 @@
   const triggers={checkout_abandoned:'Checkout abandonado',order_paid:'Pedido pago',manual_event:'Evento manual de teste'};
   const scenario={bought:false,optout:false,stale:false,result:'simulated'};
   let serverRevision=0,serverSaved=false,serverUncertain=false,pendingServerStore=null;
+  let internalTest=null,internalPending=null;
   const canEdit=()=>!serverStorage||user?.role==='superadmin'||user?.productWriteFronts?.includes('growth');
   const active=()=>context?.section==='regua'&&context?.tab==='lab'&&['fish','aristo'].includes(context.brand);
   const draft=()=>store?.drafts.find(d=>d.id===selected)||null;
@@ -31,6 +32,38 @@
   function remoteValue(data,account,brand){if(data?.persistence!=='server'||data.userId!==account||data.brand!==brand||!Number.isSafeInteger(data.revision)||data.revision<0||data.executes!==false)throw Error('LAB_SERVER_RESPONSE');return {revision:data.revision,store:checkedStore(JSON.stringify(data.store))};}
   async function remoteJSON(url,options){const controller=new AbortController();let timer;const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('LAB_SERVER_DEADLINE'));},requestTimeoutMs);});try{return await Promise.race([(async()=>{const response=await fetchImpl(url,{...options,signal:controller.signal});const data=await response.json();return {response,data};})(),deadline]);}finally{clearTimeout(timer);}}
   async function remoteRead(account,brand){const {response:r,data:d}=await remoteJSON('/api/journey-lab?'+new URLSearchParams({brand}),{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error'});if(!r.ok)throw Object.assign(Error('LAB_SERVER_READ'),{code:d?.error});return remoteValue(d,account,brand);}
+  async function internalAction(action,flags={}){
+   if(!serverStorage||busy||!user||preserveEdits())return;
+   const account=user.id,brand=context.brand,ticket=sequence,d=draft();
+   busy=true;error='';paint();for(const field of host.querySelectorAll('input,select,textarea,button'))field.disabled=true;
+   try{
+    const session=await getSession();
+    if(ticket!==sequence||!allowed(session,brand)||session.user.id!==account){accessChanged();return;}
+    const base='/api/journey-test';let pending;
+    if(action==='start'||action==='control'){
+     if(!canEdit()||session.user.role!=='superadmin'&&!session.user.productWriteFronts?.includes('growth')||typeof session.csrf!=='string')throw Error('TEST_WRITE_REQUIRED');
+     let body;
+     if(action==='start'){
+      if(!serverSaved||internalPending||!d)throw Error('TEST_SAVE_REQUIRED');
+      pending={brand,draftId:d.id,version:d.revision,requestId:uuid()};internalPending=pending;storage.setItem(key+':internal-pending',JSON.stringify(pending));body={action,...pending};
+     }else{
+      const job=internalTest?.tests?.find(x=>x.draftId===d?.id);if(!job)throw Error('TEST_NOT_FOUND');body={action,brand,requestId:job.requestId,...flags};
+     }
+     try{const {response,data}=await remoteJSON(base,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify(body)});if(!response.ok){if(response.status>=400&&response.status<500){if(pending){internalPending=null;storage.removeItem?.(key+':internal-pending');}throw Object.assign(Error('TEST_REFUSED'),{definite:true});}throw Error('TEST_RESPONSE_UNKNOWN');}if(data.requestId!==body.requestId||data.brand!==brand)throw Error('TEST_RESPONSE_UNKNOWN');}catch(e){if(e.definite)throw e;notice='Resposta do teste incerta. Conferindo por leitura; nenhum POST será repetido.';}
+    }
+    const {response,data}=await remoteJSON(base+'?'+new URLSearchParams({brand}),{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error'}),current=await getSession();
+    if(ticket!==sequence||!allowed(current,brand)||current.user.id!==account){accessChanged();return;}
+    if(!response.ok||typeof data.available!=='boolean'||data.mode!=='internal'||data.productionAudienceSelected!==false||!Array.isArray(data.tests)||data.tests.length>50||data.tests.some(x=>x.brand!==brand||x.mode!=='internal'||x.recipient!=='current-corporate-account'||!Array.isArray(x.steps)||x.delivered!==null||x.productionAudienceSelected!==false))throw Error('TEST_READ_UNKNOWN');
+    internalTest=data;if(internalPending&&data.tests.some(x=>x.requestId===internalPending.requestId)){internalPending=null;storage.removeItem?.(key+':internal-pending');}
+    notice=data.available?'Teste consultado. As esperas usam o relógio real do servidor.':'Envio de teste indisponível. Os rascunhos e a simulação continuam disponíveis.';
+   }catch{if(ticket===sequence)error=internalPending?'Início não confirmado. Use Atualizar teste; a solicitação não será repetida.':'Não foi possível conferir o teste interno. Nenhum envio de produção foi autorizado.';}
+   finally{if(ticket===sequence){busy=false;paint();}}
+  }
+  function internalView(d){
+   if(!serverStorage||!d)return '';
+   const r=internalTest?.tests?.find(x=>x.draftId===d.id),states={waiting:'Aguardando prazo',attempting:'Consulta em andamento',finished:'Etapas admitidas pela API',excluded:'Saiu por condição',uncertain:'Incerto — não repetir',failed:'Falhou — pausado'},canStart=internalTest?.available===true&&serverSaved&&!internalPending&&canEdit()&&!internalTest.tests.some(x=>x.draftId===d.id&&x.version===d.revision);
+   return '<section class="card m-3" data-lab-internal-panel><div class="card-header"><h3 class="card-title">Teste com e-mail interno</h3><span class="badge bg-secondary-lt ms-auto">Somente sua conta corporativa</span></div><div class="card-body"><p class="source-line">Esperas reais. Nenhum cliente do público entra neste teste. Aceite da API ainda não confirma entrega.</p><div class="d-flex flex-wrap gap-2"><button class="btn btn-outline-secondary btn-sm" type="button" data-lab-internal-read'+(busy?' disabled':'')+'>Atualizar teste</button><button class="btn btn-primary btn-sm" type="button" data-lab-internal-start'+(!canStart||busy?' disabled':'')+'>Ativar teste interno</button>'+(r?'<button class="btn btn-outline-secondary btn-sm" type="button" data-lab-internal-pause'+(['finished','excluded','uncertain','failed'].includes(r.status)||busy?' disabled':'')+'>'+(r.paused?'Retomar teste interno':'Pausar teste interno')+'</button><button class="btn btn-outline-secondary btn-sm" type="button" data-lab-internal-purchase'+(busy?' disabled':'')+'>Simular compra</button><button class="btn btn-outline-secondary btn-sm" type="button" data-lab-internal-optout'+(busy?' disabled':'')+'>Simular descadastro</button>':'')+'</div><div class="source-line mt-3" data-lab-internal-state>'+esc(internalPending?'Solicitação pendente — consultar antes de continuar':r?(r.paused?'Pausado · ':'')+(states[r.status]||'Consultar')+' · revisão '+r.version:internalTest?.available?'Pronto para sua conta interna':internalTest?.error==='TEST_TX_BINDING_REQUIRED'?'Credencial própria de teste ainda não vinculada':'Consulte a disponibilidade')+'</div>'+(r?'<div class="table-responsive mt-3"><table class="table table-vcenter"><thead><tr><th>Etapa</th><th>Resultado</th></tr></thead><tbody>'+r.steps.map(s=>'<tr><td>'+esc(s.step_id)+'</td><td>'+esc({accepted:'Aceite da API',reserved:'Consulta pendente',not_sent:'Não enviado',uncertain:'Incerto — não repetir',refused:'Recusado'}[s.state]||'Conferir')+'</td></tr>').join('')+'</tbody></table></div>':'')+'</div></section>';
+  }
   function accessChanged(){sequence++;abort?.abort();user=null;flows=[];store=null;key='';selected='';selectedEvent='';busy=false;serverSaved=false;serverUncertain=false;pendingServerStore=null;notice='Acesso mudou. Consulte a fonte novamente com a conta atual.';paint();}
   async function remoteSave(account,brand,next,ticket){
    const session=await getSession();if(ticket!==sequence||context?.brand!==brand||!allowed(session,brand)||session.user.id!==account||(session.user.role!=='superadmin'&&!session.user.productWriteFronts?.includes('growth'))){accessChanged();throw Error('LAB_ACCESS_CHANGED');}
@@ -42,7 +75,7 @@
   }
   function allowed(session,brand){const brands=session.user?.viewBrands||session.user?.brands;return session.authenticated===true&&typeof session.user?.id==='string'&&session.user.id.length>0&&session.user.id.length<=80&&Array.isArray(brands)&&brands.includes(brand)&&session.user.permissions?.growth?.read===true;}
   function sync(next){
-   const changed=context?.brand!==next.brand;context={...next};if(changed)checks=null;
+   const changed=context?.brand!==next.brand;context={...next};if(changed){checks=null;internalTest=null;internalPending=null;}
    if(changed){sequence++;abort?.abort();abort=null;flows=[];store=null;key='';selected='';selectedEvent='';user=null;busy=false;error='';notice='';serverRevision=0;serverSaved=false;serverUncertain=false;pendingServerStore=null;paint();}
    else if(active()&&!host.querySelector('[data-lab-ready]'))paint();
   }
@@ -62,7 +95,8 @@
     if(ticket!==sequence||context.brand!==brand||!active())return;
     const nextFlows=data.flows.filter(f=>f.brand===brand&&f.key===brand+':carrinho'&&f.published&&Number.isSafeInteger(f.published_version));
     const nextKey='shrigma:journey-lab:v1:'+session.user.id+':'+brand;let nextStore;try{nextStore=checkedStore(storage.getItem(nextKey));}catch(e){if(!serverStorage)throw e;nextStore=engine.readStore(null);}
-    user=current.user;key=nextKey;store=nextStore;flows=nextFlows;publics=[];serverSaved=false;serverRevision=0;pendingServerStore=null;
+    user=current.user;key=nextKey;store=nextStore;flows=nextFlows;publics=[];serverSaved=false;serverRevision=0;pendingServerStore=null;internalTest=null;internalPending=null;
+    try{const p=JSON.parse(storage.getItem(key+':internal-pending')||'null');if(p?.brand===brand&&typeof p.requestId==='string'&&typeof p.draftId==='string'&&Number.isSafeInteger(p.version))internalPending=p;}catch{}
     if(serverStorage){const saved=await remoteRead(user.id,brand);const fresh=await getSession();if(ticket!==sequence||!allowed(fresh,brand)||fresh.user.id!==user.id)throw Error('access');serverRevision=saved.revision;if(saved.revision>0||!store.drafts.length){store=saved.store;storage.setItem(key,JSON.stringify(store));serverSaved=true;}}
     try{const r=await fetchImpl('/api/segments?acao=segmentos_listar&brand='+brand+'&limit=50&offset=0',{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',signal:controller.signal}),d=await r.json();const fresh=await getSession();if(ticket!==sequence||!allowed(fresh,brand)||fresh.user.id!==user.id){accessChanged();return;}if(r.ok&&Array.isArray(d.segments)&&d.segments.every(p=>p.brand===brand)&&d.segments.length<=50)publics=d.segments.filter(p=>!p.archived&&p.semantic_context?.current&&typeof p.name==='string'&&Number.isSafeInteger(p.version));}catch{}
     selected=store.drafts[0]?.id||'';checks=null;try{const saved=JSON.parse(storage.getItem(key+':checks')||'null');if(saved?.draftId===draft()?.id&&saved.revision===draft()?.revision&&saved.realSends===0&&Array.isArray(saved.cases)&&saved.cases.length===7)checks=saved;}catch{}
@@ -111,7 +145,7 @@
     ${history.length?`<label class="form-label mt-3">Histórico<select data-lab-history>${history.map((r,i)=>`<option value="${esc(r.eventId)}"${r.eventId===run.eventId?' selected':''}>Ensaio ${i+1} · revisão ${r.draft.revision} · ${esc(labels[r.status])}</option>`).join('')}</select></label>`:''}
     ${run?`<div class="editor-test-results"><div class="source-line">Relógio T + ${Math.floor((run.now-run.startedAt)/60000)} min · revisão ${run.draft.revision}</div>${run.draft.steps.map(step=>{const attempt=run.attempts.find(a=>a.stepId===step.id),result=attempt?{simulated:'Registro confirmado',uncertain:'Incerto · não repetir',failed:'Falha · pausado',reserved:'Reserva pendente'}[attempt.result]:!step.enabled?'Desabilitada':'Aguardando prazo';return '<div class="editor-test-result"><span>'+esc(step.templateName)+'</span><span>'+esc(result)+'</span></div>';}).join('')}<div class="source-line">Envios reais: <strong>0</strong>. ${run.status==='excluded'?'Saída por '+(run.trace.at(-1)?.reason==='purchase'?'compra':'descadastro')+'. ':''}Mesmo evento ou resultado incerto não gera outra tentativa.</div></div>`:''}</details>`:
     '<div class="empty-state"><span class="empty-state-icon">◇</span><h2>Comece com o carrinho publicado</h2><p>Duplique a definição para editar e testar duas etapas.</p></div>'}
-    <div class="source-line px-3 py-2" role="status">${esc(notice)}</div><p class="alert alert-warning mx-3" data-lab-unsaved role="status" hidden></p></div>`;
+    ${internalView(d)}<div class="source-line px-3 py-2" role="status">${esc(notice)}</div><p class="alert alert-warning mx-3" data-lab-unsaved role="status" hidden></p></div>`;
 
    for(const label of host.querySelectorAll('label'))label.classList.add('form-label','mb-3');
    for(const input of host.querySelectorAll('input,select,textarea'))input.classList.add(input.type==='checkbox'?'form-check-input':input.tagName==='SELECT'?'form-select':'form-control');
@@ -122,6 +156,11 @@
    if(serverStorage&&(!canEdit()||serverUncertain))for(const b of host.querySelectorAll('[data-lab-create],[data-lab-copy-draft],[data-lab-add],[data-lab-remove],[data-lab-copy],[data-lab-save],[data-lab-start],[data-lab-pause],[data-lab-repeat],[data-lab-checks],[data-lab-advance]')){b.disabled=true;b.title='Permissão de escrita CRM necessária para guardar testes.';}
    for(const field of host.querySelectorAll('[data-lab-trigger],[data-lab-audience-ref],[data-lab-name],[data-lab-audience],[data-lab-purchase-exit],[data-lab-step] input,[data-lab-step] select,[data-lab-step] textarea'))for(const event of ['input','change'])field.addEventListener(event,()=>{if(serverStorage&&preserveEdits()){serverSaved=false;const mode=host.querySelector('.editor-mode');if(mode)mode.textContent='Rascunho local — não salvo no servidor, não executa';}});
    host.querySelector('[data-lab-read]').addEventListener('click',read);
+   host.querySelector('[data-lab-internal-read]')?.addEventListener('click',()=>internalAction('read'));
+   host.querySelector('[data-lab-internal-start]')?.addEventListener('click',()=>internalAction('start'));
+   host.querySelector('[data-lab-internal-pause]')?.addEventListener('click',()=>internalAction('control',{paused:!internalTest.tests.find(x=>x.draftId===draft()?.id)?.paused}));
+   host.querySelector('[data-lab-internal-purchase]')?.addEventListener('click',()=>internalAction('control',{purchase:true}));
+   host.querySelector('[data-lab-internal-optout]')?.addEventListener('click',()=>internalAction('control',{optOut:true}));
    host.querySelector('[data-lab-create]').addEventListener('click',()=>act(()=>{if(store.drafts.length>=20)throw Error('limit');const d=engine.createDraft({brand:context.brand,id:uuid()});persist({...store,drafts:[...store.drafts,d]});selected=d.id;selectedEvent='';notice='Nova jornada criada exclusivamente em teste.';}));
    host.querySelector('[data-lab-copy-draft]')?.addEventListener('click',()=>act(()=>{if(store.drafts.length>=20)throw Error('limit');const d=engine.duplicateDraft(draft(),{id:uuid()});persist({...store,drafts:[...store.drafts,d]});selected=d.id;selectedEvent='';notice='Rascunho duplicado com identidade própria.';}));
    host.querySelector('[data-lab-add]')?.addEventListener('click',()=>act(()=>{const d=capture(),last=d.steps.at(-1);if(d.steps.length>=5)throw Error('limit');d.steps.push({...last,id:'step-'+uuid(),waitMinutes:Math.min(43200,last.waitMinutes+60),subject:'[TESTE] Nova etapa',text:'[TESTE] Mensagem interna desta etapa.'});const next=engine.saveDraft(draft(),d);persist({...store,drafts:store.drafts.map(x=>x.id===next.id?next:x)});selectedNode='step-'+(next.steps.length-1);},{save:true}));
