@@ -32,6 +32,8 @@ const tools=[
  ['crm_scheduler_state_approval_confirm','Registrar aprovação ou recusa da intenção específica de leitura','crm.iam',obj({approvalId:sourceRequestId,intentHash:audienceHash,decision:{type:'string',enum:['approve','deny']}},['approvalId','intentHash','decision']),false,false],
  ['crm_scheduler_state_approval_status','Consultar a mesma intenção de aprovação sem executá-la novamente','crm.iam',obj({approvalId:sourceRequestId},['approvalId']),true,false],
  ['crm_users','Consultar acessos individuais','crm.iam',obj(),false,false],
+ ['crm_publics_read_key_install','Instalar somente a chave técnica READ de Públicos, sem vencimento','crm.iam',obj({operationId:sourceRequestId,purpose:{type:'string',enum:['crm.publics-read-key']},approved:{type:'boolean'}},['operationId','purpose','approved']),false,true],
+ ['crm_publics_read_key_status','Conferir a mesma emissão READ de Públicos sem repetir SQL de escrita','crm.iam',obj({operationId:sourceRequestId},['operationId']),true,false],
  ['crm_user_update','Atualizar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},expectedRevision:{type:'string',pattern:'^[a-f0-9]{64}$'},brand,access:{type:'string',enum:['read','edit']}},['userId','expectedRevision','brand','access']),false,true],
  ['crm_user_revoke','Revogar acesso individual da marca','crm.iam',obj({userId:{type:'string',minLength:1,maxLength:80},brand},['userId','brand']),false,true],
  ['db_inspect','Verificar admissão do banco próprio','db.inspect',obj(),true,false],
@@ -74,11 +76,11 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false,affiliateReadEnabled=false,dashboardReadSummary,affiliateServiceRead,affiliateServiceAvailability}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false,affiliateReadEnabled=false,publicReadKeyInstallEnabled=false,dashboardReadSummary,affiliateServiceRead,affiliateServiceAvailability}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
  const serviceAffiliateRead=typeof affiliateServiceRead==='function';
- const availableTools=tools.filter(t=>(serviceAffiliateRead||affiliateReadEnabled===true&&auth.affiliateNativeConsent||t.name!=='affiliate_read')&&(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
+ const availableTools=tools.filter(t=>(publicReadKeyInstallEnabled===true||!t.name.startsWith('crm_publics_read_key_'))&&(serviceAffiliateRead||affiliateReadEnabled===true&&auth.affiliateNativeConsent||t.name!=='affiliate_read')&&(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||t.name!=='crm_source_diagnostics')&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
  async function call(name,args,bearer){
   const tool=availableTools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
@@ -89,11 +91,14 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
    store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
    return result;
   };
+  if(name.startsWith('crm_publics_read_key_')&&publicReadKeyInstallEnabled!==true)fail('PUBLIC_READ_INSTALL_NOT_AVAILABLE',503);
   let result;
-  if(name==='crm_status'){
+  if(name==='crm_publics_read_key_install')result=await run('POST','/api/native/publics-read-key',args);
+  else if(name==='crm_publics_read_key_status')result=await run('GET','/api/native/publics-read-key?'+new URLSearchParams({operationId:args.operationId}));
+  else if(name==='crm_status'){
    const state=await run('GET','/auth/session');
    const health=state.status===200?await run('GET','/healthz'):null;
-   const runtime=health?.status===200?{nativeMcp:health.body?.nativeMcp===true,nativeBackendManifestSha256:health.body?.nativeBackendManifestSha256||null,journeyPresentationManifestSha256:health.body?.journeyPresentationManifestSha256||null,journeyConfiguredRead:health.body?.journeyConfiguredRead===true,journeyPublicFiles:(health.body?.journeyPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256})),affiliatePreviewPublicFiles:(health.body?.affiliatePreviewPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256}))}:null;
+   const runtime=health?.status===200?{nativeMcp:health.body?.nativeMcp===true,nativeBackendManifestSha256:health.body?.nativeBackendManifestSha256||null,journeyPresentationManifestSha256:health.body?.journeyPresentationManifestSha256||null,journeyConfiguredRead:health.body?.journeyConfiguredRead===true,journeyPublicFiles:(health.body?.journeyPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256})),affiliatePreviewPublicFiles:(health.body?.affiliatePreviewPublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256})),workspacePublicFiles:(health.body?.workspacePublicFiles||[]).map(f=>({path:f.path,bytes:f.bytes,sha256:f.sha256}))}:null;
    const sourcePeer=state.status===200&&state.body?.features?.nativeSourceSync===true?await run('GET','/api/source-peer'):null;
    // New READ capability is verified through the current native connection;
    // only its admitted brands are queried, and template bodies stay private.

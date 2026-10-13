@@ -30,7 +30,7 @@ test('multi-front person opens the central shell with four separate navigation e
  const f=await fixture(t);await f.auth.simpleAccounts.create({context:f.context,email:'analista@synthetic.invalid',password:PASS,jobTitle:'analista',fronts:['growth','organico','influs','afiliados'],brands:['fish','aristo']});
  const login=await f.auth.login({email:'analista@synthetic.invalid',password:PASS,host:HOST,origin:'https://'+HOST}),x=f.make(login.cookie.split(';')[0]);await until(()=>!x.el('entry-shell').hidden,'person shell');
  assert.equal(x.el('entry-owner').textContent,'analista');assert.equal(x.el('entry-manage').hidden,true);assert.deepEqual([...x.el('entry-nav').querySelectorAll('button')].map(b=>b.textContent),['CRM','Orgânico','Influs','Afiliados']);
- x.el('entry-nav').querySelector('[data-view="afiliados"]').click();assert.match(x.el('entry-frame').querySelector('iframe').src,/view=afiliados/);
+ x.el('entry-nav').querySelector('[data-view="afiliados"]').click();assert.match(x.el('entry-frame').querySelector('iframe').src,/\/app\/afiliados\//);
 });
 test('compiled admin form grants WRITE only to selected READ fronts and reopens the persisted access',async t=>{
  const f=await fixture(t),x=f.make();await until(()=>!x.el('entry-shell').hidden,'simple shell');x.el('entry-manage').click();await until(()=>!x.el('admin-panel').hidden,'users');

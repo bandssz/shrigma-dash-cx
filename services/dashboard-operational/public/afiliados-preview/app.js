@@ -1,4 +1,5 @@
 'use strict';
+if(location.pathname.startsWith('/app/')){document.title='Afiliados · Shrigma';const badge=document.querySelector('.sidebar-bottom .badge');if(badge)badge.textContent='Operação';}
 const query=new URLSearchParams(location.search);
 const state={brand:query.get('brand')||'fish',days:query.has('days')?Number(query.get('days')):90,view:['overview','channel','work','creators','own'].includes(query.get('view'))?query.get('view'):'overview',content:query.get('content')==='videos'?'videos':'lives',data:null,charts:{},request:0};
 const el=id=>document.getElementById(id),num=x=>x===null||x===undefined||x===''?null:Number.isFinite(Number(x))?Number(x):null;

@@ -13,6 +13,7 @@ const MIME=Object.freeze({'.html':'text/html; charset=utf-8','.js':'text/javascr
 const AFFILIATE_PREVIEW='/previas/afiliados/';
 const AFFILIATE_PREVIEW_FILES=Object.freeze(['index.html','app.js','daily.js','tema.css','operacao.html','vendor/LICENSES.txt','vendor/chart.umd.js','vendor/inter-400.woff2','vendor/inter-500.woff2','vendor/inter-600.woff2','vendor/inter-700.woff2','vendor/tabler.min.css','vendor/tabler.min.js','vendor/wm-aristocrata.png','vendor/wm-fishermans.png']);
 const CRM_PREVIEW='/previas/crm/';
+const CRM_WORKSPACE='/app/crm/',AFFILIATE_WORKSPACE='/app/afiliados/';
 const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','journey-engine.js','journey-ui.js']);
 const CRM_PREVIEW_FILES=Object.freeze([...CRM_PREVIEW_OWN_FILES,...AFFILIATE_PREVIEW_FILES.filter(n=>n==='tema.css'||n.startsWith('vendor/'))]);
 const jsonError=(status,code)=>Object.assign(new Error(code),{status,code});
@@ -239,8 +240,16 @@ function presentationStyle(s,area='growth'){
 }
 function serveFile(req,res,url,host,s,auth){
   if(!['GET','HEAD'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
-  if(url.pathname==='/previas/afiliados'||url.pathname.startsWith(AFFILIATE_PREVIEW)||url.pathname==='/previas/crm'||url.pathname.startsWith(CRM_PREVIEW)){
-    const crm=url.pathname==='/previas/crm'||url.pathname.startsWith(CRM_PREVIEW),prefix=crm?CRM_PREVIEW:AFFILIATE_PREVIEW,area=crm?'growth':'influs';
+  if(s.simpleReadMode===true&&url.searchParams.get('legacy')!=='1'&&(url.pathname==='/growth.html'||url.pathname==='/influs.html'&&url.searchParams.get('view')==='afiliados')){
+    const crm=url.pathname==='/growth.html',area=crm?'growth':'influs';
+    if(host!==s.managerHost&&host!==s.areaHosts[area])throw jsonError(404,'NOT_FOUND');
+    auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area,productFront:crm?'growth':'afiliados',edit:false});
+    const query=new URLSearchParams();for(const key of ['brand','days','content','embed'])if(url.searchParams.has(key))query.set(key,url.searchParams.get(key));
+    if(crm&&['journeys','lab','templates','campaigns','audiences'].includes(url.searchParams.get('view')))query.set('view',url.searchParams.get('view'));
+    res.writeHead(308,{Location:(crm?CRM_WORKSPACE:AFFILIATE_WORKSPACE)+(query.size?'?'+query:'')});return res.end();
+  }
+  if([AFFILIATE_PREVIEW,CRM_PREVIEW,AFFILIATE_WORKSPACE,CRM_WORKSPACE].some(prefix=>url.pathname===prefix.slice(0,-1)||url.pathname.startsWith(prefix))){
+    const prefix=[AFFILIATE_PREVIEW,CRM_PREVIEW,AFFILIATE_WORKSPACE,CRM_WORKSPACE].find(prefix=>url.pathname===prefix.slice(0,-1)||url.pathname.startsWith(prefix)),crm=prefix===CRM_PREVIEW||prefix===CRM_WORKSPACE,area=crm?'growth':'influs';
     if(s.simpleReadMode!==true||host!==s.managerHost&&host!==s.areaHosts[area])throw jsonError(404,'NOT_FOUND');
     auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area,productFront:crm?'growth':'afiliados',edit:false});
     if(url.pathname===prefix.slice(0,-1)){res.writeHead(308,{Location:prefix+url.search});return res.end();}
@@ -636,6 +645,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const affiliateReader=dashboardAffiliateRead?AffiliateRead.createReader({auth,upstreams,fetchImpl}):null;
   const simpleReader=s.simpleReadMode===true?require('./simple-dashboard-read.cjs').createReader({auth,upstreams,keys:s.simpleReadSources||{},fetchImpl,projectGrowth:projectBrandCache,growthDiagnostics:cartContractSummary,onReadFailure:row=>process.stderr.write(JSON.stringify(row)+'\n')}):null;
   const simpleAffiliateEditor=simpleReader?require('./simple-dashboard-read.cjs').createAffiliateEditor({auth,upstreams,readKey:s.simpleReadSources?.afiliados,writeKey:s.simpleAffiliateWriteKey,otherReadKeys:Object.values(s.simpleReadSources||{}),fetchImpl}):null;
+  const publicReadKeyInstaller=simpleReader&&s.crmNativeEnabled===true?require('./simple-dashboard-read.cjs').createPublicReadKeyInstaller({auth,onLinked:key=>simpleReader.linkAudience(key)}):null;
   if(s.crmDraftWrite!==undefined&&typeof s.crmDraftWrite!=='boolean'||s.crmDraftWrite===true&&s.mode!=='operational')throw Error('Invalid CRM draft write gate');
   if(s.crmAudienceDraft!==undefined&&typeof s.crmAudienceDraft!=='boolean'||s.crmAudienceDraft===true&&s.mode!=='operational')throw Error('Invalid CRM audience draft gate');
   const allowCampaignDraft=s.mode==='operational'&&s.crmDraftWrite===true;
@@ -728,7 +738,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(!st.isFile()||st.isSymbolicLink()||st.size>2*1024*1024||fs.realpathSync(p)!==p)throw jsonError(503,'JOURNEY_PUBLIC_FILES_UNAVAILABLE');
           const b=fs.readFileSync(p);return {path:file,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')};
         }):undefined;
-        return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(affiliatePreviewPublicFiles?{affiliatePreviewPublicFiles}:{}),...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256,...(s.crmJourneyPresentationManifestSha256?{journeyPresentationManifestSha256:s.crmJourneyPresentationManifestSha256,journeyConfiguredRead:true,journeyPublicFiles}:{}),...(s.crmNativeDatabaseInspection===true?{nativeDatabaseInspection:true}:{})}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
+        return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(affiliatePreviewPublicFiles?{affiliatePreviewPublicFiles,workspacePublicFiles:affiliatePreviewPublicFiles.map(f=>({...f,path:f.path.replace(AFFILIATE_PREVIEW,AFFILIATE_WORKSPACE).replace(CRM_PREVIEW,CRM_WORKSPACE)}))}:{}),...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256,...(s.crmJourneyPresentationManifestSha256?{journeyPresentationManifestSha256:s.crmJourneyPresentationManifestSha256,journeyConfiguredRead:true,journeyPublicFiles}:{}),...(s.crmNativeDatabaseInspection===true?{nativeDatabaseInspection:true}:{})}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
       }
       // Same-origin browser GET fetches may omit Origin. Receipt reads still
       // require the real session's CSRF secret, and may derive their origin
@@ -1059,6 +1069,16 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(req.method!=='GET')throw jsonError(405,'METHOD_DENIED');
         if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'ARGUMENTS_INVALID');
         const result=await simpleAffiliateEditor.operation(ctx,Object.fromEntries(url.searchParams));return sendJson(req,res,result.status,result.body);
+      }
+      if(url.pathname==='/api/native/publics-read-key'&&publicReadKeyInstaller){
+        if(!ctx.nativeBearer)throw jsonError(403,'PUBLIC_READ_NATIVE_MASTER_REQUIRED');
+        let result;
+        if(req.method==='POST'){
+          if(url.search||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(400,'PUBLIC_READ_ARGUMENTS_INVALID');
+          result=await publicReadKeyInstaller.install(ctx,await readJson(req,2048));
+        }else if(req.method==='GET'&&url.searchParams.size===1&&url.searchParams.has('operationId'))result=await publicReadKeyInstaller.status(ctx,{operationId:url.searchParams.get('operationId')});
+        else throw jsonError(405,'METHOD_DENIED');
+        return sendJson(req,res,result.status,result.body);
       }
       if(url.pathname==='/api/templates'&&simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route:'templates',method:req.method,query:url.searchParams,origin});return sendJson(req,res,result.status,result.body);}
       if(url.pathname==='/api/templates'&&crmPublishedJourneyRead&&(!coexistence||auth.session(ctx).user?.role==='superadmin'||['fluxos_listar','fluxos_capacidade'].includes(url.searchParams.get('acao')))){
@@ -1407,7 +1427,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   };
   if(s.crmNativeEnabled===true){
     const N=require('./crm-native-mcp.cjs');
-    nativeMcp=N.createNativeMcp({auth,...(simpleReader?{dashboardReadSummary:(context,brands)=>simpleReader.summary(context,brands,'https://'+s.managerHost),affiliateServiceAvailability:(context,brand)=>{auth.authorize({...context,admin:true});const a=simpleReader.availability(context,brand);return {status:200,body:{brand,sourceLinked:a.readLinked,readOnly:true,source:'simple-service-read',operational:false}};},affiliateServiceRead:(context,args)=>{auth.authorize({...context,admin:true});return simpleReader.read({context:{...context,method:'POST'},route:'affiliate-read',method:'POST',query:new URLSearchParams(),body:{...args,expected_binding:simpleReader.availability(context,args.brand).binding},origin:'https://'+s.managerHost});}}:{}),affiliateReadEnabled:dashboardAffiliateRead&&!!auth.affiliateNativeConsent,managerHost:s.managerHost,installer:nativeInstaller,createCampaignEnabled:crmCorporateCreate,publishedJourneyReadEnabled:crmPublishedJourneyRead,masterTemplateReadEnabled:crmMasterTemplateRead,sourceDiagnosticsEnabled:s.crmNativeSourceDiagnosticsEnabled===true&&sourceDiagnostics?.enabled===true,deliveryHealthEnabled:s.crmNativeDeliveryHealthEnabled===true&&deliveryHealth?.enabled===true,schedulerStateEnabled:s.crmNativeSchedulerStateEnabled===true&&schedulerState?.enabled===true,invoke:request=>N.dispatchJson(dispatch,request)});
+    nativeMcp=N.createNativeMcp({auth,publicReadKeyInstallEnabled:!!publicReadKeyInstaller,...(simpleReader?{dashboardReadSummary:(context,brands)=>simpleReader.summary(context,brands,'https://'+s.managerHost),affiliateServiceAvailability:(context,brand)=>{auth.authorize({...context,admin:true});const a=simpleReader.availability(context,brand);return {status:200,body:{brand,sourceLinked:a.readLinked,readOnly:true,source:'simple-service-read',operational:false}};},affiliateServiceRead:(context,args)=>{auth.authorize({...context,admin:true});return simpleReader.read({context:{...context,method:'POST'},route:'affiliate-read',method:'POST',query:new URLSearchParams(),body:{...args,expected_binding:simpleReader.availability(context,args.brand).binding},origin:'https://'+s.managerHost});}}:{}),affiliateReadEnabled:dashboardAffiliateRead&&!!auth.affiliateNativeConsent,managerHost:s.managerHost,installer:nativeInstaller,createCampaignEnabled:crmCorporateCreate,publishedJourneyReadEnabled:crmPublishedJourneyRead,masterTemplateReadEnabled:crmMasterTemplateRead,sourceDiagnosticsEnabled:s.crmNativeSourceDiagnosticsEnabled===true&&sourceDiagnostics?.enabled===true,deliveryHealthEnabled:s.crmNativeDeliveryHealthEnabled===true&&deliveryHealth?.enabled===true,schedulerStateEnabled:s.crmNativeSchedulerStateEnabled===true&&schedulerState?.enabled===true,invoke:request=>N.dispatchJson(dispatch,request)});
   }
   const server=http.createServer({maxHeaderSize:8192},(req,res)=>dispatch(req,res));
   server.headersTimeout=10000;server.requestTimeout=100000;server.keepAliveTimeout=5000;server.maxRequestsPerSocket=200;

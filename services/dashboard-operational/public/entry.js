@@ -260,7 +260,8 @@ else (function(){'use strict';
   audienceGatePromise=area==='growth'?loadAudienceGate(session):Promise.resolve(audienceGate);
   showCampaignNote(area);
   frame=document.createElement('iframe');frame.title=presentation.label;frame.referrerPolicy='no-referrer';
-  const target=new URL(AREAS[area].page,location.origin);target.searchParams.set('embed','1');if(area==='influs')target.searchParams.set('view',view);frame.src=target.href;
+  const page=session.features?.simpleLogin===true&&view==='growth'?'/app/crm/':session.features?.simpleLogin===true&&view==='afiliados'?'/app/afiliados/':AREAS[area].page;
+  const target=new URL(page,location.origin);target.searchParams.set('embed','1');if(area==='influs'&&view!=='afiliados')target.searchParams.set('view',view);frame.src=target.href;
   frameHost.replaceChildren(frame);showAudienceNotice(audienceGate);$('entry-area').textContent=presentation.label;
   for(const button of nav.querySelectorAll('button'))button.setAttribute('aria-current',button.dataset.area===area&&button.dataset.view===view?'page':'false');
  }

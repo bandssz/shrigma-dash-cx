@@ -9,15 +9,79 @@ const AffiliateProjection=require('./afiliados-read-contract.cjs');
 const Journeys=require('./crm-published-journey-read.cjs');
 const Audiences=require('./crm-master-audience-read.cjs');
 const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
+
+const PUBLIC_READ_PURPOSE='crm.publics-read-key',PUBLIC_READ_LABEL='Gateway READ Públicos 2026-10-13';
+const PUBLIC_READ_DIR='/dashboard-data',PUBLIC_READ_FILE='source-audience-read.env',PUBLIC_READ_STATE='publics-read-key-operation.json';
+function privateFile(io,root,name){const dir=io.lstatSync(root);if(!dir.isDirectory()||dir.isSymbolicLink()||io.realpathSync(root)!==root)fail('PUBLIC_READ_PRIVATE_PATH_REFUSED',503);const file=require('node:path').join(root,name),st=io.lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.uid!==process.getuid()||(st.mode&0o777)!==0o600||st.size>8192)fail('PUBLIC_READ_PRIVATE_FILE_REFUSED',503);return io.readFileSync(file,'utf8');}
+function readPublicReadKey({io=require('node:fs'),root=PUBLIC_READ_DIR,confirmedOnly=true}={}){
+ if(!io.existsSync(require('node:path').join(root,PUBLIC_READ_STATE)))return undefined;
+ const journal=JSON.parse(privateFile(io,root,PUBLIC_READ_STATE));if(confirmedOnly&&journal.state!=='confirmed')return undefined;
+ const raw=privateFile(io,root,PUBLIC_READ_FILE),match=/^DASHBOARD_SERVICE_READ_AUDIENCE_KEY=([a-f0-9]{64})\n$/.exec(raw);if(!match)fail('PUBLIC_READ_PRIVATE_FILE_REFUSED',503);return match[1];
+}
+function createPublicReadKeyInstaller({auth,onLinked,io=require('node:fs'),root=PUBLIC_READ_DIR,createClient,now=()=>new Date().toISOString()}={}){
+ if(!auth?.nativeConnections||!auth?.nativeDatabaseVault?.getPrivateCredential||typeof onLinked!=='function')return null;
+ const path=require('node:path'),stateFile=path.join(root,PUBLIC_READ_STATE),keyFile=path.join(root,PUBLIC_READ_FILE),U=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+ let busy=false;
+ const write=(name,value,{exclusive=false}={})=>{const dir=io.lstatSync(root);if(!dir.isDirectory()||dir.isSymbolicLink()||io.realpathSync(root)!==root)fail('PUBLIC_READ_PRIVATE_PATH_REFUSED',503);const file=path.join(root,name);if(!exclusive)privateFile(io,root,name);const destination=exclusive?file:file+'.'+crypto.randomUUID();const fd=io.openSync(destination,io.constants.O_WRONLY|io.constants.O_CREAT|io.constants.O_EXCL|io.constants.O_NOFOLLOW,0o600);try{io.writeFileSync(fd,value);io.fsyncSync(fd);}finally{io.closeSync(fd);}if(!exclusive)io.renameSync(destination,file);privateFile(io,root,name);};
+ const current=context=>{if(!context?.nativeBearer)fail('PUBLIC_READ_NATIVE_MASTER_REQUIRED');const c=auth.nativeConnections.authenticate(context.nativeBearer,{scope:'crm.iam'});if(!['fish','aristo'].every(b=>c.brands.includes(b)))fail('PUBLIC_READ_BOTH_BRANDS_REQUIRED');const user=auth.authorize({...context,admin:true});if(user.role!=='superadmin'||user.id!==c.userId)fail('PUBLIC_READ_NATIVE_MASTER_REQUIRED');const p=auth.nativeDatabaseVault.getPrivateCredential({ownerId:user.id});const r=p.resource;if(r?.project!=='comunicacao'||r.service!=='postgres'||r.host!=='comunicacao_postgres'||r.port!==5432||r.database!=='listmonk'||r.network!=='easypanel'||p.transport?.mode!=='admitted-private-network')fail('PUBLIC_READ_RESOURCE_REFUSED',503);return {c,p};};
+ const same=(context,before)=>{const after=current(context);if(after.c.id!==before.c.id||after.c.userId!==before.c.userId||after.p.revision!==before.p.revision||after.p.username!==before.p.username)fail('PUBLIC_READ_ADMISSION_CHANGED',409);};
+ const clientFor=p=>{const config={host:'comunicacao_postgres',port:5432,database:'listmonk',user:p.username,password:p.password,application_name:'shrigma-publics-read-key',connectionTimeoutMillis:3000,query_timeout:15000};if(createClient)return createClient(config);const manifest=JSON.parse(require('node:fs').readFileSync('/app/native-backend/manifest.json'));const {Client}=require('./native-pg-driver.cjs').loadPGDriver(manifest.pgDriverManifestSha256);return new Client(config);};
+ const stored=()=>io.existsSync(stateFile)?JSON.parse(privateFile(io,root,PUBLIC_READ_STATE)):null;
+ const saveJournal=j=>{const prior=stored();if(!prior||prior.operationId!==j.operationId||prior.ownerId!==j.ownerId||prior.connectionId!==j.connectionId||prior.profileRevision!==j.profileRevision||prior.state==='confirmed'&&j.state!=='confirmed')fail('PUBLIC_READ_JOURNAL_CHANGED',409);write(PUBLIC_READ_STATE,JSON.stringify(j));};
+ const response=j=>({schema:'shrigma-public-read-key-install-v1',purpose:PUBLIC_READ_PURPOSE,operationId:j.operationId,state:j.state,catalogueCommitted:j.grantCommitted===true,connectionClosed:j.connectionClosed===true,sourceReadOnly:true,businessWrites:0,expires:'none',linked:j.state==='confirmed',...(j.code?{error:j.code}:{}),...(j.sqlState?{sqlState:j.sqlState}:{})});
+ const ownership=(j,before,id)=>{if(j.operationId!==id||j.ownerId!==before.c.userId||j.connectionId!==before.c.id||j.profileRevision!==before.p.revision)fail('PUBLIC_READ_OPERATION_CHANGED',409);};
+ const peer=async client=>{const r=await client.query("SELECT current_database()='listmonk' AS db,session_user=current_user AS role_match,(SELECT system_identifier::text FROM pg_control_system())='7641650273200603174' AS cluster,md5((SELECT prosrc FROM pg_proc WHERE oid='crm_audience_v2.authenticate(text)'::regprocedure))='884370b5c93cd89137827c638cc05f92' AS audience_pin,md5((SELECT prosrc FROM pg_proc WHERE oid='public.shrigma_panel_operator_v1(text,text)'::regprocedure))='2092629644f901de260051084d2fb2c2' AS operator_pin");if(r.rows.length!==1||Object.values(r.rows[0]).some(v=>v!==true))fail('PUBLIC_READ_PEER_REFUSED',503);};
+ async function install(context,args){
+  if(!args||Object.keys(args).sort().join(',')!=='approved,operationId,purpose'||args.approved!==true||args.purpose!==PUBLIC_READ_PURPOSE||!U.test(args.operationId))fail('PUBLIC_READ_EXPLICIT_APPROVAL_REQUIRED',400);
+  const before=current(context),prior=stored();if(prior){ownership(prior,before,args.operationId);return {status:prior.state==='confirmed'?200:202,body:response(prior)};}if(busy)fail('PUBLIC_READ_INSTALL_BUSY',409);busy=true;
+  let client,journal,journalCreated=false,commitAttempted=false,commitConfirmed=false,closeAttempted=false,stage='private-path';
+  try{
+   if(io.existsSync(keyFile))fail('PUBLIC_READ_PRIVATE_FILE_EXISTS',409);
+   journal={schema:'shrigma-public-read-key-journal-v1',purpose:PUBLIC_READ_PURPOSE,operationId:args.operationId,ownerId:before.c.userId,connectionId:before.c.id,profileRevision:before.p.revision,state:'approved',approvedAt:now()};
+   write(PUBLIC_READ_STATE,JSON.stringify(journal),{exclusive:true});journalCreated=true;
+   stage='connect';client=clientFor(before.p);await client.connect();
+   await client.query("BEGIN;SET LOCAL lock_timeout='500ms';SET LOCAL statement_timeout='15s';SET LOCAL idle_in_transaction_session_timeout='20s';SET LOCAL log_statement='none';SET LOCAL log_duration=off;SET LOCAL log_min_error_statement='panic';SET LOCAL log_min_duration_statement=-1;SET LOCAL log_min_duration_sample=-1;SET LOCAL log_transaction_sample_rate=0;SET LOCAL log_parameter_max_length=0;SET LOCAL log_parameter_max_length_on_error=0;");
+   stage='peer';await peer(client);same(context,before);
+   await client.query('LOCK TABLE public.crm_dash_chave,public.shrigma_panel_permission_v1 IN SHARE ROW EXCLUSIVE MODE');
+   const absent=await client.query("SELECT count(*)=0 AS absent FROM public.crm_dash_chave WHERE dono=$1 AND painel='growth'",[PUBLIC_READ_LABEL]);if(absent.rows.length!==1||absent.rows[0].absent!==true)fail('PUBLIC_READ_PRINCIPAL_EXISTS',409);
+   const secret=crypto.randomBytes(32).toString('hex'),hash=crypto.createHash('sha256').update(secret).digest('hex'),principal='gateway-publics-read-v1-'+crypto.randomUUID().replaceAll('-','');
+   write(PUBLIC_READ_FILE,'DASHBOARD_SERVICE_READ_AUDIENCE_KEY='+secret+'\n',{exclusive:true});
+   journal.state='attempted';saveJournal(journal);same(context,before);
+   stage='catalogue';
+   await client.query("INSERT INTO public.crm_dash_chave(chave,painel,dono,ativo,criado_em,usos,revogada_em,chave_hash,chave_hash_curta,expira_em) VALUES($1,'growth',$2,true,statement_timestamp(),0,NULL,$3,NULL,'infinity'::timestamptz)",[principal,PUBLIC_READ_LABEL,hash]);
+   await client.query("INSERT INTO public.shrigma_panel_permission_v1(principal_id,area,caps) VALUES($1,'growth','[\"read_content\"]'::jsonb)",[principal]);
+   const proof=await client.query("SELECT crm_audience_v2.authenticate($1) IS NOT NULL AS audience,public.shrigma_panel_operator_v1($1,'growth')->'caps'='[\"read_content\"]'::jsonb AS read_only",( [secret] ));
+   if(proof.rows.length!==1||Object.values(proof.rows[0]).some(v=>v!==true))fail('PUBLIC_READ_PROOF_REFUSED',503);same(context,before);
+   stage='commit';commitAttempted=true;const ack=await client.query('COMMIT');if(ack?.command!=='COMMIT')fail('PUBLIC_READ_COMMIT_UNCONFIRMED',503);commitConfirmed=true;journal.grantCommitted=true;journal.state='committed';saveJournal(journal);stage='close';closeAttempted=true;try{await client.end();client=null;}catch{fail('PUBLIC_READ_CLOSE_UNCONFIRMED',503);}journal.connectionClosed=true;stage='link';same(context,before);onLinked(secret);journal.state='confirmed';journal.confirmedAt=now();journal.connectionClosed=true;saveJournal(journal);
+   return {status:200,body:response(journal)};
+  }catch(e){
+   if(client&&!commitAttempted)try{await client.query('ROLLBACK');}catch{}
+   if(journalCreated){journal.state=commitConfirmed?'committed':commitAttempted?'uncertain':'refused';journal.stage=stage;journal.code=typeof e.code==='string'&&/^PUBLIC_READ_[A-Z_]+$/.test(e.code)?e.code:'PUBLIC_READ_INSTALL_REFUSED';if(/^[0-9A-Z]{5}$/.test(e.code||''))journal.sqlState=e.code;try{saveJournal(journal);}catch{}return {status:commitAttempted&&!commitConfirmed?202:503,body:response(journal)};}throw e;
+  }finally{if(client&&!closeAttempted)try{await client.end();}catch{}busy=false;}
+ }
+ async function status(context,args){
+  if(!args||Object.keys(args).join(',')!=='operationId'||!U.test(args.operationId))fail('PUBLIC_READ_ARGUMENTS_INVALID',400);
+  const before=current(context),journal=stored();if(!journal)fail('PUBLIC_READ_OPERATION_NOT_FOUND',404);ownership(journal,before,args.operationId);
+  if(journal.state==='confirmed'){onLinked(readPublicReadKey({io,root}));return {status:200,body:response(journal)};}
+  if(journal.state!=='uncertain'&&journal.state!=='attempted'&&journal.state!=='committed')return {status:200,body:response(journal)};
+  if(busy)fail('PUBLIC_READ_INSTALL_BUSY',409);busy=true;let client,closeAttempted=false;
+  try{const secret=readPublicReadKey({io,root,confirmedOnly:false}),hash=crypto.createHash('sha256').update(secret).digest('hex');client=clientFor(before.p);await client.connect();await client.query("BEGIN TRANSACTION READ ONLY;SET LOCAL lock_timeout='500ms';SET LOCAL statement_timeout='15s';SET LOCAL log_statement='none';SET LOCAL log_duration=off;SET LOCAL log_min_error_statement='panic';SET LOCAL log_min_duration_statement=-1;SET LOCAL log_min_duration_sample=-1;SET LOCAL log_transaction_sample_rate=0;SET LOCAL log_parameter_max_length=0;SET LOCAL log_parameter_max_length_on_error=0;");await peer(client);
+   const r=await client.query("SELECT count(*)=1 AS present FROM public.crm_dash_chave k JOIN public.shrigma_panel_permission_v1 p ON p.principal_id=k.chave AND p.area='growth' WHERE k.chave_hash=$1 AND k.dono=$2 AND k.painel='growth' AND k.ativo AND k.revogada_em IS NULL AND k.expira_em='infinity'::timestamptz AND p.caps='[\"read_content\"]'::jsonb",[hash,PUBLIC_READ_LABEL]);same(context,before);const rollback=await client.query('ROLLBACK');if(rollback?.command!=='ROLLBACK')fail('PUBLIC_READ_ROLLBACK_UNCONFIRMED',503);closeAttempted=true;await client.end();client=null;same(context,before);
+   if(r.rows.length===1&&r.rows[0].present===true){journal.state='confirmed';journal.grantCommitted=true;journal.connectionClosed=true;journal.confirmedAt=now();saveJournal(journal);onLinked(secret);}return {status:journal.state==='confirmed'?200:202,body:response(journal)};
+  }catch(e){return {status:503,body:{...response(journal),error:'PUBLIC_READ_STATUS_UNCONFIRMED'}};}finally{if(client)try{await client.query('ROLLBACK');}catch{}if(client&&!closeAttempted)try{await client.end();}catch{}busy=false;}
+ }
+ return Object.freeze({install,status});
+}
+
 const AREA={growth:'growth',organico:'organico',influs:'influs',afiliados:'influs'};
 function sourceKeysFromEnv(env){
  const names={growth:'DASHBOARD_SERVICE_READ_CRM_KEY',organico:'DASHBOARD_SERVICE_READ_ORGANICO_KEY',influs:'DASHBOARD_SERVICE_READ_INFLUS_KEY',afiliados:'DASHBOARD_SERVICE_READ_AFILIADOS_KEY',audiences:'DASHBOARD_SERVICE_READ_AUDIENCE_KEY'};
  const out={};for(const [front,name]of Object.entries(names)){const value=env[name];if(value!==undefined){if(typeof value!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(value))fail('SERVICE_READ_CONFIG_INVALID',500);out[front]=value;}}
- return Object.freeze(out);
+ if(out.audiences===undefined){const privateKey=readPublicReadKey();if(privateKey)out.audiences=privateKey;}return Object.freeze(out);
 }
 function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth,growthDiagnostics,onReadFailure}={}){
  if(!auth?.authorizeBrand||!auth?.authorize||typeof fetchImpl!=='function'||typeof projectGrowth!=='function'||Object.keys(keys).some(k=>!Object.hasOwn(AREA,k)&&k!=='audiences'))fail('SERVICE_READ_CONFIG_INVALID',500);
- const credentials=Object.freeze({...keys}),versions=Object.fromEntries(Object.keys(credentials).map(front=>[front,crypto.randomBytes(32).toString('hex')]));
+ const credentials={...keys},versions=Object.fromEntries(Object.keys(credentials).map(front=>[front,crypto.randomBytes(32).toString('hex')]));
  const noSecrets=value=>{const serialized=JSON.stringify(value);for(const secret of Object.values(credentials))if(serialized.includes(secret))fail('BRAND_RESPONSE_UNSCOPED',502);};
  let pending=0;
  // Concurrent brand projections share only an identical upstream GET in flight.
@@ -194,7 +258,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   auth.authorize({...context,admin:true});
   return {schema:'shrigma-four-front-read-summary-v1',measuredAt,sources,...(accountSummary?{accountSummary}:{}),readFailures:readFailures.filter(row=>brands.includes(row.brand)).map(row=>({...row})),readOnly:true,operational:false};
  }
- return Object.freeze({read,availability,summary});
+ return Object.freeze({read,availability,summary,linkAudience(key){if(credentials.audiences===key)return;if(typeof key!=='string'||! /^[a-f0-9]{64}$/.test(key)||Object.values(credentials).includes(key))fail('PUBLIC_READ_KEY_LINK_REFUSED',503);credentials.audiences=key;}});
 }
 function affiliateWriteKeyFromEnv(env){
  const value=env.DASHBOARD_SERVICE_WRITE_AFILIADOS_KEY;
@@ -288,4 +352,4 @@ function createAffiliateEditor({auth,upstreams,readKey,writeKey,otherReadKeys=[]
  }
  return Object.freeze({availability,edit,operation});
 }
-module.exports={createReader,sourceKeysFromEnv,createAffiliateEditor,affiliateWriteKeyFromEnv};
+module.exports={createPublicReadKeyInstaller,readPublicReadKey,PUBLIC_READ_PURPOSE,PUBLIC_READ_LABEL,createReader,sourceKeysFromEnv,createAffiliateEditor,affiliateWriteKeyFromEnv};
