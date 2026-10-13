@@ -32,6 +32,15 @@ test('multi-front person opens the central shell with four separate navigation e
  assert.equal(x.el('entry-owner').textContent,'analista');assert.equal(x.el('entry-manage').hidden,true);assert.deepEqual([...x.el('entry-nav').querySelectorAll('button')].map(b=>b.textContent),['CRM','Orgânico','Influs','Afiliados']);
  x.el('entry-nav').querySelector('[data-view="afiliados"]').click();assert.match(x.el('entry-frame').querySelector('iframe').src,/view=afiliados/);
 });
+test('compiled admin form grants WRITE only to selected READ fronts and reopens the persisted access',async t=>{
+ const f=await fixture(t),x=f.make();await until(()=>!x.el('entry-shell').hidden,'simple shell');x.el('entry-manage').click();await until(()=>!x.el('admin-panel').hidden,'users');
+ const read=x.el('simple-fronts').querySelector('input[value="afiliados"]'),write=x.el('simple-write-fronts').querySelector('input[value="afiliados"]'),crmWrite=x.el('simple-write-fronts').querySelector('input[value="growth"]');assert.equal(write.disabled,true);
+ tick(x,'simple-fronts','afiliados');read.dispatchEvent(new x.window.Event('change',{bubbles:true}));assert.equal(write.disabled,false);assert.equal(crmWrite.disabled,true);tick(x,'simple-write-fronts','afiliados');
+ read.checked=false;read.removeAttribute('checked');read.dispatchEvent(new x.window.Event('change',{bubbles:true}));assert.equal(write.disabled,true);assert.equal(write.checked,false);
+ tick(x,'simple-fronts','afiliados');read.dispatchEvent(new x.window.Event('change',{bubbles:true}));tick(x,'simple-write-fronts','afiliados');tick(x,'simple-brands','fish');x.input('simple-email','writer@synthetic.invalid');x.input('simple-title','analista de Afiliados');x.input('simple-password',PASS);
+ await x.submit('simple-user-form');await until(()=>x.el('admin-message').textContent.includes('Usuário criado'),'created');const calls=x.calls.filter(c=>c.path==='/auth/simple/users'&&c.method==='POST');assert.equal(calls.length,1);assert.deepEqual(calls[0].body.fronts,['afiliados']);assert.deepEqual(calls[0].body.writeFronts,['afiliados']);
+ const row=[...x.el('admin-users').querySelectorAll('.user-row')].find(r=>r.textContent.includes('writer@synthetic.invalid')),fields=row.querySelectorAll('fieldset');assert.equal(fields[1].querySelector('input[value="afiliados"]').checked,true);assert.equal(fields[1].querySelector('input[value="growth"]').disabled,true);
+});
 test('own-password dialog changes the real account and requires a fresh login',async t=>{
  const f=await fixture(t);await f.auth.simpleAccounts.create({context:f.context,email:'analista@synthetic.invalid',password:PASS,jobTitle:'analista',fronts:['growth'],brands:['fish']});
  const login=await f.auth.login({email:'analista@synthetic.invalid',password:PASS,host:HOST,origin:'https://'+HOST}),x=f.make(login.cookie.split(';')[0]);await until(()=>!x.el('entry-shell').hidden,'person shell');

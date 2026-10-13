@@ -426,9 +426,9 @@ function createAuth(options){
  function permissions(userId){const out={};for(const g of db.prepare('SELECT area,can_read,can_edit FROM grants WHERE user_id=? AND can_read=1').all(userId))out[g.area]={read:true,edit:g.can_edit===1};return out;}
  function productScope(user){
   const p=permissions(user.id),areas=AREAS.filter(a=>p[a]?.read);
-  if(user.role==='superadmin')return {productFront:null,productFronts:Object.keys(PRODUCT_AREAS).filter(front=>areas.includes(PRODUCT_AREAS[front]))};
+  if(user.role==='superadmin')return {productFront:null,productFronts:Object.keys(PRODUCT_AREAS).filter(front=>areas.includes(PRODUCT_AREAS[front])),productWriteFronts:Object.keys(PRODUCT_AREAS).filter(front=>areas.includes(PRODUCT_AREAS[front]))};
   const simple=simpleAccounts?.profile(user.id);
-  if(simple)return {productFront:simple.fronts.length===1?simple.fronts[0]:null,productFronts:[...simple.fronts]};
+  if(simple)return {productFront:simple.fronts.length===1?simple.fronts[0]:null,productFronts:[...simple.fronts],productWriteFronts:[...simple.writeFronts]};
   const row=db.prepare('SELECT * FROM user_product_grants_v1 WHERE user_id=?').get(user.id);
   // Existing users retain their original scope. Absence does not migrate or
   // enlarge an existing delegation; new UI invitations always select a front.
@@ -566,6 +566,7 @@ function createAuth(options){
   if(ctx.productFront!==undefined&&SLOT_PRODUCTS[ctx.slot]!==undefined&&ctx.productFront!==SLOT_PRODUCTS[ctx.slot])err('PRODUCT_DENIED',403);
   const front=ctx.productFront??SLOT_PRODUCTS[ctx.slot];
   if(front!==undefined&&(!Object.hasOwn(PRODUCT_AREAS,front)||ctx.area!==undefined&&ctx.area!==PRODUCT_AREAS[front]||!found.user.productFronts.includes(front)))err('PRODUCT_DENIED',403);
+  if(simpleAccounts?.profile(found.user.id)&&ctx.edit===true&&(front===undefined||!found.user.productWriteFronts.includes(front)))err('PRODUCT_WRITE_DENIED',403);
   return found.user;
  }
  function authorizeBrand(ctx,brand){if(brand===undefined)err('BRAND_REQUIRED',400);return authorize({...ctx,brand});}

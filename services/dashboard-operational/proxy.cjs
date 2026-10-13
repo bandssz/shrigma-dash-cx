@@ -54,6 +54,7 @@ const READ=Object.freeze({
     operacao:rule(['operation_id','operacao','teste_id'],[],{edit:true})}},
   influ:{area:'influs',slot:'influs-read',method:'POST',selector:'acao',actions:{
     listar:rule(['ini','fim'],['pilot','conciliacao_pedidos','marca']),
+    piloto_salvar:rule(['kind','request_id','expected_version','data'],[],{slot:'influs-write',edit:true,bodyKey:true}),
     piloto_operacao:rule(['request_id'],[],{slot:'influs-write',edit:true,bodyKey:true})}},
   tts:{area:'influs',slot:'tts-read',method:'POST',actions:{'':rule(['ini','fim'])}},
   'tts-action':{area:'influs',slot:'tts-write',method:'GET',selector:'acao',header:'X-TTS-Write-Key',actions:{
@@ -137,7 +138,9 @@ const validField=(route,name,value)=>{
     case 'teste_id':return typeof value==='string'&&value.length>=1&&value.length<=256&&value===value.trim()&&!/[\x00-\x1f\x7f]/.test(value);
     case 'idempotency_key':return route==='campaigns'?/^[A-Za-z0-9_-]{16,100}$/.test(value):route==='segments'?AUDIENCE_KEY.test(value):KEY.test(value);
     case 'expected_catalog_hash':return route==='segments'&&typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
-    case 'expected_version':return route==='segments'?typeof value==='string'&&/^[1-9]\d{0,8}$/.test(value)&&Number(value)<=999999999:route==='campaigns'&&typeof value==='string'&&/^[a-f0-9]{32}$/i.test(value);
+    case 'expected_version':return route==='influ'?Number.isSafeInteger(value)&&value>=1&&value<=99999999:route==='segments'?typeof value==='string'&&/^[1-9]\d{0,8}$/.test(value)&&Number(value)<=999999999:route==='campaigns'&&typeof value==='string'&&/^[a-f0-9]{32}$/i.test(value);
+    case 'kind':return route==='influ'&&value==='candidato';
+    case 'data':return route==='influ'&&value&&Object.getPrototypeOf(value)===Object.prototype&&Object.keys(value).sort().join(',')==='handle,id,marca,name,note,source,source_reference,state'&&UUID.test(value.id)&&['fish','aristo'].includes(value.marca)&&value.state==='em_analise'&&['manual','formulario_site'].includes(value.source)&&typeof value.name==='string'&&[...value.name.trim()].length>=2&&[...value.name].length<=120&&[['handle',120],['note',1000],['source_reference',100]].every(([k,max])=>typeof value[k]==='string'&&[...value[k]].length<=max);
     case 'audience_review_id':return route==='campaigns'&&typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value);
     case 'confirm':return route==='campaigns'&&['agendar','cancelar'].includes(value);
     case 'draft_id':return /^d_[A-Za-z0-9_-]{1,96}$/.test(value);
@@ -405,12 +408,14 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,fetchImpl=fetch}){
   if(require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)&&route==='campaigns'&&user?.role!=='superadmin')throw new ProxyError(403,'EDIT_NOT_READY');
   const d=decide(route,method,query,body,{crmCampaignSubmitWrite}),target=upstreams[route];
   const campaignSubmit=crmCampaignSubmitWrite===true&&route==='campaigns'&&(target?.href===SANDBOX_CAMPAIGN_DESTINATION||require('./crm-manager-runtime.cjs').isCampaignWriterDescriptor(crmCorporateWriter)&&target?.href===REVIEWED_DYNAMIC.routes.campaigns);
   if(crmCampaignSubmitWrite&&!campaignSubmit)throw new ProxyError(403,'EDIT_NOT_READY');
-  if(d.edit&&!(ownMasterAudienceCount===true&&route==='segments'&&d.action==='segmento_contar')&&!campaignSubmit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
+  const affiliateEdit=simpleAffiliateEdit===true&&route==='influ'&&['piloto_salvar','piloto_operacao'].includes(d.action)&&target?.href===FIXED_DESTINATIONS.influ&&(user?.role==='superadmin'||(d.action==='piloto_operacao'?user?.productFronts?.includes('afiliados'):user?.productWriteFronts?.includes('afiliados')));
+  if(simpleAffiliateEdit&&!affiliateEdit)throw new ProxyError(403,'AFFILIATE_WRITE_DENIED');
+  if(d.edit&&!affiliateEdit&&!(ownMasterAudienceCount===true&&route==='segments'&&d.action==='segmento_contar')&&!campaignSubmit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
   if(ownMasterAudienceRead&&(!require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)||user?.role!=='superadmin'||route!=='segments'||method!=='GET'||d.edit||!['segmentos_listar','segmento_obter'].includes(d.action)||target?.href!==REVIEWED_DYNAMIC.routes.segments))throw new ProxyError(403,'MASTER_AUDIENCE_READ_DENIED');
   if(ownMasterAudienceWrite&&(!require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)||user?.role!=='superadmin'||route!=='segments'||target?.href!==REVIEWED_DYNAMIC.routes.segments||!['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)||crmAudienceDraft!==true))throw new ProxyError(403,'MASTER_AUDIENCE_WRITE_DENIED');
   if(ownMasterAudienceCount&&(!require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)||user?.role!=='superadmin'||route!=='segments'||method!=='POST'||d.action!=='segmento_contar'||target?.href!==REVIEWED_DYNAMIC.routes.segments))throw new ProxyError(403,'MASTER_AUDIENCE_COUNT_DENIED');

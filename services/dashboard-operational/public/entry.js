@@ -527,7 +527,7 @@ else (function(){'use strict';
   if($('simple-user-form'))$('simple-user-form').hidden=!simple;
   $('admin-invite-form').hidden=simple;
   for(const note of admin.querySelectorAll('.admin-access-note'))note.hidden=simple;
-  const explanation=admin.querySelector('.admin-heading p');if(simple&&explanation)explanation.textContent='Cadastre a pessoa com senha inicial, cargo, frentes e marcas. Estes acessos são de leitura. Senhas e desativação podem ser alteradas aqui.';
+  const explanation=admin.querySelector('.admin-heading p');if(simple&&explanation)explanation.textContent='Cadastre a pessoa com senha inicial, cargo, frentes e marcas. Escolha onde pode ler e alterar. Senhas e desativação podem ser alteradas aqui.';
   if(simple){inviteResult.hidden=true;inviteLink.value='';$('admin-crm-reconcile').hidden=true;}
  }
  const checkedValues=id=>[...$(id).querySelectorAll('input[type="checkbox"]:checked')].map(input=>input.value);
@@ -550,7 +550,7 @@ else (function(){'use strict';
    if(ticket!==version||session!==original)return false;
    const labels={EMAIL_EXISTS:'Este e-mail já possui cadastro.',PASSWORD_INVALID:'Use uma senha com pelo menos 12 caracteres e no máximo 72 bytes.',FRONTS_INVALID:'Selecione pelo menos uma frente.',BRANDS_INVALID:'Selecione pelo menos uma marca.',JOB_TITLE_INVALID:'Informe o cargo.'};
    adminMessage.textContent=labels[data?.error]||(!response||response.ok||response.status>=500?'A resposta não foi confirmada. Atualize a lista antes de repetir.':'O cadastro foi recusado. Confira os dados.');return false;
-  }finally{busy=false;for(const control of controls)control.disabled=false;for(const field of form.querySelectorAll('input[type="password"]'))field.value='';}
+  }finally{busy=false;for(const control of controls)control.disabled=false;for(const fieldset of form.querySelectorAll('fieldset'))fieldset.shrigmaWriteSync?.();for(const field of form.querySelectorAll('input[type="password"]'))field.value='';}
  }
  function simpleUserRow(user){
   const row=document.createElement('div');row.className='user-row';
@@ -560,11 +560,13 @@ else (function(){'use strict';
   const form=document.createElement('form');form.className='simple-user-editor';
   const job=document.createElement('input');job.value=user.jobTitle;job.maxLength=100;job.required=true;job.setAttribute('aria-label','Cargo');
   const fronts=simpleChecks('Frentes de leitura',[['growth','CRM'],['organico','Orgânico'],['influs','Influs'],['afiliados','Afiliados']],user.fronts);
+  const writeFronts=simpleChecks('Permitir alterações',[['growth','CRM'],['organico','Orgânico'],['influs','Influs'],['afiliados','Afiliados']],user.writeFronts||[]);
+  bindSimpleWrites(fronts,writeFronts);
   const brands=simpleChecks('Marcas',[['fish','Fishermans'],['aristo','O Aristocrata'],['olivas','Olivas do Campo']],user.brands);
   const activeLabel=document.createElement('label'),active=document.createElement('input');active.type='checkbox';active.checked=user.active;activeLabel.append(active,document.createTextNode(' Acesso ativo'));
   const save=document.createElement('button');save.type='submit';save.textContent='Salvar acesso';
-  form.append(job,fronts,brands,activeLabel,save);row.append(form);
-  form.addEventListener('submit',event=>{event.preventDefault();const values=field=>[...field.querySelectorAll('input:checked')].map(input=>input.value);void simpleWrite({action:'update',userId:user.id,jobTitle:job.value,fronts:values(fronts),brands:values(brands),active:active.checked},form,'Acesso atualizado. As sessões anteriores foram encerradas.');});
+  form.append(job,fronts,writeFronts,brands,activeLabel,save);row.append(form);
+  form.addEventListener('submit',event=>{event.preventDefault();const values=field=>[...field.querySelectorAll('input:checked')].map(input=>input.value);void simpleWrite({action:'update',userId:user.id,jobTitle:job.value,fronts:values(fronts),writeFronts:values(writeFronts),brands:values(brands),active:active.checked},form,'Acesso atualizado. As sessões anteriores foram encerradas.');});
   const reset=document.createElement('form');reset.className='simple-password-reset';
   const password=document.createElement('input');password.type='password';password.autocomplete='new-password';password.minLength=12;password.maxLength=72;password.required=true;password.setAttribute('aria-label','Nova senha inicial');
   const button=document.createElement('button');button.type='submit';button.textContent='Resetar senha';reset.append(password,button);row.append(reset);
@@ -572,9 +574,16 @@ else (function(){'use strict';
  }
  $('simple-user-form')?.addEventListener('submit',async event=>{
   event.preventDefault();if(busy)return;const form=event.currentTarget;
-  const body={action:'create',email:$('simple-email').value.trim().toLowerCase(),password:$('simple-password').value,jobTitle:$('simple-title').value,fronts:checkedValues('simple-fronts'),brands:checkedValues('simple-brands')};
-  if(await simpleWrite(body,form,'Usuário criado. Compartilhe a senha inicial por um canal privado.')){for(const id of ['simple-email','simple-title','simple-password'])$(id).value='';for(const field of form.querySelectorAll('input[type="checkbox"]'))field.checked=false;}
+  const body={action:'create',email:$('simple-email').value.trim().toLowerCase(),password:$('simple-password').value,jobTitle:$('simple-title').value,fronts:checkedValues('simple-fronts'),writeFronts:checkedValues('simple-write-fronts'),brands:checkedValues('simple-brands')};
+  if(await simpleWrite(body,form,'Usuário criado. Compartilhe a senha inicial por um canal privado.')){for(const id of ['simple-email','simple-title','simple-password'])$(id).value='';for(const field of form.querySelectorAll('input[type="checkbox"]'))field.checked=false;$('simple-fronts').shrigmaWriteSync?.();}
  });
+ function bindSimpleWrites(fronts,writeFronts){
+  if(!fronts||!writeFronts)return;
+  const sync=()=>{const allowed=[...fronts.querySelectorAll('input:checked')].map(i=>i.value);for(const field of writeFronts.querySelectorAll('input')){field.disabled=!allowed.includes(field.value);if(field.disabled)field.checked=false;}};
+  fronts.shrigmaWriteSync=sync;writeFronts.shrigmaWriteSync=sync;
+  fronts.addEventListener('change',sync);sync();
+ }
+ bindSimpleWrites($('simple-fronts'),$('simple-write-fronts'));
  $('entry-password')?.addEventListener('click',()=>{if(session?.features?.simpleLogin!==true)return;clearSimplePasswords();$('simple-password-message').textContent='';$('simple-password-dialog').showModal();$('simple-current-password').focus();});
  $('simple-password-close')?.addEventListener('click',clearSimplePasswords);
  $('simple-password-dialog')?.addEventListener('close',()=>{for(const id of ['simple-current-password','simple-new-password'])$(id).value='';});

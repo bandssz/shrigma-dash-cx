@@ -10,13 +10,13 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 31511,
-      "sha256": "f3911cc232010d6f207b9550cadc6a250a627a9f985e0df11cf816b85f31b1bd"
+      "bytes": 31601,
+      "sha256": "1d687db961c7e85d80331b36d876cf13b723d81db2f6f850eea30c073939ed25"
     },
     {
       "path": "afiliados-proprios.js",
-      "bytes": 4115,
-      "sha256": "763e26d9bbb9c3dbf412f2aada72a4ff70aaa2e430a97b101b99690ab372840c"
+      "bytes": 5129,
+      "sha256": "82803c00339e1c1a1a8bb5b9a1b8d29e2f777530d446d0d90674c953de346072"
     },
     {
       "path": "assets/panels/growth.js",
@@ -25,8 +25,8 @@
     },
     {
       "path": "assets/panels/influs.js",
-      "bytes": 293427,
-      "sha256": "34a749172ad15fb6089a885354dc643b564fa2acc33c911195d9451b0223371c"
+      "bytes": 294413,
+      "sha256": "2d36e2d01717e2506b3fa6513eb9eb386236567b0343c19e3a13ad9d5a70df73"
     },
     {
       "path": "growth-campaign-audience-ui.js",
@@ -55,8 +55,8 @@
     },
     {
       "path": "influs.html",
-      "bytes": 103265,
-      "sha256": "2201b48546d38b653bb6a447d15bcd20abd33e16d8a01f8a0beee64a82b7d986"
+      "bytes": 106568,
+      "sha256": "2364330c9c511d6e182e79f7386ffde7707b1c191cdfcdf0c93247612afd84da"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -120,8 +120,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 146563,
-      "sha256": "370f883fadd4b742d3f1d1fa74ba2b2c2c54f564cb819af13a9937ad6f0fbda8"
+      "bytes": 146867,
+      "sha256": "9603cab48a5fe28e4c4a777220acdf37afd695a58765c060dbdadefdfe89aca9"
     },
     {
       "path": "services/dashboard-operational/bcrypt.mjs",
@@ -131,7 +131,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1379,
-      "sha256": "186219335557a2d81758b06ada7162874dcc8d1eb7a96a217195a11229274ec0"
+      "sha256": "fc90eafcb6617fd02482dee1a10a1ae9dd2f716133a4b9c067d24f3796bcd6b2"
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
@@ -150,8 +150,8 @@
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
-      "bytes": 43996,
-      "sha256": "f9bf21b9d4b37505c906a09fb82ac9c5b7cda4a2ce255167954160827072b229"
+      "bytes": 45258,
+      "sha256": "972edd12eb9b11a5aefa83f180a0deb2bdf0fa8a9039f2006b76e706ffb563f8"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-session-read.cjs",
@@ -160,8 +160,8 @@
     },
     {
       "path": "services/dashboard-operational/public/entry.compiled.js",
-      "bytes": 52298,
-      "sha256": "07f4e92e33d2e4119c3cfffda7331b732a44fecef63a93bb715274feda125d5f"
+      "bytes": 52958,
+      "sha256": "ad7ef147686f82d59c2a58471defe1191d216e573dc25fb74fa5af1a525f07f4"
     },
     {
       "path": "services/dashboard-operational/public/entry.css",
@@ -170,38 +170,38 @@
     },
     {
       "path": "services/dashboard-operational/public/entry.html",
-      "bytes": 10413,
-      "sha256": "61ea96c436a131336d547270b3113dc92c9f3096418bd825a4e2db6cc88accc8"
+      "bytes": 10787,
+      "sha256": "0b4a5a667bdc705b131f48245f13cf6cf4c3d48930182ff0326ff9ce22d396a2"
     },
     {
       "path": "services/dashboard-operational/public/entry.js",
-      "bytes": 70571,
-      "sha256": "af1b6bce50169534d8eafc927e316636d402b56ba6f00dc7488bd7d3fcc80429"
+      "bytes": 71507,
+      "sha256": "dbdaebd9cece7f2a2aec111d6dc3c7c5abff3871e11ac52ba6b7513b9290f758"
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 16623,
-      "sha256": "986f49fcb2429d43ef9d547bc34bbaee739f560271607562240c719c2c01cc46"
+      "bytes": 16670,
+      "sha256": "dc064a96c3caaa310e428c88870f704c1ba5e083200bded6da69377275644e06"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 13811,
-      "sha256": "51bece8e115891a455791957479ab174514959097272a849a2febac2e06ee650"
+      "bytes": 13858,
+      "sha256": "ed3a8adc53093cee68f621f3b35bb09ad94ad0a7cc1c61b8b8cbc56c092d45f4"
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 156036,
-      "sha256": "2be0bd77df7c8a44fc328355e76440c7ed66ffe5761fc3100029eb9e3c98d0f2"
+      "bytes": 159335,
+      "sha256": "b93ef2a34ec75201fc5fd2e886ea381d35ccbb467ee44ffc20a4acc0e8e24359"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 13671,
-      "sha256": "22f9c129370d0a4a0edd8b0d7c89d1cabfdea5139fb096f7c35060ead65fba7b"
+      "bytes": 23313,
+      "sha256": "32d7a8f71f282d9f21db749fddc84c666f1820c991e5500e949e23f1f4a02971"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
-      "bytes": 6562,
-      "sha256": "e07e9340c681a0126ce6ca2cc32aaf56ac482289075d060028c637961522cd4e"
+      "bytes": 11473,
+      "sha256": "f23ff394a7d863b8076b9fb036b2f64c8f8d4c3afbf50baab0ec36b0124f6a76"
     },
     {
       "path": "tests/ab-experiment-integration.test.cjs",
@@ -242,6 +242,11 @@
       "path": "tests/afiliados-session-read.test.cjs",
       "bytes": 22195,
       "sha256": "c852a17ff752e800a25665a74cb3e138b5fe297569aeacc3d96f65c6f2a614b8"
+    },
+    {
+      "path": "tests/cart-contract-summary.test.cjs",
+      "bytes": 2230,
+      "sha256": "39469b821fc22bcbafcf10fbd28c90b8c526a4711ab9003173ed5e2cf7c2b463"
     },
     {
       "path": "tests/claude-crm-access-states-path.test.cjs",
@@ -345,8 +350,8 @@
     },
     {
       "path": "tests/influs-active-read.test.cjs",
-      "bytes": 4188,
-      "sha256": "b93e98761580af702f35018a124d4cc4c9ecadcac9dad508aa489ea93172421d"
+      "bytes": 7839,
+      "sha256": "7a1864ad84eaf4e0112bfaf21eb2e701bc58761553d371f095f6791a091fb07e"
     },
     {
       "path": "tests/influs-affiliates-mount.test.cjs",
@@ -365,8 +370,8 @@
     },
     {
       "path": "tests/own-affiliates-read.test.cjs",
-      "bytes": 5649,
-      "sha256": "b8253a99c6c73e0765ba1887d5c943a60092122d27c9a83719db1fe41968454c"
+      "bytes": 6474,
+      "sha256": "8f8ff1272a004d5719104369434fcb01d9e7bbca255d40442dc2cb0555b2b6a6"
     },
     {
       "path": "tests/product-front-split.test.cjs",
@@ -375,23 +380,23 @@
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
-      "bytes": 9988,
-      "sha256": "f59873797b74c0c4692494682c60c21b4e76e1f70000949981c66e8886909456"
+      "bytes": 12914,
+      "sha256": "01208707b06d9eefe7f5c8b3382278ff30656276a06a5b7909d2cd55e246cba1"
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
-      "bytes": 24115,
-      "sha256": "eb6fdb771a660167fabf12077d7c53df30020506cb19494617ba08777739b87a"
+      "bytes": 40502,
+      "sha256": "9892643729c70c108934d52603845a78e61a7ca01a5c44f2bbae7c10e228f3bd"
     },
     {
       "path": "tests/simple-login-ui.test.cjs",
-      "bytes": 6302,
-      "sha256": "6f9b98fac9e2dd4925b113dbf886fea6b66e4f9e3bd5c72acd671262d792b5b5"
+      "bytes": 8238,
+      "sha256": "3b42ae57f5789e4d39015ca68cafd161b4ca0d29ff85a8975f82e19a02f4cefd"
     },
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2718,
-      "sha256": "bd0baf30eb108bb800fb35e0035c00b8746cce39678ec1e755de2e8c407b9e2b"
+      "sha256": "0cc1b768a83f63027b7442f03108ab12b9e53d5e6bc0cbf187b64e2cf2f1a721"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -407,5 +412,6 @@
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Synthetic multi-brand signup, save/reopen, session retirement and server slice tests pass locally; this candidate is not installed. No production analyst READ/WRITE or source provisioning is claimed.",
-  "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant."
+  "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
+  "candidatePurpose": "Separate WRITE permission per product front and one original candidate review action; unavailable until a distinct legitimate service writer is bound. Cart diagnostics contain only counts and field names."
 }

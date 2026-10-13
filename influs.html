@@ -8,7 +8,7 @@
 <style>body[data-product-front] [hidden]{display:none!important}</style>
 
 <!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/influs.css?v=86f46577e9c7">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-gkbRAGVHAc4uILLadwDB5CZtpXnJk0KEGiZ5ZmNSzGo='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-zT0T8CgaJ7dscOfeXXOafxOkCMjigTm5UvMyUKCCi2g='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="influs" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -248,7 +248,7 @@
 
 </main>
 
-<!-- PANEL_JS --><script src="assets/panels/influs.js?v=34a749172ad1"></script>
+<!-- PANEL_JS --><script src="assets/panels/influs.js?v=2d36e2d01717"></script>
 <script>
 const $=s=>document.querySelector(s);
 // This view selector never grants data access or borrows another front's key.
@@ -1278,6 +1278,30 @@ async function carregarAfiliadosProprios(){
   if(!r.ok)throw Error();const data=await r.json();if(!current())return;
   if(data.brand!==brand||data.janela?.ini!==period.ini||data.janela?.fim!==period.fim)throw Error();
   window.ShrigmaOwnAffiliates.render(host,data);host.querySelector('[data-own-affiliates-refresh]')?.addEventListener('click',()=>carregarAbaAtiva());
+  const feedback=text=>{if(current()){const message=host.querySelector('[data-own-affiliate-message]');if(message)message.textContent=text;}};
+  const sameSelection=()=>MARCA===brand&&PER.ini===period.ini&&PER.fim===period.fim&&SEC==='afil'&&CANAL==='parceiros';
+  let saving=false;
+  for(const button of host.querySelectorAll('[data-own-affiliate-review]'))button.addEventListener('click',async()=>{
+   if(saving||!current())return;saving=true;button.disabled=true;feedback('Salvando a alteração…');
+   const attempt={action:'review',brand,candidate_id:button.dataset.ownAffiliateReview,expected_version:Number(button.dataset.version),request_id:crypto.randomUUID()};
+   try{
+    const response=await fetch('/api/affiliate-own-edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(attempt)}),result=await response.json();if(!current())return;
+    if(response.status===200&&result.state==='confirmed'){await carregarAfiliadosProprios();if(!sameSelection())return;const message=host.querySelector('[data-own-affiliate-message]');if(message)message.textContent=result.readBackConfirmed?'Cadastro salvo e reaberto em análise.':'Alteração registrada; confira o estado após atualizar.';}
+    else if(response.status===202||['AFFILIATE_OPERATION_UNCERTAIN','AFFILIATE_OPERATION_ALREADY_ATTEMPTED'].includes(result.error)){await carregarAfiliadosProprios();if(!sameSelection())return;const message=host.querySelector('[data-own-affiliate-message]');if(message)message.textContent='Resultado ainda incerto. Use Conferir tentativa; a alteração não será repetida automaticamente.';}
+    else feedback(result.error==='AFFILIATE_VERSION_CHANGED'?'O cadastro mudou. Atualize antes de editar.':'Não foi possível confirmar a alteração. Atualize o cadastro e confira seu acesso.');
+   }catch(e){if(current()){await carregarAfiliadosProprios();if(!sameSelection())return;const message=host.querySelector('[data-own-affiliate-message]');if(message)message.textContent='Resposta não confirmada. Confira a tentativa existente antes de alterar novamente.';}}
+   finally{saving=false;if(current())button.disabled=false;}
+  });
+  for(const button of host.querySelectorAll('[data-own-affiliate-operation]'))button.addEventListener('click',async()=>{
+   if(saving||!current())return;saving=true;button.disabled=true;feedback('Conferindo a tentativa existente…');
+   try{
+    const query=new URLSearchParams({brand,candidate_id:button.dataset.candidate,request_id:button.dataset.ownAffiliateOperation}),response=await fetch('/api/affiliate-own-operation?'+query),result=await response.json();if(!current())return;
+    if(response.status===200&&result.state==='confirmed'){await carregarAfiliadosProprios();if(!sameSelection())return;const message=host.querySelector('[data-own-affiliate-message]');if(message)message.textContent='Tentativa confirmada pela fonte original.';}
+    else feedback(result.error==='AFFILIATE_WRITE_BINDING_CHANGED'?'O vínculo de escrita mudou. A tentativa anterior foi preservada e precisa de conferência.':'A fonte ainda não confirmou esta tentativa. Nenhuma alteração foi repetida.');
+   }catch{feedback('Consulta indisponível. A tentativa existente permanece preservada.');}
+   finally{saving=false;if(current())button.disabled=false;}
+  });
+
  }catch(e){if(current()&&e.name!=='AbortError')window.ShrigmaOwnAffiliates?.render(host,null);}
  finally{if(OWN_AFFILIATE_ABORT===controller)OWN_AFFILIATE_ABORT=null;}
 }

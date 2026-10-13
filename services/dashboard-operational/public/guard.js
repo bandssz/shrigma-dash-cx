@@ -1,6 +1,6 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle']);
+ const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle']);
  const nativeFetch=window.fetch.bind(window);
  let csrfPromise=null,campaignWriter=false,audienceWriter=false,sessionState=null,sessionSequence=0,brandPresentationSignature=null;
  const AffiliateSession=require('./afiliados-session-read.cjs');

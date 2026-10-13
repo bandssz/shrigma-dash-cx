@@ -17,6 +17,27 @@ async function fixture({legacy=false}={}){
  const login=await auth.login({email:options.bootstrapAdminEmail,password:PASSWORD,host:HOST,origin:ORIGIN,ip:'synthetic'});
  return {get auth(){return auth;},dbPath,admin:context(login),adminLogin:login,setTime:t=>{time=t;},reopen(simpleReadMode){auth.close();auth=createAuth({...options,simpleReadMode});},close(){auth.close();fs.rmSync(directory,{recursive:true,force:true});}};
 }
+test('writing is an explicit subset of fronts and never expands the sibling Influs front',async()=>{
+ const f=await fixture();try{
+  const created=await f.auth.simpleAccounts.create({context:f.admin,email:'writer@synthetic.invalid',password:PASSWORD,jobTitle:'analista de Afiliados',fronts:['influs','afiliados'],brands:['fish'],writeFronts:['afiliados']});
+  const login=await f.auth.login({email:created.user.email,password:PASSWORD,host:HOST,origin:ORIGIN}),ctx=context(login);assert.deepEqual(created.user.writeFronts,['afiliados']);
+  assert.equal(f.auth.authorizeBrand({...ctx,area:'influs',productFront:'afiliados',edit:true},'fish').id,created.user.id);
+  assert.throws(()=>f.auth.authorizeBrand({...ctx,area:'influs',productFront:'influs',edit:true},'fish'),e=>e.code==='PRODUCT_WRITE_DENIED');
+  assert.throws(()=>f.auth.authorizeBrand({...ctx,area:'influs',edit:true},'fish'),e=>e.code==='PRODUCT_WRITE_DENIED');
+  await assert.rejects(f.auth.simpleAccounts.create({context:f.admin,email:'bad@synthetic.invalid',password:PASSWORD,jobTitle:'analista',fronts:['afiliados'],brands:['fish'],writeFronts:['growth']}),e=>e.code==='WRITE_FRONTS_INVALID');
+ }finally{f.close();}
+});
+test('existing READ accounts remain READ and attempts persist after restart without private source fields',async()=>{
+ const f=await fixture();try{
+  const read=await f.auth.simpleAccounts.create({context:f.admin,email:'reader@synthetic.invalid',password:PASSWORD,jobTitle:'analista',fronts:['afiliados'],brands:['fish']});assert.deepEqual(read.user.writeFronts,[]);
+  const created=await f.auth.simpleAccounts.create({context:f.admin,email:'writer@synthetic.invalid',password:PASSWORD,jobTitle:'analista',fronts:['afiliados'],brands:['fish'],writeFronts:['afiliados']}),login=await f.auth.login({email:created.user.email,password:PASSWORD,host:HOST,origin:ORIGIN}),ctx=context(login),requestId=crypto.randomUUID(),candidateId=crypto.randomUUID(),binding=sha('synthetic-write-binding');
+  const row=f.auth.simpleAccounts.reserveAffiliateEdit({context:ctx,requestId,brand:'fish',candidateId,expectedVersion:1,binding});assert.equal(row.user_id,created.user.id);f.reopen(true);
+  const old=f.auth.simpleAccounts.affiliateEdit({context:ctx,requestId,brand:'fish',candidateId});assert.equal(old.state,'reserved');assert.equal(old.binding,binding);
+  assert.throws(()=>f.auth.simpleAccounts.reserveAffiliateEdit({context:ctx,requestId:crypto.randomUUID(),brand:'fish',candidateId,expectedVersion:1,binding}),e=>e.code==='AFFILIATE_OPERATION_UNCERTAIN');
+  const pending=f.auth.simpleAccounts.pendingAffiliateEdits({context:ctx,brand:'fish'});assert.equal(pending.length,1);assert(!Object.hasOwn(pending[0],'binding'));assert(!Object.hasOwn(pending[0],'user_id'));
+  f.auth.simpleAccounts.finishAffiliateEdit(old,'confirmed');assert.deepEqual(f.auth.simpleAccounts.pendingAffiliateEdits({context:ctx,brand:'fish'}),[]);
+ }finally{f.close();}
+});
 test('existing Master hash, ID and historical tables survive activation of simple access',async()=>{
  const f=await fixture({legacy:true});
  try{

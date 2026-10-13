@@ -14,14 +14,14 @@ function sourceKeysFromEnv(env){
  const out={};for(const [front,name]of Object.entries(names)){const value=env[name];if(value!==undefined){if(typeof value!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(value))fail('SERVICE_READ_CONFIG_INVALID',500);out[front]=value;}}
  return Object.freeze(out);
 }
-function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth}={}){
+function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth,growthDiagnostics}={}){
  if(!auth?.authorizeBrand||!auth?.authorize||typeof fetchImpl!=='function'||typeof projectGrowth!=='function'||Object.keys(keys).some(k=>!Object.hasOwn(AREA,k)))fail('SERVICE_READ_CONFIG_INVALID',500);
  const credentials=Object.freeze({...keys}),versions=Object.fromEntries(Object.keys(credentials).map(front=>[front,crypto.randomBytes(32).toString('hex')]));
  const noSecrets=value=>{const serialized=JSON.stringify(value);for(const secret of Object.values(credentials))if(serialized.includes(secret))fail('BRAND_RESPONSE_UNSCOPED',502);};
  let pending=0;
  const current=(context,front,brand)=>{
   const user=auth.authorizeBrand({...context,area:AREA[front],productFront:front,edit:false},brand);
-  return {user,stamp:JSON.stringify([user.id,user.role,user.areas,user.permissions,user.productFronts,user.brands,user.jobTitle])};
+  return {user,stamp:JSON.stringify([user.id,user.role,user.areas,user.permissions,user.productFronts,user.productWriteFronts,user.brands,user.jobTitle])};
  };
  const same=(context,front,brand,before)=>{if(current(context,front,brand).stamp!==before.stamp)fail('SERVICE_READ_ACCESS_CHANGED',403);};
  const journeys=Journeys.createReader({fetchImpl,authorize:(context,{brand})=>{const {user}=current(context,'growth',brand);if(!credentials.growth)fail('SERVICE_READ_SOURCE_NOT_LINKED',503);return {userId:user.id,binding:versions.growth+':'+user.id,credential:credentials.growth};}});
@@ -79,7 +79,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
    same(context,front,brand,before);if(result.status!==200)fail('SERVICE_READ_SOURCE_REFUSED',503);
    noSecrets(result.body);
    let payload=front==='growth'?projectGrowth(result.body,brand,'growth',origin):front==='afiliados'?AffiliateProjection.project(result.body,{brand,ini:body.ini,fim:body.fim,credential}):Individual.project(result.body,{area:front,brand,query:body||Object.fromEntries(query),credential});
-   if(front==='growth')payload=Journeys.capabilities(payload,origin,true);
+   if(front==='growth'){payload=Journeys.capabilities(payload,origin,true);if(typeof growthDiagnostics==='function')payload.cart_contract=growthDiagnostics(result.body,brand);}
    same(context,front,brand,before);return {status:200,body:payload};
   }finally{pending--;}
  }
@@ -116,7 +116,8 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
      for(const row of attribution[name])if(typeof row.checked_at==='string'&&Number.isFinite(Date.parse(row.checked_at))&&(!freshness.attribution_checked_at||Date.parse(row.checked_at)>Date.parse(freshness.attribution_checked_at)))freshness.attribution_checked_at=new Date(row.checked_at).toISOString();
     }
     result={front,brand,status:200,counts,freshness,...(Object.keys(attributionCounts).length?{attributionCounts}:{}),source:front==='growth'?'crm-panel-read':front==='organico'?'cache-organico':front==='influs'?'influ-listar':'tts-painel',window:front==='influs'||front==='afiliados'?{ini,fim}:null,readOnly:true};
-    if(Array.isArray(b.read_issues))result.sourceIssues=b.read_issues.filter(p=>['crm_carrinho','cx_post_midia','clientes','conciliacao','saude','coleta'].includes(p.section)&&['rows_type_invalid','row_type_invalid','brand_marker_invalid','field_type_invalid','contract_invalid','relation_ambiguous'].includes(p.reason)&&(!p.field||/^[a-z_]{1,64}$/.test(p.field))).map(p=>({section:p.section,reason:p.reason,...(p.field?{field:p.field}:{})}));
+    if(b.cart_contract)result.cartContract=b.cart_contract;
+    if(Array.isArray(b.read_issues))result.sourceIssues=b.read_issues.filter(p=>['crm_carrinho','cx_post_midia','clientes','conciliacao','saude','coleta'].includes(p.section)&&['rows_type_invalid','row_type_invalid','brand_marker_invalid','field_type_invalid','field_absent','field_null_invalid','recovery_pair_mismatch','contract_invalid','relation_ambiguous'].includes(p.reason)&&(!p.field||/^[a-z_]{1,64}$/.test(p.field))).map(p=>({section:p.section,reason:p.reason,...(p.field?{field:p.field}:{})}));
    }catch(e){
     result={front,brand,status:Number.isInteger(e.status)?e.status:503,error:/^[A-Z_]{1,80}$/.test(e.code||'')?e.code:'SERVICE_READ_UNCONFIRMED',counts:null,freshness:null,readOnly:true};
     const p=e.projectionIssue;
@@ -138,4 +139,96 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
  }
  return Object.freeze({read,availability,summary});
 }
-module.exports={createReader,sourceKeysFromEnv};
+function affiliateWriteKeyFromEnv(env){
+ const value=env.DASHBOARD_SERVICE_WRITE_AFILIADOS_KEY;
+ if(value===undefined)return undefined;
+ if(typeof value!=='string'||!/^[a-z0-9-]{8,128}$/.test(value))fail('AFFILIATE_WRITE_CONFIG_INVALID',500);
+ return value;
+}
+function createAffiliateEditor({auth,upstreams,readKey,writeKey,otherReadKeys=[],fetchImpl=globalThis.fetch,now=Date.now}={}){
+ if(!auth?.simpleAccounts?.reserveAffiliateEdit||!auth.authorizeBrand||typeof fetchImpl!=='function'||typeof now!=='function'||writeKey!==undefined&&(typeof writeKey!=='string'||!/^[a-z0-9-]{8,128}$/.test(writeKey)||[readKey,...otherReadKeys].includes(writeKey)))fail('AFFILIATE_WRITE_CONFIG_INVALID',500);
+ const binding=writeKey?crypto.createHash('sha256').update(writeKey).digest('hex'):null;
+ const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+ const exact=(v,keys)=>v&&Object.getPrototypeOf(v)===Object.prototype&&Object.keys(v).sort().join(',')===keys.slice().sort().join(',');
+ const noSecrets=value=>{const text=JSON.stringify(value);for(const secret of [readKey,writeKey,...otherReadKeys].filter(Boolean))if(text.includes(secret))fail('AFFILIATE_SOURCE_UNCONFIRMED',503);};
+ const current=(context,brand,edit)=>{
+  const user=auth.authorizeBrand({...context,area:'influs',productFront:'afiliados',edit},brand);
+  return {user,stamp:JSON.stringify([user.id,user.role,user.permissions,user.productFronts,user.productWriteFronts,user.brands,user.jobTitle])};
+ };
+ const same=(context,brand,edit,before)=>{if(current(context,brand,edit).stamp!==before.stamp)fail('AFFILIATE_ACCESS_CHANGED',403);};
+ function availability(context,brand){
+  const {user}=current(context,brand,false);
+  return {allowed:!!writeKey&&!!readKey&&['fish','aristo'].includes(brand)&&(user.role==='superadmin'||user.productWriteFronts?.includes('afiliados')),readOnly:!writeKey,operational:false};
+ }
+ const unwrap=body=>{if(Array.isArray(body)){if(body.length!==1)fail('AFFILIATE_SOURCE_UNCONFIRMED',503);body=body[0];}if(exact(body,['payload']))body=body.payload;return body;};
+ async function original(before,brand){
+  if(!readKey||upstreams?.influ?.href!==FIXED_DESTINATIONS.influ)fail('AFFILIATE_SOURCE_NOT_LINKED',503);
+  const fim=new Date(now()-3*3600000).toISOString().slice(0,10),ini=fim;
+  const r=await forward({route:'influ',method:'POST',query:new URLSearchParams(),body:{acao:'listar',marca:brand,ini,fim,pilot:true},user:before.user,credential:readKey,upstreams,fetchImpl});
+  const body=unwrap(r.body);if(r.status!==200)fail('AFFILIATE_SOURCE_UNCONFIRMED',503);noSecrets(body);Individual.ownAffiliates(body,brand,{ini,fim});return body.pilot.candidates;
+ }
+ function selected(rows,brand,id){
+  const found=rows.filter(r=>r.id===id&&(r.marca||r.brand)===brand);if(found.length!==1)fail('AFFILIATE_CANDIDATE_NOT_FOUND',404);
+  const r=found[0];if(!Number.isSafeInteger(r.version)||r.version<1||!['manual','formulario_site'].includes(r.source)||!['novo','em_analise','aprovado_piloto','pausado','recusado'].includes(r.state))fail('AFFILIATE_SOURCE_UNCONFIRMED',503);
+  for(const [key,max]of [['name',120],['handle',120],['note',1000],['source_reference',100]])if(!Object.hasOwn(r,key)||typeof r[key]!=='string'||[...r[key]].length>max)fail('AFFILIATE_SOURCE_UNCONFIRMED',503);
+  if([...r.name.trim()].length<2||r.name!==r.name.trim())fail('AFFILIATE_SOURCE_UNCONFIRMED',503);
+  return r;
+ }
+ function receipt(body,row){
+  if(!exact(body,['ok','kind','id','version','request_id'])||body.ok!==true||body.kind!=='candidato'||body.id!==row.candidate_id||body.version!==row.expected_version+1||body.request_id!==row.request_id)fail('AFFILIATE_RECEIPT_UNCONFIRMED',503);
+  return {ok:true,state:'confirmed',request_id:row.request_id,candidate_id:row.candidate_id,brand:row.brand,version:body.version};
+ }
+ const rejected=new Map([
+  ['Acesso de operação de Creators necessário.','AFFILIATE_WRITER_REFUSED'],
+  ['Cadastro mudou. Atualize antes de salvar.','AFFILIATE_VERSION_CHANGED'],
+  ['A marca de um cadastro existente não pode mudar.','AFFILIATE_BRAND_CHANGED'],
+  ['Confira nome, origem e situação do candidato.','AFFILIATE_SOURCE_UNCONFIRMED']
+ ]);
+ function uncertain(row,context,brand,before){
+  const state=auth.simpleAccounts.finishAffiliateEdit(row,'uncertain');same(context,brand,true,before);
+  if(state==='confirmed')return {status:200,body:{state:'confirmed',request_id:row.request_id,brand:row.brand,candidate_id:row.candidate_id,version:row.expected_version+1,readBackConfirmed:false}};
+  return {status:202,body:{state:'uncertain',request_id:row.request_id,brand:row.brand,candidate_id:row.candidate_id,error:'AFFILIATE_RESULT_UNCERTAIN'}};
+ }
+ async function edit(context,body){
+  if(!exact(body,['action','brand','candidate_id','expected_version','request_id'])||body.action!=='review'||!['fish','aristo'].includes(body.brand)||typeof body.candidate_id!=='string'||!UUID.test(body.candidate_id)||typeof body.request_id!=='string'||!UUID.test(body.request_id)||!Number.isSafeInteger(body.expected_version)||body.expected_version<1||body.expected_version>99999999)fail('AFFILIATE_ARGUMENTS_INVALID',400);
+  const before=current(context,body.brand,true);
+  if(!writeKey||!readKey)fail('AFFILIATE_WRITE_NOT_LINKED',503);
+  const row=auth.simpleAccounts.reserveAffiliateEdit({context,requestId:body.request_id,brand:body.brand,candidateId:body.candidate_id,expectedVersion:body.expected_version,binding});
+  let data;
+  try{
+   const r=selected(await original(before,body.brand),body.brand,body.candidate_id);same(context,body.brand,true,before);
+   if(r.version!==body.expected_version||r.state!=='novo')fail('AFFILIATE_VERSION_CHANGED',409);
+   data=Object.fromEntries(['id','name','handle','source','source_reference','note'].map(k=>[k,r[k]]));data.marca=body.brand;data.state='em_analise';
+  }catch(e){auth.simpleAccounts.finishAffiliateEdit(row,'not_sent');throw e;}
+  let response,attempted=false;
+  try{
+   same(context,body.brand,true,before);
+   attempted=true;
+   response=await forward({route:'influ',method:'POST',query:new URLSearchParams(),body:{acao:'piloto_salvar',kind:'candidato',request_id:body.request_id,expected_version:body.expected_version,data},user:before.user,credential:writeKey,upstreams,fetchImpl,simpleAffiliateEdit:true});
+  }catch(e){if(!attempted){auth.simpleAccounts.finishAffiliateEdit(row,'not_sent');throw e;}return uncertain(row,context,body.brand,before);}
+  let result,rejection;
+  try{
+   const b=unwrap(response.body);noSecrets(b);
+   if(response.status===200&&exact(b,['erro'])&&rejected.has(b.erro))rejection=rejected.get(b.erro);
+   else{if(response.status!==200)fail('AFFILIATE_RECEIPT_UNCONFIRMED',503);result=receipt(b,row);}
+  }catch(e){return uncertain(row,context,body.brand,before);}
+  if(rejection){auth.simpleAccounts.finishAffiliateEdit(row,'rejected');same(context,body.brand,true,before);return {status:409,body:{state:'rejected',error:rejection,request_id:row.request_id}};}
+  auth.simpleAccounts.finishAffiliateEdit(row,'confirmed');same(context,body.brand,true,before);
+  try{const reread=selected(await original(before,body.brand),body.brand,body.candidate_id);same(context,body.brand,true,before);result.readBackConfirmed=reread.version===result.version&&reread.state==='em_analise'&&['name','handle','source','source_reference','note'].every(k=>reread[k]===data[k]);}
+  catch(e){same(context,body.brand,true,before);result.readBackConfirmed=false;}
+  return {status:200,body:result};
+ }
+ async function operation(context,query){
+  if(!exact(query,['brand','candidate_id','request_id'])||!['fish','aristo'].includes(query.brand)||typeof query.candidate_id!=='string'||!UUID.test(query.candidate_id)||typeof query.request_id!=='string'||!UUID.test(query.request_id))fail('AFFILIATE_ARGUMENTS_INVALID',400);
+  const before=current(context,query.brand,false),row=auth.simpleAccounts.affiliateEdit({context,requestId:query.request_id,brand:query.brand,candidateId:query.candidate_id});
+  if(row.state==='confirmed'||row.state==='rejected'||row.state==='not_sent')return {status:200,body:{state:row.state,request_id:row.request_id,brand:row.brand,candidate_id:row.candidate_id,...(row.state==='confirmed'?{version:row.expected_version+1}:{})}};
+  if(!writeKey||row.binding!==binding)fail('AFFILIATE_WRITE_BINDING_CHANGED',409);
+  let response;try{response=await forward({route:'influ',method:'POST',query:new URLSearchParams(),body:{acao:'piloto_operacao',request_id:row.request_id},user:before.user,credential:writeKey,upstreams,fetchImpl,simpleAffiliateEdit:true});}catch{fail('AFFILIATE_OPERATION_READ_UNCONFIRMED',503);}
+  same(context,query.brand,false,before);const b=unwrap(response.body);noSecrets(b);
+  if(response.status!==200||!exact(b,['ok','state','receipt'])||b.ok!==true||!['confirmed','not_found'].includes(b.state))fail('AFFILIATE_OPERATION_READ_UNCONFIRMED',503);
+  if(b.state==='not_found'){if(b.receipt!==null)fail('AFFILIATE_OPERATION_READ_UNCONFIRMED',503);return {status:202,body:{state:'uncertain',request_id:row.request_id,brand:row.brand,candidate_id:row.candidate_id,originalReceiptFound:false}};}
+  const result=receipt(b.receipt,row);auth.simpleAccounts.finishAffiliateEdit(row,'confirmed');same(context,query.brand,false,before);return {status:200,body:result};
+ }
+ return Object.freeze({availability,edit,operation});
+}
+module.exports={createReader,sourceKeysFromEnv,createAffiliateEditor,affiliateWriteKeyFromEnv};
