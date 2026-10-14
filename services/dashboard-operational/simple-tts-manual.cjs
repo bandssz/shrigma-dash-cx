@@ -28,7 +28,10 @@ function createSimpleTTS({db,binding,transport,businessAllowed=()=>false,now=Dat
   return {schema:'shrigma-tts-capabilities-v1',brand,read:true,decision:write&&technical&&approved,reason:!write?'READ_ONLY':!technical?'TTS_SOURCE_CLOSED':!approved?'TTS_PROGRAM_APPROVAL_REQUIRED':null};
  }
  async function pending(ctx,{brand}){
-  const b=binding(ctx,{brand,write:false});return {schema:'shrigma-tts-attempts-v1',brand,attempts:db.prepare('SELECT * FROM simple_tts_attempts_v1 WHERE user_id=? AND brand=? ORDER BY created_at DESC LIMIT 100').all(b.author.id,brand).map(dto)};
+  const b=binding(ctx,{brand,write:false}),open=db.prepare("SELECT * FROM simple_tts_attempts_v1 WHERE user_id=? AND brand=? AND state IN ('reserved','unknown') ORDER BY created_at DESC LIMIT 1001").all(b.author.id,brand);
+  if(open.length>1000)fail('TTS_PENDING_REVIEW_REQUIRED',503);
+  const recent=db.prepare("SELECT * FROM simple_tts_attempts_v1 WHERE user_id=? AND brand=? AND state IN ('accepted','blocked') ORDER BY created_at DESC LIMIT 100").all(b.author.id,brand);
+  return {schema:'shrigma-tts-attempts-v1',brand,attempts:[...open,...recent].map(dto)};
  }
  async function receipt(ctx,row,b){
   if(row.binding!==b.binding)fail('TTS_ACCESS_CHANGED',403);

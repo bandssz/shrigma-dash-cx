@@ -62,8 +62,9 @@ async function load(){const request=++state.request;state.controller?.abort();co
  if(state.view==='own'){document.documentElement.dataset.brand=state.brand;el('brand-logo').src='vendor/wm-'+(state.brand==='fish'?'fishermans':'aristocrata')+'.png';el('brand-logo').alt=state.brand==='fish'?'Fishermans':'O Aristocrata';switchView('own');return;}
  if(!await access.ready(selected,{signal:controller.signal}))throw Error('Fonte não vinculada');const period=windowDays(state.days),data=await access.read(period,{signal:controller.signal});
  if(request!==state.request)return;if(data?.brand!==state.brand||data?.janela?.ini!==period.ini||data?.janela?.fim!==period.fim)throw Error('Marca ou período divergente');
- await window.ShrigmaTTS?.load(data.brand);if(request!==state.request)return;
  state.data={...data,measuredAt:new Date().toISOString(),targetCount:Array.isArray(data.target)?data.target.length:null};document.documentElement.dataset.brand=state.brand;el('brand-logo').src='vendor/wm-'+(state.brand==='fish'?'fishermans':'aristocrata')+'.png';el('brand-logo').alt=state.brand==='fish'?'Fishermans':'O Aristocrata';render();switchView(state.view);
+ el('loading').classList.add('d-none');
+ if(state.view!=='own'){try{await window.ShrigmaTTS?.load(data.brand);}catch{el('tts-message').textContent='Disponibilidade das decisões não confirmada. A leitura da fila continua disponível.';}if(request!==state.request)return;}
  }catch(e){if(request!==state.request)return;clearReading();el('error').textContent=e.status===401?'Sua sessão terminou. Entre novamente no painel.':e.status===403?'Este acesso não permite consultar Afiliados nesta marca.':'Não foi possível carregar a leitura atual. Nenhum número foi substituído por zero.';el('error').classList.remove('d-none');}finally{if(request===state.request)el('loading').classList.add('d-none');}}
 el('reload').addEventListener('click',load);
 el('brand').addEventListener('change',()=>{state.brand=el('brand').value;load();});el('days').addEventListener('change',()=>{state.days=Number(el('days').value);load();});

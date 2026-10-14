@@ -13,7 +13,11 @@ const MIME=Object.freeze({'.html':'text/html; charset=utf-8','.js':'text/javascr
 const AFFILIATE_PREVIEW='/previas/afiliados/';
 const AFFILIATE_PREVIEW_FILES=Object.freeze(['index.html','app.js','daily.js','tts.js','tema.css','operacao.html','vendor/LICENSES.txt','vendor/chart.umd.js','vendor/inter-400.woff2','vendor/inter-500.woff2','vendor/inter-600.woff2','vendor/inter-700.woff2','vendor/tabler.min.css','vendor/tabler.min.js','vendor/wm-aristocrata.png','vendor/wm-fishermans.png']);
 const CRM_PREVIEW='/previas/crm/';
-const CRM_WORKSPACE='/app/crm/',AFFILIATE_WORKSPACE='/app/afiliados/';
+const CRM_WORKSPACE='/app/crm/',AFFILIATE_WORKSPACE='/app/afiliados/',ORGANIC_WORKSPACE='/app/organico/',INFLUS_WORKSPACE='/app/influs/';
+const READ_WORKSPACES=Object.freeze({
+ [ORGANIC_WORKSPACE]:{front:'organico',area:'organico',directory:'organico-workspace',files:['index.html','app.js','organico-attribution.js']},
+ [INFLUS_WORKSPACE]:{front:'influs',area:'influs',directory:'influs-workspace',files:['index.html','app.js','math.js','influs-conferencia.js']}
+});
 const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','drafts.js','journey-engine.js','journey-ui.js']);
 const CRM_PREVIEW_FILES=Object.freeze([...CRM_PREVIEW_OWN_FILES,...AFFILIATE_PREVIEW_FILES.filter(n=>n==='tema.css'||n.startsWith('vendor/'))]);
 const jsonError=(status,code)=>Object.assign(new Error(code),{status,code});
@@ -242,13 +246,25 @@ function presentationStyle(s,area='growth'){
 }
 function serveFile(req,res,url,host,s,auth){
   if(!['GET','HEAD'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
-  if(s.simpleReadMode===true&&url.searchParams.get('legacy')!=='1'&&(url.pathname==='/growth.html'||url.pathname==='/influs.html'&&url.searchParams.get('view')==='afiliados')){
-    const crm=url.pathname==='/growth.html',area=crm?'growth':'influs';
+  const readPrefix=Object.keys(READ_WORKSPACES).find(prefix=>url.pathname===prefix.slice(0,-1)||url.pathname.startsWith(prefix));
+  if(readPrefix){
+    const spec=READ_WORKSPACES[readPrefix];if(s.simpleReadMode!==true||host!==s.managerHost&&host!==s.areaHosts[spec.area])throw jsonError(404,'NOT_FOUND');
+    auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area:spec.area,productFront:spec.front,edit:false});
+    if(url.pathname===readPrefix.slice(0,-1)){res.writeHead(308,{Location:readPrefix+url.search});return res.end();}
+    const name=url.pathname.slice(readPrefix.length)||'index.html',shared=name==='tema.css'||name.startsWith('vendor/')&&AFFILIATE_PREVIEW_FILES.includes(name);
+    if(!spec.files.includes(name)&&name!=='workspace.js'&&!shared)throw jsonError(404,'NOT_FOUND');
+    const file=path.join(__dirname,'public',shared?'afiliados-preview':name==='workspace.js'?'':spec.directory,name==='workspace.js'?'read-workspace.js':name);let data;
+    try{const st=fs.lstatSync(file);if(fs.realpathSync(file)!==file||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size<1||st.size>2*1024*1024)throw Error();data=fs.readFileSync(file);}catch{throw jsonError(503,'WORKSPACE_ASSET_UNAVAILABLE');}
+    const metadata=typeAndCsp(name,data);res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);res.setHeader('Cache-Control','no-store');return res.end(req.method==='HEAD'?undefined:data);
+  }
+  if(s.simpleReadMode===true&&url.searchParams.get('legacy')!=='1'&&['/growth.html','/organico.html','/influs.html'].includes(url.pathname)){
+    const crm=url.pathname==='/growth.html',organic=url.pathname==='/organico.html',affiliate=url.pathname==='/influs.html'&&url.searchParams.get('view')==='afiliados',area=crm?'growth':organic?'organico':'influs',front=crm?'growth':organic?'organico':affiliate?'afiliados':'influs';
     if(host!==s.managerHost&&host!==s.areaHosts[area])throw jsonError(404,'NOT_FOUND');
-    auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area,productFront:crm?'growth':'afiliados',edit:false});
-    const query=new URLSearchParams();for(const key of ['brand','days','content','embed'])if(url.searchParams.has(key))query.set(key,url.searchParams.get(key));
+    auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area,productFront:front,edit:false});
+    const query=new URLSearchParams();for(const key of ['brand','days','content','embed','ini','fim'])if(url.searchParams.has(key))query.set(key,url.searchParams.get(key));
     if(crm&&['journeys','lab','templates','campaigns','audiences'].includes(url.searchParams.get('view')))query.set('view',url.searchParams.get('view'));
-    res.writeHead(308,{Location:(crm?CRM_WORKSPACE:AFFILIATE_WORKSPACE)+(query.size?'?'+query:'')});return res.end();
+    if(!crm&&!affiliate&&['overview','posts','stories','sales','creators','coupons','health'].includes(url.searchParams.get('view')))query.set('view',url.searchParams.get('view'));
+    res.writeHead(308,{Location:(crm?CRM_WORKSPACE:organic?ORGANIC_WORKSPACE:affiliate?AFFILIATE_WORKSPACE:INFLUS_WORKSPACE)+(query.size?'?'+query:'')});return res.end();
   }
   if([AFFILIATE_PREVIEW,CRM_PREVIEW,AFFILIATE_WORKSPACE,CRM_WORKSPACE].some(prefix=>url.pathname===prefix.slice(0,-1)||url.pathname.startsWith(prefix))){
     const prefix=[AFFILIATE_PREVIEW,CRM_PREVIEW,AFFILIATE_WORKSPACE,CRM_WORKSPACE].find(prefix=>url.pathname===prefix.slice(0,-1)||url.pathname.startsWith(prefix)),crm=prefix===CRM_PREVIEW||prefix===CRM_WORKSPACE,area=crm?'growth':'influs';
@@ -616,6 +632,9 @@ async function templateOwnershipWriteGate(user,action,{isolatedSandbox=false,adm
  }
 }
 function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime,nativeInstaller,sourcePeerTransport,sourceDiagnostics,deliveryHealth,schedulerState,ttsBusinessAllowed=()=>false}={}){
+  const readWorkspacePublicFiles=s.simpleReadMode===true?Object.entries(READ_WORKSPACES).flatMap(([prefix,spec])=>[...spec.files.map(name=>({name,file:path.join(__dirname,'public',spec.directory,name)})),{name:'workspace.js',file:path.join(__dirname,'public/read-workspace.js')},...AFFILIATE_PREVIEW_FILES.filter(n=>n==='tema.css'||n.startsWith('vendor/')).map(name=>({name,file:path.join(__dirname,'public/afiliados-preview',name)}))].map(({name,file})=>{
+    const st=fs.lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||fs.realpathSync(file)!==file||st.size<1||st.size>2*1024*1024)throw Error('WORKSPACE_ASSET_UNAVAILABLE');const b=fs.readFileSync(file);return {path:prefix+name,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')};
+  })):undefined;
   const affiliatePreviewPublicFiles=s.simpleReadMode===true?[...AFFILIATE_PREVIEW_FILES.map(name=>({name,prefix:AFFILIATE_PREVIEW,root:'public/afiliados-preview'})),...CRM_PREVIEW_FILES.map(name=>({name,prefix:CRM_PREVIEW,root:CRM_PREVIEW_OWN_FILES.includes(name)?'public/crm-preview':'public/afiliados-preview'}))].map(({name,prefix,root})=>{
     const file=path.join(__dirname,root,name),st=fs.lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||fs.realpathSync(file)!==file||st.size>2*1024*1024)throw Error('AFFILIATE_PREVIEW_ASSET_UNAVAILABLE');const bytes=fs.readFileSync(file);return {path:prefix+name,bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
   }):undefined;
@@ -786,7 +805,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(!st.isFile()||st.isSymbolicLink()||st.size>2*1024*1024||fs.realpathSync(p)!==p)throw jsonError(503,'JOURNEY_PUBLIC_FILES_UNAVAILABLE');
           const b=fs.readFileSync(p);return {path:file,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')};
         }):undefined;
-        return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(affiliatePreviewPublicFiles?{affiliatePreviewPublicFiles,workspacePublicFiles:affiliatePreviewPublicFiles.map(f=>({...f,path:f.path.replace(AFFILIATE_PREVIEW,AFFILIATE_WORKSPACE).replace(CRM_PREVIEW,CRM_WORKSPACE)}))}:{}),...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256,...(s.crmJourneyPresentationManifestSha256?{journeyPresentationManifestSha256:s.crmJourneyPresentationManifestSha256,journeyConfiguredRead:true,journeyPublicFiles}:{}),...(s.crmNativeDatabaseInspection===true?{nativeDatabaseInspection:true}:{})}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
+        return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(affiliatePreviewPublicFiles?{affiliatePreviewPublicFiles,workspacePublicFiles:[...affiliatePreviewPublicFiles.map(f=>({...f,path:f.path.replace(AFFILIATE_PREVIEW,AFFILIATE_WORKSPACE).replace(CRM_PREVIEW,CRM_WORKSPACE)})),...readWorkspacePublicFiles]}:{}),...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256,...(s.crmJourneyPresentationManifestSha256?{journeyPresentationManifestSha256:s.crmJourneyPresentationManifestSha256,journeyConfiguredRead:true,journeyPublicFiles}:{}),...(s.crmNativeDatabaseInspection===true?{nativeDatabaseInspection:true}:{})}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
       }
       // Same-origin browser GET fetches may omit Origin. Receipt reads still
       // require the real session's CSRF secret, and may derive their origin

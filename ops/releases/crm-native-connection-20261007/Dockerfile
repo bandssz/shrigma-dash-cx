@@ -6,6 +6,9 @@ COPY services/dashboard-operational/journey-internal-test-runtime.cjs services/d
 COPY services/dashboard-operational/simple-tts-manual.cjs services/dashboard-operational/influs-tts-manual.js ./services/dashboard-operational/
 COPY services/dashboard-operational/simple-login-accounts.cjs services/dashboard-operational/simple-dashboard-read.cjs services/dashboard-operational/bcrypt.mjs services/dashboard-operational/BCRYPT-LICENSE ./services/dashboard-operational/
 COPY services/dashboard-operational/public/afiliados-preview/ ./services/dashboard-operational/public/afiliados-preview/
+COPY services/dashboard-operational/public/read-workspace.js ./services/dashboard-operational/public/
+COPY services/dashboard-operational/public/influs-workspace/ ./services/dashboard-operational/public/influs-workspace/
+COPY services/dashboard-operational/public/organico-workspace/index.html services/dashboard-operational/public/organico-workspace/app.js services/dashboard-operational/public/organico-workspace/organico-attribution.js ./services/dashboard-operational/public/organico-workspace/
 COPY services/dashboard-operational/public/crm-preview/ /source/services/dashboard-operational/public/crm-preview/
 COPY services/dashboard-operational/public/entry.html services/dashboard-operational/public/entry.css ./services/dashboard-operational/public/
 COPY services/dashboard-operational/dashboard-individual-read.cjs ./services/dashboard-operational/

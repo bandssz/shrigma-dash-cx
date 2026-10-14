@@ -73,3 +73,8 @@ test('revocation during receipt hash prevents disclosure and journal confirmatio
 test('divergent receipt after terminal acceptance preserves the confirmed journal',async t=>{
  const f=await fixture(t),q=command(),r=await f.request('/api/tts-manual',{body:q});a.equal(r.body.state,'accepted');f.hooks.receipt=o=>{o.actor_sha256='e'.repeat(64);};a.equal((await f.request(query(q))).status,502);a.equal(f.posts(),1);const db=new DatabaseSync(f.dbPath);try{a.equal(db.prepare('SELECT state FROM simple_tts_attempts_v1').get().state,'accepted');}finally{db.close();}
 });
+test('pending recovery is not hidden by more recent terminal receipts',async t=>{
+ const f=await fixture(t,{hooks:{receipt:o=>{if(o.state==='accepted'){o.state='outcome_unknown';o.response={status:502,body:{operation_id:o.operation_id,ok:false}};}}}}),q=command();a.equal((await f.request('/api/tts-manual',{body:q})).body.state,'unknown');
+ const db=new DatabaseSync(f.dbPath);try{const prior=db.prepare('SELECT * FROM simple_tts_attempts_v1').get(),insert=db.prepare("INSERT INTO simple_tts_attempts_v1 VALUES(?,?,?,?,?,?,?,?,?,'accepted',?,?)");for(let n=0;n<105;n++)insert.run(crypto.randomUUID(),crypto.randomUUID(),prior.user_id,prior.brand,String(20000000+n),prior.binding,prior.actor_sha256,prior.request_sha256,prior.result,prior.created_at+1000+n,prior.updated_at+1000+n);}finally{db.close();}
+ const r=await f.request('/api/tts-manual?action=attempts&brand=aristo');a.equal(r.status,200);a.equal(r.body.attempts.length,101);a(r.body.attempts.some(row=>row.request_id===q.request_id&&row.state==='unknown'));a.equal(f.posts(),1);
+});
