@@ -509,6 +509,20 @@ function projectCampaignRecord(value,brand){
  }
  return out;
 }
+// The existing Master source selects the brand lists and shared layout
+// templates. Return metadata only; this does not assert exclusive ownership
+// or create a new template permission/catalogue.
+function projectServiceDraftCatalog(body,brand){
+ if(!brandRecord(body)||body.brand!==brand||typeof body.current!=='boolean'||!Array.isArray(body.lists)||!Array.isArray(body.templates)||!Array.isArray(body.initiatives)||[body.lists,body.templates,body.initiatives].some(rows=>rows.length>10000))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');
+ const lists=brandedRows(body.lists,brand,rowSpec('name','id','','available'));
+ if(lists.length!==body.lists.length||lists.some(l=>!Number.isSafeInteger(l.id)||l.id<1||typeof l.available!=='boolean'))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');
+ const seen=new Set(),templates=body.templates.map(t=>{
+  if(!brandRecord(t)||['brand','marca'].some(k=>Object.hasOwn(t,k)&&canonicalDataBrand(t[k])!==brand)||!Number.isSafeInteger(t.id)||t.id<1||seen.has(t.id)||typeof t.name!=='string'||t.name.length>500||t.type!=='campaign'||typeof t.available!=='boolean'||typeof t.version!=='string'||!/^[a-f0-9]{32}$/.test(t.version))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');
+  seen.add(t.id);return{id:t.id,name:t.name,type:t.type,version:t.version,available:t.available};
+ });
+ const initiatives=body.initiatives.map(i=>{if(!brandRecord(i)||['brand','marca'].some(k=>Object.hasOwn(i,k)&&canonicalDataBrand(i[k])!==brand)||!selectedRowField(i.key,'text')||!selectedRowField(i.utm_campaign,'text'))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');return{key:i.key,utm_campaign:i.utm_campaign};});
+ return {brand,current:body.current,lists,templates,initiatives,...(brandDate(body.read_at)?{read_at:body.read_at}:{})};
+}
 // The already admitted crm-sandbox profile speaks the legacy audience API,
 // without the production private bridge's freshness proof. Validate this
 // closed synthetic response locally; it grants no production admission.
@@ -697,6 +711,25 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const campaignCreator=allowCampaignSubmit?auth.campaignCreateFor(campaignTransport):null;
   const campaignDto=(action,key,value)=>({schema:'crm-campaign-bff-operation-v1',action,attemptKey:key,state:value.state,campaign:value.campaign,validation:value.validation??null});
   const campaignStatus=value=>value.state==='pending'?202:value.state==='rejected'?409:200;
+  let simpleCampaignDrafts;
+  const simpleDraftTransport=async(context,{method,command,route='campaigns'})=>{
+    const write=method==='POST'||route==='segments'||command.acao==='campanha_operacao';
+    const before=await auth.verifySimpleDraftBinding(context,{brand:command.brand,write,fetchImpl});
+    const query=method==='GET'?new URLSearchParams(Object.entries(command).map(([k,v])=>[k,String(v)])):new URLSearchParams();
+    const result=await forward({route,method,query,body:method==='POST'?command:undefined,user:before.author,credential:before.credential,upstreams,origin:'https://'+context.host,simpleCampaignDraft:route==='campaigns',simpleAudienceDraft:route==='segments',crmCorporateWriter:simpleCampaignDrafts.descriptor,fetchImpl});
+    const after=await auth.verifySimpleDraftBinding(context,{brand:command.brand,write,fetchImpl});
+    if(before.binding!==after.binding)throw jsonError(403,'CRM_SERVICE_DRAFT_ACCESS_CHANGED');
+    const privacy=JSON.parse(JSON.stringify(result.body));
+    const maskActor=value=>{if(value&&typeof value==='object')for(const [key,child]of Object.entries(value)){if(route==='segments'&&key==='updated_by'&&child==='panel:'+before.credential)value[key]='Equipe CRM';else maskActor(child);}};maskActor(privacy);
+    if(JSON.stringify(privacy).toLowerCase().includes(before.credential.toLowerCase()))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');
+    if(route==='campaigns'&&method==='GET'&&result.status===200){
+      if(command.acao==='campanha_catalogo')return{status:200,body:projectServiceDraftCatalog(result.body,command.brand)};
+      if(command.acao==='campanha_obter'){const campaign=projectCampaignRecord(result.body.campaign,command.brand);if(campaign.id!==Number(command.id))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');return{status:200,body:{campaign}};}
+      if(command.acao==='campanha_listar'){if(!Array.isArray(result.body.campaigns)||result.body.campaigns.length>10000)throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');return{status:200,body:{campaigns:result.body.campaigns.map(c=>projectCampaignRecord(c,command.brand))}};}
+    }
+    return result;
+  };
+  simpleCampaignDrafts=s.simpleReadMode===true&&auth.simpleCampaignDraftFactories?auth.simpleCampaignDraftFactories(simpleDraftTransport):undefined;
   const audienceFeature=ctx=>{
     if(coexistence&&auth.session(ctx).user?.role==='manager'&&s.crmAudienceDraft!==true)return false;
     if(!allowAudienceDraft||!sandbox&&!corporateWriter&&!crmMasterAudienceWrite)return false;
@@ -1163,6 +1196,84 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(!/^[a-z0-9_-]{1,48}$/.test(route))throw jsonError(404,'NOT_FOUND');
         if(req.method==='POST'&&req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
         const body=req.method==='POST'?await readJson(req,route==='campaigns'?MAX_CAMPAIGN_REQUEST:route==='segments'?MAX_AUDIENCE_REQUEST:undefined):undefined;
+        if(simpleReader&&!nativeContext&&route==='segments'&&(req.method==='POST'&&['segmento_criar','segmento_salvar','segmento_arquivar'].includes(body?.acao)||req.method==='GET'&&['segmento_capacidade','segmento_operacao'].includes(url.searchParams.get('acao')))){
+          if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'ARGUMENTS_INVALID');
+          const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields.brand,action=fields.acao;
+          if(action==='segmento_arquivar')throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
+          if(action==='segmento_capacidade'){
+            if(Object.keys(fields).sort().join(',')!=='acao,brand')throw jsonError(400,'ARGUMENTS_INVALID');
+            const catalog=await simpleReader.read({context:ctx,route:'segments',method:'GET',query:new URLSearchParams({acao:'segmentos_listar',brand,limit:'1',offset:'0'}),origin});
+            if(catalog.status!==200)return sendJson(req,res,catalog.status,catalog.body);
+            let draft=false,reason='CRM_SERVICE_DRAFT_UNAVAILABLE';
+            if(simpleCampaignDrafts)try{const context=auth.simpleDraftContext(ctx,{brand}),scope=await simpleDraftTransport(context,{route:'segments',method:'GET',command:{acao:'segmento_contexto_v2',brand}});if(scope.status!==200)throw jsonError(503,'CRM_SERVICE_DRAFT_SOURCE_REFUSED');verifiedAudienceScope(scope.body,brand);draft=catalog.body.catalog.current===true;reason=draft?null:'SEGMENT_UNAVAILABLE';}catch(e){reason=/^[A-Z_]+$/.test(e.code||'')?e.code:reason;}
+            return sendJson(req,res,200,{schema:'crm-local-account-audiences-v1',brand,draft,count:catalog.body.capabilities.count===true,send:false,reason,catalog_hash:catalog.body.catalog.catalog_hash});
+          }
+          if(!simpleCampaignDrafts)throw jsonError(503,'CRM_SERVICE_DRAFT_UNAVAILABLE');
+          const context=auth.simpleDraftContext(ctx,{brand}),writing=req.method==='POST',key=fields.idempotency_key;
+          const decision=decide(route,req.method,url.searchParams,body);if(!['segmento_criar','segmento_salvar','segmento_operacao'].includes(decision.action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
+          const actor=auth.simpleDraftBinding(context,{brand}).author.id,remoteKey=auth.simpleAudienceRemoteKey(context,{brand,key}),remoteBody=writing?{...body,idempotency_key:remoteKey}:null;
+          releaseCacheWork=reserveCampaignWork(actor);
+          let journal=auth.audienceDraft(context,brand);
+          if(writing){
+            if(journal?.operationKey===key){if(journal.action!==action||!auth.audiencePayloadMatches(journal.payloadMac,audiencePayloadHash(remoteBody)))throw jsonError(409,'OPERATION_CHANGED');}
+            else{
+              const scope=await simpleDraftTransport(context,{route:'segments',method:'GET',command:{acao:'segmento_contexto_v2',brand}});
+              if(scope.status!==200)throw jsonError(502,'UPSTREAM_SCOPE_UNCONFIRMED');
+              const sourceActor=verifiedAudienceScope(scope.body,brand);
+              auth.reserveAudienceDraft(context,brand,key,action,audiencePayloadHash(remoteBody),sourceActor,{id:action==='segmento_criar'?null:body.id,expectedVersion:action==='segmento_criar'?null:body.expected_version,definitionSha256:audiencePayloadHash(AudienceContract.normalize(body.definition))});
+              journal=auth.audienceDraft(context,brand);
+              try{await simpleDraftTransport(context,{route:'segments',method:'POST',command:remoteBody});}catch{auth.audienceDraftOutcome(actor,brand,key,action,'uncertain');}
+            }
+          }else if(!journal||journal.operationKey!==key)throw jsonError(404,'OPERATION_NOT_FOUND');
+          let lookup;try{lookup=await simpleDraftTransport(context,{route:'segments',method:'GET',command:{acao:'segmento_operacao',brand,idempotency_key:remoteKey}});}catch(error){if([401,403].includes(error.status))throw error;lookup=null;}
+          if(lookup?.status!==200){if(['pending','uncertain'].includes(journal.phase))auth.audienceDraftOutcome(actor,brand,key,journal.action,'uncertain');return sendJson(req,res,202,{schema:'crm-local-account-audience-operation-v1',brand,attemptKey:key,state:'pending',segment:null});}
+          let verified;
+          try{verified=verifiedAudienceOperation(lookup.body,{brand,key:remoteKey,action:journal.action,requestId:journal.requestId,expectedVersion:journal.expectedVersion,payloadMatches:hash=>auth.audiencePayloadMatches(journal.payloadMac,hash),actorMatches:hash=>auth.audienceActorMatches(journal.actorMac,hash),definitionMatches:hash=>auth.audienceDefinitionMatches(journal.definitionMac,hash)});}
+          catch(error){if(['pending','uncertain'].includes(journal.phase))auth.audienceDraftOutcome(actor,brand,key,journal.action,'uncertain');throw error;}
+          auth.simpleDraftBinding(context,{brand});
+          if(verified.phase==='succeeded'){
+            const credential=auth.simpleDraftBinding(context,{brand}).credential;
+            const check=require('./crm-master-audience-read.cjs').validateAudienceRead({status:200,body:{segment:verified.body.segment}},{brand,action:'segmento_obter',query:new URLSearchParams({id:verified.segmentId}),secrets:[credential]});
+            if(check.status!==200){if(['pending','uncertain'].includes(journal.phase))auth.audienceDraftOutcome(actor,brand,key,journal.action,'uncertain');throw jsonError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');}
+            verified={...verified,body:{...verified.body,segment:publicAudienceBody(check.body).segment}};
+          }
+          auth.audienceDraftOutcome(actor,brand,key,journal.action,verified.phase,{receiptStatus:verified.status,receiptCode:verified.receiptCode,segmentId:verified.segmentId,segmentVersion:verified.segmentVersion});
+          const projected=publicAudienceBody(verified.body),segment=projected.segment||null;
+          return sendJson(req,res,verified.phase==='succeeded'?200:409,{schema:'crm-local-account-audience-operation-v1',brand,attemptKey:key,state:verified.phase,segment,error:verified.receiptCode||null});
+        }
+        if(simpleReader&&!nativeContext&&route==='campaigns'){
+          if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'ARGUMENTS_INVALID');
+          const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields?.brand,action=fields?.acao;
+          if(action==='campanha_capacidade'&&req.method==='GET'){
+            if(Object.keys(fields).sort().join(',')!=='acao,brand')throw jsonError(400,'ARGUMENTS_INVALID');
+            auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand);
+            let available=false,write=false,reason='CRM_SERVICE_DRAFT_UNAVAILABLE';
+            if(simpleCampaignDrafts)try{await auth.verifySimpleDraftBinding(ctx,{brand,write:false,fetchImpl});available=true;try{auth.simpleDraftBinding(ctx,{brand});write=true;}catch{}reason=write?null:'READ_ONLY';}catch(e){reason=/^[A-Z_]+$/.test(e.code||'')?e.code:reason;}
+            return sendJson(req,res,200,{schema:'crm-local-account-drafts-v1',brand,read:available,draft:available&&write,validate:available&&write,send:false,reason,checked_at:new Date().toISOString()});
+          }
+          if(!simpleCampaignDrafts)throw jsonError(503,'CRM_SERVICE_DRAFT_UNAVAILABLE');
+          releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
+          if(req.method==='POST'){
+            if(!['campanha_criar','campanha_salvar','campanha_validar'].includes(action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
+            const context=auth.simpleDraftContext(ctx,{brand});await auth.verifySimpleDraftBinding(context,{brand,fetchImpl});
+            const value=await (action==='campanha_criar'?simpleCampaignDrafts.creator:simpleCampaignDrafts.delivery).submit(context,body);
+            return sendJson(req,res,campaignStatus(value),campaignDto(action,body.idempotency_key,value));
+          }
+          if(action==='campanha_operacao'){
+            if(Object.keys(fields).sort().join(',')!=='acao,brand,idempotency_key,kind'||!['create','delivery'].includes(fields.kind))throw jsonError(400,'ARGUMENTS_INVALID');
+            const context=auth.simpleDraftContext(ctx,{brand}),q={brand,idempotency_key:fields.idempotency_key},adapter=fields.kind==='create'?simpleCampaignDrafts.creator:simpleCampaignDrafts.delivery;
+            const descriptor=adapter.describe(context,q),value=await adapter.reconcile(context,q);return sendJson(req,res,campaignStatus(value),campaignDto(descriptor.action,q.idempotency_key,value));
+          }
+          if(!['campanha_catalogo','campanha_listar','campanha_obter'].includes(action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
+          const result=await simpleDraftTransport(ctx,{method:'GET',command:fields});
+          if(result.status!==200)return sendJson(req,res,result.status>=400&&result.status<=599?result.status:502,{error:'CRM_SERVICE_DRAFT_SOURCE_REFUSED'});
+          if(result.status===200){
+            const data=result.body;if(action==='campanha_catalogo'&&(data.brand!==brand||data.current!==true||!Array.isArray(data.lists)||!Array.isArray(data.templates)||data.lists.some(l=>l.brand!==brand)))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');
+            if(action==='campanha_obter'&&data.campaign?.definition?.brand!==brand)throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');
+            if(action==='campanha_listar'&&(!Array.isArray(data.campaigns)||data.campaigns.some(c=>c.definition?.brand!==brand)))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');
+          }
+          return sendJson(req,res,result.status,result.body);
+        }
         if(simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],origin});return sendJson(req,res,result.status,result.body);}
         const parityAction=req.method==='GET'&&(crmManagedAudienceRead&&Object.hasOwn(AudienceRead.ACTIONS[route]||{},url.searchParams.get('acao'))||crmManagedTemplateRead&&Object.hasOwn(TemplateRead.ACTIONS[route]||{},url.searchParams.get('acao')));
         const parityUser=parityAction?auth.authorize({...ctx,area:'growth',edit:false}):null;

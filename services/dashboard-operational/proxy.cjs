@@ -218,7 +218,7 @@ function validCampaignDefinition(value,brand,{crmCampaignSubmitWrite=false}={}){
   return typeof value.initiative.key==='string'&&value.initiative.key.length>0&&value.initiative.key.length<=100&&
     typeof value.initiative.name==='string'&&value.initiative.name.length>0&&value.initiative.name.length<=160;
 }
-function decide(route,method,query,body,{crmCampaignSubmitWrite=false}={}){
+function decide(route,method,query,body,{crmCampaignSubmitWrite=false,crmCampaignDraftService=false}={}){
   const spec=READ[route];if(!spec)throw new ProxyError(403,'ROUTE_DENIED');
   if(method!==spec.method&&!(method==='POST'&&['campaigns','segments'].includes(route)))throw new ProxyError(403,'METHOD_DENIED');
   if(!(query instanceof URLSearchParams)||query.toString().length>2048)throw new ProxyError(413,'QUERY_TOO_LARGE');
@@ -230,7 +230,7 @@ function decide(route,method,query,body,{crmCampaignSubmitWrite=false}={}){
   const selector=spec.selector,action=selector?fields[selector]:'';
   if(typeof action!=='string'||!Object.hasOwn(spec.actions,action))throw new ProxyError(403,'ACTION_DENIED');
   const policy=spec.actions[action],required=[...(selector?[selector]:[]),...policy.required];
-  if(policy.submitGate&&!crmCampaignSubmitWrite)throw new ProxyError(403,'EDIT_NOT_READY');
+  if(policy.submitGate&&!crmCampaignSubmitWrite&&!(crmCampaignDraftService===true&&route==='campaigns'&&action==='campanha_validar'))throw new ProxyError(403,'EDIT_NOT_READY');
   if(method!==(policy.method||spec.method))throw new ProxyError(403,'METHOD_DENIED');
   const allowed=new Set([...required,...policy.optional,...(method==='POST'?['k']:[])]);
   if(Object.keys(fields).some(k=>!allowed.has(k))||required.some(k=>!Object.hasOwn(fields,k)))throw new ProxyError(403,'FIELD_DENIED');
@@ -408,9 +408,15 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,simpleAudienceRead=false,simpleAudienceCount=false,captureReadDiagnostic=false,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,simpleAudienceRead=false,simpleAudienceCount=false,simpleCampaignDraft=false,simpleAudienceDraft=false,captureReadDiagnostic=false,fetchImpl=fetch}){
   if(require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)&&route==='campaigns'&&user?.role!=='superadmin')throw new ProxyError(403,'EDIT_NOT_READY');
-  const d=decide(route,method,query,body,{crmCampaignSubmitWrite}),target=upstreams[route];
+  const d=decide(route,method,query,body,{crmCampaignSubmitWrite,crmCampaignDraftService:simpleCampaignDraft}),target=upstreams[route];
+  const serviceProfile=require('./crm-manager-runtime.cjs').isServiceDraftDescriptor(crmCorporateWriter);
+  const servicePerson=user?.permissions?.growth?.read===true&&(user.role==='superadmin'||user.simpleRead===true&&user.productFronts?.includes('growth'));
+  const serviceWrite=servicePerson&&(user.role==='superadmin'||user.permissions.growth.edit===true&&user.productWriteFronts?.includes('growth'));
+  const campaignDraftService=simpleCampaignDraft===true&&serviceProfile&&route==='campaigns'&&target?.href===REVIEWED_DYNAMIC.routes.campaigns&&servicePerson&&(method==='GET'?['campanha_catalogo','campanha_listar','campanha_obter'].includes(d.action)||d.action==='campanha_operacao'&&serviceWrite:serviceWrite&&['campanha_salvar','campanha_validar'].includes(d.action)&&(!body.definition||body.definition.send_at===null));
+  const audienceDraftService=simpleAudienceDraft===true&&serviceProfile&&route==='segments'&&target?.href===REVIEWED_DYNAMIC.routes.segments&&serviceWrite&&(method==='GET'?['segmento_contexto_v2','segmento_operacao'].includes(d.action):['segmento_criar','segmento_salvar'].includes(d.action));
+  if(simpleCampaignDraft&&!campaignDraftService||simpleAudienceDraft&&!audienceDraftService)throw new ProxyError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
   const campaignSubmit=crmCampaignSubmitWrite===true&&route==='campaigns'&&(target?.href===SANDBOX_CAMPAIGN_DESTINATION||require('./crm-manager-runtime.cjs').isCampaignWriterDescriptor(crmCorporateWriter)&&target?.href===REVIEWED_DYNAMIC.routes.campaigns);
   if(crmCampaignSubmitWrite&&!campaignSubmit)throw new ProxyError(403,'EDIT_NOT_READY');
   const affiliateEdit=simpleAffiliateEdit===true&&route==='influ'&&['piloto_salvar','piloto_operacao'].includes(d.action)&&target?.href===FIXED_DESTINATIONS.influ&&(user?.role==='superadmin'||(d.action==='piloto_operacao'?user?.productFronts?.includes('afiliados'):user?.productWriteFronts?.includes('afiliados')));
@@ -418,7 +424,7 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   const serviceAudienceRead=simpleAudienceRead===true&&route==='segments'&&method==='GET'&&['segmentos_listar','segmento_obter'].includes(d.action)&&target?.href===REVIEWED_DYNAMIC.routes.segments&&user?.permissions?.growth?.read===true;
   const serviceAudienceCount=simpleAudienceCount===true&&route==='segments'&&method==='POST'&&d.action==='segmento_contar'&&target?.href===REVIEWED_DYNAMIC.routes.segments&&user?.permissions?.growth?.read===true;
   if(simpleAudienceRead&&!serviceAudienceRead||simpleAudienceCount&&!serviceAudienceCount)throw new ProxyError(403,'AUDIENCE_READ_SCOPE_DENIED');
-  if(d.edit&&!affiliateEdit&&!serviceAudienceCount&&!(ownMasterAudienceCount===true&&route==='segments'&&d.action==='segmento_contar')&&!campaignSubmit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
+  if(d.edit&&!affiliateEdit&&!serviceAudienceCount&&!campaignDraftService&&!audienceDraftService&&!(ownMasterAudienceCount===true&&route==='segments'&&d.action==='segmento_contar')&&!campaignSubmit&&!(crmDraftWrite===true&&route==='campaigns'&&['campanha_salvar','campanha_operacao'].includes(d.action))&&!(crmAudienceDraft===true&&route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)))throw new ProxyError(403,'EDIT_NOT_READY');
   if(ownMasterAudienceRead&&(!require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)||user?.role!=='superadmin'||route!=='segments'||method!=='GET'||d.edit||!['segmentos_listar','segmento_obter'].includes(d.action)||target?.href!==REVIEWED_DYNAMIC.routes.segments))throw new ProxyError(403,'MASTER_AUDIENCE_READ_DENIED');
   if(ownMasterAudienceWrite&&(!require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)||user?.role!=='superadmin'||route!=='segments'||target?.href!==REVIEWED_DYNAMIC.routes.segments||!['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao','segmento_contexto_v2'].includes(d.action)||crmAudienceDraft!==true))throw new ProxyError(403,'MASTER_AUDIENCE_WRITE_DENIED');
   if(ownMasterAudienceCount&&(!require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)||user?.role!=='superadmin'||route!=='segments'||method!=='POST'||d.action!=='segmento_contar'||target?.href!==REVIEWED_DYNAMIC.routes.segments))throw new ProxyError(403,'MASTER_AUDIENCE_COUNT_DENIED');
@@ -460,7 +466,7 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
     (!plain(parsed?.campaign)||parsed.campaign.status!=='draft'||parsed.campaign.sent!==0||parsed.campaign.started_at||(campaignSubmit?parsed.campaign.send_at!==(body.definition.send_at??null):parsed.campaign.send_at!==null)||parsed.campaign.definition?.brand!==body.brand))
     throw new ProxyError(502,'UPSTREAM_DRAFT_UNCONFIRMED');
   if(route==='campaigns'&&d.action==='campanha_operacao'&&result.status===200&&!campaignSubmit&&
-    (!plain(parsed?.operation)||parsed.operation.action!=='salvar'||parsed.operation.brand!==query.get('brand')))
+    (!plain(parsed?.operation)||!(campaignDraftService?['salvar','validar']:['salvar']).includes(parsed.operation.action)||parsed.operation.brand!==query.get('brand')))
     throw new ProxyError(502,'UPSTREAM_RECEIPT_UNCONFIRMED');
   // Exact legacy responses distinguish SQL cache refusal from the Node catch.
   // Raw provider messages never enter diagnostic logs.
@@ -469,6 +475,6 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   const safeCodes=new Set(['CACHE_READ_REFUSED','SERVICE_DISABLED','SERVICE_STOPPING','ADMISSION_FULL','QUERY_DEADLINE','SQL_FAILED','DRIVER_FAILED','RESULT_SHAPE_INVALID','RESPONSE_FAILED','HANDLER_FAILED','CACHE_UNAVAILABLE','SQL_503_UNCLASSIFIED']);
   const sourceCode=safeCodes.has(parsed?.error)?parsed.error:safeCodes.has(headerCode)?headerCode:legacyCode;
   const sourceDiagnostic=capture&&result.status!==200?{...diagnostic('source-response',result.status),...(sourceCode?{sourceCode}:{}),...(typeof sqlState==='string'&&/^[A-Z0-9]{5}$/.test(sqlState)?{sqlState}:{}),...(/^[a-f0-9-]{36}$/.test(requestId||'')?{requestId}:{})}:undefined;
-  return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite||ownMasterAudienceCount||ownMasterAudienceContextReview||serviceAudienceRead||serviceAudienceCount?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route}),...(sourceDiagnostic?{sourceDiagnostic}:{})};
+  return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite||ownMasterAudienceCount||ownMasterAudienceContextReview||serviceAudienceRead||serviceAudienceCount||campaignDraftService||audienceDraftService?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route}),...(sourceDiagnostic?{sourceDiagnostic}:{})};
 }
 module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,SANDBOX_CAMPAIGN_DESTINATION,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

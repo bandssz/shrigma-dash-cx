@@ -66,7 +66,10 @@ function audience(value, row, c, reviewOnly = false) {
   // Evaluate freshness at the historical atomic effect, not the poll time.
   return expires - checked === 300000 && (reviewOnly || rechecked >= checked && rechecked < expires && Date.parse(row.send_at) >= rechecked + 15 * 60000);
 }
-function createCampaignDelivery({ db, authorize, transport, now = Date.now, encrypt, decrypt, prepareDefinition, hasOpenCreate = () => false }) {
+function createCampaignDelivery({ db, authorize, transport, now = Date.now, encrypt, decrypt, prepareDefinition, hasOpenCreate = () => false, serviceDraftProfile }) {
+  const draftOnly=serviceDraftProfile!==undefined;
+  if(draftOnly&&!require('./crm-manager-runtime.cjs').isServiceDraftDescriptor(serviceDraftProfile))fail('CAMPAIGN_DELIVERY_CONFIG');
+  const caps=draftOnly?new Set(['read_content','draft','validate']):CAPS;
   try {
     if (!db || typeof db.isTransaction !== 'boolean' || ![authorize, transport, now].every(fn => typeof fn === 'function')) fail('CAMPAIGN_DELIVERY_CONFIG');
     if (db.isTransaction) fail('CAMPAIGN_DELIVERY_TRANSACTION');
@@ -92,7 +95,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
       // Normal Promise/thenable adapters are refused and their rejection observed.
       // Private callbacks are trusted code, not an arbitrary-code sandbox.
       if (a && typeof a.then === 'function') { Promise.resolve(a).catch(() => {}); fail('CAMPAIGN_EDIT_DENIED'); }
-      if (!exact(a, ['userId', 'role', 'slot', 'canEdit', 'credentialMac', 'caps']) || !UUID.test(a.userId || '') || !['manager', 'superadmin'].includes(a.role) || a.slot !== 'growth-campaign' || a.canEdit !== true || !MAC.test(a.credentialMac || '') || !Array.isArray(a.caps) || a.caps.length !== CAPS.size || new Set(a.caps).size !== a.caps.length || !a.caps.every(cap => CAPS.has(cap))) fail('CAMPAIGN_EDIT_DENIED');
+      if (!exact(a, ['userId', 'role', 'slot', 'canEdit', 'credentialMac', 'caps']) || !UUID.test(a.userId || '') || !['manager', 'superadmin'].includes(a.role) || a.slot !== 'growth-campaign' || a.canEdit !== true || !MAC.test(a.credentialMac || '') || !Array.isArray(a.caps) || a.caps.length !== caps.size || new Set(a.caps).size !== a.caps.length || !a.caps.every(cap => caps.has(cap))) fail('CAMPAIGN_EDIT_DENIED');
     } catch { fail('CAMPAIGN_EDIT_DENIED'); }
     return a;
   };
@@ -100,7 +103,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
   const same = (context, row) => { const a = identity(context, row); if (a.userId !== row.user_id || a.credentialMac !== row.credential_mac) fail('CAMPAIGN_EDIT_DENIED'); return a; };
   const select = (context, input) => {
     outside(); selector(input); const a = identity(context, { brand: input.brand, action: 'operacao' });
-    const row = get(a.userId, input.idempotency_key); if (!row || row.brand !== input.brand) fail('CAMPAIGN_DELIVERY_UNKNOWN'); same(context, row); return row;
+    const row = get(a.userId, input.idempotency_key); if (!row || row.brand !== input.brand) fail('CAMPAIGN_DELIVERY_UNKNOWN');if(draftOnly&&!['salvar','validar'].includes(row.action))fail('CAMPAIGN_EDIT_DENIED');same(context, row); return row;
   };
   const definition = row => {
     if(typeof decrypt!=='function')fail('CAMPAIGN_DELIVERY_CONFIG');
@@ -176,7 +179,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
       if(typeof prepareDefinition!=='function')fail('CAMPAIGN_DELIVERY_CONFIG');
       try{savedDefinition=prepareDefinition(definition(row),{catalog:catalog.body,id:row.campaign_id,now:t});if(savedDefinition&&typeof savedDefinition.then==='function'){Promise.resolve(savedDefinition).catch(()=>{});savedDefinition=null;}if(!plain(savedDefinition)||savedDefinition.brand!==row.brand||savedDefinition.send_at!==null&&!date(savedDefinition.send_at))savedDefinition=null;}catch{savedDefinition=null;}
     }
-    const acceptable = c.version === row.expected_version && c.sent === 0 && c.startedAt === null && (['salvar','validar'].includes(row.action) ? c.status === 'draft'&&(row.action!=='salvar'||savedDefinition!==null) : c.sendAt !== null && (row.action === 'agendar' ? c.status === 'draft' && Date.parse(c.sendAt) >= t + 15 * 60000 : c.status === 'scheduled' && Date.parse(c.sendAt) > t));
+    const acceptable = c.version === row.expected_version && c.sent === 0 && c.startedAt === null && (!draftOnly||c.sendAt===null&&(savedDefinition===null||savedDefinition.send_at===null)) && (['salvar','validar'].includes(row.action) ? c.status === 'draft'&&(row.action!=='salvar'||savedDefinition!==null) : c.sendAt !== null && (row.action === 'agendar' ? c.status === 'draft' && Date.parse(c.sendAt) >= t + 15 * 60000 : c.status === 'scheduled' && Date.parse(c.sendAt) > t));
     if (!acceptable) {
       // No POST was attempted: an authoritative preflight can close only queued.
       const closed = atomic(() => { same(context, row); return db.prepare("UPDATE crm_campaign_delivery_v1 SET phase='rejected',updated_at=? WHERE user_id=? AND client_key=? AND phase='queued'").run(t, row.user_id, row.client_key).changes === 1; });
@@ -200,7 +203,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
     const promise = (readOnly ? row.phase === 'rejected' && row.remote_operation_id === null ? Promise.resolve(result('rejected')) : reconcileRow(context, row) : run(context, row)).finally(() => active.delete(key)); active.set(key, promise); return promise;
   }
   async function submit(context, input) {
-    outside(); const q = command(input), a = identity(context, q), fingerprint = sha(q), t = clock();
+    outside(); const q = command(input);if(draftOnly&&(!['campanha_salvar','campanha_validar'].includes(q.acao)||q.acao==='campanha_salvar'&&q.definition.send_at!==null))fail('CAMPAIGN_EDIT_DENIED');const a = identity(context, q), fingerprint = sha(q), t = clock();
     let cipher=null;
     if(q.acao==='campanha_salvar'){
       if(![encrypt,decrypt,prepareDefinition].every(f=>typeof f==='function'))fail('CAMPAIGN_DELIVERY_CONFIG');
