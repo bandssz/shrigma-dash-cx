@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 33671,
-      "sha256": "39e39733bdc6f1de3bdb8a92109b54dab7df36235b4c312427b1e650d4ae7482"
+      "bytes": 35688,
+      "sha256": "cfb02e6e086aa2ef44db7fa17d2e5b911499449a697ee50d11e9e9b6df426c03"
     },
     {
       "path": "afiliados-proprios.js",
@@ -724,6 +724,11 @@
       "sha256": "01d96b6acad50bfb4ba9e12435bac035416a3f1951685382001f2ae7e2a628f1"
     },
     {
+      "path": "tests/production-envelope.test.cjs",
+      "bytes": 1675,
+      "sha256": "fc71481d8142f3e025d34dc12e8a030f105f74391cb9e4a0715aa328cb328467"
+    },
+    {
       "path": "tests/simple-audience-read.test.cjs",
       "bytes": 28193,
       "sha256": "0dabb8b2e4058c7cfc3ac2f2dd4a460626d17d8658b9a8608babdd87866e7999"
@@ -786,7 +791,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2719,
-      "sha256": "c3eeba487dd6418921ed625659ccbc3c8f1c873963a64fb37e8f84f3ba00d109"
+      "sha256": "b86bd56ee6104b47634b665f90cd8833e55ad28bce380688d65feab9390088ea"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -797,6 +802,26 @@
       "path": "tools/panel-build/manifest.json",
       "bytes": 4766,
       "sha256": "5fbff6e8ee80bcbaeaef97ece4f5b2b235be4e5a513b8e55239233c6d5b9561d"
+    },
+    {
+      "path": "tools/production-release/build-envelope.cjs",
+      "bytes": 2353,
+      "sha256": "a7bb5c128677b04a3f0755692ad36aaf6f21df4cd9ad625826bfbef09d0d5fcc"
+    },
+    {
+      "path": "tools/production-release/launcher.cjs",
+      "bytes": 2603,
+      "sha256": "2b4afa76b605ff5e06c47c2e97ed5bcce23cdfe7a0a3f028394724ad8b42c377"
+    },
+    {
+      "path": "tools/production-release/production-request.json",
+      "bytes": 62,
+      "sha256": "47aa49eea1fe4151d2cb16cd1685d151f5d8fa61c6a824f3166b1dcddaa9d182"
+    },
+    {
+      "path": "tools/production-release/publish-ci.cjs",
+      "bytes": 7568,
+      "sha256": "2a35ca797f227ace4ca842b130aabfcdffd0ef81e2fb60370003c1dd33cd264c"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
