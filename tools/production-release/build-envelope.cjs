@@ -12,7 +12,7 @@ function build({artifactImage,tag,directory,pull=true}){
  require('./launcher.cjs').validate(contract,bytes);
  fs.mkdirSync(directory,{mode:0o700});fs.copyFileSync(path.join(__dirname,'launcher.cjs'),path.join(directory,'launcher.cjs'));
  fs.writeFileSync(path.join(directory,'contract.json'),JSON.stringify(contract)+'\n',{mode:0o600});
- fs.writeFileSync(path.join(directory,'Dockerfile'),'ARG ARTIFACT_IMAGE\nFROM ${ARTIFACT_IMAGE}\nUSER 0:0\nCOPY --chmod=0444 launcher.cjs /app/shrigma-production-launcher.cjs\nCOPY --chmod=0444 contract.json /app/shrigma-production.json\nUSER 1000:1000\n');
+ fs.writeFileSync(path.join(directory,'Dockerfile'),'ARG ARTIFACT_IMAGE\nFROM ${ARTIFACT_IMAGE}\nUSER 0:0\nCOPY launcher.cjs /app/shrigma-production-launcher.cjs\nCOPY contract.json /app/shrigma-production.json\nRUN chmod 0444 /app/shrigma-production-launcher.cjs /app/shrigma-production.json\nUSER 1000:1000\n');
  docker(['build','--platform','linux/amd64','--build-arg','ARTIFACT_IMAGE='+artifactImage,'--tag',tag,directory]);
  const verified=JSON.parse(docker(['run','--rm','--platform','linux/amd64','--network','none','--read-only','--user','1000:1000','--entrypoint','node',tag,'/app/shrigma-production-launcher.cjs','verify']).trim());
  if(verified.verified!==true||verified.artifactImage!==artifactImage||verified.manifestSha256!==contract.manifestSha256)throw Error('ENVELOPE_VERIFY_REFUSED');

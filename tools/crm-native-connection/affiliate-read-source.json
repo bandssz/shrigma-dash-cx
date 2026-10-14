@@ -791,7 +791,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2719,
-      "sha256": "b86bd56ee6104b47634b665f90cd8833e55ad28bce380688d65feab9390088ea"
+      "sha256": "7900e190336bd2b29444ed035f2379daf225d3b723a2f79343f405f46614da93"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -805,8 +805,13 @@
     },
     {
       "path": "tools/production-release/build-envelope.cjs",
-      "bytes": 2446,
-      "sha256": "0a78cdaf4307d958242332cdc8277859495fcb531c38e5da236730bf35b7e4dd"
+      "bytes": 2502,
+      "sha256": "e7814ad6a3c46db15eb431d5d573f02b4daa549b4ffe62845c2109bbe5562816"
+    },
+    {
+      "path": "tools/production-release/envelope-smoke.cjs",
+      "bytes": 5592,
+      "sha256": "48f59a4e18ddcb40d85f3cede01d775efb89276d87936ea6a0e5622537cb24c5"
     },
     {
       "path": "tools/production-release/launcher.cjs",
@@ -820,8 +825,8 @@
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 8391,
-      "sha256": "2da8bffda70ab0888d5ebbda1f7cbfa1e52a1eb734ff7ee7b25abccb49700da5"
+      "bytes": 8820,
+      "sha256": "e2792c0a5736fa1a6219720c568aa5a7bde5ee35700fe9310e7c001181be2a5d"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
