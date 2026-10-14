@@ -47,3 +47,30 @@ test('CRM home daily health requires exact date coverage, unique rows and finite
 test('CRM home validates calendar bounds and only shows original scheduled campaigns of the selected brand',()=>{
  const H=require(runtime+'/public/crm-preview/home.js');for(const [start,end] of [['2026-02-31','2026-03-02'],['2026-13-01','2026-13-02'],['2026-10-14','2026-10-13'],['2020-01-01','2026-10-14']])a.equal(H.dates(start,end).length,0);const r=H.summarize({crm_campanha:[{marca:'fish',nome:'Scheduled',status:'scheduled',agendado_em:STAMP},{marca:'aristo',status:'scheduled',agendado_em:STAMP},{marca:'fish',status:'draft',agendado_em:STAMP}]},'fish','2026-10-14','2026-10-14');a.equal(r.next.length,1);a.equal(r.next[0].nome,'Scheduled');
 });
+test('CRM daily totals ignore overlapping rolling snapshots and retain unknown delivery counts',()=>{
+ const H=require(runtime+'/public/crm-preview/home.js'),row={marca:'fish',dia:'2026-10-14',canal:'email',janela:'1d',enviados:12,entregues:null,abriram:5,clicaram:2,hard:1,complaints:0,descadastros:1};
+ const data={crm_diario:[row,{...row,janela:'7d',enviados:999},{...row,janela:'30d',enviados:9999},{...row,marca:'aristo',enviados:500}]};
+ const r=H.summarize(data,'fish','2026-10-14','2026-10-14');a.equal(r.sent,12);a.equal(r.delivered,null);a.equal(r.openRate,null);a.equal(r.complaints,0);
+ data.crm_diario.push({...row});a.equal(H.summarize(data,'fish','2026-10-14','2026-10-14').sent,null);
+ data.crm_diario=data.crm_diario.filter(x=>x.janela!=='1d');a.equal(H.summarize(data,'fish','2026-10-14','2026-10-14').sent,null);
+});
+test('CRM exposes known partial revenue and independent order counts without inventing missing money',()=>{
+ const H=require(runtime+'/public/crm-preview/home.js'),row={marca:'fish',dia:'2026-10-14',model:'last_click',grain:'channel',dimension:['email'],receita:null,pedidos:2};
+ const data={crm_attribution:{schema_version:2,coverage:[{brand:'fish',day:'2026-10-13',checked_at:STAMP},{brand:'fish',day:'2026-10-14',checked_at:STAMP}],daily:[{...row,dia:'2026-10-13',receita:100,pedidos:1},row,{...row,marca:'aristo',receita:9000}]}};
+ const r=H.summarize(data,'fish','2026-10-13','2026-10-14');a.equal(r.revenue,null);a.equal(r.knownRevenue,100);a.equal(r.attributionPartial,true);a.equal(r.orders,3);
+ data.crm_attribution.coverage=[];a.equal(H.summarize(data,'fish','2026-10-13','2026-10-14').knownRevenue,null);
+});
+test('CRM last available window is scoped to actual daily data and never rolls forward from another brand',()=>{
+ const H=require(runtime+'/public/crm-preview/home.js'),data={crm_diario:[{marca:'fish',dia:'2026-09-30',canal:'email',janela:'1d',enviados:10},{marca:'aristo',dia:'2026-10-14',canal:'email',janela:'1d',enviados:20}]};
+ a.deepEqual(H.availableWindow(data,'fish','2026-10-08','2026-10-14'),{start:'2026-09-24',end:'2026-09-30'});
+ a.equal(H.availableWindow(data,'aristo','2026-10-08','2026-10-14'),null);a.equal(H.availableWindow({},'fish','2026-10-08','2026-10-14'),null);
+});
+test('Organic last available window uses brand publication dates, excludes paid posts and preserves period length',()=>{
+ const W=require(runtime+'/public/read-workspace.js'),rows=[{marca:'fish',publicado_em:'2026-09-30T15:00:00Z',impulsionado:false},{marca:'fish',publicado_em:'2026-10-14T15:00:00Z',impulsionado:true},{marca:'aristo',publicado_em:'2026-10-14T15:00:00Z',impulsionado:false}];
+ a.deepEqual(W.availablePostWindow(rows,'fish','2026-10-08','2026-10-14'),{ini:'2026-09-24',fim:'2026-09-30'});a.equal(W.availablePostWindow(rows,'aristo','2026-10-08','2026-10-14'),null);a.equal(W.availablePostWindow([],'fish','2026-10-08','2026-10-14'),null);
+});
+test('Organic old posts cannot displace current stories or sales from the initial overview',()=>{
+ const W=require(runtime+'/public/read-workspace.js'),data={cx_post:[{marca:'fish',publicado_em:'2026-09-30T15:00:00Z'}],cx_story:[{marca:'fish',publicado_em:'2026-10-14T15:00:00Z'}],cx_organico_receita:[{marca:'fish',dia:'2026-10-13'}]};
+ for(const view of ['overview','stories','sales'])a.equal(W.availableOrganicWindow(data,'fish','2026-10-08','2026-10-14',view),null);
+ a.deepEqual(W.availableOrganicWindow(data,'fish','2026-10-08','2026-10-14','posts'),{ini:'2026-09-24',fim:'2026-09-30'});
+});

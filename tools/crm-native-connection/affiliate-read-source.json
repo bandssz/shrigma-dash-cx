@@ -415,8 +415,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 23495,
-      "sha256": "6f745ce23681a76ec675ae6859a66a357607f90bc162e19fb3dab5bf58916e18"
+      "bytes": 24239,
+      "sha256": "1b67f7677a6fa11a02e1462e5942e1ba69cef3b55456af41a8390a045328bdb3"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -425,8 +425,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
-      "bytes": 2823,
-      "sha256": "abac152d774df2704bba5f3844e35796dea2e7fbc3c63a226edd89dc908b1a9e"
+      "bytes": 4179,
+      "sha256": "d2ebfa12a5ffdbd43d11cf19b0a10dfed554def8b5ab2e2c964419fdf4c66079"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
@@ -475,8 +475,8 @@
     },
     {
       "path": "services/dashboard-operational/public/influs-workspace/app.js",
-      "bytes": 6746,
-      "sha256": "104081c2e8ee4868eef8979587ba53dd83a197f58ad93d0e17f94bffaf00172a"
+      "bytes": 6928,
+      "sha256": "547b89cdb49ce1155e44e98a9363ca5a789de09d5d416e8c7e19c0becc0c3e79"
     },
     {
       "path": "services/dashboard-operational/public/influs-workspace/index.html",
@@ -510,13 +510,13 @@
     },
     {
       "path": "services/dashboard-operational/public/read-workspace.js",
-      "bytes": 11485,
-      "sha256": "2df10b9b76f17e5cbb4ab03130e83d4fc5566de6e81f0d997819fd60c6d9286b"
+      "bytes": 12998,
+      "sha256": "798b210416d61cd689c347a6fb080cc5dc8f8ab6d6ad42b440c74a2e22239457"
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 201238,
-      "sha256": "38cb44d4115f7dd89922735e7b6475548aa95868cfc9bdfd9432495343aff972"
+      "bytes": 201282,
+      "sha256": "5506e47c10d6ca4e27527035a9fafaefb310fd8a2585e7a4c1e6ad2cdd85d482"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-tests.cjs",
@@ -865,8 +865,8 @@
     },
     {
       "path": "tests/simple-tabler-read.test.cjs",
-      "bytes": 12171,
-      "sha256": "2188c4ac83c4f8acb96e1f87ebf0d840baa1d1dfc46530d763283150d4fa4582"
+      "bytes": 15675,
+      "sha256": "66aab49dfbc7c39c149a07f6684eaaf6cbe5aabdb4111e4a8f674e4e1a9681da"
     },
     {
       "path": "tests/simple-tts-manual.test.cjs",

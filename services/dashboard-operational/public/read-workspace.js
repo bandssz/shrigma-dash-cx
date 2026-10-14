@@ -15,6 +15,17 @@
   const cards = values => '<div class="row row-cards mb-4">'+values.map(([label,value,format,detail])=>'<div class="col-6 col-lg-3"><div class="card"><div class="card-body"><div class="subheader mb-2">'+esc(label)+(detail?' '+chip('ⓘ',detail):'')+'</div><div class="h1 mb-0 metric-value">'+format(value)+'</div></div></div></div>').join('')+'</div>';
   const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && date(value+'T12:00:00Z') === value;
   const addDays = (value, days) => new Date(Date.parse(value+'T12:00:00Z') + days*86400000).toISOString().slice(0,10);
+  function availablePostWindow(rows,brand,ini,fim){
+    if(!validDate(ini)||!validDate(fim)||ini>fim)return null;
+    const days=(rows||[]).filter(r=>canonical(r.marca)===brand&&!r.impulsionado).map(r=>date(r.publicado_em)).filter(validDate);
+    if(!days.length||days.some(d=>d>=ini&&d<=fim))return null;
+    const end=days.sort().at(-1),span=Math.round((Date.parse(fim)-Date.parse(ini))/86400000);
+    return {ini:addDays(end,-span),fim:end};
+  }
+  function availableOrganicWindow(data,brand,ini,fim,view='overview'){
+    const rows=view==='posts'?data.cx_post||[]:view==='stories'?data.cx_story||[]:view==='sales'?data.cx_organico_receita||[]:[...(data.cx_post||[]),...(data.cx_story||[]),...(data.cx_organico_receita||[])];
+    return availablePostWindow(rows.map(r=>({...r,publicado_em:r.publicado_em||r.dia})),brand,ini,fim);
+  }
   function mount(config) {
     const el = id => document.getElementById(id), q = new URLSearchParams(location.search);
     const state = {brand:q.get('brand') || 'fish', view:Object.hasOwn(config.views,q.get('view'))?q.get('view'):'overview', data:null, ticket:0, charts:[], ini:'', fim:''};
@@ -53,12 +64,16 @@
         if(ticket!==state.ticket||controller.signal.aborted)return;
         const after=await session();if(ticket!==state.ticket||brand!==state.brand||ini!==state.ini||fim!==state.fim||before.user.id!==after.user.id||!brands(after).includes(brand))return;
         if(data.brand&&canonical(data.brand)!==brand||config.required.some(key=>!Array.isArray(data[key])))throw Object.assign(Error(),{code:'SOURCE_CONTRACT_INVALID'});
-        state.data=data;el('source-time').textContent='Preparado '+when(data.gerado_em||data._cache_gerado_em);
+        state.data=data;let lastWindow=null;
+        if(config.front==='organico')lastWindow=availableOrganicWindow(data,brand,ini,fim,state.view);
+        if(lastWindow){state.ini=lastWindow.ini;state.fim=lastWindow.fim;el('d-ini').value=state.ini;el('d-fim').value=state.fim;}
+        el('source-time').textContent='Preparado '+when(data.gerado_em||data._cache_gerado_em);
         const latest=rows=>{const dates=(rows||[]).flatMap(r=>[r.ultima_coleta,r.coletado_em]).filter(v=>v&&Number.isFinite(Date.parse(v)));return dates.length?dates.sort((a,b)=>Date.parse(b)-Date.parse(a))[0]:null;};
-        el('freshness-note').textContent=config.front==='influs'?'Coleta dos pedidos '+when(data.coleta?.[brand]):'Registros de posts até '+when(latest(data.cx_post))+' · Stories até '+when(latest(data.cx_story));
-        el('window').textContent=new Date(ini+'T12:00:00Z').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})+' — '+new Date(fim+'T12:00:00Z').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'});
+        const lastPost=(data.cx_post||[]).filter(r=>canonical(r.marca)===brand&&r.publicado_em).map(r=>r.publicado_em).sort((a,b)=>Date.parse(b)-Date.parse(a))[0];
+        el('freshness-note').textContent=config.front==='influs'?'Coleta dos pedidos '+when(data.coleta?.[brand]):'Última publicação '+when(lastPost)+' · Coleta dos posts '+when(latest(data.cx_post))+' · Stories até '+when(latest(data.cx_story));
+        el('window').textContent=new Date(state.ini+'T12:00:00Z').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})+' — '+new Date(state.fim+'T12:00:00Z').toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'});
         const labels={roi:'Resultados',custos:'Custos',termos:'Termos',saude:'Saúde das fontes',clientes:'Clientes agregados',conciliacao:'Conciliação',cx_post:'Posts',cx_story:'Stories',cx_post_midia:'Prévias',coleta:'Frescor'};
-        const issues=[...new Set((data.read_issues||[]).map(r=>labels[r.section]||'Atribuição e cobertura'))];el('fallback').textContent=issues.length?'Leitura parcial. Dados indisponíveis: '+issues.join(', ')+'.':'';el('fallback').classList.toggle('d-none',!issues.length);
+        const issues=[...new Set((data.read_issues||[]).map(r=>labels[r.section]||'Atribuição e cobertura'))];el('fallback').textContent=(lastWindow?'Sem registros no período solicitado para esta visão. Exibindo a última janela disponível: '+state.ini+' a '+state.fim+'. ':'')+(issues.length?'Leitura parcial. Dados indisponíveis: '+issues.join(', ')+'.':'');el('fallback').classList.toggle('d-none',!issues.length&&!lastWindow);
         el('read-at').textContent='Consulta '+when(new Date().toISOString());persist();render();
       } catch(error) {
         if(ticket!==state.ticket)return;state.data=null;clear();el('source-time').textContent='Dados indisponíveis';el('freshness-note').textContent='';
@@ -74,6 +89,6 @@
     (async()=>{try{const s=await session(),allowed=brands(s);if(!allowed.length)throw Object.assign(Error(),{code:'BRAND_DATA_UNAVAILABLE'});for(const option of [...el('brand').options])if(!allowed.includes(option.value))option.remove();el('brand').disabled=allowed.length===1;el('brand').value=allowed.includes(state.brand)?state.brand:allowed[0];chooseBrand();const last=date(new Date());el('d-fim').value=validDate(q.get('fim'))?q.get('fim'):last;el('d-ini').value=validDate(q.get('ini'))?q.get('ini'):addDays(last,-29);state.ini=el('d-ini').value;state.fim=el('d-fim').value;view(state.view);await load();}catch(error){el('error').textContent='Esta frente não está disponível para o seu acesso.';el('error').classList.remove('d-none');}})();
     return {state,load,render,view};
   }
-  const W={number,esc,brl,integer,percent,canonical,date,when,sum,chip,table,card,cards,validDate,addDays,mount};
+  const W={number,esc,brl,integer,percent,canonical,date,when,sum,chip,table,card,cards,validDate,addDays,availablePostWindow,availableOrganicWindow,mount};
   if(typeof module!=='undefined')module.exports=W;else root.ShrigmaReadWorkspace=W;
 })(typeof window!=='undefined'?window:globalThis);
