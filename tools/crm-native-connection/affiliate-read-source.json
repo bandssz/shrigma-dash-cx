@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 35688,
-      "sha256": "cfb02e6e086aa2ef44db7fa17d2e5b911499449a697ee50d11e9e9b6df426c03"
+      "bytes": 35776,
+      "sha256": "0d9fed80de94f2ed47580fca5091e7e49f44fdd436f08c41ed07313e23d6b8c8"
     },
     {
       "path": "afiliados-proprios.js",
@@ -805,8 +805,8 @@
     },
     {
       "path": "tools/production-release/build-envelope.cjs",
-      "bytes": 2353,
-      "sha256": "a7bb5c128677b04a3f0755692ad36aaf6f21df4cd9ad625826bfbef09d0d5fcc"
+      "bytes": 2446,
+      "sha256": "0a78cdaf4307d958242332cdc8277859495fcb531c38e5da236730bf35b7e4dd"
     },
     {
       "path": "tools/production-release/launcher.cjs",
@@ -820,8 +820,8 @@
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 7568,
-      "sha256": "2a35ca797f227ace4ca842b130aabfcdffd0ef81e2fb60370003c1dd33cd264c"
+      "bytes": 8391,
+      "sha256": "2da8bffda70ab0888d5ebbda1f7cbfa1e52a1eb734ff7ee7b25abccb49700da5"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",

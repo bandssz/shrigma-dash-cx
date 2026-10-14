@@ -1,10 +1,11 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process');
 const IMAGE='ghcr.io/bandssz/shrigma-dash-native-connection';
+const DIGEST_RE=/^ghcr\.io\/bandssz\/shrigma-dash-native-connection@sha256:[a-f0-9]{64}$/;
 const docker=(args,options={})=>execFileSync(process.env.SHRIGMA_DOCKER_BINARY||'docker',args,{encoding:'utf8',maxBuffer:20*1024*1024,...options});
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 function build({artifactImage,tag,directory,pull=true}){
- if(!new RegExp('^'+IMAGE+'@sha256:[a-f0-9]{64}$').test(artifactImage)||!new RegExp('^'+IMAGE+':(?:envelope|rollback)-[a-f0-9]{40,64}$').test(tag))throw Error('ENVELOPE_TARGET_REFUSED');
+ if(!DIGEST_RE.test(artifactImage)||!/^ghcr\.io\/bandssz\/shrigma-dash-native-connection:(?:envelope|rollback)-[a-f0-9]{40,64}$/.test(tag))throw Error('ENVELOPE_TARGET_REFUSED');
  if(pull)docker(['pull','--platform','linux/amd64',artifactImage]);
  const bytes=docker(['run','--rm','--platform','linux/amd64','--network','none','--read-only','--user','1000:1000','--entrypoint','node',artifactImage,'-e',"process.stdout.write(require('fs').readFileSync('/app/native-backend/manifest.json'))"]);
  const m=JSON.parse(bytes),contract={schema:'shrigma-production-envelope-v1',artifactImage,manifestSha256:sha(bytes),presentationManifestSha256:m.presentationManifestSha256,sourceRevision:m.sourceRevision};
@@ -17,4 +18,4 @@ function build({artifactImage,tag,directory,pull=true}){
  if(verified.verified!==true||verified.artifactImage!==artifactImage||verified.manifestSha256!==contract.manifestSha256)throw Error('ENVELOPE_VERIFY_REFUSED');
  return {...contract,tag,launcherSha256:sha(fs.readFileSync(path.join(__dirname,'launcher.cjs')))};
 }
-module.exports={IMAGE,docker,build};
+module.exports={IMAGE,DIGEST_RE,docker,build};
