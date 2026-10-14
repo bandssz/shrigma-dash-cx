@@ -77,7 +77,7 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false,affiliateReadEnabled=false,publicReadKeyInstallEnabled=false,dashboardReadSummary,affiliateServiceRead,affiliateServiceAvailability}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false,affiliateReadEnabled=false,publicReadKeyInstallEnabled=false,dashboardReadSummary,affiliateServiceRead,affiliateServiceAvailability,journeyTestAvailability}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
  const serviceAffiliateRead=typeof affiliateServiceRead==='function';
@@ -127,8 +127,9 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
    const schedulerStateReceipt=schedulerStateEnabled&&state.status===200&&state.body?.features?.nativeSchedulerState===true?await run('GET','/api/scheduler-state-receipt'):undefined;
    const affiliateAvailability=[];if((serviceAffiliateRead||affiliateReadEnabled&&auth.affiliateNativeConsent)&&state.status===200){for(const brand of store.authenticate(bearer).brands){try{affiliateAvailability.push(serviceAffiliateRead&&typeof affiliateServiceAvailability==='function'?await affiliateServiceAvailability(context,brand):await run('GET','/api/native/affiliate-status?'+new URLSearchParams({brand})));}catch(e){affiliateAvailability.push({status:e.status||503,body:{brand,error:'AFFILIATE_AVAILABILITY_UNCONFIRMED'}});}}}
    const dashboardSources=state.status===200&&state.body?.user?.role==='superadmin'&&typeof dashboardReadSummary==='function'?await dashboardReadSummary(context,[...store.authenticate(bearer).brands]):undefined;
+   const internalJourneyTest=state.status===200&&state.body?.user?.role==='superadmin'&&typeof journeyTestAvailability==='function'?await journeyTestAvailability(context,[...store.authenticate(bearer).brands]):undefined;
    store.authenticate(bearer,{scope:'crm.read'});
-   result={status:state.status,body:{...(dashboardSources?{dashboardSources}:{}),...(serviceAffiliateRead||affiliateReadEnabled?{affiliateAvailability}:{}),...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
+   result={status:state.status,body:{...(internalJourneyTest?{internalJourneyTest}:{}),...(dashboardSources?{dashboardSources}:{}),...(serviceAffiliateRead||affiliateReadEnabled?{affiliateAvailability}:{}),...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
   }else if(name==='affiliate_read'){
    // Simple login uses the already admitted service READ key. The callback
    // requires the actual Master and rechecks front/brand through simpleReader.

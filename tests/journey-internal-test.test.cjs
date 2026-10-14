@@ -125,25 +125,39 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
  const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
  const {createAuth}=require(runtime+'/auth.cjs'),{createServer}=require(runtime+'/server.cjs');
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'journey-internal-http-')),host='gerencial.synthetic.invalid',origin='https://'+host,password='synthetic-internal-test-password',boot='synthetic-bootstrap',sends=[];
- const options={dbPath:path.join(dir,'test.sqlite'),managerHost:host,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influ.synthetic.invalid'},allowedEmailDomains:['shrigma.com.br'],bootstrapAdminEmail:'synthetic-test-never-deliver@shrigma.com.br',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,3),simpleReadMode:true,journeyTestTransport:{getBinding:brand=>({purpose:'crm.journey-internal-test',brand,active:true,txSend:true,revision:'synthetic-test',templateId:1}),send:async args=>{a.equal(args.preSend(),true);sends.push(args);return {state:'accepted'};}}};
+ const options={dbPath:path.join(dir,'test.sqlite'),managerHost:host,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influ.synthetic.invalid'},allowedEmailDomains:['shrigma.com.br'],bootstrapAdminEmail:'synthetic-test-never-deliver@shrigma.com.br',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,3),simpleReadMode:true,crmNativeEnabled:true,journeyTestTransport:{getBinding:brand=>brand==='aristo'?{purpose:'crm.journey-internal-test',brand,active:true,txSend:true,revision:'synthetic-test',templateId:1}:null,send:async args=>{a.equal(args.preSend(),true);sends.push(args);return {state:'accepted'};}}};
  const auth=createAuth(options);await auth.completeBootstrap({email:options.bootstrapAdminEmail,token:boot,password,host,origin});
  const login=await auth.login({email:options.bootstrapAdminEmail,password,host,origin}),cookie=login.cookie.split(';')[0],context={host,origin,method:'POST',cookieHeader:cookie,csrf:login.csrf};
  const app=createServer({...options,mode:'demo',publicDir:path.join(runtime,'public')},{auth});
  t.after(()=>{app.removeAllListeners();auth.close();fs.rmSync(dir,{recursive:true,force:true});});
- async function request(method,url,body,csrf=login.csrf,sessionCookie=cookie){
-  const req=Readable.from(body===undefined?[]:[Buffer.from(JSON.stringify(body))]);Object.assign(req,{method,url,headers:{host,origin,cookie:sessionCookie,...(body?{'content-type':'application/json'}:{}),...(csrf?{'x-csrf-token':csrf}:{})},socket:{remoteAddress:'synthetic'}});
+ async function request(method,url,body,csrf=login.csrf,sessionCookie=cookie,bearer){
+  const req=Readable.from(body===undefined?[]:[Buffer.from(JSON.stringify(body))]);Object.assign(req,{method,url,headers:{host,origin,cookie:sessionCookie,...(bearer?{authorization:'Bearer '+bearer,accept:'application/json, text/event-stream'}:{}),...(body?{'content-type':'application/json'}:{}),...(csrf?{'x-csrf-token':csrf}:{})},socket:{remoteAddress:'synthetic'}});
   const chunks=[],res=new Writable({write(c,e,cb){chunks.push(c);cb();}});res.statusCode=200;res.setHeader=()=>{};res.getHeader=()=>undefined;const done=new Promise(r=>res.once('finish',r));app.emit('request',req,res);await done;return {status:res.statusCode,body:JSON.parse(Buffer.concat(chunks).toString())};
  }
  const draft=engine.createDraft({brand:'aristo',id:'synthetic-http-draft'});draft.steps[0].waitMinutes=0;const store={schema:engine.SCHEMA,drafts:[draft],runs:[]};
+ // Exercise the exact compiled guard shipped to the browser, connected to
+ // the real cookie/CSRF handler. A transport-only test misses route denial.
+ const vm=require('node:vm'),{parseHTML}=require('linkedom'),dom=parseHTML('<html><body><div id="seg-marca"><button class="ativo" data-marca="aristo">Aristo</button></div></body></html>'),guardCalls=[];
+ const window={dispatchEvent(){},parent:null,fetch:async(input,init={})=>{const url=new URL(String(input),origin);const result=await request(init.method||'GET',url.pathname+url.search,init.body?JSON.parse(init.body):undefined,new Headers(init.headers).get('X-CSRF-Token')||'');guardCalls.push({path:url.pathname,method:init.method||'GET'});return new Response(JSON.stringify(result.body),{status:result.status,headers:{'Content-Type':'application/json'}});}};window.parent=window;
+ vm.runInNewContext(fs.readFileSync(path.join(runtime,'public/guard.compiled.js'),'utf8'),{window,document:dom.document,location:{origin,href:origin+'/app/crm/'},navigator:{},URL,URLSearchParams,Headers,Response,Request,FormData,CustomEvent:dom.window.CustomEvent,HTMLFormElement:dom.window.HTMLFormElement});
+ a.equal((await window.fetch('/api/journey-test?brand=aristo')).status,200);
  a.equal((await request('POST','/api/journey-lab',{brand:'aristo',expected_revision:0,store})).status,200);
  const body={action:'start',brand:'aristo',draftId:draft.id,version:1,requestId:id};
  a.equal((await request('POST','/api/journey-test',body,'')).status,403);
  a.equal((await request('POST','/api/journey-test',{...body,recipient:'customer@external.invalid'})).status,400);
- a.equal((await request('POST','/api/journey-test',body)).status,201);
+ a.equal((await window.fetch('/api/journey-test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).status,201);
+ a.equal(guardCalls.filter(c=>c.path==='/api/journey-test'&&c.method==='POST').length,1);
  a.equal((await request('POST','/api/journey-test',{action:'control',brand:'aristo',requestId:id,paused:true})).status,200);
  await auth.simpleAccounts.journeyTest.tick();a.equal(sends.length,0);
  await request('POST','/api/journey-test',{action:'control',brand:'aristo',requestId:id,paused:false});await auth.simpleAccounts.journeyTest.tick();await auth.simpleAccounts.journeyTest.tick();a.equal(sends.length,1);
  const status=await request('GET','/api/journey-test?brand=aristo');a.equal(status.status,200);a.equal(status.body.tests[0].status,'finished');a.equal(status.body.tests[0].accepted,1);a.equal(status.body.tests[0].delivered,null);a(!JSON.stringify(status.body).includes(options.bootstrapAdminEmail));
+ const delegation=auth.nativeConnections.issue({context,brands:['aristo'],scopes:['crm.read'],expiresDays:1}),before=sends.length;
+ const native=await request('POST','/api/native/mcp',{jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'crm_status',arguments:{}}},'', '',delegation.token);
+ a.equal(native.status,200);const availability=native.body.result.structuredContent.body.internalJourneyTest;
+ a.equal(availability.length,1);a.equal(availability[0].brand,'aristo');a.equal(availability[0].available,true);a.equal(availability[0].readOnly,true);a.equal(sends.length,before);a(!JSON.stringify(native.body).includes(options.bootstrapAdminEmail));
+ const fishDelegation=auth.nativeConnections.issue({context,brands:['fish'],scopes:['crm.read'],expiresDays:1});
+ const noBinding=await request('POST','/api/native/mcp',{jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'crm_status',arguments:{}}},'', '',fishDelegation.token);
+ a.equal(noBinding.body.result.structuredContent.body.internalJourneyTest[0].error,'TEST_TX_BINDING_REQUIRED');a.equal(sends.length,before);
  const row=await auth.simpleAccounts.create({context,email:'synthetic-reader-never-deliver@shrigma.com.br',password,jobTitle:'gestor de CRM',fronts:['growth'],brands:['aristo']});
  const readLogin=await auth.login({email:row.user.email,password,host,origin}),readCookie=readLogin.cookie.split(';')[0];
  a.equal((await request('GET','/api/journey-test?brand=fish',undefined,readLogin.csrf,readCookie)).status,403);
