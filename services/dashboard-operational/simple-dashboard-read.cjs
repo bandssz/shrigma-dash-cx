@@ -378,4 +378,17 @@ function createAffiliateEditor({auth,upstreams,readKey,writeKey,otherReadKeys=[]
  }
  return Object.freeze({availability,edit,operation});
 }
-module.exports={createPublicReadKeyInstaller,readPublicReadKey,PUBLIC_READ_PURPOSE,PUBLIC_READ_LABEL,createReader,sourceKeysFromEnv,createAffiliateEditor,affiliateWriteKeyFromEnv};
+function projectCrmHome(body){
+ if(!body||!['fish','aristo'].includes(body.brand)||!Array.isArray(body.brands)||body.brands.length!==1||body.brands[0]!==body.brand)fail('CRM_HOME_SCOPE_UNCONFIRMED',502);
+ const brand=body.brand,fields=(row,names)=>Object.fromEntries(names.filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));
+ const scoped=rows=>Array.isArray(rows)?rows.filter(r=>r&&r.marca===brand):[];
+ const a=body.crm_attribution||{},daily=scoped(a.daily).filter(r=>r.model==='last_click'&&r.grain==='channel'&&Array.isArray(r.dimension)&&r.dimension[0]==='email');
+ const sourceDaily=scoped(body.crm_diario).filter(r=>r.canal==='email'),hasWindow=sourceDaily.some(r=>r.janela!==undefined);
+ return {contract:'shrigma-crm-home-read-v1',brand,brands:[brand],gerado_em:body.gerado_em,_cache_gerado_em:body._cache_gerado_em,
+  crm_diario:sourceDaily.filter(r=>!hasWindow||r.janela==='1d').map(r=>fields(r,['marca','dia','canal','janela','enviados','entregues','abriram','clicaram','hard','complaints','descadastros','coletado_em'])),
+  crm_attribution:{schema_version:a.schema_version,default_model:a.default_model,money_basis:a.money_basis,generated_at:a.generated_at,
+   coverage:(a.coverage||[]).filter(r=>r&&r.brand===brand).map(r=>fields(r,['brand','day','checked_at'])),
+   daily:daily.map(r=>fields(r,['marca','dia','model','grain','dimension','receita','pedidos']))},
+  crm_campanha:scoped(body.crm_campanha).map(r=>fields(r,['marca','nome','campanha_id','status','agendado_em','enviado_em'])),capabilities:{read:true,send:false}};
+}
+module.exports={createPublicReadKeyInstaller,readPublicReadKey,PUBLIC_READ_PURPOSE,PUBLIC_READ_LABEL,createReader,sourceKeysFromEnv,createAffiliateEditor,affiliateWriteKeyFromEnv,projectCrmHome};

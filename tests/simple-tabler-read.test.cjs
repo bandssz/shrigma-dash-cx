@@ -74,3 +74,18 @@ test('Organic old posts cannot displace current stories or sales from the initia
  for(const view of ['overview','stories','sales'])a.equal(W.availableOrganicWindow(data,'fish','2026-10-08','2026-10-14',view),null);
  a.deepEqual(W.availableOrganicWindow(data,'fish','2026-10-08','2026-10-14','posts'),{ini:'2026-09-24',fim:'2026-09-30'});
 });
+test('Compact CRM home preserves source numbers and nulls and excludes unrelated grains and private sections',()=>{
+ const R=require(runtime+'/simple-dashboard-read.cjs'),H=require(runtime+'/public/crm-preview/home.js');const row={marca:'fish',dia:'2026-10-14',canal:'email',janela:'1d',enviados:12,entregues:null,abriram:5,clicaram:2,hard:1,complaints:0,descadastros:1};
+ const data={brand:'fish',brands:['fish'],crm_credencial:[{secret:'must-not-be-copied'}],crm_fluxo:[{private:'not-home'}],crm_diario:[row,{...row,janela:'30d',enviados:300}],crm_attribution:{schema_version:2,coverage:[{brand:'fish',day:row.dia,checked_at:STAMP},{brand:'aristo',day:row.dia,checked_at:STAMP}],daily:[{marca:'fish',dia:row.dia,model:'last_click',grain:'channel',dimension:['email'],receita:10,pedidos:1},{marca:'fish',dia:row.dia,model:'last_click',grain:'piece',dimension:['email'],receita:100,pedidos:10},{marca:'aristo',dia:row.dia,model:'last_click',grain:'channel',dimension:['email'],receita:999,pedidos:99}]},crm_campanha:[]};
+ const small=R.projectCrmHome(data);a.equal(JSON.stringify(small).includes('must-not-be-copied'),false);a.equal(Object.hasOwn(small,'crm_fluxo'),false);a.equal(small.crm_diario.length,1);a.equal(small.crm_attribution.daily.length,1);a.equal(small.crm_attribution.coverage.length,1);a.equal(small.capabilities.send,false);a.deepEqual(H.summarize(small,'fish',row.dia,row.dia),H.summarize(data,'fish',row.dia,row.dia));a.throws(()=>R.projectCrmHome({...data,brands:['fish','aristo']}));
+});
+test('CRM known volume is partial and never replaces an unknown total or delivery denominator',()=>{
+ const H=require(runtime+'/public/crm-preview/home.js'),row={marca:'fish',dia:'2026-10-13',canal:'email',janela:'1d',enviados:12,entregues:null};
+ const r=H.summarize({crm_diario:[row,{...row,dia:'2026-10-14',enviados:null}]},'fish','2026-10-13','2026-10-14');a.equal(r.sent,null);a.equal(r.knownSent,12);a.equal(r.volumePartial,true);a.equal(r.openRate,null);
+});
+test('Compact CRM cannot turn a mixed legacy and rolling grain into a confirmed daily total',()=>{
+ const R=require(runtime+'/simple-dashboard-read.cjs'),H=require(runtime+'/public/crm-preview/home.js'),row={marca:'fish',dia:'2026-10-14',canal:'email',enviados:12};
+ const data={brand:'fish',brands:['fish'],crm_diario:[row,{...row,janela:'7d',enviados:70}],crm_campanha:[]};
+ a.equal(H.summarize(data,'fish',row.dia,row.dia).sent,null);a.equal(H.summarize(R.projectCrmHome(data),'fish',row.dia,row.dia).sent,null);
+ data.crm_diario=[row];a.equal(H.summarize(R.projectCrmHome(data),'fish',row.dia,row.dia).sent,12);
+});

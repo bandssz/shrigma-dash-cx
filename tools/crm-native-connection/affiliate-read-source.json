@@ -355,8 +355,8 @@
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/tts.js",
-      "bytes": 7892,
-      "sha256": "7a229224be5c7a2237782e8466847404c6d8298f5f702a125e12465a3b521baa"
+      "bytes": 8347,
+      "sha256": "3e8109cdcbd71eaf577d18b17ac9336e3a25bb9d43385017ade6b89da2ca63d2"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/chart.umd.js",
@@ -415,8 +415,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 24239,
-      "sha256": "1b67f7677a6fa11a02e1462e5942e1ba69cef3b55456af41a8390a045328bdb3"
+      "bytes": 24500,
+      "sha256": "a283c6e228f4227b15db91fdf86743c434bdcb65a359fe052cf04bbc4fb90382"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -425,8 +425,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
-      "bytes": 4179,
-      "sha256": "d2ebfa12a5ffdbd43d11cf19b0a10dfed554def8b5ab2e2c964419fdf4c66079"
+      "bytes": 4390,
+      "sha256": "fc75fe87463bd4b6f94d46de92e2606d55b3463e9c961698d8ba8da6989efdf2"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
@@ -515,8 +515,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 201282,
-      "sha256": "5506e47c10d6ca4e27527035a9fafaefb310fd8a2585e7a4c1e6ad2cdd85d482"
+      "bytes": 201528,
+      "sha256": "8e2725012661d7ca98f5d46884df9a6a0ffa380597b8681593d24bfde4be29ec"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-tests.cjs",
@@ -535,8 +535,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 46569,
-      "sha256": "1da555e6ccdfac73df0c8e55e7dce9fcc1ec67523fffcfaed7635a303f72dec3"
+      "bytes": 48128,
+      "sha256": "8257c3c5e4686f41421c29285d311a74481b2bc6637267a73db2b9ea2002c31b"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -865,8 +865,8 @@
     },
     {
       "path": "tests/simple-tabler-read.test.cjs",
-      "bytes": 15675,
-      "sha256": "66aab49dfbc7c39c149a07f6684eaaf6cbe5aabdb4111e4a8f674e4e1a9681da"
+      "bytes": 18271,
+      "sha256": "7d2e0408bd240775a970df5f0782500a2abd2b2fc711262b07beb874c3246a5e"
     },
     {
       "path": "tests/simple-tts-manual.test.cjs",
