@@ -113,21 +113,24 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   let front,brand,d,affiliateCommand;
   if(route==='segments'){
    if(method==='POST'&&body?.acao==='segmento_contar'){
-    if(query.size||Object.keys(body).sort().join(',')!=='acao,brand,expected_catalog_hash,expected_version,id'||!['fish','aristo'].includes(body.brand)||! /^[a-f0-9-]{36}$/.test(body.id||'')||!Number.isSafeInteger(body.expected_version)||body.expected_version<1||! /^[a-f0-9]{64}$/.test(body.expected_catalog_hash||''))fail('AUDIENCE_COUNT_REQUEST_INVALID',400);
+    const saved=Object.hasOwn(body,'id'),shape=saved?'acao,brand,expected_catalog_hash,expected_version,id':'acao,brand,definition,expected_catalog_hash';
+    if(query.size||Object.keys(body).sort().join(',')!==shape||!['fish','aristo'].includes(body.brand)||saved&&(! /^[a-f0-9-]{36}$/.test(body.id||'')||!Number.isSafeInteger(body.expected_version)||body.expected_version<1)||! /^[a-f0-9]{64}$/.test(body.expected_catalog_hash||''))fail('AUDIENCE_COUNT_REQUEST_INVALID',400);
+    let definition;if(!saved){try{definition=require('./segment-audience-contract.js').normalize(body.definition);}catch{fail('AUDIENCE_COUNT_REQUEST_INVALID',400);}if(definition.brand!==body.brand)fail('AUDIENCE_COUNT_REQUEST_INVALID',400);body={...body,definition};}
     brand=body.brand;const owner=current(context,'growth',brand),credential=credentials.audiences;if(!credential)fail('AUDIENCE_READ_SOURCE_NOT_LINKED',503);
     const get=async q=>read({context:{...context,method:'GET'},route:'segments',method:'GET',query:new URLSearchParams(q),origin});
-    const catalog=await get({acao:'segmentos_listar',brand,limit:'1',offset:'0'}),saved=await get({acao:'segmento_obter',brand,id:body.id});
-    if(catalog.status!==200||saved.status!==200)return saved.status!==200?saved:catalog;
+    const catalog=await get({acao:'segmentos_listar',brand,limit:'1',offset:'0'}),original=saved?await get({acao:'segmento_obter',brand,id:body.id}):null;
+    if(catalog.status!==200||original&&original.status!==200)return original&&original.status!==200?original:catalog;
     if(catalog.body.capabilities.count!==true)fail('SEGMENT_UNAVAILABLE',503);
-    if(catalog.body.catalog.catalog_hash!==body.expected_catalog_hash||saved.body.segment.version!==body.expected_version||!saved.body.segment.semantic_context.current)fail('SEGMENT_CATALOG_CHANGED',409);
+    if(catalog.body.catalog.catalog_hash!==body.expected_catalog_hash||!catalog.body.catalog.current||saved&&(original.body.segment.version!==body.expected_version||!original.body.segment.semantic_context.current))fail('SEGMENT_CATALOG_CHANGED',409);
+    if(!saved&&!require('./segment-audience-contract.js').checkCatalog(definition,catalog.body.catalog).ok)fail('SEGMENT_UNAVAILABLE',503);
     same(context,'growth',brand,owner);if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
     let raw;try{raw=await forward({route,method,query,body,user:owner.user,credential,upstreams,origin,simpleAudienceCount:true,fetchImpl});}finally{pending--;}
     same(context,'growth',brand,owner);
-    const checked=require('./crm-master-audience-count.cjs').validateAudienceCount(raw,{brand,request:body,originalDefinition:saved.body.segment.definition,nowMs:Date.now(),secrets:Object.values(credentials)});
+    const checked=require('./crm-master-audience-count.cjs').validateAudienceCount(raw,{brand,request:body,originalDefinition:saved?original.body.segment.definition:definition,nowMs:Date.now(),secrets:Object.values(credentials)});
     if(checked.status!==200)return checked;
-    const after=await get({acao:'segmentos_listar',brand,limit:'1',offset:'0'}),latest=await get({acao:'segmento_obter',brand,id:body.id});
+    const after=await get({acao:'segmentos_listar',brand,limit:'1',offset:'0'}),latest=saved?await get({acao:'segmento_obter',brand,id:body.id}):null;
     same(context,'growth',brand,owner);
-    if(after.status!==200||latest.status!==200||after.body.catalog.catalog_hash!==body.expected_catalog_hash||latest.body.segment.version!==body.expected_version||JSON.stringify(latest.body.segment.definition)!==JSON.stringify(saved.body.segment.definition))fail('SEGMENT_CATALOG_CHANGED',409);
+    if(after.status!==200||after.body.catalog.catalog_hash!==body.expected_catalog_hash||!after.body.catalog.current||saved&&(latest.status!==200||latest.body.segment.version!==body.expected_version||JSON.stringify(latest.body.segment.definition)!==JSON.stringify(original.body.segment.definition)))fail('SEGMENT_CATALOG_CHANGED',409);
     noSecrets(checked.body);return checked;
    }
    if(method!=='GET'||body!==undefined||!['segmentos_listar','segmento_obter'].includes(query.get('acao')))fail('READ_ONLY');

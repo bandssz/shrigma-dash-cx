@@ -83,23 +83,23 @@ test('failed connection close is reported independently of a known committed gra
 test('status protects parameter logging before sending the private key hash',async t=>{const f=keyInstallFixture(t,{commitUncertain:true});await f.installer.install(f.context,f.args);const start=f.queries.length;await f.installer.status(f.context,{operationId:f.args.operationId});const read=f.queries.slice(start);assert(read[0].sql.includes('READ ONLY'));assert(read[0].sql.includes('log_parameter_max_length=0'));assert(read[0].sql.includes('log_parameter_max_length_on_error=0'));assert(read.some(q=>q.sql.startsWith('SELECT count(*)=1')));assert(!read.some(q=>q.sql.startsWith('INSERT')));});
 test('exclusive journal collision never overwrites the predecessor or starts SQL',async t=>{const f=keyInstallFixture(t,{raceJournal:true});await assert.rejects(f.installer.install(f.context,f.args),e=>e.code==='EEXIST');assert.equal(require('node:fs').readFileSync(f.root+'/publics-read-key-operation.json','utf8'),'OTHER ORIGINAL JOURNAL');assert.equal(f.connected(),0);assert.equal(f.linked.length,0);assert.equal(f.queries.length,0);});
 
-function countFixture({brand='fish',unknown=false,refuse=false,change=false,revoke=false}={}){
+function countFixture({brand='fish',unknown=false,refuse=false,change=false,revoke=false,draft=false,available=true,badHash=false}={}){
  const calls=[],stamp=()=>new Date().toISOString();let active=true,catalogCalls=0;
  const list=brand==='fish'?17:7,definition={schema_version:'crm-audience-v2',brand,name:'Público sintético',rule:{op:'in_list',list_id:list}},user={id:'synthetic-reader',role:'manager',areas:['growth'],productFronts:['growth'],brands:[brand],permissions:{growth:{read:true,edit:false}}};
  const canonical=v=>Array.isArray(v)?'['+v.map(canonical).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}':JSON.stringify(v);
  const hash=require('node:crypto').createHash('sha256').update(canonical(definition)).digest('hex');
- const catalog={brand,current:true,currency:'BRL',timezone:'America/Sao_Paulo',shop_id:null,fields:[],products:[],origins:[],lists:[{id:list,brand,name:'Lista sintética',available:true}],coverage:'unconfirmed',checked_at:stamp(),catalog_hash:'a'.repeat(64)};
+ const catalog={brand,current:true,currency:'BRL',timezone:'America/Sao_Paulo',shop_id:null,fields:[],products:[],origins:[],lists:[{id:list,brand,name:'Lista sintética',available}],coverage:'unconfirmed',checked_at:stamp(),catalog_hash:'a'.repeat(64)};
  const row={id:ID,brand,name:definition.name,definition,version:1,archived:false,created_at:stamp(),updated_at:stamp(),updated_by:'panel:synthetic-reader',semantic_context:{currency:'BRL',timezone:'America/Sao_Paulo',current:true}};
  const reader=createReader({auth:{authorize:()=>user,authorizeBrand(_c,b){if(!active||b!==brand)throw Object.assign(Error('ACCESS_DENIED'),{status:403,code:'ACCESS_DENIED'});return user;}},upstreams:{segments:new URL(P.REVIEWED_DYNAMIC.routes.segments)},keys:{audiences:KEY},projectGrowth:()=>({brand}),fetchImpl:async(url,options)=>{
   assert.equal(options.headers.Authorization,'Bearer '+KEY);
   calls.push({url,method:options.method});const q=new URL(url).searchParams;
-  let body;if(options.method==='POST'){assert.deepEqual(JSON.parse(options.body),{acao:'segmento_contar',brand,id:ID,expected_version:1,expected_catalog_hash:'a'.repeat(64)});if(revoke)active=false;if(refuse)return new Response(JSON.stringify({error:'SEGMENT_UNAVAILABLE'}),{status:503,headers:{'content-type':'application/json'}});
-   body={source_confirmed:!unknown,eligible_count:unknown?null:42,checked_at:stamp(),definition,definition_hash:hash,base_list_id:list,transport_supported:false,unknown_reason:unknown?'external_source_unavailable':null,segment_id:ID,version:1};
+  let body;if(options.method==='POST'){assert.deepEqual(JSON.parse(options.body),{acao:'segmento_contar',brand,...(draft?{definition}:{id:ID,expected_version:1}),expected_catalog_hash:'a'.repeat(64)});if(revoke)active=false;if(refuse)return new Response(JSON.stringify({error:'SEGMENT_UNAVAILABLE'}),{status:503,headers:{'content-type':'application/json'}});
+   body={source_confirmed:!unknown,eligible_count:unknown?null:42,checked_at:stamp(),definition,definition_hash:badHash?'b'.repeat(64):hash,base_list_id:list,transport_supported:false,unknown_reason:unknown?'external_source_unavailable':null,segment_id:draft?null:ID,version:draft?null:1};
   }else if(q.get('acao')==='segmento_obter')body={segment:row};
   else{catalogCalls++;body={segments:[row],limit:Number(q.get('limit')),offset:Number(q.get('offset')),catalog:{...catalog,catalog_hash:change&&catalogCalls>1?'b'.repeat(64):catalog.catalog_hash},capabilities:{draft:false,count:true,send:false}};}
   return new Response(JSON.stringify(body),{headers:{'content-type':'application/json'}});
  }});
- const request=(extra={})=>reader.read({context:{},route:'segments',method:'POST',query:new URLSearchParams(),body:{acao:'segmento_contar',brand,id:ID,expected_version:1,expected_catalog_hash:'a'.repeat(64),...extra},origin:'https://crm.synthetic.invalid'});
+ const request=(extra={})=>reader.read({context:{},route:'segments',method:'POST',query:new URLSearchParams(),body:{acao:'segmento_contar',brand,...(draft?{definition}:{id:ID,expected_version:1}),expected_catalog_hash:'a'.repeat(64),...extra},origin:'https://crm.synthetic.invalid'});
  return {request,calls};
 }
 test('saved COUNT uses the original READ grant in both brands and rechecks catalog and version',async()=>{
@@ -111,6 +111,17 @@ test('external COUNT unavailable is null rather than zero, and a source refusal 
 });
 test('COUNT discards changes in catalog or login during the original query',async()=>{
  await assert.rejects(countFixture({change:true}).request(),e=>e.code==='SEGMENT_CATALOG_CHANGED');await assert.rejects(countFixture({revoke:true}).request(),e=>e.code==='ACCESS_DENIED');
+});
+test('draft COUNT uses current catalog and original READ in both brands without creating a public',async()=>{
+ for(const brand of ['fish','aristo']){const f=countFixture({brand,draft:true}),r=await f.request();assert.equal(r.status,200);assert.equal(r.body.eligible_count,42);assert.equal(r.body.segment_id,null);assert.equal(r.body.version,null);assert.deepEqual(f.calls.map(c=>c.method),['GET','POST','GET']);assert(!JSON.stringify(r).includes(KEY));}
+});
+test('draft COUNT keeps unknown null and rejects changed catalog, revoked access or mismatched source definition',async()=>{
+ const f=countFixture({draft:true,unknown:true}),r=await f.request();assert.equal(r.body.eligible_count,null);assert.equal(r.body.source_confirmed,false);
+ await assert.rejects(countFixture({draft:true,change:true}).request(),e=>e.code==='SEGMENT_CATALOG_CHANGED');await assert.rejects(countFixture({draft:true,revoke:true}).request(),e=>e.code==='ACCESS_DENIED');assert.equal((await countFixture({draft:true,badHash:true}).request()).status,502);
+});
+test('draft COUNT rejects unavailable rules and crossed brands before any original POST',async()=>{
+ const f=countFixture({draft:true,available:false});await assert.rejects(f.request(),e=>e.code==='SEGMENT_UNAVAILABLE');assert.deepEqual(f.calls.map(c=>c.method),['GET']);
+ const g=countFixture({draft:true});await assert.rejects(g.request({definition:{schema_version:'crm-audience-v2',brand:'aristo',name:'Outra marca',rule:{op:'in_list',list_id:7}}}),e=>e.code==='AUDIENCE_COUNT_REQUEST_INVALID');assert.equal(g.calls.length,0);
 });
 test('READ count cannot accept a draft mutation, alternate destination or extra fields',async()=>{
  const f=countFixture();await assert.rejects(f.request({definition:{}}),e=>e.code==='AUDIENCE_COUNT_REQUEST_INVALID');await assert.rejects(f.request({acao:'segmento_salvar'}),e=>e.code==='READ_ONLY');assert.equal(f.calls.length,0);
