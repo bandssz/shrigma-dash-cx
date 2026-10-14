@@ -730,8 +730,8 @@
     },
     {
       "path": "tests/journey-lab-panel.test.cjs",
-      "bytes": 5593,
-      "sha256": "4a25538e1cfa24c1b2c3e58cf4c1674d0c7683a45afd7b541e32c0a1021167ab"
+      "bytes": 5690,
+      "sha256": "b46dd546af3b54a19f6d2eabfad11e7ace10c6deac22d9abe839c21ea5addea7"
     },
     {
       "path": "tests/journey-lab-ui.test.cjs",
