@@ -27,8 +27,8 @@
       "source": "public/guard.js",
       "compiled": "public/guard.compiled.js",
       "publicName": "guard.js",
-      "sourceSha256": "bdf80f7023cae09c18dd9727b4ea5c135cbf107f503c5aee5e0021d564905a55",
-      "compiledSha256": "8950ccbae16af6355009eb235b11c3240975156f35d0ef63c3d790a83bef22b5"
+      "sourceSha256": "db999b8e5c965adda202646258b3de0021bcf90b2b159c17ee1684a79777fd4b",
+      "compiledSha256": "44ee06275d861bf4f6a39fd1fb35eac83e5b00e76e7e804ba7da8d925e420461"
     }
   ]
 }

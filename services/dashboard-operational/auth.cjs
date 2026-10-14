@@ -1236,7 +1236,7 @@ function createAuth(options){
  }
  function simpleModelsFactory({fetchImpl=globalThis.fetch}={}){
   if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
-  return require('./simple-crm-models.cjs').create({db,fetchImpl,destination:require('./crm-master-template-read.cjs').DESTINATION,binding:(context,args)=>verifySimpleDraftBinding(context,{...args,fetchImpl}),remoteKey:({userId,brand,key,action})=>{draftBrand(brand);if(!/^[a-f0-9-]{36}$/i.test(key)||!['rascunho','validar','submeter'].includes(action))err('MODELS_INPUT',400);const b=Buffer.from(brandMac(['crm-local-model-attempt-v1',userId,brand,key,action]).slice(0,32),'hex');b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=b.toString('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}});
+  return require('./simple-crm-models.cjs').create({db,fetchImpl,destination:require('./crm-master-template-read.cjs').DESTINATION,binding:(context,args)=>verifySimpleDraftBinding(context,{...args,fetchImpl}),remoteKey:({userId,brand,key,action})=>{draftBrand(brand);if(!/^[a-f0-9-]{36}$/i.test(key)||!['rascunho','validar','submeter','email_teste_v2'].includes(action))err('MODELS_INPUT',400);const b=Buffer.from(brandMac([action==='email_teste_v2'?'crm-local-model-internal-test-v2':'crm-local-model-attempt-v1',userId,brand,key,action]).slice(0,32),'hex');b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=b.toString('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}});
  }
  function simpleCampaignDraftFactories(transport){
   if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;

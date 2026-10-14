@@ -20,6 +20,7 @@ function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,destination}={}
  async function call(context,brand,method,input,write){
   const before=await binding(context,{brand,write});
   const target=new URL(destination);if(method==='GET')for(const [k,v]of Object.entries(input))target.searchParams.set(k,String(v));
+  if(['email_teste_capacidades_v2','email_teste_operacao_v2','email_teste_previa_v2','email_teste_v2'].includes(input.acao))target.searchParams.set('marca',brand);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),method==='POST'?60000:20000);let response;
   try{
    response=await fetchImpl(target.href,{method,redirect:'error',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json',Authorization:'Bearer '+before.credential,...(input.acao==='operacao'?{'X-Template-Key':before.credential}:{}),...(method==='POST'?{'Content-Type':'application/json'}:{})},...(method==='POST'?{body:JSON.stringify(input)}:{})});
@@ -99,6 +100,7 @@ function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,destination}={}
   fail('MODELS_READ_SCOPE_REFUSED',403);
  }
  async function preview(context,brand,body){if(!plain(body)||body.acao!=='email_previa'||!plain(body.rascunho)||body.rascunho.marca!==brand||body.rascunho.canal!=='email'||Object.keys(body).sort().join(',')!=='acao,rascunho')fail('MODELS_INPUT',400);const r=await call(context,brand,'POST',body,false);return {status:r.status,body:r.body};}
- return Object.freeze({write,read,preview,getDraft,async capability(context,brand){const r=await call(context,brand,'GET',{acao:'email_capacidades'},false);if(r.status!==200||r.body?.contract!=='crm_email_native_preview_v1')fail('MODELS_SOURCE_REFUSED',503);let writable=false;try{await binding(context,{brand,write:true});writable=true;}catch{}return {brand,read:true,draft:writable,validate:writable,submit:writable,send:false};}});
+ const tests=require('./simple-crm-model-tests.cjs').create({db,binding,remoteKey,getDraft,call});
+ return Object.freeze({write,read,preview,getDraft,tests,async capability(context,brand){let sourceRead=false;try{const r=await call(context,brand,'GET',{acao:'email_capacidades'},false);sourceRead=r.status===200&&r.body?.contract==='crm_email_native_preview_v1';}catch{}let writable=false;try{await binding(context,{brand,write:true});writable=true;}catch{}let internalTest=false,testRecovery=false,recipient=null,userId=null;if(writable)try{const who=await tests.identity(context,brand);recipient=who.recipient;userId=who.userId;testRecovery=true;try{const t=await tests.capabilities(context,brand);internalTest=t.body.enabled===true;}catch{}}catch{}return {brand,read:sourceRead,draft:writable&&sourceRead,validate:writable&&sourceRead,submit:writable&&sourceRead,send:false,internalTest,testRecovery,recipient,userId};}});
 }
 module.exports={create,canonical,hash};
