@@ -380,8 +380,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 23440,
-      "sha256": "019b31a8d2ba50a179953e3dbef160fedc9243611e47c65ce9f1bbdf1ddb0d87"
+      "bytes": 23495,
+      "sha256": "6f745ce23681a76ec675ae6859a66a357607f90bc162e19fb3dab5bf58916e18"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -780,8 +780,8 @@
     },
     {
       "path": "tests/simple-tabler-read.test.cjs",
-      "bytes": 10609,
-      "sha256": "4803660046cc6edad4f3cadc53d4f03b1516a81383719890e79d930cbd2d390e"
+      "bytes": 12171,
+      "sha256": "2188c4ac83c4f8acb96e1f87ebf0d840baa1d1dfc46530d763283150d4fa4582"
     },
     {
       "path": "tests/simple-tts-manual.test.cjs",
