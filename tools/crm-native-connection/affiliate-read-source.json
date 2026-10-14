@@ -365,8 +365,8 @@
     },
     {
       "path": "services/dashboard-operational/public/entry.html",
-      "bytes": 11392,
-      "sha256": "228209e95f6edd3a234ae6046f31b6b29ab5fe731672e4bdfd4ae208072a11fa"
+      "bytes": 11403,
+      "sha256": "5ff73deec31c44f8d443797e2c53b7753988a6264fd8e79ff988cac6b75bace3"
     },
     {
       "path": "services/dashboard-operational/public/entry.js",
