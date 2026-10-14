@@ -195,8 +195,8 @@
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
-      "bytes": 12863,
-      "sha256": "86125233fcc340455f412bec81ec5ec130e89f1deac766a723142e7c0a98cdef"
+      "bytes": 12959,
+      "sha256": "5f71c867978601d9b39afc0f14a3e5b7b4930130bddadaec3c7bf3682ba41009"
     },
     {
       "path": "services/dashboard-operational/crm-campaign-create.cjs",
@@ -465,8 +465,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 194475,
-      "sha256": "356594fc9f26b51e4ebe007722be44d49626fc368ea3343f97ebc6d8b6bde9df"
+      "bytes": 194988,
+      "sha256": "be545e2df876a9cee4b7de85a35c48c842b83d06d1896f2ad43268b84c2b9ea6"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -535,8 +535,8 @@
     },
     {
       "path": "tests/campaign-create-native/gateway.test.cjs",
-      "bytes": 17539,
-      "sha256": "724ba0d8595572be8ce93b85dfb16361396a558fc8ec8dce86d816b89b956698"
+      "bytes": 18749,
+      "sha256": "7387f47794abbebb3befd1462f766b45575f793c749353059f95e969fa26e607"
     },
     {
       "path": "tests/cart-contract-summary.test.cjs",

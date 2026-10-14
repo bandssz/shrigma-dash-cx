@@ -125,3 +125,12 @@ test('schedule contract blocks TEST after all normal gates are satisfied, while 
   a.equal(C.cancel({confirm:'cancelar',expected_version:version},{...c,status:'scheduled',definition:{...d,tags:['crm-internal-test']}},{now,canPublish:true}).action,'cancel');
  }
 });
+test('Master cannot remove TEST classification or attach a schedule when editing an existing TEST campaign in either brand',async t=>{
+ const f=await fixture(t),version='a'.repeat(32);
+ for(const brand of ['fish','aristo'])for(const change of ['remove-test','future-date']){
+  const original={id:702,version,status:'draft',sent:0,started_at:null,send_at:null,definition:{...definition(),brand,tags:['crm-internal-test']}},d={...original.definition,name:'Renamed fixture',subject:'Renamed fixture',tags:change==='remove-test'?[]:['crm-internal-test'],send_at:change==='future-date'?new Date(Date.now()+3600000).toISOString():null};let posts=0;
+  f.override((u,o)=>{if(o.method==='POST'){posts++;throw Error('Unexpected source write');}return originalResponse({campaign:original},u);});
+  const r=await f.browser('POST','/api/campaigns',{acao:'campanha_salvar',brand,id:702,expected_version:version,idempotency_key:'isolated-test-edit-'+brand+'-'+change,definition:d});a.equal(r.status,403,JSON.stringify(r));a.equal(r.body.error,'TEST_CAMPAIGN_INTERNAL_ONLY');a.equal(posts,0);
+ }
+ const normalized=C.normalize({...definition(),subject:'[TESTE] Internal'});a(normalized.tags.includes('crm-internal-test'));
+});

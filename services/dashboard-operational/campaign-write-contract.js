@@ -28,6 +28,7 @@ const CampaignContract=(()=>{
   if(!/\{\{\s*UnsubscribeURL\s*\}\}/.test(html)||!/\{\{\s*UnsubscribeURL\s*\}\}/.test(plain))error('UNSUBSCRIBE_MISSING','Inclua {{ UnsubscribeURL }} no HTML e na versão em texto.','html');
   if(/<(script|iframe|object|embed|form)\b|\bon[a-z]+\s*=|javascript\s*:/i.test(html))error('HTML_ACTIVE_CONTENT','Remova scripts, formulários e eventos do HTML.','html');
   const tags=[...new Set(array(input.tags).map(v=>slug(v,'tags')))];
+  if(isInternalTest(input)&&!tags.includes('crm-internal-test'))tags.push('crm-internal-test');
   if(tags.length>20)error('TAGS_LIMIT','Use até 20 tags.','tags');
   return {schema_version:VERSION,brand:input.brand,channel:'email',initiative:{key:slug(initiative.key,'initiative.key'),name:text(initiative.name,160,'initiative.name')},utm_campaign:slug(input.utm_campaign,'utm_campaign'),name:text(input.name,200,'name'),subject:text(input.subject,250,'subject'),from_email:sender,reply_to:reply,list_ids:lists,template_id:input.template_id,html,text:plain,tags,send_at:input.send_at?utc(input.send_at):null};
  }
