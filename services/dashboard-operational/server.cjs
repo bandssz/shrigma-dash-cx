@@ -681,6 +681,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const simpleReader=s.simpleReadMode===true?require('./simple-dashboard-read.cjs').createReader({auth,upstreams,keys:s.simpleReadSources||{},fetchImpl,projectGrowth:projectBrandCache,growthDiagnostics:cartContractSummary,onReadFailure:row=>process.stderr.write(JSON.stringify(row)+'\n')}):null;
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
   const simpleCampaignTests=simpleReader?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
+  const simpleCampaignAudiences=simpleReader?auth.simpleCampaignAudienceFactory?.({fetchImpl}):null;
   const simpleAffiliateEditor=simpleReader?require('./simple-dashboard-read.cjs').createAffiliateEditor({auth,upstreams,readKey:s.simpleReadSources?.afiliados,writeKey:s.simpleAffiliateWriteKey,otherReadKeys:Object.values(s.simpleReadSources||{}),fetchImpl}):null;
   // The production constructor closes decisions until commercial policy and
   // programme budget are admitted. Synthetic tests inject their fake policy.
@@ -1293,13 +1294,21 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(!['GET','POST'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
         const route=url.pathname.slice('/api/'.length);
         if(!/^[a-z0-9_-]{1,48}$/.test(route))throw jsonError(404,'NOT_FOUND');
-        if(simpleReader&&!nativeContext&&req.method==='POST'&&['campaigns','segments'].includes(route)){
+        if(simpleReader&&!nativeContext&&req.method==='POST'&&['campaigns','segments','campaign_audience'].includes(route)){
           draftPostOwner=auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false}).id;
           req.crmDraftPostOwner=draftPostOwner;simpleDraftPostsInFlight.set(draftPostOwner,(simpleDraftPostsInFlight.get(draftPostOwner)||0)+1);
         }
         if(req.method==='POST'&&req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
         const body=req.method==='POST'?await readJson(req,route==='campaigns'?MAX_CAMPAIGN_REQUEST:route==='segments'?MAX_AUDIENCE_REQUEST:undefined):undefined;
         if(simpleReader&&!nativeContext&&req.method==='POST'&&((route==='campaigns'&&['campanha_criar','campanha_salvar','campanha_validar'].includes(body?.acao))||(route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar'].includes(body?.acao))))req.crmDraftAttempt={context:ctx,brand:body.brand,key:body.idempotency_key,kind:route==='segments'?'audience':body.acao==='campanha_criar'?'create':'delivery'};
+        if(simpleReader&&!nativeContext&&route==='campaign_audience'){
+          if(!simpleCampaignAudiences)throw jsonError(503,'CAMPAIGN_AUDIENCE_UNAVAILABLE');
+          if(new Set(url.searchParams.keys()).size!==url.searchParams.size||req.method==='POST'&&url.search)throw jsonError(400,'ARGUMENTS_INVALID');
+          const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),p={...fields};if(req.method==='GET'&&typeof p.campaign_id==='string'&&/^[1-9][0-9]{0,8}$/.test(p.campaign_id))p.campaign_id=Number(p.campaign_id);
+          if((['campanha_publico_obter','campanha_publico_operacao'].includes(p.acao)?'GET':'POST')!==req.method)throw jsonError(405,'METHOD_DENIED');
+          releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},p.brand).id);
+          const result=await simpleCampaignAudiences.handle(ctx,p);return sendJson(req,res,result.status,result.body);
+        }
         if(simpleReader&&!nativeContext&&route==='segments'&&(req.method==='POST'&&['segmento_criar','segmento_salvar','segmento_arquivar'].includes(body?.acao)||req.method==='GET'&&['segmento_capacidade','segmento_operacao'].includes(url.searchParams.get('acao')))){
           if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'ARGUMENTS_INVALID');
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields.brand,action=fields.acao;
@@ -1373,6 +1382,12 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             if(!['campanha_criar','campanha_salvar','campanha_validar'].includes(action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
             const context=auth.simpleDraftContext(ctx,{brand});await auth.verifySimpleDraftBinding(context,{brand,fetchImpl});
             await requireSimpleCampaignTestSafety(context,body);
+            if(action==='campanha_validar'){
+              if(!simpleCampaignAudiences)throw jsonError(503,'CAMPAIGN_AUDIENCE_SOURCE_REQUIRED');
+              const liveBinding=await simpleCampaignAudiences.handle(ctx,{acao:'campanha_publico_obter',brand,campaign_id:body.id});
+              if(liveBinding.status!==200)throw jsonError(503,'CAMPAIGN_AUDIENCE_SOURCE_REQUIRED');
+              if(liveBinding.body.binding!==null)throw jsonError(409,'CAMPAIGN_SAVED_AUDIENCE_VALIDATION_REQUIRED');
+            }
             const value=await (action==='campanha_criar'?simpleCampaignDrafts.creator:simpleCampaignDrafts.delivery).submit(context,body);
             return sendJson(req,res,campaignStatus(value),campaignDto(action,body.idempotency_key,value));
           }
