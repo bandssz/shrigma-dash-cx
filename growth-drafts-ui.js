@@ -69,7 +69,7 @@ const GRU={
   prontaEscrita(r){
     if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession||GRU.editorChangeSession)return false;
     if(GRU.contextError||GRU.ctx.marca&&r.marca!==GRU.ctx.marca){GRU.aviso(GRU.contextError||'Abra a marca deste template no cabeçalho antes de editar.','erro');GRU.render();return false;}
-    const j=GRU.journal(),estado=j?.inspect();
+    const j=GRU.journal(),estado=j?.inspect({local_id:r.id,draft_id:r.servidor?.draft_id,brand:r.marca,channel:r.canal,name:r.nome});
     if(!j||estado.blocked||r?.servidor?.pendente){GRU.aviso(estado?.message||'A proteção de operações de templates está indisponível. Nenhuma operação foi enviada.','erro');GRU.render();return false;}
     if(GRU.chaveEscrita())return true;
     GRU.aviso('Acesso de edição necessário. Nada foi enviado.','erro');GRU.abrirAcesso();return false;
@@ -78,10 +78,11 @@ const GRU={
     if(typeof GTJ==='undefined')return null;
     const endpoint=(GRU.caps||GRU.capacidades()).endpoint,storage=GRU.store();
     if(GRU._journal?.endpoint===endpoint&&GRU._journal.storage===storage)return GRU._journal.value;
-    const legacyPending=()=>{
+    const legacyPending=scope=>{
       const raw=storage?.getItem(GR.CHAVE),rows=raw===null||raw===undefined?[]:JSON.parse(raw);
       if(!Array.isArray(rows))throw Error('invalid local drafts');
-      return !!GRU.state.rascunho?.servidor?.pendente||rows.some(r=>r?.servidor?.pendente);
+      if(!scope)return false;
+      return rows.some(r=>r?.servidor?.pendente&&(r.id===scope.local_id||scope.draft_id&&r.servidor.draft_id===scope.draft_id||scope.brand===r.marca&&scope.channel===r.canal&&scope.name===r.nome));
     };
     const value=GTJ.create({endpoint,storage,locks:typeof navigator!=='undefined'?navigator.locks:null,crypto:typeof crypto!=='undefined'?crypto:null,legacyPending});
     GRU._journal={endpoint,storage,value};return value;
@@ -99,7 +100,7 @@ const GRU={
   },
   clienteSeguro(escrita,r){
     const client=GRU.cliente(escrita,typeof GENU!=='undefined'&&GENU.advanced(r)),journal=GRU.journal();
-    const send=payload=>journal.run({local_id:r.id,request_payload:payload},{persistLocal:()=>GRU.preservarLocal(r),lookup:(id,acao)=>client.operacao(id,acao),transport:p=>p.acao==='rascunho'?client.rascunho(p.rascunho,{idempotency_key:p.idempotency_key,...(p.draft_id?{draft_id:p.draft_id,expected_version:p.expected_version}:{})}):p.acao==='validar'?client.validar(p.draft_id,p.idempotency_key,p.expected_version):client.submeter(p.draft_id,p.expected_version,p.confirm,p.idempotency_key)});
+    const send=payload=>journal.run({local_id:r.id,resource_scope:{brand:r.marca,channel:r.canal,name:r.nome},request_payload:payload},{persistLocal:()=>GRU.preservarLocal(r),lookup:(id,acao)=>client.operacao(id,acao),transport:p=>p.acao==='rascunho'?client.rascunho(p.rascunho,{idempotency_key:p.idempotency_key,...(p.draft_id?{draft_id:p.draft_id,expected_version:p.expected_version}:{})}):p.acao==='validar'?client.validar(p.draft_id,p.idempotency_key,p.expected_version):client.submeter(p.draft_id,p.expected_version,p.confirm,p.idempotency_key)});
     return {...client,rascunho:(rascunho,extra)=>send({acao:'rascunho',rascunho,...extra}),validar:(draft_id,_idem,expected_version)=>send({acao:'validar',draft_id,expected_version}),submeter:(draft_id,expected_version,confirm)=>send({acao:'submeter',draft_id,expected_version,confirm})};
   },
   cliente(escrita,bearerWrite=false){

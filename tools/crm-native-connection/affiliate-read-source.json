@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 36758,
-      "sha256": "d494930dfefcd4e926825f572c47b580eb105525b9c6097bd69c7871f09435a8"
+      "bytes": 36799,
+      "sha256": "e365233e55aa55bac19aa57d12de1d45ef2f586cd75a3af712d5b2cacb7ee62e"
     },
     {
       "path": "afiliados-proprios.js",
@@ -25,8 +25,8 @@
     },
     {
       "path": "assets/panels/growth.js",
-      "bytes": 1052895,
-      "sha256": "cabc3c49d9d6061b149dd64a11b13c9a59834bb98df4257cffea8f1ff4727ad4"
+      "bytes": 1056008,
+      "sha256": "f255779e14decf2eb20803fd908ee67cf9078fc7ea0608f167e7d14afea96630"
     },
     {
       "path": "assets/panels/influs.css",
@@ -64,6 +64,16 @@
       "sha256": "f122e35608f93086c2aa0477e1ddef938e9628c1b0322376809a1b0e89a1bcc5"
     },
     {
+      "path": "growth-drafts-ui.js",
+      "bytes": 82306,
+      "sha256": "ec48ff9e510c6e543a40da6dcc5a18755306adec6b7a4bec3475e5f9a1dbbbe1"
+    },
+    {
+      "path": "growth-email-native-ui.js",
+      "bytes": 12747,
+      "sha256": "8a507bace8b92c5a1e11d247e33775886aec492af21a2afea3df441668e7969b"
+    },
+    {
       "path": "growth-journey-lab-ui.js",
       "bytes": 19159,
       "sha256": "84932428149304c6af55b102509a658e6e7b0141b82bad6f23f9062d34f36de6"
@@ -79,6 +89,11 @@
       "sha256": "236495b6e6769b7c047a723e4cf1f0df067f2a45932c036fa517d25ec19d9261"
     },
     {
+      "path": "growth-template-journal.js",
+      "bytes": 18789,
+      "sha256": "978f9ee5ae27655150f1907a922f74152570868e2b76d8be0cfdd43e8ef768e3"
+    },
+    {
       "path": "growth-workspace.css",
       "bytes": 31240,
       "sha256": "0e076ba3c0f26df899504d81f0a3ece817309b574c2b2e1293540561cf015274"
@@ -86,7 +101,7 @@
     {
       "path": "growth.html",
       "bytes": 112606,
-      "sha256": "2e1a3e9ca40d011fd4b08dea91b36f5e2b78ad4609811bb931c6ec9636ed49cb"
+      "sha256": "89f9832a6ee45626ecccd177aa088422122f528d690d7dedefb10a0c362f7739"
     },
     {
       "path": "influs-conferencia.js",
@@ -709,6 +724,11 @@
       "sha256": "a8afa6f7036d567d8f1a01730170a69c1accdfb1fb412abec6698a3a5cf80f16"
     },
     {
+      "path": "tests/modelos-isolation.test.cjs",
+      "bytes": 6244,
+      "sha256": "545786b05490b14f15064f57ae9a9f9afc40428f6c102e860e70e0e17fae4d7d"
+    },
+    {
       "path": "tests/organico-access.test.cjs",
       "bytes": 9331,
       "sha256": "cd637f46d9145d7628fa44f372df5fac54c60910ed1432b0d5862188e05464f3"
@@ -826,7 +846,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2719,
-      "sha256": "4aabb6ed8b6be2e3cc0bca75f700437b0f37e26332e6f9a9acd0615e6a49c905"
+      "sha256": "47394eece80d41e42ffc376e99be0d174f184db7bc02edd0a9a67020f2aabda9"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
