@@ -1281,11 +1281,10 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }
         if(req.method==='POST'&&req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
         const body=req.method==='POST'?await readJson(req,route==='campaigns'?MAX_CAMPAIGN_REQUEST:route==='segments'?MAX_AUDIENCE_REQUEST:undefined):undefined;
-        if(simpleReader&&!nativeContext&&req.method==='POST'&&((route==='campaigns'&&['campanha_criar','campanha_salvar','campanha_validar'].includes(body?.acao))||(route==='segments'&&['segmento_criar','segmento_salvar'].includes(body?.acao))))req.crmDraftAttempt={context:ctx,brand:body.brand,key:body.idempotency_key,kind:route==='segments'?'audience':body.acao==='campanha_criar'?'create':'delivery'};
+        if(simpleReader&&!nativeContext&&req.method==='POST'&&((route==='campaigns'&&['campanha_criar','campanha_salvar','campanha_validar'].includes(body?.acao))||(route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar'].includes(body?.acao))))req.crmDraftAttempt={context:ctx,brand:body.brand,key:body.idempotency_key,kind:route==='segments'?'audience':body.acao==='campanha_criar'?'create':'delivery'};
         if(simpleReader&&!nativeContext&&route==='segments'&&(req.method==='POST'&&['segmento_criar','segmento_salvar','segmento_arquivar'].includes(body?.acao)||req.method==='GET'&&['segmento_capacidade','segmento_operacao'].includes(url.searchParams.get('acao')))){
           if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'ARGUMENTS_INVALID');
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields.brand,action=fields.acao;
-          if(action==='segmento_arquivar')throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
           if(action==='segmento_capacidade'){
             if(Object.keys(fields).sort().join(',')!=='acao,brand')throw jsonError(400,'ARGUMENTS_INVALID');
             releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
@@ -1297,7 +1296,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           }
           if(!simpleCampaignDrafts)throw jsonError(503,'CRM_SERVICE_DRAFT_UNAVAILABLE');
           const context=auth.simpleDraftContext(ctx,{brand}),writing=req.method==='POST',key=fields.idempotency_key;
-          const decision=decide(route,req.method,url.searchParams,body);if(!['segmento_criar','segmento_salvar','segmento_operacao'].includes(decision.action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
+          const decision=decide(route,req.method,url.searchParams,body);if(!['segmento_criar','segmento_salvar','segmento_arquivar','segmento_operacao'].includes(decision.action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
           const actor=auth.simpleDraftBinding(context,{brand}).author.id,remoteKey=auth.simpleAudienceRemoteKey(context,{brand,key}),remoteBody=writing?{...body,idempotency_key:remoteKey}:null;
           releaseCacheWork=reserveCampaignWork(actor);
           let journal=auth.audienceDraft(context,brand);
@@ -1307,7 +1306,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
               const scope=await simpleDraftTransport(context,{route:'segments',method:'GET',command:{acao:'segmento_contexto_v2',brand}});
               if(scope.status!==200)throw jsonError(502,'UPSTREAM_SCOPE_UNCONFIRMED');
               const sourceActor=verifiedAudienceScope(scope.body,brand);
-              auth.reserveAudienceDraft(context,brand,key,action,audiencePayloadHash(remoteBody),sourceActor,{id:action==='segmento_criar'?null:body.id,expectedVersion:action==='segmento_criar'?null:body.expected_version,definitionSha256:audiencePayloadHash(AudienceContract.normalize(body.definition))});
+              auth.reserveAudienceDraft(context,brand,key,action,audiencePayloadHash(remoteBody),sourceActor,{id:action==='segmento_criar'?null:body.id,expectedVersion:action==='segmento_criar'?null:body.expected_version,definitionSha256:action==='segmento_arquivar'?null:audiencePayloadHash(AudienceContract.normalize(body.definition))});
               journal=auth.audienceDraft(context,brand);
               try{await simpleDraftTransport(context,{route:'segments',method:'POST',command:remoteBody});}catch{auth.audienceDraftOutcome(actor,brand,key,action,'uncertain');}
             }

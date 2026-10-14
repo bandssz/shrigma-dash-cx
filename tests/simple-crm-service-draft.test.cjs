@@ -28,9 +28,9 @@ async function fixture(t,{write=true,fronts=['growth'],brands=['aristo'],holder=
    if(action==='segmento_contexto_v2'){await hooks.scope?.();return response({scope:{schema:'crm-audience-writer-scope-v2',brand,actor_sha256:sha(JSON.stringify('panel:'+key))}},u);}
    if(action==='segmento_operacao_v2'){const op=audienceOperations.get(u.searchParams.get('idempotency_key'));if(!op)return response({error:'SEGMENT_OPERATION_NOT_FOUND'},u,404);const copy=structuredClone(op);await hooks.audienceReceipt?.(copy);return response({operation:copy},u);}
    if(o.method==='POST'){
-    a.equal(body.k,undefined);const def=A.normalize(body.definition),prior=segments.get(body.id),id=body.id||crypto.randomUUID();let receipt;
-    if(body.acao==='segmento_salvar'&&body.expected_version!==prior?.version)receipt={status:409,body:{error:'SEGMENT_VERSION_CONFLICT',current_version:prior?.version||1}};
-    else{const segment={id,brand,name:def.name,definition:def,version:body.acao==='segmento_criar'?1:body.expected_version+1,archived:false,created_at:STAMP,updated_at:STAMP,updated_by:'panel:'+key,semantic_context:{currency:'BRL',timezone:'America/Sao_Paulo',current:true}};segments.set(id,segment);receipt={status:body.acao==='segmento_criar'?201:200,body:{segment,transport_supported:false}};}
+    a.equal(body.k,undefined);const prior=segments.get(body.id),def=body.acao==='segmento_arquivar'?prior?.definition:A.normalize(body.definition),id=body.id||crypto.randomUUID();let receipt;
+    if(body.acao!=='segmento_criar'&&body.expected_version!==prior?.version)receipt={status:409,body:{error:'SEGMENT_VERSION_CONFLICT',current_version:prior?.version||1}};
+    else{const segment={id,brand,name:def.name,definition:def,version:body.acao==='segmento_criar'?1:body.expected_version+1,archived:body.acao==='segmento_arquivar',created_at:STAMP,updated_at:STAMP,updated_by:'panel:'+key,semantic_context:{currency:'BRL',timezone:'America/Sao_Paulo',current:true}};segments.set(id,segment);receipt={status:body.acao==='segmento_criar'?201:200,body:{segment,transport_supported:false}};}
     audienceOperations.set(body.idempotency_key,{schema:'crm-audience-operation-v2',idempotency_key:body.idempotency_key,brand,action:body.acao,actor_sha256:sha(JSON.stringify('panel:'+key)),payload_sha256:P.audiencePayloadHash(body),receipt});await hooks.afterAudiencePost?.();if(hooks.lostAudience)throw Error('synthetic ACK lost');return response(receipt.body,u,receipt.status);
    }
    const cat={brand,current:true,currency:'BRL',timezone:'America/Sao_Paulo',shop_id:'gid://shopify/Shop/42',fields:[],products:[],origins:[],lists:catalog(brand).lists,coverage:'unconfirmed',checked_at:new Date(clock).toISOString(),catalog_hash:'a'.repeat(64)};
@@ -118,10 +118,16 @@ test('READ account, wrong front/brand, missing source holder and missing CSRF ca
  for(const options of [{write:false},{fronts:['afiliados']},{brands:['fish']},{holder:false}]){const f=await fixture(t,options);const r=await f.request('/api/campaigns',{method:'POST',body:createCampaign()});a(r.status>=400,JSON.stringify(r.body));a.equal(f.posts(),0);a.equal(f.dbQuery(db=>db.prepare('SELECT COUNT(*) AS n FROM crm_campaign_create_v1').get().n),0);}
  const f=await fixture(t);a.equal((await f.request('/api/segments',{method:'POST',body:createAudience(),csrf:false})).status,403);a.equal(f.posts(),0);
 });
-test('schedule, cancellation, audience archive and dated drafts stay outside this service profile',async t=>{
+test('schedule, cancellation and dated drafts stay outside this service profile',async t=>{
  const f=await fixture(t);for(const acao of ['campanha_agendar','campanha_cancelar'])a.equal((await f.request('/api/campaigns',{method:'POST',body:{acao,brand:'aristo',id:701,expected_version:'b'.repeat(32),idempotency_key:crypto.randomUUID(),confirm:acao.slice(9)}})).status,403);
  const dated=createCampaign();dated.definition.send_at='2026-11-01T12:00:00.000Z';a.equal((await f.request('/api/campaigns',{method:'POST',body:dated})).status,400);
- a.equal((await f.request('/api/segments',{method:'POST',body:{acao:'segmento_arquivar',brand:'aristo',id:crypto.randomUUID(),expected_version:1,idempotency_key:crypto.randomUUID()}})).status,403);a.equal(f.posts(),0);
+ a.equal(f.posts(),0);
+});
+test('individual analyst archives and restores the original audience by version, preserving its definition and history',async t=>{
+ for(const brand of ['aristo','fish']){const f=await fixture(t,{brands:[brand]}),definition={...audienceDefinition(),brand,rule:{op:"in_list",list_id:brand==="fish"?17:7}},created=await f.request('/api/segments',{method:'POST',body:{...createAudience(),brand,definition}});a.equal(created.status,200,JSON.stringify(created.body));const original=created.body.segment,command={acao:'segmento_arquivar',brand,id:original.id,expected_version:original.version,idempotency_key:crypto.randomUUID()};const archived=await f.request('/api/segments',{method:'POST',body:command});a.equal(archived.status,200,JSON.stringify(archived.body));a.equal(archived.body.segment.archived,true);a.equal(archived.body.segment.version,2);a.deepEqual(archived.body.segment.definition,original.definition);a.equal(f.segments.size,1);
+ const again=await f.request('/api/segments',{method:'POST',body:command});a.equal(again.status,200);a.equal(f.posts(),2);
+ const restored=await f.request('/api/segments',{method:'POST',body:{acao:'segmento_salvar',brand,id:original.id,expected_version:2,definition,expected_catalog_hash:'a'.repeat(64),idempotency_key:crypto.randomUUID()}});a.equal(restored.status,200,JSON.stringify(restored.body));a.equal(restored.body.segment.archived,false);a.equal(restored.body.segment.version,3);a.deepEqual(restored.body.segment.definition,original.definition);a.equal(f.segments.size,1);a.equal(f.posts(),3);a.equal(f.audienceOperations.size,3);
+ }
 });
 test('source identity and local revocation are checked again before POST and receipt exposure',async t=>{
  const f=await fixture(t);f.hooks.caps=['read_content','draft','validate'];a.equal((await f.request('/api/campaigns',{method:'POST',body:createCampaign()})).status,503);a.equal(f.posts(),0);
@@ -153,4 +159,29 @@ test('an unreserved failure is certified only after no other POST by the same au
  const f=await fixture(t),invalid=createCampaign();invalid.definition.send_at='2026-11-01T12:00:00.000Z';const noReservation=await f.request('/api/campaigns',{method:'POST',body:invalid});a.equal(noReservation.status,400);a.equal(noReservation.body.reserved,false);
  let enter=0,release,allEntered,timer;const barrier=new Promise(resolve=>{release=resolve;}),entered=new Promise(resolve=>{allEntered=resolve;});f.hooks.identity=()=>{if(++enter===4)allEntered();return barrier;};const command=createCampaign(),first=f.request('/api/campaigns',{method:'POST',body:command}),reads=Array.from({length:3},()=>f.request('/api/campaigns?acao=campanha_capacidade&brand=aristo'));
  try{const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Synthetic concurrent reservation timeout')),5000);});await Promise.race([entered,deadline]);const second=await f.request('/api/campaigns',{method:'POST',body:command});a.equal(second.status,429);a.equal(Object.hasOwn(second.body,'reserved'),false);}finally{clearTimeout(timer);release();}const finished=await first;a.equal(finished.status,200,JSON.stringify(finished.body));await Promise.all(reads);a.equal(f.posts(),1);
+});
+
+// Browser controls use synthetic sessions and original-shape receipts; no provider.
+async function audienceEditorFixture(brand){
+ const fs=require('node:fs'),vm=require('node:vm'),{parseHTML}=require('linkedom');
+ const {window,document}=parseHTML('<html><body>'+['new-campaign','new-audience'].map(id=>'<button id="'+id+'"></button>').join('')+['crm-pending','campaign-editor','audience-editor','campaign-drafts','audience-draft-status','campaign-draft-status'].map(id=>'<div id="'+id+'"></div>').join('')+'</body></html>');
+ // linkedom exposes a getter only; mirror browser option selection for this fixture.
+ Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return this.querySelector('option[selected]')?.value||this.querySelector('option')?.value||'';},set(value){for(const option of this.querySelectorAll('option'))option.selected=option.value===String(value);}});
+ const values=new Map(),state={brand,view:'audiences',ticket:1,audiences:{catalog:{brand,catalog_hash:'a'.repeat(64),lists:[{id:7,available:true,name:'Synthetic'}],fields:[],products:[],origins:[]}}};
+ let user='analyst-A',posts=0,afterPostUser=null,record={id:'11111111-1111-4111-8111-111111111111',brand,name:'Audience',version:1,archived:false,definition:{schema_version:'crm-audience-v2',brand,name:'Audience',rule:{op:'in_list',list_id:7}}};const callbacks=[];
+ const storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+ const session=async()=>({user:{id:user}}),read=async(url,b,t,options={})=>{if(options.method==='POST'){posts++;const command=JSON.parse(options.body);record={...record,version:record.version+1,archived:command.acao==='segmento_arquivar'};if(afterPostUser)user=afterPostUser;return{attemptKey:command.idempotency_key,state:'succeeded',segment:record};}const action=new URL('https://synthetic.invalid'+url).searchParams.get('acao');return action==='segmento_capacidade'?{brand,draft:true,send:false}:{segment:record};};
+ const context=vm.createContext({window,document,sessionStorage:storage,crypto:require('node:crypto').webcrypto,URLSearchParams});vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../services/dashboard-operational/public/crm-preview/drafts.js'),'utf8'),context);
+ const editor=window.ShrigmaCrmDrafts.create({state:()=>state,read,session,esc:v=>String(v??''),when:v=>String(v),number:v=>String(v),reload:()=>{},audienceSaved:r=>callbacks.push(r)});await editor.load('audiences',1);editor.openAudience(record);
+ const settle=async()=>{for(let i=0;i<100;i++){await new Promise(r=>setTimeout(r,2));if(!editor.hasUnsaved())return;}throw Error('EDITOR_DID_NOT_SETTLE');};
+ return{document,values,callbacks,posts:()=>posts,record:()=>record,user:v=>user=v,afterPostUser:v=>afterPostUser=v,settle,click:()=>document.querySelector('[data-crm-archive]').click()};
+}
+test('audience editor archives and restores both brands; archived rules stay disabled and restore remains available',async()=>{
+ for(const brand of ['fish','aristo']){const f=await audienceEditorFixture(brand);f.click();await f.settle();a.equal(f.posts(),1);a.equal(f.record().archived,true);a.equal(f.callbacks.length,1);a.equal(f.document.querySelector('[data-crm-save]').disabled,true);a.equal(f.document.querySelector('[data-crm-archive]').disabled,false);a.equal(f.document.querySelector('[data-crm-archive]').textContent,'Restaurar público');f.click();await f.settle();a.equal(f.posts(),2);a.equal(f.record().archived,false);a.equal(f.record().version,3);a.equal(f.callbacks.length,2);a.equal(f.document.querySelector('[data-crm-save]').disabled,false);a.equal(f.values.size,0);}
+});
+test('audience editor stops a different login before source POST and preserves the original attempt',async()=>{
+ const f=await audienceEditorFixture('aristo');f.user('analyst-B');f.click();await f.settle();a.equal(f.posts(),0);a.equal(f.callbacks.length,0);a.equal(f.values.size,1);a.equal(JSON.parse([...f.values.values()][0]).userId,'analyst-A');a.equal(f.document.querySelector('[data-crm-archive]').disabled,true);
+});
+test('audience editor identity change after POST does not apply receipt, callback or forget original attempt',async()=>{
+ const f=await audienceEditorFixture('fish');f.afterPostUser('analyst-B');f.click();await f.settle();a.equal(f.posts(),1);a.equal(f.callbacks.length,0);a.equal(f.values.size,1);a.equal(JSON.parse([...f.values.values()][0]).userId,'analyst-A');a.equal(f.document.querySelector('[data-crm-archive]').disabled,true);
 });
