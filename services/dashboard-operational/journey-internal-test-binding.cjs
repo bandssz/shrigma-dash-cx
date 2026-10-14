@@ -2,12 +2,18 @@
 // Dedicated internal TEST API account only. No READ credential fallback.
 const fs=require('node:fs'),crypto=require('node:crypto');
 const FILE='/dashboard-data/journey-internal-test.json';
-function createBindingReader({file=FILE,readFile}={}){
+function createBindingReader({file=FILE,readFile,env=process.env}={}){
  function load(){
   let descriptor;
   try{
    let text;
    if(readFile)text=readFile();
+   // Private Easypanel environment for the dedicated TEST API only. An
+   // explicit invalid value fails closed; it never falls back to another key.
+   else if(Object.prototype.hasOwnProperty.call(env,'DASHBOARD_JOURNEY_TEST_BINDING')){
+    text=env.DASHBOARD_JOURNEY_TEST_BINDING;
+    if(typeof text!=='string'||Buffer.byteLength(text)>8192)return null;
+   }
    else{
     descriptor=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
     const stat=fs.fstatSync(descriptor);
