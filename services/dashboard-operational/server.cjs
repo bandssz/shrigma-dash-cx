@@ -11,7 +11,7 @@ const AREA_PAGE=Object.freeze({growth:'/growth.html',organico:'/organico.html',i
 const AREA_ENTRY=Object.freeze({growth:'/crm/index.html',organico:'/organico/index.html',influs:'/creators/index.html'});
 const MIME=Object.freeze({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml','.woff2':'font/woff2','.txt':'text/plain; charset=utf-8'});
 const AFFILIATE_PREVIEW='/previas/afiliados/';
-const AFFILIATE_PREVIEW_FILES=Object.freeze(['index.html','app.js','daily.js','tema.css','operacao.html','vendor/LICENSES.txt','vendor/chart.umd.js','vendor/inter-400.woff2','vendor/inter-500.woff2','vendor/inter-600.woff2','vendor/inter-700.woff2','vendor/tabler.min.css','vendor/tabler.min.js','vendor/wm-aristocrata.png','vendor/wm-fishermans.png']);
+const AFFILIATE_PREVIEW_FILES=Object.freeze(['index.html','app.js','daily.js','tts.js','tema.css','operacao.html','vendor/LICENSES.txt','vendor/chart.umd.js','vendor/inter-400.woff2','vendor/inter-500.woff2','vendor/inter-600.woff2','vendor/inter-700.woff2','vendor/tabler.min.css','vendor/tabler.min.js','vendor/wm-aristocrata.png','vendor/wm-fishermans.png']);
 const CRM_PREVIEW='/previas/crm/';
 const CRM_WORKSPACE='/app/crm/',AFFILIATE_WORKSPACE='/app/afiliados/';
 const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','drafts.js','journey-engine.js','journey-ui.js']);
@@ -615,7 +615,7 @@ async function templateOwnershipWriteGate(user,action,{isolatedSandbox=false,adm
   if(typeof admit!=='function')throw jsonError(503,'BRAND_TEMPLATE_OWNERSHIP_NOT_READY');await admit();
  }
 }
-function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime,nativeInstaller,sourcePeerTransport,sourceDiagnostics,deliveryHealth,schedulerState}={}){
+function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime,nativeInstaller,sourcePeerTransport,sourceDiagnostics,deliveryHealth,schedulerState,ttsBusinessAllowed=()=>false}={}){
   const affiliatePreviewPublicFiles=s.simpleReadMode===true?[...AFFILIATE_PREVIEW_FILES.map(name=>({name,prefix:AFFILIATE_PREVIEW,root:'public/afiliados-preview'})),...CRM_PREVIEW_FILES.map(name=>({name,prefix:CRM_PREVIEW,root:CRM_PREVIEW_OWN_FILES.includes(name)?'public/crm-preview':'public/afiliados-preview'}))].map(({name,prefix,root})=>{
     const file=path.join(__dirname,root,name),st=fs.lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||fs.realpathSync(file)!==file||st.size>2*1024*1024)throw Error('AFFILIATE_PREVIEW_ASSET_UNAVAILABLE');const bytes=fs.readFileSync(file);return {path:prefix+name,bytes:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
   }):undefined;
@@ -661,6 +661,19 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const affiliateReader=dashboardAffiliateRead?AffiliateRead.createReader({auth,upstreams,fetchImpl}):null;
   const simpleReader=s.simpleReadMode===true?require('./simple-dashboard-read.cjs').createReader({auth,upstreams,keys:s.simpleReadSources||{},fetchImpl,projectGrowth:projectBrandCache,growthDiagnostics:cartContractSummary,onReadFailure:row=>process.stderr.write(JSON.stringify(row)+'\n')}):null;
   const simpleAffiliateEditor=simpleReader?require('./simple-dashboard-read.cjs').createAffiliateEditor({auth,upstreams,readKey:s.simpleReadSources?.afiliados,writeKey:s.simpleAffiliateWriteKey,otherReadKeys:Object.values(s.simpleReadSources||{}),fetchImpl}):null;
+  // The production constructor closes decisions until commercial policy and
+  // programme budget are admitted. Synthetic tests inject their fake policy.
+  const simpleTTS=s.simpleReadMode===true&&auth.simpleTTSFactory?auth.simpleTTSFactory(async({credential,query,body})=>{
+    const endpoint=require('./proxy.cjs').FIXED_DESTINATIONS['tts-action'];
+    if(upstreams['tts-action']?.href!==endpoint||!s.allowedUpstreamHosts?.includes(new URL(endpoint).hostname)||Object.values(s.simpleReadSources||{}).includes(credential))throw jsonError(503,'TTS_SOURCE_NOT_ADMITTED');
+    const target=new URL(endpoint);for(const[k,v]of Object.entries(query||{}))target.searchParams.set(k,v);
+    const response=await fetchImpl(target.href,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{'X-TTS-Write-Key':credential},credentials:'omit',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(body?60000:20000),...(body?{body:JSON.stringify({...body,k:credential})}:{})});
+    if(response.url&&response.url!==target.href||!response.headers.get('content-type')?.includes('application/json'))throw jsonError(502,'TTS_SOURCE_RESPONSE_DENIED');
+    const reader=response.body?.getReader();if(!reader)throw jsonError(502,'TTS_SOURCE_RESPONSE_DENIED');
+    const chunks=[];let size=0;try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>1048576){await reader.cancel();throw jsonError(502,'TTS_SOURCE_RESPONSE_DENIED');}chunks.push(Buffer.from(part.value));}}finally{reader.releaseLock();}
+    const raw=Buffer.concat(chunks,size).toString('utf8');
+    let value;try{value=JSON.parse(raw);}catch{throw jsonError(502,'TTS_SOURCE_RESPONSE_DENIED');}return {status:response.status,body:value};
+  },ttsBusinessAllowed):undefined;
   const publicReadKeyInstaller=simpleReader&&s.crmNativeEnabled===true?require('./simple-dashboard-read.cjs').createPublicReadKeyInstaller({auth,onLinked:key=>simpleReader.linkAudience(key)}):null;
   if(s.crmDraftWrite!==undefined&&typeof s.crmDraftWrite!=='boolean'||s.crmDraftWrite===true&&s.mode!=='operational')throw Error('Invalid CRM draft write gate');
   if(s.crmAudienceDraft!==undefined&&typeof s.crmAudienceDraft!=='boolean'||s.crmAudienceDraft===true&&s.mode!=='operational')throw Error('Invalid CRM audience draft gate');
@@ -1128,6 +1141,26 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(req.method!=='POST')throw jsonError(405,'METHOD_DENIED');
         if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
         const body=await readJson(req,1024),result=await simpleReader.read({context:ctx,route:'affiliate-own-read',method:req.method,query:url.searchParams,body,origin});result.body.editAvailable=simpleAffiliateEditor?.availability(ctx,body.brand).allowed===true;result.body.pendingEdits=auth.simpleAccounts.pendingAffiliateEdits({context:ctx,brand:body.brand});return sendJson(req,res,result.status,result.body);
+      }
+      if(url.pathname==='/api/tts-manual'&&simpleTTS&&!nativeContext){
+        auth.authorize({...ctx,area:'influs',productFront:'afiliados',edit:false});
+        let action,args;
+        if(req.method==='GET'){
+          if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'TTS_INPUT');
+          ({action,...args}=Object.fromEntries(url.searchParams));
+          if(action==='capabilities'||action==='attempts'){if(Object.keys(args).join(',')!=='brand')throw jsonError(400,'TTS_INPUT');}
+          else if(action!=='operation')throw jsonError(400,'TTS_INPUT');
+          if(action==='operation')auth.authorize({...ctx,method:'POST',area:'influs',productFront:'afiliados',edit:false});
+        }else if(req.method==='POST'){
+          if(url.search||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+          ({action,...args}=await readJson(req,2048));if(action!=='review')throw jsonError(400,'TTS_INPUT');
+        }else throw jsonError(405,'METHOD_DENIED');
+        const user=auth.authorizeBrand({...ctx,area:'influs',productFront:'afiliados',edit:req.method==='POST'},args.brand);
+        const release=reserveCampaignWork(user.id);
+        try{
+          const value=action==='capabilities'?await simpleTTS.capabilities(ctx,args):action==='attempts'?await simpleTTS.pending(ctx,args):action==='operation'?await simpleTTS.operation(ctx,args):await simpleTTS.review(ctx,args);
+          return sendJson(req,res,value.state==='unknown'||value.state==='reserved'?202:200,value);
+        }finally{release();}
       }
       if(url.pathname==='/api/affiliate-own-edit'&&simpleAffiliateEditor){
         if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');

@@ -1,6 +1,6 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test']);
+ const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test']);
  const nativeFetch=window.fetch.bind(window);
  let csrfPromise=null,campaignWriter=false,audienceWriter=false,sessionState=null,sessionSequence=0,brandPresentationSignature=null;
  const AffiliateSession=require('./afiliados-session-read.cjs');
@@ -127,7 +127,7 @@
    }
   }
   let body;try{body=await cleanBody(input,init,method,headers);}catch(_){return reject(415);}
-  const editReceipt=method==='GET'&&(route==='campaigns'&&url.searchParams.get('acao')==='campanha_operacao'||route==='segments'&&url.searchParams.get('acao')==='segmento_operacao');
+  const editReceipt=method==='GET'&&(route==='campaigns'&&url.searchParams.get('acao')==='campanha_operacao'||route==='segments'&&url.searchParams.get('acao')==='segmento_operacao'||route==='tts-manual'&&url.searchParams.get('action')==='operation');
   if(!['GET','HEAD'].includes(method)||editReceipt||route==='campaigns'&&campaignWriter||route==='segments'&&audienceWriter){
    try{headers.set('X-CSRF-Token',await csrf());}catch(_){return reject(401);}
   }else headers.delete('X-CSRF-Token');
