@@ -135,7 +135,7 @@ else (function(){'use strict';
    if(fetchOptions.body!==undefined)headers.set('Content-Type','application/json');
    if((fetchOptions.method&&fetchOptions.method!=='GET'||editReceipt)&&session?.csrf)headers.set('X-CSRF-Token',session.csrf);
    const response=await fetch(url,{...fetchOptions,headers,credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
-   if(url==='/auth/users'&&response.status===401)showLogin('Sua sessão expirou. Entre novamente para gerenciar os acessos.');
+   if(['/auth/users','/auth/simple/users'].includes(url)&&response.status===401)showLogin('Sua sessão expirou. Entre novamente para gerenciar os acessos.');
    let data={};try{data=await response.json();}catch(_){}
    return {response,data};
   }finally{clearTimeout(deadline);}
@@ -566,7 +566,9 @@ else (function(){'use strict';
   }catch(_){
    if(ticket!==version||session!==original)return false;
    const labels={EMAIL_EXISTS:'Este e-mail já possui cadastro.',PASSWORD_INVALID:'Use uma senha com pelo menos 12 caracteres e no máximo 72 bytes.',FRONTS_INVALID:'Selecione pelo menos uma frente.',BRANDS_INVALID:'Selecione pelo menos uma marca.',JOB_TITLE_INVALID:'Informe o cargo.'};
-   adminMessage.textContent=labels[data?.error]||(!response||response.ok||response.status>=500?'A resposta não foi confirmada. Atualize a lista antes de repetir.':'O cadastro foi recusado. Confira os dados.');return false;
+   const uncertain=!response||response.ok||response.status>=500;
+   if(uncertain){await refreshUsersAfterChange();if(ticket!==version||session!==original)return false;}
+   adminMessage.textContent=labels[data?.error]||(uncertain?(body.action==='reset'?'A resposta do reset de senha não foi confirmada. A lista não comprova a senha; confira o login antes de repetir.':'A resposta não foi confirmada. Confira o cadastro na lista atual antes de repetir.'):'O cadastro foi recusado. Confira os dados.');return false;
   }finally{busy=false;for(const control of controls)control.disabled=false;for(const fieldset of form.querySelectorAll('fieldset'))fieldset.shrigmaWriteSync?.();for(const field of form.querySelectorAll('input[type="password"]'))field.value='';}
  }
  function simpleUserRow(user){

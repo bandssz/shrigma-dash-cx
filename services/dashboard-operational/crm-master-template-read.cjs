@@ -1,7 +1,7 @@
 'use strict';
 // Original registered tx email list only. PRIVATE authorization stays in the reader.
 const {createHash}=require('node:crypto');
-const VERSION='crm-template-read-v1',DESTINATION='https://n8n.shrigma.com.br/webhook/crm-template-api-242c0db6ddb8';
+const VERSION='crm-template-read-v1',DESTINATION='https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd';
 const MAX_BYTES=8*1024*1024,MAX_TEMPLATES=1000,MAX_BODY_HTML=400000,MAX_SUBJECT=1000,MAX_LIMIT=20,DEADLINE_MS=18000,MAX_CONCURRENT=4;
 const fail=(code,status=502)=>{throw Object.assign(Error(code),{code,status});};
 const plain=v=>!!v&&Object.getPrototypeOf(v)===Object.prototype;

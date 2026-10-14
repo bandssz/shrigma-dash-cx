@@ -1,7 +1,7 @@
 'use strict';
 // Fixed original published READ. No n8n administration, actor grant, draft or write.
 const VERSION='crm-published-journey-read-v1',SCOPE='master-brand-scoped';
-const DESTINATION='https://n8n.shrigma.com.br/webhook/crm-template-api-242c0db6ddb8';
+const DESTINATION='https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd';
 const WORKFLOW_ID='y6qJRcWcSfEZzwgZ',WORKFLOW_VERSION='362b1a93-54a3-44be-8933-dffe57b58aa6';
 const MAX_BYTES=1024*1024,DEADLINE_MS=18000;
 const fail=(code,status=502)=>{throw Object.assign(Error(code),{code,status});};

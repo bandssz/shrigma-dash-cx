@@ -13,7 +13,7 @@ async function fixture(t){
  const upstreams=Object.fromEntries(['crm-read','cx','cache','influ','tts'].map(k=>[k,new URL(FIXED_DESTINATIONS[k])]));
  const app=createServer({mode:'operational',simpleReadMode:true,simpleReadSources:{},managerHost:HOST,areaHosts,allowedEmailDomains:['synthetic.invalid'],upstreams,allowedUpstreamHosts:[...new Set(Object.values(upstreams).map(u=>u.hostname))],publicDir:path.join(artifact(),'public')},{auth,fetchImpl:()=>{throw Error('NO_PROVIDER_IN_UI_TEST');}});
  t.after(()=>{app.removeAllListeners();auth.close();fs.rmSync(dir,{recursive:true,force:true});});const http=transport(app);
- const make=(cookie=master.cookie.split(';')[0])=>{const x=shell(http,{host:HOST,area:'gestao',cookie}),dialog=x.el('simple-password-dialog');Object.defineProperty(dialog,'open',{get(){return this.hasAttribute('open');}});dialog.showModal=function(){this.setAttribute('open','');};dialog.close=function(){this.removeAttribute('open');this.dispatchEvent(new x.window.Event('close'));};return x;};
+ const make=(cookie=master.cookie.split(';')[0],options={})=>{const x=shell(http,{host:HOST,area:'gestao',cookie,...options}),dialog=x.el('simple-password-dialog');Object.defineProperty(dialog,'open',{get(){return this.hasAttribute('open');}});dialog.showModal=function(){this.setAttribute('open','');};dialog.close=function(){this.removeAttribute('open');this.dispatchEvent(new x.window.Event('close'));};return x;};
  return {auth,http,context,make};
 }
 const tick=(x,id,value)=>{const field=x.el(id).querySelector('input[value="'+value+'"]');field.checked=true;field.setAttribute('checked','');};
@@ -47,4 +47,27 @@ test('own-password dialog changes the real account and requires a fresh login',a
  x.el('entry-password').click();x.input('simple-current-password',PASS);x.input('simple-new-password',NEW_PASS);await x.submit('simple-password-form');await until(()=>!x.el('entry-login').hidden&&x.el('entry-message').textContent.includes('Senha alterada'),'password changed');
  assert.equal(x.el('simple-current-password').value,'');assert.equal(x.el('simple-new-password').value,'');assert.equal(x.calls.filter(c=>c.path==='/auth/password').length,1);
  await assert.rejects(f.auth.login({email:'analista@synthetic.invalid',password:PASS,host:HOST,origin:'https://'+HOST}),e=>e.code==='AUTH_INVALID');assert((await f.auth.login({email:'analista@synthetic.invalid',password:NEW_PASS,host:HOST,origin:'https://'+HOST})).cookie);
+});
+
+test('CRM WRITE account works in both brands; DOM reset and deactivate invalidate actual sessions',async t=>{
+ const f=await fixture(t),x=f.make();await until(()=>!x.el('entry-shell').hidden,'shell');x.el('entry-manage').click();await until(()=>!x.el('admin-panel').hidden,'admin');
+ x.input('simple-email','crm@synthetic.invalid');x.input('simple-title','CRM');x.input('simple-password',PASS);tick(x,'simple-fronts','growth');x.el('simple-fronts').dispatchEvent(new x.window.Event('change',{bubbles:true}));tick(x,'simple-write-fronts','growth');for(const b of ['fish','aristo'])tick(x,'simple-brands',b);
+ await x.submit('simple-user-form');await until(()=>x.el('admin-message').textContent.includes('Usuário criado'),'created');
+ const login=await f.auth.login({email:'crm@synthetic.invalid',password:PASS,host:HOST,origin:'https://'+HOST}),ctx={...f.context,cookieHeader:login.cookie.split(';')[0],csrf:login.csrf,area:'growth',productFront:'growth',edit:true};
+ for(const brand of ['fish','aristo'])assert.equal(f.auth.authorizeBrand(ctx,brand).email,'crm@synthetic.invalid');assert.throws(()=>f.auth.authorizeBrand(ctx,'olivas'));
+ const row=()=>[...x.el('admin-users').querySelectorAll('.user-row')].find(r=>r.textContent.includes('crm@synthetic.invalid'));let form=row().querySelector('.simple-password-reset');form.querySelector('input').value=NEW_PASS;form.dispatchEvent(new x.window.Event('submit',{cancelable:true}));await until(()=>x.el('admin-message').textContent.includes('Senha resetada'),'reset');
+ assert.throws(()=>f.auth.authorizeBrand(ctx,'fish'));await assert.rejects(f.auth.login({email:'crm@synthetic.invalid',password:PASS,host:HOST,origin:'https://'+HOST}));
+ const fresh=await f.auth.login({email:'crm@synthetic.invalid',password:NEW_PASS,host:HOST,origin:'https://'+HOST});form=row().querySelector('.simple-user-editor');const active=form.querySelector('input[type="checkbox"]:not(fieldset input)');active.checked=false;form.dispatchEvent(new x.window.Event('submit',{cancelable:true}));await until(()=>x.el('admin-message').textContent.includes('Acesso atualizado'),'deactivated');
+ assert(row().textContent.includes('Inativo'));assert.throws(()=>f.auth.authorizeBrand({...ctx,cookieHeader:fresh.cookie.split(';')[0]},'fish'));assert.equal(x.calls.filter(c=>c.path==='/auth/simple/users'&&c.method==='POST').length,3);
+});
+test('lost reset ACK reopens current list without replay and never claims the new password is proven',async t=>{
+ const f=await fixture(t);await f.auth.simpleAccounts.create({context:f.context,email:'crm@synthetic.invalid',password:PASS,jobTitle:'CRM',fronts:['growth'],brands:['fish']});
+ const x=f.make(undefined,{loseAck:(method,b)=>method==='POST'&&b?.action==='reset'});await until(()=>!x.el('entry-shell').hidden,'shell');x.el('entry-manage').click();await until(()=>x.el('admin-users').textContent.includes('crm@synthetic.invalid'),'users');
+ const form=x.el('admin-users').querySelector('.simple-password-reset');form.querySelector('input').value=NEW_PASS;const reads=x.calls.filter(c=>c.path==='/auth/users').length;form.dispatchEvent(new x.window.Event('submit',{cancelable:true}));await until(()=>x.el('admin-message').textContent.includes('não foi confirmada'),'uncertain');
+ assert(x.el('admin-message').textContent.includes('lista não comprova a senha'));assert.equal(x.calls.filter(c=>c.path==='/auth/simple/users'&&c.method==='POST').length,1);assert.equal(x.calls.filter(c=>c.path==='/auth/users').length,reads+1);assert(!x.el('admin-message').textContent.includes('Senha resetada'));assert((await f.auth.login({email:'crm@synthetic.invalid',password:NEW_PASS,host:HOST,origin:'https://'+HOST})).cookie);
+});
+test('expired administrative cookie returns simple account mutations to login',async t=>{
+ const f=await fixture(t),x=f.make();await until(()=>!x.el('entry-shell').hidden,'shell');x.el('entry-manage').click();await until(()=>!x.el('admin-panel').hidden,'admin');
+ await f.auth.logout(f.context);x.input('simple-email','crm@synthetic.invalid');x.input('simple-title','CRM');x.input('simple-password',PASS);tick(x,'simple-fronts','growth');tick(x,'simple-brands','fish');await x.submit('simple-user-form');
+ await until(()=>!x.el('entry-login').hidden&&x.el('entry-message').textContent.includes('sessão expirou'),'login');assert.equal(x.el('admin-panel').hidden,true);assert.equal(x.calls.filter(c=>c.path==='/auth/simple/users').at(-1).status,401);
 });
