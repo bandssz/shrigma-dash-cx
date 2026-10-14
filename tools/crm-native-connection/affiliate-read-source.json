@@ -385,8 +385,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 170139,
-      "sha256": "115ead100414792b9f9fa44779290121625c281254bfb197854d70484c3a8e92"
+      "bytes": 170238,
+      "sha256": "8dd92a70c0b985c2787b3c484585e52d002c75970769cae958093a09530711cf"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -670,8 +670,8 @@
     },
     {
       "path": "tests/source-diagnostics-native/gateway.test.cjs",
-      "bytes": 13816,
-      "sha256": "466f2a22601bec3a3820e3aaa1700565bddf434a66b69ba196af7a1bb89c7dcf"
+      "bytes": 13847,
+      "sha256": "9a1bcf08831f8b5010637180e8b0099c4fc8840ea6a9c281bc9a62cca676e558"
     },
     {
       "path": "tests/source-sync-native/epoch.test.cjs",
