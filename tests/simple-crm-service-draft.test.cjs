@@ -59,6 +59,10 @@ async function fixture(t,{write=true,fronts=['growth'],brands=['aristo'],holder=
 }
 const createCampaign=()=>({acao:'campanha_criar',brand:'aristo',definition:campaignDefinition(),idempotency_key:crypto.randomUUID()});
 const createAudience=()=>({acao:'segmento_criar',brand:'aristo',definition:audienceDefinition(),expected_catalog_hash:'a'.repeat(64),idempotency_key:crypto.randomUUID()});
+test('individual draft save cannot erase original TEST classification before journal or source POST',async t=>{
+ const f=await fixture(t),created=await f.request('/api/campaigns',{method:'POST',body:createCampaign()});a.equal(created.status,200);const previous=f.posts();
+ const key=crypto.randomUUID(),r=await f.request('/api/campaigns',{method:'POST',body:{acao:'campanha_salvar',brand:'aristo',id:created.body.campaign.id,expected_version:created.body.campaign.version,definition:{...campaignDefinition(),name:'Commercial fixture',subject:'Commercial fixture',tags:[]},idempotency_key:key}});a.equal(r.status,403,JSON.stringify(r.body));a.equal(r.body.error,'TEST_CAMPAIGN_INTERNAL_ONLY');a.equal(f.posts(),previous);a.equal(f.dbQuery(db=>db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1 WHERE client_key=?').get(key).n),0);
+});
 test('individual CRM WRITE creates and reloads a draft; journal author stays the real analyst and key stays private',async t=>{
  const f=await fixture(t),command=createCampaign(),result=await f.request('/api/campaigns',{method:'POST',body:command});a.equal(result.status,200,JSON.stringify(result.body));a.equal(result.body.state,'succeeded');a.equal(result.body.campaign.sent,0);a.equal(result.body.campaign.sendAt,null);a.equal(f.posts(),1);
  const row=f.dbQuery(db=>db.prepare('SELECT * FROM crm_campaign_create_v1 WHERE client_key=?').get(command.idempotency_key));a.equal(row.user_id,f.created.user.id);a.notEqual(row.remote_key,command.idempotency_key);a.notEqual(row.credential_mac,sha(f.key));

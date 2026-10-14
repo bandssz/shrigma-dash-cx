@@ -742,7 +742,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     if(after.id!==user.id||auth.getUpstreamCredential({...branded,slot:'growth-campaign',area:'growth',edit:true})!==credential)throw jsonError(403,'CAMPAIGN_ACCESS_CHANGED');
     const c=original?.body?.campaign,d=c?.definition;
     if(original?.status!==200||c?.id!==Number(command.id)||c?.version!==command.expected_version||d?.brand!==command.brand||typeof d.name!=='string'||typeof d.subject!=='string'||!Array.isArray(d.tags)||!d.tags.every(v=>typeof v==='string'))throw jsonError(409,'CAMPAIGN_SCHEDULE_READ_UNCONFIRMED');
-    if(require('./campaign-write-contract.js').isInternalTest(c)&&(scheduling||!command.definition?.tags?.includes('crm-internal-test')||command.definition.send_at!==null))throw jsonError(403,'TEST_CAMPAIGN_INTERNAL_ONLY');
+    if(require('./campaign-write-contract.js').isInternalTest(c)&&(scheduling||!require('./campaign-write-contract.js').isInternalTest(command.definition)||command.definition.send_at!==null))throw jsonError(403,'TEST_CAMPAIGN_INTERNAL_ONLY');
   };
   const campaignTransport=async(context,{method,command})=>{
     const brandedContext={...context,brand:command.brand};
@@ -762,8 +762,19 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const campaignDto=(action,key,value)=>({schema:'crm-campaign-bff-operation-v1',action,attemptKey:key,state:value.state,campaign:value.campaign,validation:value.validation??null});
   const campaignStatus=value=>value.state==='pending'?202:value.state==='rejected'?409:200;
   let simpleCampaignDrafts;
+  const requireSimpleCampaignTestSafety=async(context,command)=>{
+    if(command.acao!=='campanha_salvar'||!Number.isSafeInteger(command.id))return;
+    const before=await auth.verifySimpleDraftBinding(context,{brand:command.brand,write:true,fetchImpl});
+    const original=await forward({route:'campaigns',method:'GET',query:new URLSearchParams({acao:'campanha_obter',brand:command.brand,id:String(command.id)}),user:before.author,credential:before.credential,upstreams,origin:'https://'+context.host,simpleCampaignDraft:true,crmCorporateWriter:simpleCampaignDrafts.descriptor,fetchImpl});
+    const after=await auth.verifySimpleDraftBinding(context,{brand:command.brand,write:true,fetchImpl});
+    if(before.binding!==after.binding||before.snapshot!==after.snapshot)throw jsonError(403,'CRM_SERVICE_DRAFT_ACCESS_CHANGED');
+    const c=original?.body?.campaign,d=c?.definition,C=require('./campaign-write-contract.js');
+    if(original?.status!==200||c?.id!==command.id||c?.version!==command.expected_version||d?.brand!==command.brand||typeof d.name!=='string'||typeof d.subject!=='string'||!Array.isArray(d.tags)||!d.tags.every(v=>typeof v==='string'))throw jsonError(409,'CAMPAIGN_SCHEDULE_READ_UNCONFIRMED');
+    if(C.isInternalTest(c)&&(!C.isInternalTest(command.definition)||command.definition.send_at!==null))throw jsonError(403,'TEST_CAMPAIGN_INTERNAL_ONLY');
+  };
   const simpleDraftTransport=async(context,{method,command,route='campaigns'})=>{
     const write=method==='POST'||route==='segments'||command.acao==='campanha_operacao';
+    if(method==='POST'&&route==='campaigns')await requireSimpleCampaignTestSafety(context,command);
     const before=await auth.verifySimpleDraftBinding(context,{brand:command.brand,write,fetchImpl});
     const query=method==='GET'?new URLSearchParams(Object.entries(command).map(([k,v])=>[k,String(v)])):new URLSearchParams();
     const result=await forward({route,method,query,body:method==='POST'?command:undefined,user:before.author,credential:before.credential,upstreams,origin:'https://'+context.host,simpleCampaignDraft:route==='campaigns',simpleAudienceDraft:route==='segments',crmCorporateWriter:simpleCampaignDrafts.descriptor,fetchImpl});
@@ -1332,6 +1343,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(req.method==='POST'){
             if(!['campanha_criar','campanha_salvar','campanha_validar'].includes(action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
             const context=auth.simpleDraftContext(ctx,{brand});await auth.verifySimpleDraftBinding(context,{brand,fetchImpl});
+            await requireSimpleCampaignTestSafety(context,body);
             const value=await (action==='campanha_criar'?simpleCampaignDrafts.creator:simpleCampaignDrafts.delivery).submit(context,body);
             return sendJson(req,res,campaignStatus(value),campaignDto(action,body.idempotency_key,value));
           }

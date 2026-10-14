@@ -315,6 +315,11 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /source/tests/production-envelope.test.cjs /source/tests/simple-crm-service-draft.test.cjs /source/tests/simple-tts-manual.test.cjs /source/tests/simple-tabler-read.test.cjs
+      - name: Prove TEST safety and retention diagnostics in the same Node22 UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env CAMPAIGN_CREATE_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_DIAGNOSTICS_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_DIAGNOSTICS_INPUT_ROOT=/source/tests/source-commit-diagnostics-native/sealed-inputs --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /source/tests/campaign-create-native/gateway.test.cjs /source/tests/source-commit-diagnostics-native/diagnostics.test.cjs /source/tests/source-diagnostics-native/operator-ui.test.cjs
       - name: Publish the same verified artifact
         shell: bash
         run: |
