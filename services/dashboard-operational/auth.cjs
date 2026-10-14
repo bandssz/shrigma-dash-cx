@@ -1078,12 +1078,16 @@ function createAuth(options){
   db.exec('BEGIN IMMEDIATE');try{writerCall(()=>managedWriter.stageRenew(userId));db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}
   return {ok:true,state:'renewing'};
  }
- function writerBinding(user){
+ function intactMasterWriterBinding(user){
   if(user.role==='superadmin'){
    if(!campaignSubmit||!masterWriter||user.email!==adminEmail||user.permissions.growth?.edit!==true)return null;
    const a=db.prepare("SELECT a.*,c.key_digest,c.encrypted_key FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id),bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='growth-campaign'").get(user.id);
-   return a&&a.owner===user.email&&a.credential_mac===a.key_digest&&Number.isSafeInteger(a.attested_at)&&a.attested_at<=current()&&Number.isSafeInteger(a.expires_at)&&a.expires_at>current()&&a.expires_at<=a.attested_at+14*86400000&&equalHex(a.master_proof_mac,masterWriterMac(user,a))&&bound&&equalHex(bound.binding_mac,upstreamBindingMac(user,'growth-campaign',a))?a:null;
+   return a&&a.owner===user.email&&a.credential_mac===a.key_digest&&Number.isSafeInteger(a.attested_at)&&a.attested_at<=current()&&Number.isSafeInteger(a.expires_at)&&a.expires_at>a.attested_at&&a.expires_at<=a.attested_at+14*86400000&&equalHex(a.master_proof_mac,masterWriterMac(user,a))&&bound&&equalHex(bound.binding_mac,upstreamBindingMac(user,'growth-campaign',a))?a:null;
   }
+  return null;
+ }
+ function writerBinding(user){
+  if(user.role==='superadmin'){const a=intactMasterWriterBinding(user);return a&&a.expires_at>current()?a:null;}
   if(ownMasterWriter&&!coexistence)return null;
   if(managedWriter)return managedWriter.bindingForUser(user.id);
   if(!campaignSubmit||user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.edit!==true)return null;
@@ -1189,23 +1193,27 @@ function createAuth(options){
   if(write&&author.role!=='superadmin'&&(author.permissions.growth?.edit!==true||!author.productWriteFronts?.includes('growth')))err('PRODUCT_WRITE_DENIED',403);
   const row=db.prepare("SELECT * FROM users WHERE email=? AND role='superadmin' AND state='active'").get(adminEmail);
   if(!row)err('CRM_SERVICE_DRAFT_UNAVAILABLE',503);
-  const holder=publicUser(row),att=writerBinding(holder);
+  // Only the three-cap draft service can inspect an intact expired proof.
+  // Its fixed original identity GET is mandatory before/after each transport;
+  // the commercial writer's persistent lifetime and grants remain unchanged.
+  const holder=publicUser(row),att=intactMasterWriterBinding(holder);
   if(!att||holder.permissions.growth?.edit!==true||!holder.productWriteFronts?.includes('growth'))err('CRM_SERVICE_DRAFT_UNAVAILABLE',503);
   const credential=decrypt(att.encrypted_key);
   if(!equalHex(att.credential_mac,crypto.createHmac('sha256',encKey).update('upstream-key:'+credential).digest('hex')))err('CREDENTIAL_UNAVAILABLE',503);
-  const binding=brandMac(['crm-local-account-drafts-v1',author.id,brand,profileRevision(author.id),holder.id,profileRevision(holder.id),att.principal_id,att.credential_mac,att.expires_at,att.attested_at,att.master_proof_mac]);
-  const marked=simpleDraftContexts.get(context);if(marked&&(marked.brand!==brand||marked.binding!==binding))err('CRM_SERVICE_DRAFT_ACCESS_CHANGED',403);
-  return {author,holder,credential,binding,principal:att.principal_id,expiresAt:att.expires_at};
+  const binding=brandMac(['crm-local-account-drafts-v2',author.id,brand,holder.id,att.principal_id,att.credential_mac]);
+  const snapshot=brandMac(['crm-local-account-draft-request-v1',binding,profileRevision(author.id),profileRevision(holder.id),att.expires_at,att.attested_at,att.master_proof_mac]);
+  const marked=simpleDraftContexts.get(context);if(marked&&(marked.brand!==brand||marked.binding!==binding||marked.snapshot!==snapshot))err('CRM_SERVICE_DRAFT_ACCESS_CHANGED',403);
+  return {author,holder,credential,binding,snapshot,principal:att.principal_id,expiresAt:att.expires_at};
  }
  async function verifySimpleDraftBinding(context,{brand,write=true,fetchImpl=globalThis.fetch}={}){
   const before=simpleDraftBinding(context,{brand,write});let proof;
   try{proof=await require('./crm-campaign-writer-attestation.cjs').verifyStoredMasterCampaignWriterCredential({bearer:before.credential,owner:before.holder.email},{fetchImpl});}catch{err('CRM_SERVICE_DRAFT_SOURCE_REFUSED',503);}
   const principal='master-'+crypto.createHmac('sha256',encKey).update('master-campaign-actor:'+proof.principalId).digest('hex'),after=simpleDraftBinding(context,{brand,write});
-  if(principal!==before.principal||proof.owner!==before.holder.email||after.binding!==before.binding)err('CRM_SERVICE_DRAFT_ACCESS_CHANGED',403);
+  if(principal!==before.principal||proof.owner!==before.holder.email||after.binding!==before.binding||after.snapshot!==before.snapshot)err('CRM_SERVICE_DRAFT_ACCESS_CHANGED',403);
   return after;
  }
  function simpleDraftContext(context,{brand}={}){
-  const bound=simpleDraftBinding(context,{brand}),out={...context};simpleDraftContexts.set(out,{brand,binding:bound.binding});return out;
+  const bound=simpleDraftBinding(context,{brand}),out={...context};simpleDraftContexts.set(out,{brand,binding:bound.binding,snapshot:bound.snapshot});return out;
  }
  function simpleDraftAuthority(context,{brand}={}){
   const p=simpleDraftBinding(context,{brand});return Object.freeze({userId:p.author.id,role:p.author.role,slot:'growth-campaign',canEdit:true,credentialMac:p.binding,caps:Object.freeze(['read_content','draft','validate'])});

@@ -750,7 +750,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     const query=method==='GET'?new URLSearchParams(Object.entries(command).map(([k,v])=>[k,String(v)])):new URLSearchParams();
     const result=await forward({route,method,query,body:method==='POST'?command:undefined,user:before.author,credential:before.credential,upstreams,origin:'https://'+context.host,simpleCampaignDraft:route==='campaigns',simpleAudienceDraft:route==='segments',crmCorporateWriter:simpleCampaignDrafts.descriptor,fetchImpl});
     const after=await auth.verifySimpleDraftBinding(context,{brand:command.brand,write,fetchImpl});
-    if(before.binding!==after.binding)throw jsonError(403,'CRM_SERVICE_DRAFT_ACCESS_CHANGED');
+    if(before.binding!==after.binding||before.snapshot!==after.snapshot)throw jsonError(403,'CRM_SERVICE_DRAFT_ACCESS_CHANGED');
     const privacy=JSON.parse(JSON.stringify(result.body));
     const maskActor=value=>{if(value&&typeof value==='object')for(const [key,child]of Object.entries(value)){if(route==='segments'&&key==='updated_by'&&child==='panel:'+before.credential)value[key]='Equipe CRM';else maskActor(child);}};maskActor(privacy);
     if(JSON.stringify(privacy).toLowerCase().includes(before.credential.toLowerCase()))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');

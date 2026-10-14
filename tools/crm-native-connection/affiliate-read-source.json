@@ -175,8 +175,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 155555,
-      "sha256": "e11668bba174fcdd5ff680a6b0d042c5d11b432fd9d9331cc315072b570f8e4b"
+      "bytes": 156147,
+      "sha256": "19fbb1215896195b5bce6d25be491ca69349e150a1e2959e89d441139dc7eaf4"
     },
     {
       "path": "services/dashboard-operational/BCRYPT-LICENSE",
@@ -460,8 +460,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 192495,
-      "sha256": "fa5b0b1d4e676dac0bc2aa1a2850a54d8cda0691f1daae593eb66da33cfbbfd9"
+      "bytes": 192529,
+      "sha256": "fb8c512c42f1e689ad4719e67cde016231c31cc2fcf7274e2dd778088c92763e"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -730,8 +730,8 @@
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
-      "bytes": 25133,
-      "sha256": "e305527dcc1be54c54d68a7ec8ea742c921db66e1dd571b1a4dd50bad78e37b4"
+      "bytes": 29258,
+      "sha256": "8be2900ea03ac001f165210deee8ac40a159f61547e95a2a3a637a5713ab3f75"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
