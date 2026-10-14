@@ -680,6 +680,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const affiliateReader=dashboardAffiliateRead?AffiliateRead.createReader({auth,upstreams,fetchImpl}):null;
   const simpleReader=s.simpleReadMode===true?require('./simple-dashboard-read.cjs').createReader({auth,upstreams,keys:s.simpleReadSources||{},fetchImpl,projectGrowth:projectBrandCache,growthDiagnostics:cartContractSummary,onReadFailure:row=>process.stderr.write(JSON.stringify(row)+'\n')}):null;
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
+  const simpleCampaignTests=simpleReader?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
   const simpleAffiliateEditor=simpleReader?require('./simple-dashboard-read.cjs').createAffiliateEditor({auth,upstreams,readKey:s.simpleReadSources?.afiliados,writeKey:s.simpleAffiliateWriteKey,otherReadKeys:Object.values(s.simpleReadSources||{}),fetchImpl}):null;
   // The production constructor closes decisions until commercial policy and
   // programme budget are admitted. Synthetic tests inject their fake policy.
@@ -1347,6 +1348,18 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(simpleReader&&!nativeContext&&route==='campaigns'){
           if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'ARGUMENTS_INVALID');
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields?.brand,action=fields?.acao;
+          if(['campanha_teste_capacidade','campanha_teste_previa','campanha_teste','campanha_teste_operacao'].includes(action)){
+            if(!simpleCampaignTests)throw jsonError(503,'CAMPAIGN_TEST_UNAVAILABLE');
+            if(req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'CAMPAIGN_TEST_BRAND_REFUSED');
+            releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
+            let result;
+            if(action==='campanha_teste_capacidade'&&req.method==='GET'&&Object.keys(fields).sort().join(',')==='acao,brand')result={status:200,body:await simpleCampaignTests.capability(ctx,brand)};
+            else if(action==='campanha_teste_operacao'&&req.method==='GET'&&Object.keys(fields).sort().join(',')==='acao,brand,idempotency_key')result=await simpleCampaignTests.operation(ctx,brand,fields.idempotency_key);
+            else if(action==='campanha_teste_previa'&&req.method==='POST')result=await simpleCampaignTests.prepare(ctx,brand,body);
+            else if(action==='campanha_teste'&&req.method==='POST')result=await simpleCampaignTests.send(ctx,brand,body);
+            else throw jsonError(400,'CAMPAIGN_TEST_INPUT');
+            return sendJson(req,res,result.status,result.body);
+          }
           if(action==='campanha_capacidade'&&req.method==='GET'){
             if(Object.keys(fields).sort().join(',')!=='acao,brand')throw jsonError(400,'ARGUMENTS_INVALID');
             releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);

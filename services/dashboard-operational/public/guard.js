@@ -128,7 +128,7 @@
    }
   }
   let body;try{body=await cleanBody(input,init,method,headers);}catch(_){return reject(415);}
-  const editReceipt=method==='GET'&&(route==='templates'&&['operacao','email_teste_operacao_v2','email_teste_capacidades_v2'].includes(url.searchParams.get('acao'))||route==='campaigns'&&url.searchParams.get('acao')==='campanha_operacao'||route==='segments'&&url.searchParams.get('acao')==='segmento_operacao'||route==='tts-manual'&&url.searchParams.get('action')==='operation');
+  const editReceipt=method==='GET'&&(route==='templates'&&['operacao','email_teste_operacao_v2','email_teste_capacidades_v2'].includes(url.searchParams.get('acao'))||route==='campaigns'&&['campanha_operacao','campanha_teste_operacao','campanha_teste_capacidade'].includes(url.searchParams.get('acao'))||route==='segments'&&url.searchParams.get('acao')==='segmento_operacao'||route==='tts-manual'&&url.searchParams.get('action')==='operation');
   if(!['GET','HEAD'].includes(method)||editReceipt||route==='campaigns'&&campaignWriter||route==='segments'&&audienceWriter){
    try{headers.set('X-CSRF-Token',await csrf());}catch(_){return reject(401);}
   }else headers.delete('X-CSRF-Token');
