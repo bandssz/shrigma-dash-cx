@@ -307,6 +307,11 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env SOURCE_DIAGNOSTICS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /source/tests/source-diagnostics-native/controller.test.cjs /source/tests/source-diagnostics-native/gateway.test.cjs
+      - name: Prove individual CRM drafts, TikTok receipts and Tabler originals in Node22 UID1000
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test /source/tests/simple-crm-service-draft.test.cjs /source/tests/simple-tts-manual.test.cjs /source/tests/simple-tabler-read.test.cjs
       - name: Publish the same verified artifact
         shell: bash
         run: |

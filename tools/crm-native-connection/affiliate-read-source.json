@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 33075,
-      "sha256": "307598b6c12a47bebe717ab59bb2e7558dc99dddeb17e5aae60956017a1e8391"
+      "bytes": 33671,
+      "sha256": "39e39733bdc6f1de3bdb8a92109b54dab7df36235b4c312427b1e650d4ae7482"
     },
     {
       "path": "afiliados-proprios.js",
@@ -720,8 +720,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 37644,
-      "sha256": "16f916ec0e05f6267785a29ad7fa7400d0318438e5105b575e13a3686a4fea55"
+      "bytes": 38517,
+      "sha256": "01d96b6acad50bfb4ba9e12435bac035416a3f1951685382001f2ae7e2a628f1"
     },
     {
       "path": "tests/simple-audience-read.test.cjs",
