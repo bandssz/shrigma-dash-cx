@@ -950,8 +950,8 @@
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 8820,
-      "sha256": "e2792c0a5736fa1a6219720c568aa5a7bde5ee35700fe9310e7c001181be2a5d"
+      "bytes": 10095,
+      "sha256": "eafc5e9ccddc180bfe6193e8aaa6a88c5f9ba463e9f803e739e51d698dc94b3b"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
