@@ -14,7 +14,7 @@ const AFFILIATE_PREVIEW='/previas/afiliados/';
 const AFFILIATE_PREVIEW_FILES=Object.freeze(['index.html','app.js','daily.js','tema.css','operacao.html','vendor/LICENSES.txt','vendor/chart.umd.js','vendor/inter-400.woff2','vendor/inter-500.woff2','vendor/inter-600.woff2','vendor/inter-700.woff2','vendor/tabler.min.css','vendor/tabler.min.js','vendor/wm-aristocrata.png','vendor/wm-fishermans.png']);
 const CRM_PREVIEW='/previas/crm/';
 const CRM_WORKSPACE='/app/crm/',AFFILIATE_WORKSPACE='/app/afiliados/';
-const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','journey-engine.js','journey-ui.js']);
+const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','drafts.js','journey-engine.js','journey-ui.js']);
 const CRM_PREVIEW_FILES=Object.freeze([...CRM_PREVIEW_OWN_FILES,...AFFILIATE_PREVIEW_FILES.filter(n=>n==='tema.css'||n.startsWith('vendor/'))]);
 const jsonError=(status,code)=>Object.assign(new Error(code),{status,code});
 const LOGIN_PENDING_PER_SOCKET=8,LOGIN_SOCKET_KEYS_MAX=1024;
@@ -737,7 +737,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   };
   const allowedHosts=new Set([s.managerHost,...Object.values(s.areaHosts)]);
   const reserveLogin=loginGate();
-  let upstreamInFlight=0,crmCacheInFlight=false;const upstreamByUser=new Map();
+  let upstreamInFlight=0,crmCacheInFlight=false;const upstreamByUser=new Map(),simpleDraftPostsInFlight=new Map();
   const reserveCampaignWork=principal=>{
     if(typeof principal!=='string'||upstreamInFlight>=16||(upstreamByUser.get(principal)||0)>=4)throw jsonError(429,'UPSTREAM_BUSY');
     upstreamInFlight++;upstreamByUser.set(principal,(upstreamByUser.get(principal)||0)+1);
@@ -1189,13 +1189,18 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }catch(e){if(e instanceof AuthError||e instanceof ProxyError)throw e;throw jsonError(Number.isInteger(e.status)&&e.status>=400&&e.status<=599?e.status:502,/^AFFILIATE_[A-Z_]+$/.test(e.code||'')?e.code:'AFFILIATE_READ_UNAVAILABLE');}
       }
       if(url.pathname.startsWith('/api/')){
-        let releaseCacheWork;
+        let releaseCacheWork,draftPostOwner;
         try{
         if(!['GET','POST'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
         const route=url.pathname.slice('/api/'.length);
         if(!/^[a-z0-9_-]{1,48}$/.test(route))throw jsonError(404,'NOT_FOUND');
+        if(simpleReader&&!nativeContext&&req.method==='POST'&&['campaigns','segments'].includes(route)){
+          draftPostOwner=auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false}).id;
+          req.crmDraftPostOwner=draftPostOwner;simpleDraftPostsInFlight.set(draftPostOwner,(simpleDraftPostsInFlight.get(draftPostOwner)||0)+1);
+        }
         if(req.method==='POST'&&req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
         const body=req.method==='POST'?await readJson(req,route==='campaigns'?MAX_CAMPAIGN_REQUEST:route==='segments'?MAX_AUDIENCE_REQUEST:undefined):undefined;
+        if(simpleReader&&!nativeContext&&req.method==='POST'&&((route==='campaigns'&&['campanha_criar','campanha_salvar','campanha_validar'].includes(body?.acao))||(route==='segments'&&['segmento_criar','segmento_salvar'].includes(body?.acao))))req.crmDraftAttempt={context:ctx,brand:body.brand,key:body.idempotency_key,kind:route==='segments'?'audience':body.acao==='campanha_criar'?'create':'delivery'};
         if(simpleReader&&!nativeContext&&route==='segments'&&(req.method==='POST'&&['segmento_criar','segmento_salvar','segmento_arquivar'].includes(body?.acao)||req.method==='GET'&&['segmento_capacidade','segmento_operacao'].includes(url.searchParams.get('acao')))){
           if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'ARGUMENTS_INVALID');
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields.brand,action=fields.acao;
@@ -1560,7 +1565,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           }else result={...result,body:{error:result.status===503&&result.body?.error==='UPSTREAM_CREDENTIAL_REJECTED'?'UPSTREAM_CREDENTIAL_REJECTED':'UPSTREAM_REQUEST_DENIED'}};
         }
         return sendJson(req,res,result.status,result.body);
-        }finally{if(releaseCacheWork)releaseCacheWork();}
+        }finally{if(releaseCacheWork)releaseCacheWork();if(draftPostOwner){const left=(simpleDraftPostsInFlight.get(draftPostOwner)||1)-1;if(left) simpleDraftPostsInFlight.set(draftPostOwner,left);else simpleDraftPostsInFlight.delete(draftPostOwner);}}
       }
       return serveFile(req,res,url,host,s,auth);
     };
@@ -1570,7 +1575,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const status=error instanceof AuthError||error instanceof ProxyError||Number.isInteger(error.status)?error.status:500;
       const code=status===500?'INTERNAL_ERROR':error.code||'REQUEST_DENIED';
       if(status===503&&code==='CRM_CACHE_BUSY')res.setHeader('Retry-After','2');
-      sendJson(req,res,status,{error:code});
+      let notReserved=false;
+      if(req.crmDraftAttempt&&req.crmDraftPostOwner&&!simpleDraftPostsInFlight.has(req.crmDraftPostOwner)&&auth.simpleDraftAttemptReserved)try{const {context,...query}=req.crmDraftAttempt;notReserved=auth.simpleDraftAttemptReserved(context,query)===false;}catch{}
+      sendJson(req,res,status,{error:code,...(notReserved?{reserved:false}:{})});
     });
   };
   if(s.crmNativeEnabled===true){
