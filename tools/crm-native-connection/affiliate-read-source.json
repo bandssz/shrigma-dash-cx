@@ -110,8 +110,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 15214,
-      "sha256": "57f2eb01afaed3022fc5b755ee3773d9292b69f260e0e529aeec6c9a72e3761e"
+      "bytes": 15243,
+      "sha256": "7fbd56a3c42a0b9e1e364533229accaf97ec10ab7809f5bdceee13474338e374"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -120,8 +120,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 7618,
-      "sha256": "9fcbfb088a56455b488a15ec7bd12d326e33b8a0c39a06b51b41ee9dafe3184a"
+      "bytes": 7647,
+      "sha256": "a4879593d7e91761ed27aa814d11a9596a3d0e85c6d59643bf75f616dc55a1dd"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -380,8 +380,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 20370,
-      "sha256": "7b9d1e0e02aa4cd6f99f837c3a3dd1580768742df14160acf679be24e974af0c"
+      "bytes": 23440,
+      "sha256": "019b31a8d2ba50a179953e3dbef160fedc9243611e47c65ce9f1bbdf1ddb0d87"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -389,9 +389,14 @@
       "sha256": "6182c5183164db615d9d5788dc23e635ef4564406f33f3418e32db08e485d707"
     },
     {
+      "path": "services/dashboard-operational/public/crm-preview/home.js",
+      "bytes": 2823,
+      "sha256": "abac152d774df2704bba5f3844e35796dea2e7fbc3c63a226edd89dc908b1a9e"
+    },
+    {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 7046,
-      "sha256": "84e1d55e790e43fac0a9d6b583b13fc2e95ee34a4b5249262c1dbe4a66929600"
+      "bytes": 8441,
+      "sha256": "0e2ada2b4a4f8e9097fdeffb7c8817d84fc71ab8d7eac23e2e7ca80e246eccd6"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
@@ -475,8 +480,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 196522,
-      "sha256": "79e86dd8dce496463290df2b1fb2f692bfa37d1d065e4e0c3d4b4c4eccb396e3"
+      "bytes": 196532,
+      "sha256": "cc104180505c0b31c8e7c3b9d78878ca8282740a63c55ad36b183614d0248990"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -775,8 +780,8 @@
     },
     {
       "path": "tests/simple-tabler-read.test.cjs",
-      "bytes": 8005,
-      "sha256": "dd295a22e95400bf683acdedbdb0560cc12fcb737e1933a575d4c428a65fbe74"
+      "bytes": 10609,
+      "sha256": "4803660046cc6edad4f3cadc53d4f03b1516a81383719890e79d930cbd2d390e"
     },
     {
       "path": "tests/simple-tts-manual.test.cjs",
@@ -821,7 +826,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2719,
-      "sha256": "6733380178f93d4cba7cea12ea912d28a0fbb73ef8da0bb6c40913b6290e8062"
+      "sha256": "4aabb6ed8b6be2e3cc0bca75f700437b0f37e26332e6f9a9acd0615e6a49c905"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
