@@ -1202,6 +1202,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(action==='segmento_arquivar')throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
           if(action==='segmento_capacidade'){
             if(Object.keys(fields).sort().join(',')!=='acao,brand')throw jsonError(400,'ARGUMENTS_INVALID');
+            releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
             const catalog=await simpleReader.read({context:ctx,route:'segments',method:'GET',query:new URLSearchParams({acao:'segmentos_listar',brand,limit:'1',offset:'0'}),origin});
             if(catalog.status!==200)return sendJson(req,res,catalog.status,catalog.body);
             let draft=false,reason='CRM_SERVICE_DRAFT_UNAVAILABLE';
@@ -1246,7 +1247,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields?.brand,action=fields?.acao;
           if(action==='campanha_capacidade'&&req.method==='GET'){
             if(Object.keys(fields).sort().join(',')!=='acao,brand')throw jsonError(400,'ARGUMENTS_INVALID');
-            auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand);
+            releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
             let available=false,write=false,reason='CRM_SERVICE_DRAFT_UNAVAILABLE';
             if(simpleCampaignDrafts)try{await auth.verifySimpleDraftBinding(ctx,{brand,write:false,fetchImpl});available=true;try{auth.simpleDraftBinding(ctx,{brand});write=true;}catch{}reason=write?null:'READ_ONLY';}catch(e){reason=/^[A-Z_]+$/.test(e.code||'')?e.code:reason;}
             return sendJson(req,res,200,{schema:'crm-local-account-drafts-v1',brand,read:available,draft:available&&write,validate:available&&write,send:false,reason,checked_at:new Date().toISOString()});

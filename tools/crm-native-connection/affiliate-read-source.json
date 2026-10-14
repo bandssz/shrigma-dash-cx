@@ -400,8 +400,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 184383,
-      "sha256": "a79aae638fab06495e508478565bf1cfc8d96ac753edf7983303f3e56f3f9d48"
+      "bytes": 184561,
+      "sha256": "7c8c4acec67a2434a5d78d2a38911d6dcb4d844bb8990a1548f1961504517ab6"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -665,8 +665,8 @@
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
-      "bytes": 21598,
-      "sha256": "e0b44ed52efa1545acdde9ee0e52097f394395db861a797fad6cc753ad0cbe63"
+      "bytes": 23847,
+      "sha256": "b65f38a97a98b072da54725d0396377fb74a010f18d262de6efef0e0ece965ea"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
