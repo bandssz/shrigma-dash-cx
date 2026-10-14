@@ -99,3 +99,29 @@ test('new startup opt-in preserves current writer requirements and refuses malfo
  a.throws(()=>environmentForOriginalMasterCampaignCreate({DASHBOARD_CRM_CORPORATE_CREATE:'enabled'},{...preserved,DASHBOARD_CRM_CAMPAIGN_SUBMIT_WRITE:'disabled'}));
  a.equal(preserved.DASHBOARD_CRM_CORPORATE_CREATE,'disabled');a.equal(f.calls.length,0);
 });
+test('Master schedule checks the original TEST marker in both brands before reserving or posting; protected185 cannot be renamed away',async t=>{
+ const f=await fixture(t),version='a'.repeat(32),review=crypto.randomUUID();
+ for(const brand of ['fish','aristo'])for(const marker of ['name','subject','tags','missing','wrong-version','wrong-brand','commercial']){
+  const id=701,d={...definition(),brand,name:'Isolated commercial fixture',subject:'Isolated commercial fixture',tags:[]};
+  if(marker==='name')d.name='[TESTE] Internal';if(marker==='subject')d.subject='[TESTE] Internal';if(marker==='tags')d.tags=['crm-internal-test'];
+  if(marker==='wrong-brand')d.brand=brand==='fish'?'aristo':'fish';
+  let posts=0,reads=0;
+  f.override((u,o)=>{if(o.method==='POST'){posts++;throw Error('Synthetic source ACK unavailable');}reads++;return originalResponse(marker==='missing'?{}:{campaign:{id,version:marker==='wrong-version'?'b'.repeat(32):version,status:'draft',sent:0,started_at:null,send_at:new Date(Date.now()+3600000).toISOString(),definition:d}},u);});
+  const r=await f.browser('POST','/api/campaigns',{acao:'campanha_agendar',brand,id,expected_version:version,idempotency_key:'isolated-schedule-'+brand+'-'+marker,confirm:'agendar',audience_review_id:review});
+  if(marker==='commercial'){a.equal(r.status,202,JSON.stringify(r));a.equal(posts,1);}else{a.equal(r.status,['name','subject','tags'].includes(marker)?403:409,JSON.stringify(r));a.equal(posts,0);a.equal(reads,1);const db=new DatabaseSync(f.dbPath);a.equal(db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1 WHERE client_key=?').get('isolated-schedule-'+brand+'-'+marker).n,0);db.close();}
+  // Commercial synthetic pending intention is isolated per fixture/brand.
+  if(marker==='commercial'){const db=new DatabaseSync(f.dbPath);db.exec('DELETE FROM crm_campaign_delivery_v1');db.close();}
+ }
+ let calls=0;f.override((u,o)=>{calls++;throw Error('Protected campaign must not contact source');});
+ const r=await f.browser('POST','/api/campaigns',{acao:'campanha_agendar',brand:'aristo',id:185,expected_version:version,idempotency_key:'isolated-schedule-protected185',confirm:'agendar',audience_review_id:review});a.equal(r.status,403,JSON.stringify(r));a.equal(r.body.error,'TEST_CAMPAIGN_INTERNAL_ONLY');a.equal(calls,0);
+});
+test('schedule contract blocks TEST after all normal gates are satisfied, while commercial control and cancel remain valid',()=>{
+ const now=Date.now(),version='a'.repeat(32),review=crypto.randomUUID();
+ for(const brand of ['fish','aristo']){
+  const d={...definition(),brand},id=701,checked_at=new Date(now).toISOString(),audience={policy:C.AUDIENCE_POLICY,review_id:review,frozen:false,campaign_id:id,campaign_version:version,brand,list_ids:[1],eligible_count:1,unique_members_count:1,excluded_blocklisted_count:0,excluded_subscription_count:0,native_disabled_count:0,checked_at,expires_at:new Date(now+300000).toISOString()};
+  const c={id,version,status:'draft',sent:0,started_at:null,send_at:new Date(now+3600000).toISOString(),definition:d,validation:{policy:C.VERSION,version,ok:true,audience}},q={confirm:'agendar',expected_version:version,audience_review_id:review};
+  a.equal(C.schedule(q,c,{now,canPublish:true}).body.status,'scheduled');
+  for(const marked of [{...d,name:'[TESTE] fixture'},{...d,subject:'[TESTE] fixture'},{...d,tags:['crm-internal-test']}])a.throws(()=>C.schedule(q,{...c,definition:marked},{now,canPublish:true}),e=>e.code==='TEST_CAMPAIGN_INTERNAL_ONLY');
+  a.equal(C.cancel({confirm:'cancelar',expected_version:version},{...c,status:'scheduled',definition:{...d,tags:['crm-internal-test']}},{now,canPublish:true}).action,'cancel');
+ }
+});

@@ -729,12 +729,27 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const kickManagedCrm=()=>{if(managedCrmRuntime)Promise.resolve().then(()=>managedCrmRuntime.kick()).catch(()=>{});};
   const editGrantsAllowed=permissions=>Object.entries(permissions||{}).every(([area,grant])=>grant?.edit!==true||(allowCampaignDraft||allowAudienceDraft||allowCampaignSubmit)&&area==='growth');
   if(allowCampaignSubmit&&typeof auth.campaignDeliveryFor!=='function')throw Error('Campaign writer identity configuration required');
+  const requireCampaignSchedule=async(context,command)=>{
+    if(command.acao!=='campanha_agendar')return;
+    if(command.brand==='aristo'&&Number(command.id)===185)throw jsonError(403,'TEST_CAMPAIGN_INTERNAL_ONLY');
+    const branded={...context,brand:command.brand},user=auth.authorizeBrand({...branded,area:'growth',edit:true},command.brand);
+    const credential=auth.getUpstreamCredential({...branded,slot:'growth-campaign',area:'growth',edit:true});
+    if(!credential)throw jsonError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
+    const query=new URLSearchParams({acao:'campanha_obter',brand:command.brand,id:String(command.id)});
+    const original=await forward({route:'campaigns',method:'GET',query,user,credential,upstreams,origin:'https://'+context.host,crmCampaignSubmitWrite:true,...(campaignWriter?{crmCorporateWriter:coexistence&&user.role==='manager'?corporateWriter:campaignWriter}:{}),fetchImpl});
+    const after=auth.authorizeBrand({...branded,area:'growth',edit:true},command.brand);
+    if(after.id!==user.id||auth.getUpstreamCredential({...branded,slot:'growth-campaign',area:'growth',edit:true})!==credential)throw jsonError(403,'CAMPAIGN_ACCESS_CHANGED');
+    const c=original?.body?.campaign,d=c?.definition;
+    if(original?.status!==200||c?.id!==Number(command.id)||c?.version!==command.expected_version||d?.brand!==command.brand||typeof d.name!=='string'||typeof d.subject!=='string'||!Array.isArray(d.tags)||!d.tags.every(v=>typeof v==='string'))throw jsonError(409,'CAMPAIGN_SCHEDULE_READ_UNCONFIRMED');
+    if(require('./campaign-write-contract.js').isInternalTest(c))throw jsonError(403,'TEST_CAMPAIGN_INTERNAL_ONLY');
+  };
   const campaignTransport=async(context,{method,command})=>{
     const brandedContext={...context,brand:command.brand};
     const user=auth.authorizeBrand({...brandedContext,area:'growth',edit:true},command.brand);
     if(method==='POST')await templateOwnershipWriteGate(user,command.acao,{isolatedSandbox:sandbox,admit:contentAdmission?()=>contentAdmission.requireWrite(context,{brand:command.brand}):undefined});
     const credential=auth.getUpstreamCredential({...brandedContext,slot:'growth-campaign',area:'growth',edit:true});
     if(!credential)throw jsonError(503,'INDIVIDUAL_CREDENTIAL_MISSING');
+    if(method==='POST')await requireCampaignSchedule(context,command);
     const query=method==='GET'?new URLSearchParams(Object.entries(command).map(([k,v])=>[k,String(v)])):new URLSearchParams();
     return forward({route:'campaigns',method,query,body:method==='POST'?command:undefined,user,credential,upstreams,origin:'https://'+context.host,crmCampaignSubmitWrite:true,...(campaignWriter?{crmCorporateWriter:coexistence&&user.role==='manager'?corporateWriter:campaignWriter}:{}),fetchImpl});
   };
@@ -1507,6 +1522,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             if(req.method==='POST'){
               if(d.action==='campanha_salvar'&&!Object.hasOwn(body,'id'))throw jsonError(403,'EDIT_NOT_READY');
               const command={...body};delete command.k;
+              // Refuse before reserving a delivery intention; dispatch repeats the
+              // authoritative check immediately before a possible source POST.
+              await requireCampaignSchedule(ctx,command);
               const value=await campaignDelivery.submit(ctx,command);
               return sendJson(req,res,campaignStatus(value),campaignDto(d.action,body.idempotency_key,value));
             }

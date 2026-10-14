@@ -73,6 +73,7 @@ const CampaignContract=(()=>{
  }
  function schedule(request,current,{now=Date.now(),canPublish=false}={}){
   if(!canPublish)error('CAPABILITY_MISSING','Esta chave não pode agendar campanhas.');
+  if(isInternalTest(current))error('TEST_CAMPAIGN_INTERNAL_ONLY','Campanhas de teste só podem usar o envio interno.','send_at');
   if(request?.confirm!=='agendar')error('CONFIRM_REQUIRED','Confirme o agendamento da campanha revisada.');
   if(!current||!positive(current.id)||!request.expected_version||request.expected_version!==current.version)error('VERSION_CONFLICT','A campanha mudou. Recarregue antes de agendar.');
   if(current.status!=='draft'||current.sent!==0||current.started_at)error('CAMPAIGN_ALREADY_STARTED','Só é possível agendar um rascunho ainda não iniciado.');
@@ -97,6 +98,10 @@ const CampaignContract=(()=>{
   if(['salvar','validar','agendar','cancelar','recuperar'].includes(action)&&!/^[a-zA-Z0-9_-]{16,100}$/.test(idempotencyKey||''))error('IDEMPOTENCY_REQUIRED','Informe uma chave de idempotência para esta operação.');
   return {...input,acao:'campanha_'+action,...(idempotencyKey?{idempotency_key:idempotencyKey}:{}),...(expectedVersion?{expected_version:expectedVersion}:{})};
  }
- return {VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,preflight,prepare,schedule,cancel,request};
+ function isInternalTest(current){
+  const d=current?.definition||current;
+  return current?.id===185&&d?.brand==='aristo'||/^\s*\[TESTE\]/i.test(d?.name||'')||/^\s*\[TESTE\]/i.test(d?.subject||'')||array(d?.tags).includes('crm-internal-test');
+ }
+ return {VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,preflight,prepare,schedule,cancel,request,isInternalTest};
 })();
 if(typeof module!=='undefined')module.exports=CampaignContract;
