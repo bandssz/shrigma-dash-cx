@@ -52,12 +52,13 @@ function readOnlyStyles(area,{embeddedOnly=true}={}){
  };
  if(!Object.hasOwn(areas,area))return '';
  const scope=embeddedOnly?'body.panel-embedded':'body';
- const always=[...common,...areas[area]].map(selector=>`${scope} ${selector}`).join(',')+'{display:none!important}';
+ const models=area==='growth'?areas.growth.filter(selector=>selector.startsWith('#control-drafts')&&!selector.includes('drafts-key')&&!selector.includes('drafts-acesso')||selector==='[data-crm-go="templates"]'||selector==='[data-crm-open-tab="control-tab-drafts"]'):[];
+ const always=[...common,...areas[area].filter(selector=>!models.includes(selector))].map(selector=>`${scope} ${selector}`).join(',')+'{display:none!important}';
  if(area!=='growth')return always;
  // Direct URLs and embedded panels start closed. Only the authenticated entry
  // can add this presentation class after checking both durable journals.
  const closed=audienceDraft.map(selector=>`${scope}:not(.dashboard-audience-draft-ready) ${selector}`).join(',')+'{display:none!important}';
- return always+closed;
+ return always+closed+models.map(selector=>`${scope}:not(.dashboard-models-ready) ${selector}`).join(',')+'{display:none!important}';
 }
 function audienceDraftOperation(payload){
  if(!payload||typeof payload!=='object'||!Object.hasOwn(payload,'operation'))return undefined;
@@ -301,6 +302,7 @@ else (function(){'use strict';
   try{if(frame.contentWindow.location.pathname!==target.pathname)return;}catch(_){return;}
   if(!installReadOnlyPresentation(selected)){showLogin('A apresentação segura deste painel não pôde iniciar. Entre novamente.');return;}
   frame.contentDocument?.body?.classList.toggle('dashboard-audience-draft-ready',selected==='growth'&&gate.state==='ready');
+  frame.contentDocument?.body?.classList.toggle('dashboard-models-ready',selected==='growth'&&session.features?.simpleModels===true);
   frame.contentWindow.postMessage({type:'shrigma:read-access',panel:selected,key:session.uiKey,permission:permission(selected)},location.origin);
  });
  loginForm.addEventListener('submit',async event=>{

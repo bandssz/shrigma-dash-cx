@@ -17,7 +17,7 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
  const upstreams=Object.fromEntries(['crm-read','cx','cache','influ','tts'].map(k=>[k,new URL(FIXED_DESTINATIONS[k])]));let reads=0;
  const writerKey='synthetic-private-affiliate-write-key',receipts=new Map();let writes=0;const candidate={marca:'fish',id:'10000000-0000-4000-8000-000000000001',name:'Synthetic affiliate',handle:'@synthetic',source:'manual',source_reference:'synthetic-reference',state:'novo',note:'synthetic note preserved',version:1};
  const fetchImpl=async(url,options)=>{
-  reads++;assert(!options.headers.Cookie);assert(!options.headers.Origin);const target=new URL(url),journeys=target.href.startsWith('https://n8n.shrigma.com.br/webhook/crm-template-api-242c0db6ddb8'),front=journeys||target.href.startsWith(FIXED_DESTINATIONS['crm-read'])?'growth':target.href.startsWith(FIXED_DESTINATIONS.influ)?'influs':target.href.startsWith(FIXED_DESTINATIONS.tts)?'afiliados':'organico';
+  reads++;assert(!options.headers.Cookie);assert(!options.headers.Origin);const target=new URL(url),journeys=target.href.startsWith('https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd'),front=journeys||target.href.startsWith(FIXED_DESTINATIONS['crm-read'])?'growth':target.href.startsWith(FIXED_DESTINATIONS.influ)?'influs':target.href.startsWith(FIXED_DESTINATIONS.tts)?'afiliados':'organico';
   const command=JSON.parse(options.body||'{}');
   if(front==='influs'&&['piloto_salvar','piloto_operacao'].includes(command.acao)){
    assert.equal(command.k,writerKey);assert(!Object.hasOwn(command,'autor'));assert(!options.headers.Authorization);

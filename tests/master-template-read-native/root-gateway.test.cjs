@@ -6,7 +6,7 @@ const {environmentForOriginalMasterTemplateRead}=require(path.join(runtime,'serv
 test('browser READ and native catalog preserve the exact original owner, brand and record',async t=>{
  const f=await fixture(t),r=await f.browser('GET','/api/templates?acao=listar&marca=fish&canal=email&offset=0&limit=20');
  a.equal(r.status,200);a.equal(r.body.contract,'crm-template-read-v1');a.equal(r.body.brand,'fish');a.equal(r.body.total,1);a.equal(r.body.templates[0].id,'42');a.equal(r.body.templates[0].components.body_html,'<p>Isolated content</p>');
- a.equal(f.calls.length,1);a.equal(f.calls[0].method,'GET');a.equal(f.calls[0].url,'https://n8n.shrigma.com.br/webhook/crm-template-api-242c0db6ddb8?acao=listar&marca=fish&canal=email');
+ a.equal(f.calls.length,1);a.equal(f.calls[0].method,'GET');a.equal(f.calls[0].url,'https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd?acao=listar&marca=fish&canal=email');
  const native=(await f.rpc()).value.result.structuredContent;a.equal(native.status,200);a.equal(native.body.total,1);a.equal(native.body.readOnly,true);a.equal(native.body.templates[0].id,'42');a.equal(JSON.stringify(native).includes('Isolated content'),false);
  for(const secret of [f.key,f.issued.token,f.ctx.cookieHeader,f.ctx.csrf])a.equal(JSON.stringify({r,native}).includes(secret),false);
 });

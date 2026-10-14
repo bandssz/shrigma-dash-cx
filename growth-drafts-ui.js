@@ -71,7 +71,7 @@ const GRU={
     if(GRU.contextError||GRU.ctx.marca&&r.marca!==GRU.ctx.marca){GRU.aviso(GRU.contextError||'Abra a marca deste template no cabeçalho antes de editar.','erro');GRU.render();return false;}
     const j=GRU.journal(),estado=j?.inspect({local_id:r.id,draft_id:r.servidor?.draft_id,brand:r.marca,channel:r.canal,name:r.nome});
     if(!j||estado.blocked||r?.servidor?.pendente){GRU.aviso(estado?.message||'A proteção de operações de templates está indisponível. Nenhuma operação foi enviada.','erro');GRU.render();return false;}
-    if(GRU.chaveEscrita())return true;
+    if((GRU.caps||GRU.capacidades()).write_key_required===false||GRU.chaveEscrita())return true;
     GRU.aviso('Acesso de edição necessário. Nada foi enviado.','erro');GRU.abrirAcesso();return false;
   },
   journal(){
@@ -120,7 +120,7 @@ const GRU={
     const lista=todos.filter(d=>GRU.state.filtro==='todos'||GTA.situacao(d).estado===GRU.state.filtro||(GRU.state.filtro==='sujo'&&GTA.situacao(d).sujo));
     const submetidos=todos.filter(d=>GTA.situacao(d).estado==='submetido');
     const ferramentas=`<div class="gt-toolbar drafts-toolbar"><details class="draft-create" id="drafts-create"><summary class="btn">Criar template</summary><div class="draft-create-options" role="group" aria-label="Canal do novo template"><button type="button" class="btn sec${r?.canal==='whatsapp'?' ativo':''}" id="drafts-novo" aria-pressed="${r?.canal==='whatsapp'}"${GRU.ctx.marca==='todas'?' disabled':''}>WhatsApp</button><button type="button" class="btn sec${r?.canal==='email'?' ativo':''}" id="drafts-novo-email" aria-pressed="${r?.canal==='email'}"${GRU.ctx.marca==='todas'?' disabled':''}>E-mail</button></div></details>
-      ${typeof GENU!=='undefined'?`<button type="button" class="btn sec" id="drafts-native-email"${GRU.ctx.marca==='todas'?' disabled':''}>Copiar e-mail publicado</button>`:''}<button type="button" class="refresh-btn drafts-importar" id="drafts-importar">Importar arquivo</button><input type="file" id="drafts-arquivo" accept="application/json,.json" aria-label="Arquivo de rascunho para importar" hidden>
+      ${typeof GENU!=='undefined'?`<button type="button" class="btn sec" id="drafts-native-email"${GRU.ctx.marca==='todas'?' disabled':''}>Copiar e-mail publicado</button>`:''}${caps.server_drafts?`<button type="button" class="btn sec" id="drafts-server-load"${GRU.state.ocupado?' disabled':''}>Carregar modelos salvos no CRM</button>`:''}<button type="button" class="refresh-btn drafts-importar" id="drafts-importar">Importar arquivo</button><input type="file" id="drafts-arquivo" accept="application/json,.json" aria-label="Arquivo de rascunho para importar" hidden>
       ${comServidor?`<label class="gt-filtro">Estado<select id="drafts-filtro" data-gt-filter="drafts-filtro"><option value="todos"${GRU.state.filtro==='todos'?' selected':''}>Todos</option>${GTA.ESTADOS.map(([v,t])=>`<option value="${v}"${GRU.state.filtro===v?' selected':''}>${GRU.e(v==='rascunho'?'Salvo no CRM':t)}</option>`).join('')}<option value="rejeitado"${GRU.state.filtro==='rejeitado'?' selected':''}>Rejeitado</option><option value="sujo"${GRU.state.filtro==='sujo'?' selected':''}>Alterado após salvar no CRM</option></select></label>`:''}
       ${submetidos.length&&caps.endpoint?`<button type="button" class="refresh-btn" id="drafts-verificar"${GRU.state.ocupado?' disabled':''}>Verificar ${submetidos.length===1?'a submissão':`${submetidos.length} submissões`} agora</button>`:''}
       <span class="gt-contagem">${lista.length}${lista.length!==todos.length?` de ${todos.length}`:''} rascunho${todos.length===1?'':'s'} neste dispositivo</span>${GRU.state.msg?`<span class="drafts-msg" data-tone="${GRU.e(GRU.state.msgTone)}" role="status">${GRU.e(GRU.state.msg)}</span>`:''}</div>`;
@@ -128,6 +128,7 @@ const GRU={
       :`<div class="vazio">${todos.length?'Nenhum rascunho neste estado. <button type="button" class="refresh-btn gt-limpar" id="drafts-limpar">Ver todos</button>':'Nenhum rascunho neste dispositivo. Comece por "Criar template" ou importe um arquivo exportado em outro computador.'}</div>`;
     root.innerHTML=(GRU.ctx.marca==='todas'?'<p class="mini">Escolha uma marca no cabeçalho para criar um template. Abrir um rascunho leva à marca dele.</p>':'')+GRU.escopo(caps)+GRU.operacoes()+GRU.emailTestOperations()+ferramentas+(typeof GERU!=='undefined'?GERU.html():'')+(typeof GENU!=='undefined'?GENU.html():'')+(r?GRU.editor(r,caps):'')+GRU.editorChangeHtml()+listaHtml;
     GRU.bind(root,caps);
+    root.querySelector('#drafts-server-load')?.addEventListener('click',GRU.loadServerDrafts);
     GRU.bindEmailTest(root);
     if(typeof GERU!=='undefined')GERU.bind(root);
     if(typeof GENU!=='undefined')GENU.bind(root);
@@ -512,6 +513,23 @@ const GRU={
   // Fechar sem publicar devolve o foco a quem abriu a confirmação.
   cancelarConfirmacao(){GRU.state.confirmando=false;GRU.state.confirmTexto='';GRU.render();document.getElementById('d-submeter')?.focus();},
   mudou(r){const sujoAgora=GTA.situacao(r).sujo;if(sujoAgora!==GRU._sujo){GRU._sujo=sujoAgora;GRU.render();}else GRU.atualizaPreview();},
+  async loadServerDrafts(){
+    if(GRU.state.ocupado||!['fish','aristo'].includes(GRU.ctx.marca))return;
+    const brand=GRU.ctx.marca,endpoint=GRU.caps.endpoint;let loaded=0,preserved=0;
+    GRU.state.ocupado='server_models';GRU.render();
+    try{if(typeof GENU!=='undefined')GENU.safeJournal();for(let page=0;page<50;page++){
+      const res=await GRU.cliente().rascunhos(brand,page*20);if(!res.ok||res.body?.contract!=='crm-model-drafts-v1'||res.body.brand!==brand||!Array.isArray(res.body.drafts)||res.body.drafts.length>20)throw Error('Não foi possível conferir os modelos salvos.');
+      if(GRU.ctx.marca!==brand||GRU.caps.endpoint!==endpoint)throw Error('A marca mudou. Carregue os modelos novamente.');
+      for(const d of res.body.drafts){if(d.brand!==brand||d.channel!=='email'||d.rascunho?.marca!==brand||d.rascunho?.canal!=='email')throw Error('A marca dos modelos não foi confirmada.');
+        const old=GR.lista().find(r=>r.servidor?.draft_id===d.draft_id);
+        if(old&&(old.servidor?.pendente||GTA.situacao(old).sujo||GRU.journal()?.inspect({local_id:old.id,draft_id:d.draft_id,brand,channel:'email',name:old.nome}).blocked)){preserved++;continue;}
+        const r={...d.rascunho,id:old?.id||'server-'+d.draft_id,criado_em:old?.criado_em||d.atualizado_em,servidor:{...(old?.servidor||{}),draft_id:d.draft_id,version:d.version,estado:d.estado,salvo_em:d.atualizado_em,confirmado_em:GR.agora()}};r.servidor.hash=GTA.hash(GR.conteudo(r));
+        if(!GR.guarda(r))throw Error('Não foi possível preservar os modelos neste navegador.');loaded++;
+      }
+      if(res.body.drafts.length<20)break;if(page===49)throw Error('Limite de modelos desta consulta atingido.');
+    }GRU.aviso(`${loaded} modelo(s) atualizado(s) do CRM.${preserved?` ${preserved} com alterações ou operações locais foram preservados.`:''}`);
+    }catch(e){GRU.aviso(e.message||'Consulta de modelos indisponível.','erro');}finally{GRU.state.ocupado=null;GRU.render();}
+  },
   exporta(d){if(typeof GT!=='undefined')GT.baixar(GR.nomeArquivo(d),GR.exporta(d),'application/json');},
   importaTexto(texto){const res=GR.importa(texto);if(res.erro){GRU.aviso(res.erro,'erro');GRU.render();return;}GRU.trocarEditor(()=>{GRU.abrir(res.rascunho,null);GRU.aviso('Arquivo importado como novo rascunho. Revise e salve.');GRU.render();});},
 
@@ -522,10 +540,11 @@ const GRU={
   async chamada(acao,r,fn){
     if(GRU.state.ocupado||GRU.emailTestSession||GRU.replicationSession||GRU.nativeEmailSession)return;
     const advanced=typeof GENU!=='undefined'&&GENU.advanced(r);
-    const escrita=['listar','historico','submissao'].includes(acao)?null:advanced?GRU.emailTestKey():GRU.chaveEscrita();
-    if(escrita===null&&!['listar','historico','submissao'].includes(acao)){GRU.aviso('Acesso de edição necessário. Nada foi enviado.','erro');GRU.abrirAcesso();return;}
+    const read=['listar','historico','submissao'].includes(acao),cookie=(GRU.caps||GRU.capacidades()).write_key_required===false;
+    const escrita=read?null:cookie?'':advanced?GRU.emailTestKey():GRU.chaveEscrita();
+    if(escrita===null&&!read){GRU.aviso('Acesso de edição necessário. Nada foi enviado.','erro');GRU.abrirAcesso();return;}
     GRU.state.ocupado=acao;GRU.aviso('');GRU.render();
-    let res;try{if(advanced&&!['listar','historico','submissao'].includes(acao)){const content=GENU.content(r),brand=r.marca,endpoint=GRU.caps.endpoint;try{await GENU.requireCapability(r);if(GRU.ctx.marca!==brand||GENU.content(r)!==content||GRU.caps.endpoint!==endpoint||GRU.emailTestKey()!==escrita)throw Error('O rascunho mudou durante a conferência.');}catch(e){GRU.state.ocupado=null;GRU.aviso(e.message,'erro');GRU.render();return;}}res=await fn(escrita?GRU.clienteSeguro(escrita,r):GRU.cliente(escrita));}catch(e){res={ok:false,status:0,body:null,rede:true,journalError:advanced||String(e?.code||'').startsWith('TPL_')?e.message:null,journalCode:e?.code};}
+    let res;try{if(advanced&&!read){const content=GENU.content(r),brand=r.marca,endpoint=GRU.caps.endpoint;try{await GENU.requireCapability(r);if(GRU.ctx.marca!==brand||GENU.content(r)!==content||GRU.caps.endpoint!==endpoint||!cookie&&GRU.emailTestKey()!==escrita)throw Error('O rascunho mudou durante a conferência.');}catch(e){GRU.state.ocupado=null;GRU.aviso(e.message,'erro');GRU.render();return;}}res=await fn(read?GRU.cliente(escrita):GRU.clienteSeguro(escrita,r));}catch(e){res={ok:false,status:0,body:null,rede:true,journalError:advanced||String(e?.code||'').startsWith('TPL_')?e.message:null,journalCode:e?.code};}
     GRU.state.ocupado=null;
     if(!res.ok){const e=res.journalError?{texto:res.journalError,tipo:'incerto',chaveInvalida:res.journalCode==='TPL_AUTH'}:GTA.erro(res,acao);if(e.chaveInvalida)GRU.esqueceChave();return {res,erro:e};}
     return {res,erro:null};

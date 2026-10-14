@@ -23,7 +23,7 @@ async function fixture(t){
  let override=null;const calls=[];
  const server=createServer(settings,{auth,fetchImpl:async(url,options)=>{
   const u=new URL(url);calls.push({url:u.href,method:options.method});a.equal(options.headers.Origin,undefined);a.equal(options.headers.Cookie,undefined);a.equal(options.headers.Authorization,'Bearer '+key);
-  if(u.pathname==='/webhook/crm-template-api-242c0db6ddb8'){if(override)return override(u,options);return originalResponse({flows:[],checked_at:'2026-10-08T15:00:00Z'},u);}
+  if(u.pathname==='/webhook/crm-modelos-20261014-14a1976f59cd'){if(override)return override(u,options);return originalResponse({flows:[],checked_at:'2026-10-08T15:00:00Z'},u);}
   if(u.pathname==='/segments'){if(override)return override(u,options);return originalResponse(catalog(u.searchParams.get('brand')),u);}
   if(u.searchParams.get('acao')==='campanha_catalogo')return originalResponse({brand:u.searchParams.get('brand'),lists:[],templates:[],capabilities:{}},u);
   return originalResponse({_painel:'todos',_escopo:'growth',capabilities:{},data:{}},u);

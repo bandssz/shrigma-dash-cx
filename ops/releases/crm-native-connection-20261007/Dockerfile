@@ -5,7 +5,7 @@ ARG GIT_SHA
 COPY services/dashboard-operational/campaign-write-contract.js ./services/dashboard-operational/
 COPY services/dashboard-operational/journey-internal-test-runtime.cjs services/dashboard-operational/journey-internal-test-transport.cjs services/dashboard-operational/journey-internal-test-binding.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/simple-tts-manual.cjs services/dashboard-operational/influs-tts-manual.js ./services/dashboard-operational/
-COPY services/dashboard-operational/simple-login-accounts.cjs services/dashboard-operational/simple-dashboard-read.cjs services/dashboard-operational/bcrypt.mjs services/dashboard-operational/BCRYPT-LICENSE ./services/dashboard-operational/
+COPY services/dashboard-operational/simple-login-accounts.cjs services/dashboard-operational/simple-dashboard-read.cjs services/dashboard-operational/simple-crm-models.cjs services/dashboard-operational/bcrypt.mjs services/dashboard-operational/BCRYPT-LICENSE ./services/dashboard-operational/
 COPY services/dashboard-operational/public/afiliados-preview/ ./services/dashboard-operational/public/afiliados-preview/
 COPY services/dashboard-operational/public/read-workspace.js ./services/dashboard-operational/public/
 COPY services/dashboard-operational/public/influs-workspace/ ./services/dashboard-operational/public/influs-workspace/

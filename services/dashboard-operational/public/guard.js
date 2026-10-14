@@ -120,6 +120,7 @@
   }
   cleanUrl(url);
   const headers=new Headers(init.headers||(input instanceof Request?input.headers:{}));cleanHeaders(headers);
+  if(route==='templates'&&sessionState?.features?.simpleRead===true&&window.ShrigmaBrandAccess){const scope=window.ShrigmaBrandAccess,selected=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca??scope.brand??scope.brands[0];if(!scope.brands.includes(selected))return reject();headers.set('X-Shrigma-View-Brand',selected);}
   if(method==='GET'&&['cx','cache','crm-read'].includes(route)&&window.ShrigmaBrandAccess){
    const scope=window.ShrigmaBrandAccess,selected=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca??scope.brand??scope.brands[0];
    if(scope.brandAccess==='multiple'||selected==='olivas'||sessionState?.features?.simpleRead===true){
@@ -127,7 +128,7 @@
    }
   }
   let body;try{body=await cleanBody(input,init,method,headers);}catch(_){return reject(415);}
-  const editReceipt=method==='GET'&&(route==='campaigns'&&url.searchParams.get('acao')==='campanha_operacao'||route==='segments'&&url.searchParams.get('acao')==='segmento_operacao'||route==='tts-manual'&&url.searchParams.get('action')==='operation');
+  const editReceipt=method==='GET'&&(route==='templates'&&url.searchParams.get('acao')==='operacao'||route==='campaigns'&&url.searchParams.get('acao')==='campanha_operacao'||route==='segments'&&url.searchParams.get('acao')==='segmento_operacao'||route==='tts-manual'&&url.searchParams.get('action')==='operation');
   if(!['GET','HEAD'].includes(method)||editReceipt||route==='campaigns'&&campaignWriter||route==='segments'&&audienceWriter){
    try{headers.set('X-CSRF-Token',await csrf());}catch(_){return reject(401);}
   }else headers.delete('X-CSRF-Token');

@@ -679,6 +679,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   if(s.mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
   const affiliateReader=dashboardAffiliateRead?AffiliateRead.createReader({auth,upstreams,fetchImpl}):null;
   const simpleReader=s.simpleReadMode===true?require('./simple-dashboard-read.cjs').createReader({auth,upstreams,keys:s.simpleReadSources||{},fetchImpl,projectGrowth:projectBrandCache,growthDiagnostics:cartContractSummary,onReadFailure:row=>process.stderr.write(JSON.stringify(row)+'\n')}):null;
+  const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
   const simpleAffiliateEditor=simpleReader?require('./simple-dashboard-read.cjs').createAffiliateEditor({auth,upstreams,readKey:s.simpleReadSources?.afiliados,writeKey:s.simpleAffiliateWriteKey,otherReadKeys:Object.values(s.simpleReadSources||{}),fetchImpl}):null;
   // The production constructor closes decisions until commercial policy and
   // programme budget are admitted. Synthetic tests inject their fake policy.
@@ -994,7 +995,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       if(url.pathname==='/auth/session'&&req.method==='GET'){
         if(s.simpleReadMode===true&&!nativeContext){
           const session=auth.session(ctx);
-          return sendJson(req,res,200,session.authenticated?{...session,areaHosts:s.areaHosts,features:{simpleLogin:true,simpleRead:true,campaignSubmitWrite:false,audienceDraft:false,affiliateRead:session.user.productFronts.includes('afiliados')}}:session);
+          return sendJson(req,res,200,session.authenticated?{...session,areaHosts:s.areaHosts,features:{simpleLogin:true,simpleRead:true,simpleModels:!!simpleModels&&session.user.permissions?.growth?.edit===true,campaignSubmitWrite:false,audienceDraft:false,affiliateRead:session.user.productFronts.includes('afiliados')}}:session);
         }
         const initial=auth.session(ctx),admission=initial.authenticated&&initial.user?.role==='manager'&&initial.user.areas?.join(',')==='growth'&&contentAdmission?await contentAdmission.inspect(ctx,{brand:initial.user.brand}):{read:false,write:false};
         const found=auth.session(ctx);
@@ -1230,7 +1231,17 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         else throw jsonError(405,'METHOD_DENIED');
         return sendJson(req,res,result.status,result.body);
       }
-      if(url.pathname==='/api/templates'&&simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route:'templates',method:req.method,query:url.searchParams,origin});return sendJson(req,res,result.status,result.body);}
+      if(url.pathname==='/api/templates'&&simpleReader&&!nativeContext){
+        if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'MODELS_INPUT');
+        if(req.method==='GET'&&['listar','fluxos_listar','fluxos_capacidade'].includes(url.searchParams.get('acao'))){const result=await simpleReader.read({context:ctx,route:'templates',method:req.method,query:url.searchParams,origin});return sendJson(req,res,result.status,result.body);}
+        if(!simpleModels)throw jsonError(503,'MODELS_UNAVAILABLE');
+        let body;if(req.method==='POST'){if(url.search||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');body=await readJson(req,310000);}else if(req.method!=='GET')throw jsonError(405,'METHOD_DENIED');
+        const brand=req.headers['x-shrigma-view-brand']||url.searchParams.get('marca')||body?.rascunho?.marca;
+        if(!['fish','aristo'].includes(brand)||url.searchParams.has('marca')&&url.searchParams.get('marca')!==brand||body?.rascunho&&body.rascunho.marca!==brand)throw jsonError(403,'MODELS_BRAND_REFUSED');
+        auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand);
+        const result=req.method==='POST'?(body.acao==='email_previa'?await simpleModels.preview(ctx,brand,body):await simpleModels.write(ctx,brand,body)):url.searchParams.get('acao')==='modelos_capacidade'?{status:200,body:await simpleModels.capability(ctx,brand)}:await simpleModels.read(ctx,brand,url.searchParams);
+        return sendJson(req,res,result.status,result.body);
+      }
       if(url.pathname==='/api/templates'&&crmPublishedJourneyRead&&(!coexistence||auth.session(ctx).user?.role==='superadmin'||['fluxos_listar','fluxos_capacidade'].includes(url.searchParams.get('acao')))){
         const action=url.searchParams.get('acao');
         const result=crmMasterTemplateRead&&action==='listar'?await masterTemplateReader.read(ctx,url.searchParams):action==='fluxos_capacidade'?publishedJourneyReader.capability(ctx,url.searchParams):await publishedJourneyReader.read(ctx,url.searchParams);
@@ -1361,7 +1372,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           }
           return sendJson(req,res,result.status,result.body);
         }
-        if(simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],origin});return sendJson(req,res,result.status,result.body);}
+        if(simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],origin});
+          if(simpleModels&&route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200){const brand=req.headers['x-shrigma-view-brand']||auth.session(ctx).user?.brand;let availability;try{availability=await simpleModels.capability(ctx,brand);}catch{availability={read:false,draft:false,validate:false,submit:false,send:false};}const cap=result.body.capabilities||{};result.body.capabilities={...cap,write_key_required:false,templates:{...(cap.templates||{}),read_content:availability.read,read_contract:'crm-template-read-v1',server_drafts:availability.read,draft:availability.draft,validate:availability.validate,submit:availability.submit,submit_email:availability.submit,list_history:false,read_submission:false,send:false,native_email_preview:availability.read,native_email_test:false},endpoints:{...(cap.endpoints||{}),templates:origin+'/api/templates'}};}
+          return sendJson(req,res,result.status,result.body);}
         const parityAction=req.method==='GET'&&(crmManagedAudienceRead&&Object.hasOwn(AudienceRead.ACTIONS[route]||{},url.searchParams.get('acao'))||crmManagedTemplateRead&&Object.hasOwn(TemplateRead.ACTIONS[route]||{},url.searchParams.get('acao')));
         const parityUser=parityAction?auth.authorize({...ctx,area:'growth',edit:false}):null;
         const individualParity=!(corporateWriter&&allowAudienceDraft&&route==='segments'&&audienceFeature(ctx))&&parityUser?.role==='manager'&&auth.managedCrmJournal.status(parityUser.id)!==null;
