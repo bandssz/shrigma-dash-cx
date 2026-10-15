@@ -388,7 +388,7 @@ function projectCrmHome(body){
  const sharedSources=Array.isArray(body.crm_fontes)?body.crm_fontes.filter(r=>(!Object.hasOwn(r,'brand')&&!Object.hasOwn(r,'marca')||marked(r)===brand)&&['listmonk_snapshot','shopify_conversao'].includes(r.fonte||r.source)).map(r=>({...fields(r,['source','fonte','status','coletado_em','cadencia_seg']),scope:!Object.hasOwn(r,'brand')&&!Object.hasOwn(r,'marca')?'shared':'brand'})):null;
  const attributeFields=['marca','dia','model','grain','dimension','receita','pedidos'];
  return {contract:'shrigma-crm-home-read-v1',brand,brands:[brand],gerado_em:body.gerado_em,_cache_gerado_em:body._cache_gerado_em,
-  crm_diario:sourceDaily?.filter(r=>!hasWindow||r.janela==='1d').map(r=>fields(r,['marca','dia','canal','janela','enviados','entregues','abriram','clicaram','cliques','hard','complaints','descadastros','coletado_em']))??null,
+  crm_diario:sourceDaily?.filter(r=>!hasWindow||r.janela==='1d').map(r=>fields(r,['marca','dia','canal','janela','enviados','entregues','abriram','clicaram','hard','complaints','descadastros','coletado_em']))??null,
   crm_attribution:{schema_version:a.schema_version,default_model:a.default_model,money_basis:a.money_basis,generated_at:a.generated_at,window_days:a.window_days,
    coverage:coverage?.map(r=>({brand,day:r.day,checked_at:r.checked_at}))??null,
    daily:daily?.map(r=>fields(r,attributeFields))??null,

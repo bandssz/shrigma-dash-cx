@@ -130,19 +130,3 @@ test('campaign and flow results use one last-click tuple and never claim active 
 });
 
 test('known negative net flow revenue ranks before unknown revenue',()=>{const d=homeData([homeRow(),...Array.from({length:8},(_,i)=>homeRow({grain:'flow_piece',dimension:['email','unknown-'+i,'a'],receita:null})),homeRow({grain:'flow_piece',dimension:['email','refund','a'],receita:-5})]);const r=Home.summarize(d,'fish','2026-10-14','2026-10-14');a.equal(r.flowResults[0].flow,'refund');a.equal(r.flowResults[0].knownRevenue,-5);});
-
-test('CRM registered click totals require proven 1d windows and never become unique clicks or CTR',()=>{
- const H=require(runtime+'/public/crm-preview/home.js'),row={marca:'fish',dia:'2026-10-14',canal:'email',janela:'1d',cliques:25,clicaram:2,entregues:null},data={brand:'fish',brands:['fish'],crm_diario:[row,{...row,janela:'7d',cliques:999},{...row,janela:'30d',cliques:9999},{...row,marca:'aristo',cliques:500}]};
- let r=H.summarize(HomeRead.projectCrmHome(data),'fish','2026-10-14','2026-10-14');a.equal(r.clicks,25);a.equal(r.clicked,2);a.equal(r.clickRate,null);a.equal(r.mailKnownDays.clicks,1);
- data.crm_diario[0].entregues=10;r=H.summarize(data,'fish','2026-10-14','2026-10-14');a.equal(r.clicks,25);a.equal(r.clickRate,0.2);data.crm_diario[0].cliques=100;a.equal(H.summarize(data,'fish','2026-10-14','2026-10-14').clickRate,0.2);
- r=H.summarize(data,'fish','2026-10-13','2026-10-14');a.equal(r.clicks,null);a.equal(r.knownClicks,100);a.equal(r.mailKnownDays.clicks,1);
- for(const cliques of [0,null]){r=H.summarize({crm_diario:[{...row,cliques}]},'fish','2026-10-14','2026-10-14');a.equal(r.clicks,cliques);}
- a.equal(H.summarize({crm_diario:[row,{...row}]},'fish','2026-10-14','2026-10-14').clicks,null);const legacy={...row};delete legacy.janela;a.equal(H.summarize({crm_diario:[legacy]},'fish','2026-10-14','2026-10-14').clicks,null);
-});
-
-test('CRM available window retains selected proven daily clicks even without sends or sales',()=>{
- const H=require(runtime+'/public/crm-preview/home.js'),row={marca:'fish',dia:'2026-10-15',canal:'email',janela:'1d',cliques:25,enviados:null},data={crm_diario:[row,{...row,dia:'2026-10-14',enviados:12,cliques:10}]};
- a.equal(H.availableWindow(data,'fish','2026-10-15','2026-10-15'),null);
- data.crm_diario[0].cliques=null;a.deepEqual(H.availableWindow(data,'fish','2026-10-15','2026-10-15'),{start:'2026-10-14',end:'2026-10-14'});
- data.crm_diario[0].cliques=25;delete data.crm_diario[0].janela;a.deepEqual(H.availableWindow(data,'fish','2026-10-15','2026-10-15'),{start:'2026-10-14',end:'2026-10-14'});
-});
