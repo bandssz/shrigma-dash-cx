@@ -18,7 +18,7 @@ const READ_WORKSPACES=Object.freeze({
  [ORGANIC_WORKSPACE]:{front:'organico',area:'organico',directory:'organico-workspace',files:['index.html','app.js','organico-attribution.js']},
  [INFLUS_WORKSPACE]:{front:'influs',area:'influs',directory:'influs-workspace',files:['index.html','app.js','math.js','influs-conferencia.js']}
 });
-const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','home.js','drafts.js','journey-engine.js','journey-ui.js']);
+const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','home.js','analytics.compiled.js','drafts.js','journey-engine.js','journey-ui.js']);
 const CRM_PREVIEW_FILES=Object.freeze([...CRM_PREVIEW_OWN_FILES,...AFFILIATE_PREVIEW_FILES.filter(n=>n==='workspace.js'||n==='tema.css'||n.startsWith('vendor/'))]);
 const jsonError=(status,code)=>Object.assign(new Error(code),{status,code});
 const LOGIN_PENDING_PER_SOCKET=8,LOGIN_SOCKET_KEYS_MAX=1024;
@@ -1163,6 +1163,17 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           throw jsonError(400,'ACTION_DENIED');
         }
         throw jsonError(404,'NOT_FOUND');
+      }
+      if(url.pathname==='/api/crm-ab-plans'&&s.simpleReadMode===true&&auth.simpleAccounts){
+        if(nativeContext)throw jsonError(403,'AB_COOKIE_CONTEXT_REQUIRED');
+        if(req.method==='GET'){
+          const keys=[...url.searchParams.keys()];if(!keys.includes('brand')||new Set(keys).size!==keys.length||keys.some(k=>!['brand','requestId'].includes(k)))throw jsonError(400,'AB_ARGUMENTS_INVALID');
+          return sendJson(req,res,200,auth.simpleAccounts.abRegistry.read({context:ctx,brand:url.searchParams.get('brand'),...(url.searchParams.has('requestId')?{requestId:url.searchParams.get('requestId')}:{})}));
+        }
+        if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
+        if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,65536);if(!body||Object.keys(body).sort().join(',')!=='brand,expectedUserId,plan,requestId')throw jsonError(400,'AB_ARGUMENTS_INVALID');
+        return sendJson(req,res,200,auth.simpleAccounts.abRegistry.append({context:ctx,...body}));
       }
       if(url.pathname==='/api/journey-lab'&&s.simpleReadMode===true&&auth.simpleAccounts){
         if(nativeContext)throw jsonError(403,'LAB_COOKIE_REQUIRED');

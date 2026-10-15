@@ -24,8 +24,8 @@ const CrmHome=(()=>{
   const money=attributionMetric('receita'),purchases=attributionMetric('pedidos');
   const scopedDaily=(Array.isArray(data?.crm_diario)?data.crm_diario:[]).filter(r=>brandOf(r)===brand&&r.canal==='email'),hasWindow=scopedDaily.some(r=>r.janela!==undefined);
   const daily=scopedDaily.filter(r=>(!hasWindow||r.janela==='1d')&&days.includes(day(r.dia))),mailByDay=group(daily,r=>day(r.dia)),engagementComplete=days.length>0&&days.every(d=>mailByDay.get(d)?.length===1);
-  function mailMetric(key){const knownDays=days.filter(d=>mailByDay.get(d)?.length===1&&number(mailByDay.get(d)[0][key])!==null),known=knownDays.length?knownDays.reduce((n,d)=>n+number(mailByDay.get(d)[0][key]),0):null;return {total:engagementComplete&&knownDays.length===days.length?known:null,known,days:knownDays.length};}
-  const mail=Object.fromEntries(Object.entries({sent:'enviados',delivered:'entregues',opened:'abriram',clicked:'clicaram',unsubscribed:'descadastros',bounces:'hard',complaints:'complaints'}).map(([key,field])=>[key,mailMetric(field)]));
+  function mailMetric(key,{dailyWindow=false}={}){const knownDays=days.filter(d=>mailByDay.get(d)?.length===1&&(!dailyWindow||mailByDay.get(d)[0].janela==='1d')&&number(mailByDay.get(d)[0][key])!==null),known=knownDays.length?knownDays.reduce((n,d)=>n+number(mailByDay.get(d)[0][key]),0):null;return {total:engagementComplete&&knownDays.length===days.length?known:null,known,days:knownDays.length};}
+  const mail=Object.fromEntries(Object.entries({sent:'enviados',delivered:'entregues',opened:'abriram',clicked:'clicaram',clicks:'cliques',unsubscribed:'descadastros',bounces:'hard',complaints:'complaints'}).map(([key,field])=>[key,mailMetric(field,{dailyWindow:key==='clicks'})]));
   const scheduled=(Array.isArray(data?.crm_campanha)?data.crm_campanha:[]).filter(r=>brandOf(r)===brand&&r.status==='scheduled'&&Number.isFinite(Date.parse(r.agendado_em))),agenda=scheduled.filter(r=>Date.parse(r.agendado_em)>=now).sort((a,b)=>Date.parse(a.agendado_em)-Date.parse(b.agendado_em)),late=scheduled.filter(r=>Date.parse(r.agendado_em)<now).sort((a,b)=>Date.parse(a.agendado_em)-Date.parse(b.agendado_em));
   const qrows=(Array.isArray(a?.quality)?a.quality:[]).filter(r=>brandOf(r)===brand&&days.includes(day(r.dia))&&(r.model===undefined||r.model==='last_click')),qdays=group(qrows,r=>day(r.dia));
   const qualityMetric=key=>{const known=[...qdays.values()].filter(rows=>rows.length===1&&number(rows[0][key])!==null);return known.length?known.reduce((n,rows)=>n+number(rows[0][key]),0):null;};
@@ -41,10 +41,15 @@ const CrmHome=(()=>{
  function availableWindow(data,brand,start,end){
   const requested=dates(start,end);if(!requested.length)return null;
   const rows=[...(Array.isArray(data?.crm_diario)?data.crm_diario:[]).filter(r=>r.canal==='email'&&(r.janela===undefined||r.janela==='1d')),...(Array.isArray(data?.crm_attribution?.daily)?data.crm_attribution.daily:[]).filter(r=>r.model==='last_click'&&r.grain==='channel'&&r.dimension?.[0]==='email')];
-  const available=rows.filter(r=>brandOf(r)===brand&&dates(day(r.dia),day(r.dia)).length&&['enviados','pedidos','receita'].some(k=>(k==='receita'?moneyValue:number)(r[k])!==null)).map(r=>day(r.dia));
+  const available=rows.filter(r=>brandOf(r)===brand&&dates(day(r.dia),day(r.dia)).length&&(['enviados','pedidos','receita'].some(k=>(k==='receita'?moneyValue:number)(r[k])!==null)||r.janela==='1d'&&number(r.cliques)!==null)).map(r=>day(r.dia));
   if(!available.length||available.some(d=>requested.includes(d)))return null;
   const last=available.sort().at(-1);return {start:new Date(Date.parse(last+'T12:00:00Z')-(requested.length-1)*86400000).toISOString().slice(0,10),end:last};
  }
  return Object.freeze({summarize,dates,availableWindow,validAttributionRow});
 })();
-if(typeof module==='object'&&module.exports)module.exports=CrmHome;else window.ShrigmaCrmHome=CrmHome;
+if(typeof module==='object'&&module.exports)module.exports=CrmHome;else {
+ window.ShrigmaCrmHome=CrmHome;
+ let assetsPromise;
+ const loadScript=(source,ready)=>ready()?Promise.resolve():new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=source;script.async=true;script.onload=()=>{script.remove();ready()?resolve():reject(Error('CRM_ASSET_UNAVAILABLE'));};script.onerror=()=>{script.remove();reject(Error('CRM_ASSET_UNAVAILABLE'));};document.head.appendChild(script);});
+ window.ShrigmaCrmAssetsReady=()=>assetsPromise||(assetsPromise=loadScript('vendor/chart.umd.js',()=>typeof window.Chart==='function').then(()=>loadScript('analytics.compiled.js',()=>!!window.ShrigmaCrmAnalytics&&!!window.ShrigmaCrmModels)).catch(error=>{assetsPromise=null;throw error;}));
+}

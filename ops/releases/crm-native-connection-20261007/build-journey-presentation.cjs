@@ -20,7 +20,7 @@ function buildJourneyPresentation(sourceRoot,imageRoot,output){
    const directory=path.join(sourceRoot,'services/dashboard-operational'),manifest=JSON.parse(read(path.join(directory,'campaign-ui-assets.json')));
    const asset=manifest.assets?.find(a=>a.source==='public/entry.js'&&a.compiled==='public/entry.compiled.js'&&a.publicName==='entry.js');
    const original=read(path.join(directory,'public/entry.js')),compiled=read(path.join(directory,'public/entry.compiled.js'));
-   if(manifest.schema!=='shrigma_campaign_ui_assets_v1'||manifest.esbuildVersion!=='0.28.2'||manifest.assets.length!==4||!asset||sha(original)!==asset.sourceSha256||sha(compiled)!==asset.compiledSha256)refuse();
+   if(manifest.schema!=='shrigma_campaign_ui_assets_v1'||manifest.esbuildVersion!=='0.28.2'||manifest.assets.length!==5||!asset||sha(original)!==asset.sourceSha256||sha(compiled)!==asset.compiledSha256)refuse();
    source=compiled.toString('utf8');
   }else source=read(path.join(sourceRoot,file)).toString('utf8');
   let transformed=transform(source,file);
