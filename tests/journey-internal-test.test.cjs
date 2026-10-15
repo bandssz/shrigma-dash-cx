@@ -178,38 +178,4 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
  const editor=await auth.simpleAccounts.create({context,email:'synthetic-editor-never-deliver@shrigma.com.br',password,jobTitle:'CRM',fronts:['growth'],writeFronts:['growth'],brands:['aristo']});const editorLogin=await auth.login({email:editor.user.email,password,host,origin}),editorCookie=editorLogin.cookie.split(';')[0];
  a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id,undefined,editorLogin.csrf,editorCookie)).status,404);
  a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id,undefined,'',editorCookie)).status,403);
- // The real browser session deliberately omits CSRF. Exercise the actual
- // journey controls through the compiled guard and the cookie HTTP handler.
- const uiDraft=engine.createDraft({brand:'aristo',id:'synthetic-http-ui-draft'});uiDraft.steps[0].waitMinutes=43200;
- const uiStore={schema:engine.SCHEMA,drafts:[uiDraft],runs:[]};
- a.equal((await request('POST','/api/journey-lab',{brand:'aristo',expected_revision:1,store:uiStore})).status,200);
- async function journeyUI(sessionCookie,nonce){
-  const d=parseHTML('<html><body><div id="seg-marca"><button class="ativo" data-marca="aristo">Aristo</button></div><main id="journey-ui"></main></body></html>'),calls=[];
-  Object.defineProperty(d.window.HTMLInputElement.prototype,'checked',{configurable:true,get(){return this.hasAttribute('checked')},set(v){this.toggleAttribute('checked',Boolean(v))}});
-  Object.defineProperty(Object.getPrototypeOf(d.document.createElement('select')),'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||''},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v))}});
-  const w={dispatchEvent(){},parent:null,fetch:async(input,init={})=>{const u=new URL(String(input),origin),token=new Headers(init.headers).get('X-CSRF-Token')||'',r=await request(init.method||'GET',u.pathname+u.search,init.body?JSON.parse(init.body):undefined,token,sessionCookie);calls.push({path:u.pathname,method:init.method||'GET',protected:token.length>0,status:r.status});return new Response(JSON.stringify(r.body),{status:r.status,headers:{'Content-Type':'application/json'}});}};w.parent=w;
-  vm.runInNewContext(fs.readFileSync(path.join(runtime,'public/guard.compiled.js'),'utf8'),{window:w,document:d.document,location:{origin,href:origin+'/app/crm/'},navigator:{},URL,URLSearchParams,Headers,Response,Request,FormData,CustomEvent:d.window.CustomEvent,HTMLFormElement:d.window.HTMLFormElement});
-  const source=async(url,init)=>{
-   if(url.startsWith('/api/templates?'))return new Response(JSON.stringify(url.includes('fluxos_capacidade')?{contract:'crm-published-journey-read-v1',brand:'aristo',read:true,readOnly:true,write:false}:{checked_at:new Date().toISOString(),flows:[]}));
-   if(url.startsWith('/api/segments?'))return new Response(JSON.stringify({segments:[]}));
-   return w.fetch(url,init);
-  };
-  const values=new Map(),host=d.document.getElementById('journey-ui'),instance=require(runtime+'/public/crm-preview/journey-ui.js').create({host,engine,storage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)},fetchImpl:source,getSession:()=>w.ShrigmaReadSession(),serverStorage:true,uuid:()=>nonce});
-  instance.sync({brand:'aristo',section:'regua',tab:'lab'});await instance.read();
-  const settle=async()=>{for(let i=0;i<200;i++){if(!instance.state().busy)return;await new Promise(r=>setImmediate(r));}a.fail('Journey control did not settle');};
-  a.equal(Object.hasOwn(await w.ShrigmaReadSession(),'csrf'),false);
-  return{instance,host,calls,settle};
- }
- const uiNonce='33333333-3333-4333-8333-333333333333',uiBody={action:'start',brand:'aristo',draftId:uiDraft.id,version:1,requestId:uiNonce},sendsBeforeUI=sends.length;
- a.equal((await request('POST','/api/journey-test',uiBody,'')).status,403);
- const ui=await journeyUI(cookie,uiNonce);ui.host.querySelector('[data-lab-internal-read]').click();await ui.settle();
- a.equal(ui.host.querySelector('[data-lab-internal-start]').disabled,false);ui.host.querySelector('[data-lab-internal-start]').click();await ui.settle();
- a.deepEqual(ui.calls.filter(c=>c.path==='/api/journey-test'&&c.method==='POST').map(c=>[c.protected,c.status]),[[true,201]]);
- a.equal(auth.simpleAccounts.journeyTest.list(context,'aristo').filter(x=>x.draftId===uiDraft.id).length,1);
- ui.host.querySelector('[data-lab-internal-pause]').click();await ui.settle();
- a.equal(auth.simpleAccounts.journeyTest.list(context,'aristo').find(x=>x.draftId===uiDraft.id).paused,true);a.equal(sends.length,sendsBeforeUI);
- const fixtureDb=new DatabaseSync(options.dbPath);fixtureDb.prepare('INSERT INTO simple_journey_lab_v1 VALUES(?,?,?,?,?,?)').run(row.user.id,'aristo',1,JSON.stringify(uiStore),0,0);fixtureDb.close();
- const readUI=await journeyUI(readCookie,'44444444-4444-4444-8444-444444444444');readUI.host.querySelector('[data-lab-internal-read]').click();await readUI.settle();
- a.equal(readUI.host.querySelector('[data-lab-internal-start]').disabled,true);readUI.host.querySelector('[data-lab-internal-start]').click();await readUI.settle();
- a.equal(readUI.calls.filter(c=>c.path==='/api/journey-test'&&c.method==='POST').length,0);a.equal(sends.length,sendsBeforeUI);
 });

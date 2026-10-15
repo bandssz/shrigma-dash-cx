@@ -6,16 +6,7 @@ const PREVIOUS=IMAGE+'@sha256:19591562f337271d32c6130d3802d03bb49ebd37a2415358d4
 const INITIAL_MANIFEST='e2144199a584d0623c838ac0db91b10082a8f35f23b110731d8a711c311cc4ad';
 let publicationPhase='initial';
 const SAFE_CODES=new Set(['REGISTRY_DIGEST_REFUSED','PRODUCTION_HEALTH_REFUSED','PRODUCTION_SCOPE_REFUSED','STALE_PUBLICATION_REFUSED','DEPLOY_CAPABILITY_REFUSED','DEPLOY_TRIGGER_REFUSED','PRODUCTION_REQUEST_REFUSED','PREVIOUS_PUBLICATION_NOT_VERIFIED','INITIAL_INSTALLED_VERSION_CHANGED','REGISTRY_AND_INSTALLED_VERSION_DIFFER','ROLLBACK_TARGET_REFUSED','VERIFIED_ARTIFACT_MISSING','VERIFIED_ARTIFACT_CHANGED','DEPLOY_CAPABILITY_MISSING','ENVELOPE_TARGET_REFUSED','PRODUCTION_CONTRACT_REFUSED','ENVELOPE_VERIFY_REFUSED','EEXIST','ENOENT']);
-SAFE_CODES.add('ROLLBACK_REQUEST_REQUIRED');
 function publicationFailure(error){return{schema:'shrigma-publication-failure-v1',phase:publicationPhase,code:SAFE_CODES.has(error?.message)?error.message:SAFE_CODES.has(error?.code)?error.code:'PUBLICATION_STEP_FAILED',subprocessExit:Number.isInteger(error?.status)?error.status:null,secretsPrinted:false};}
-function validateRequest(request,{rollbackJob=false}={}){
- if(request?.schema!=='shrigma-production-request-v1'||!['publish','rollback'].includes(request.action))throw Error('PRODUCTION_REQUEST_REFUSED');
- if(rollbackJob&&request.action!=='rollback')throw Error('ROLLBACK_REQUEST_REQUIRED');
- if(request.action==='rollback'){
-  if(Object.keys(request).sort().join(',')!=='action,image,schema'||!DIGEST_RE.test(request.image))throw Error('ROLLBACK_TARGET_REFUSED');
- }else if(Object.keys(request).sort().join(',')!=='action,schema')throw Error('PRODUCTION_REQUEST_REFUSED');
- return request;
-}
 function digest(tag){const info=JSON.parse(docker(['image','inspect',tag]));const matches=info[0].RepoDigests.filter(s=>s.startsWith(IMAGE+'@sha256:'));if(matches.length!==1)throw Error('REGISTRY_DIGEST_REFUSED');return matches[0];}
 function inspect(tag){return JSON.parse(docker(['run','--rm','--platform','linux/amd64','--network','none','--read-only','--user','1000:1000','--entrypoint','node',tag,'/app/shrigma-production-launcher.cjs','verify']).trim());}
 async function health(host){const r=await fetch('https://'+host+'/healthz',{redirect:'error',signal:AbortSignal.timeout(5000)});if(r.status!==200)throw Error('PRODUCTION_HEALTH_REFUSED');const text=await r.text();if(text.length>16384)throw Error('PRODUCTION_HEALTH_REFUSED');const j=JSON.parse(text);if(j.ok!==true||j.nativeMcp!==true||j.runtimeUid!==1000)throw Error('PRODUCTION_HEALTH_REFUSED');return j;}
@@ -30,7 +21,7 @@ async function wait(contract){const end=Date.now()+240000;while(Date.now()<end){
 function receipt(j){fs.writeFileSync(path.join(process.env.AFFILIATE_CI_DIR,'production-receipt.json'),JSON.stringify(j,null,2)+'\n',{mode:0o600});fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'```json\n'+JSON.stringify(j,null,2)+'\n```\n');console.log(JSON.stringify(j));}
 function isMissing(error){const s=String(error.stderr||'');return !/unauthorized|forbidden|denied|timeout|timed out|connection|TLS|certificate|5\d\d.*server/i.test(s)&&/(?:manifest unknown|manifest.*not found|name unknown)/i.test(s);}
 async function main(){
- publicationPhase='check-branch';await currentHead();const request=validateRequest(JSON.parse(fs.readFileSync(path.join(__dirname,'production-request.json'))),{rollbackJob:process.env.GITHUB_JOB==='rollback-production'});
+ publicationPhase='check-branch';await currentHead();const request=JSON.parse(fs.readFileSync(path.join(__dirname,'production-request.json')));if(request.schema!=='shrigma-production-request-v1'||!['publish','rollback'].includes(request.action))throw Error('PRODUCTION_REQUEST_REFUSED');
  let previous,previousImage,initial=false;
  try{publicationPhase='pull-previous';docker(['pull','--platform','linux/amd64',IMAGE+':producao']);publicationPhase='inspect-previous';previousImage=digest(IMAGE+':producao');previous=inspect(previousImage);}
  catch(e){if(!isMissing(e))throw Error('PREVIOUS_PUBLICATION_NOT_VERIFIED');initial=true;const h=await health(HOSTS[0]);if(h.nativeBackendManifestSha256!==INITIAL_MANIFEST)throw Error('INITIAL_INSTALLED_VERSION_CHANGED');const tag=IMAGE+':rollback-'+PREVIOUS.split('@sha256:')[1];previous=build({artifactImage:PREVIOUS,tag,directory:path.join(process.env.AFFILIATE_CI_DIR,'previous-envelope')});docker(['push',tag]);previousImage=digest(tag);}
@@ -67,4 +58,4 @@ async function main(){
  }
 }
 if(require.main===module)main().catch(e=>{console.error(JSON.stringify(publicationFailure(e)));process.exitCode=1;});
-module.exports={isMissing,publicationFailure,validateRequest};
+module.exports={isMissing,publicationFailure};

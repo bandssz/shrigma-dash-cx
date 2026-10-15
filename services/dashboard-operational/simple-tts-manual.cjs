@@ -5,8 +5,8 @@ const crypto=require('node:crypto'),M=require('./influs-tts-manual.js');
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const fail=(code,status=400)=>{throw Object.assign(Error(code),{code,status});};
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).sort().join(',')===keys.slice().sort().join(',');
-function createSimpleTTS({db,binding,readAuthor,transport,businessAllowed=()=>false,now=Date.now}={}){
- if(!db||![binding,readAuthor,transport,businessAllowed,now].every(f=>typeof f==='function'))fail('TTS_CONFIG',500);
+function createSimpleTTS({db,binding,transport,businessAllowed=()=>false,now=Date.now}={}){
+ if(!db||![binding,transport,businessAllowed,now].every(f=>typeof f==='function'))fail('TTS_CONFIG',500);
  db.exec(`CREATE TABLE IF NOT EXISTS simple_tts_attempts_v1(operation_id TEXT PRIMARY KEY,request_id TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),application_id TEXT NOT NULL,binding TEXT NOT NULL,actor_sha256 TEXT NOT NULL,request_sha256 TEXT NOT NULL,result TEXT NOT NULL CHECK(result IN ('APPROVE','REJECT')),state TEXT NOT NULL CHECK(state IN ('reserved','unknown','accepted','blocked')),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,UNIQUE(user_id,brand,request_id),UNIQUE(brand,application_id));`);
  const stamp=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)fail('TTS_CLOCK',500);return t;};
  const dto=row=>({schema:'shrigma-tts-attempt-v1',request_id:row.request_id,brand:row.brand,application_id:row.application_id,state:row.state});
@@ -21,17 +21,16 @@ function createSimpleTTS({db,binding,readAuthor,transport,businessAllowed=()=>fa
  }
  async function capabilities(ctx,{brand}){
   if(!['fish','aristo'].includes(brand))fail('TTS_INPUT');
-  readAuthor(ctx,{brand});let write=false;try{readAuthor(ctx,{brand,write:true});write=true;}catch(e){if(e.status!==403)throw e;}
-  if(!write)return {schema:'shrigma-tts-capabilities-v1',brand,read:true,decision:false,reason:'READ_ONLY'};
   const b=binding(ctx,{brand,write:false}),r=await call(ctx,b,{acao:'capacidades'}),c=r.body;
   if(r.status!==200||c.contract!=='tts_manual_runtime_v1'||c.operation!==true||!['write','cutover_verified','admission_verified'].every(k=>typeof c[k]==='boolean'))fail('TTS_SOURCE_CONTRACT',502);
+  let write=false;try{binding(ctx,{brand,write:true});write=true;}catch(e){if(e.status!==403)throw e;}
   const technical=c.write&&c.cutover_verified&&c.admission_verified,approved=businessAllowed({brand,authorId:b.author.id})===true;
   return {schema:'shrigma-tts-capabilities-v1',brand,read:true,decision:write&&technical&&approved,reason:!write?'READ_ONLY':!technical?'TTS_SOURCE_CLOSED':!approved?'TTS_PROGRAM_APPROVAL_REQUIRED':null};
  }
  async function pending(ctx,{brand}){
-  const author=readAuthor(ctx,{brand}),open=db.prepare("SELECT * FROM simple_tts_attempts_v1 WHERE user_id=? AND brand=? AND state IN ('reserved','unknown') ORDER BY created_at DESC LIMIT 1001").all(author.id,brand);
+  const b=binding(ctx,{brand,write:false}),open=db.prepare("SELECT * FROM simple_tts_attempts_v1 WHERE user_id=? AND brand=? AND state IN ('reserved','unknown') ORDER BY created_at DESC LIMIT 1001").all(b.author.id,brand);
   if(open.length>1000)fail('TTS_PENDING_REVIEW_REQUIRED',503);
-  const recent=db.prepare("SELECT * FROM simple_tts_attempts_v1 WHERE user_id=? AND brand=? AND state IN ('accepted','blocked') ORDER BY created_at DESC LIMIT 100").all(author.id,brand);
+  const recent=db.prepare("SELECT * FROM simple_tts_attempts_v1 WHERE user_id=? AND brand=? AND state IN ('accepted','blocked') ORDER BY created_at DESC LIMIT 100").all(b.author.id,brand);
   return {schema:'shrigma-tts-attempts-v1',brand,attempts:[...open,...recent].map(dto)};
  }
  async function receipt(ctx,row,b){

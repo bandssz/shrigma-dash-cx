@@ -1,1 +1,1 @@
-{"schema":"shrigma-production-request-v1","action":"publish"}
+{"schema":"shrigma-production-request-v1","action":"rollback","image":"ghcr.io/bandssz/shrigma-dash-native-connection@sha256:584a1f99fc0d99adffca3d4591798e27b5a8273fb0215e6bbd578a1aaaed94d9"}
