@@ -156,6 +156,11 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
  await auth.simpleAccounts.journeyTest.tick();a.equal(sends.length,0);
  await request('POST','/api/journey-test',{action:'control',brand:'aristo',requestId:id,paused:false});await auth.simpleAccounts.journeyTest.tick();await auth.simpleAccounts.journeyTest.tick();a.equal(sends.length,1);
  const status=await request('GET','/api/journey-test?brand=aristo');a.equal(status.status,200);a.equal(status.body.tests[0].status,'finished');a.equal(status.body.tests[0].accepted,1);a.equal(status.body.tests[0].delivered,null);a(!JSON.stringify(status.body).includes(options.bootstrapAdminEmail));
+ const diagnostics=await request('GET','/api/test-diagnostics?brand=aristo');a.equal(diagnostics.status,200);a.equal(diagnostics.body.appendOnly,true);a.deepEqual(diagnostics.body.entries,[]);
+ a.equal((await request('GET','/api/test-diagnostics?brand=fish')).status,200);
+ a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id,undefined,'')).status,403);
+ a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id)).status,403);
+ a.equal((await request('GET','/api/test-diagnostics?brand=aristo&brand=fish')).status,400);
  const delegation=auth.nativeConnections.issue({context,brands:['aristo'],scopes:['crm.read'],expiresDays:1}),before=sends.length;
  const native=await request('POST','/api/native/mcp',{jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'crm_status',arguments:{}}},'', '',delegation.token);
  a.equal(native.status,200);const availability=native.body.result.structuredContent.body.internalJourneyTest;
@@ -166,6 +171,11 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
  const row=await auth.simpleAccounts.create({context,email:'synthetic-reader-never-deliver@shrigma.com.br',password,jobTitle:'gestor de CRM',fronts:['growth'],brands:['aristo']});
  const readLogin=await auth.login({email:row.user.email,password,host,origin}),readCookie=readLogin.cookie.split(';')[0];
  a.equal((await request('GET','/api/journey-test?brand=fish',undefined,readLogin.csrf,readCookie)).status,403);
+ a.equal((await request('GET','/api/test-diagnostics?brand=fish',undefined,readLogin.csrf,readCookie)).status,403);
+ a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id,undefined,readLogin.csrf,readCookie)).status,403);
  const read=await request('GET','/api/journey-test?brand=aristo',undefined,readLogin.csrf,readCookie);a.equal(read.body.available,false);a.deepEqual(read.body.tests,[]);
  a.equal((await request('POST','/api/journey-test',{...body,requestId:id2},readLogin.csrf,readCookie)).status,403);
+ const editor=await auth.simpleAccounts.create({context,email:'synthetic-editor-never-deliver@shrigma.com.br',password,jobTitle:'CRM',fronts:['growth'],writeFronts:['growth'],brands:['aristo']});const editorLogin=await auth.login({email:editor.user.email,password,host,origin}),editorCookie=editorLogin.cookie.split(';')[0];
+ a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id,undefined,editorLogin.csrf,editorCookie)).status,404);
+ a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id,undefined,'',editorCookie)).status,403);
 });

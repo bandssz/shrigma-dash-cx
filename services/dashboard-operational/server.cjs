@@ -1172,6 +1172,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const body=await readJson(req,1000000);if(!body||Object.keys(body).sort().join(',')!=='brand,expected_revision,store')throw jsonError(400,'LAB_ARGUMENTS_INVALID');
         return sendJson(req,res,200,auth.simpleAccounts.labSave({context:ctx,...body}));
       }
+      if(url.pathname==='/api/test-diagnostics'&&s.simpleReadMode===true&&auth.privateTestDiagnostics){
+        if(nativeContext)throw jsonError(403,'TEST_DIAGNOSTIC_COOKIE_REQUIRED');
+        if(req.method!=='GET')throw jsonError(405,'METHOD_DENIED');
+        const keys=[...url.searchParams.keys()];if(!url.searchParams.has('brand')||new Set(keys).size!==keys.length||keys.some(k=>!['brand','id'].includes(k))||keys.length>2||url.searchParams.has('id')&&!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(url.searchParams.get('id')))throw jsonError(400,'TEST_DIAGNOSTIC_INPUT');
+        const result=auth.privateTestDiagnostics({context:ctx,brand:url.searchParams.get('brand'),...(url.searchParams.has('id')?{id:url.searchParams.get('id')}:{})});
+        if(!result)throw jsonError(404,'TEST_DIAGNOSTIC_NOT_FOUND');
+        return sendJson(req,res,200,result);
+      }
       if(url.pathname==='/api/journey-test'&&s.simpleReadMode===true&&auth.simpleAccounts?.journeyTest){
         if(nativeContext)throw jsonError(403,'TEST_COOKIE_REQUIRED');
         const test=auth.simpleAccounts.journeyTest;

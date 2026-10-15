@@ -8,7 +8,7 @@ const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
 const plain=x=>!!x&&Object.getPrototypeOf(x)===Object.prototype;
 const canonical=x=>JSON.stringify(x,(_k,v)=>plain(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 const hash=x=>crypto.createHash('sha256').update(canonical(x)).digest('hex');
-function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,destination}={}){
+function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,destination,recordDiagnostic}={}){
  if(!db?.prepare||typeof binding!=='function'||typeof remoteKey!=='function'||typeof fetchImpl!=='function'||destination!=='https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd')fail('MODELS_CONFIG_REFUSED',503);
  db.exec(`CREATE TABLE IF NOT EXISTS crm_simple_models_operation_v1(
  user_id TEXT NOT NULL,brand TEXT NOT NULL CHECK(brand IN('fish','aristo')),attempt_key TEXT NOT NULL,
@@ -21,16 +21,20 @@ function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,destination}={}
   const before=await binding(context,{brand,write});
   const target=new URL(destination);if(method==='GET')for(const [k,v]of Object.entries(input))target.searchParams.set(k,String(v));
   if(['email_teste_capacidades_v2','email_teste_operacao_v2','email_teste_previa_v2','email_teste_v2'].includes(input.acao))target.searchParams.set('marca',brand);
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),method==='POST'?60000:20000);let response;
+  const isTest=/^email_teste_/.test(input.acao),diagnostic=fields=>isTest&&recordDiagnostic?.({userId:before.author.id,brand,kind:'model',action:input.acao,operationKey:input.idempotency_key||null,secrets:[before.credential],...fields});
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),method==='POST'?60000:20000);let response,readComplete=false;const chunks=[];
   try{
+   if(input.acao==='email_teste_v2')diagnostic({phase:'before_send',bodyAvailable:false});
    response=await fetchImpl(target.href,{method,redirect:'error',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json',Authorization:'Bearer '+before.credential,...(input.acao==='operacao'?{'X-Template-Key':before.credential}:{}),...(method==='POST'?{'Content-Type':'application/json'}:{})},...(method==='POST'?{body:JSON.stringify(input)}:{})});
-   if(response.redirected||response.url&&response.url!==target.href||!/^application\/json/i.test(response.headers.get('content-type')||''))fail('MODELS_SOURCE_REFUSED',502);
-   const reader=response.body.getReader(),chunks=[];let bytes=0;
+   if(response.redirected||response.url&&response.url!==target.href)fail('MODELS_SOURCE_REFUSED',502);
+   const reader=response.body.getReader();let bytes=0;
    try{for(;;){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>8*1024*1024)fail('MODELS_RESPONSE_REFUSED',502);chunks.push(Buffer.from(part.value));}}finally{reader.releaseLock();}
+   readComplete=true;if(!/^application\/json/i.test(response.headers.get('content-type')||''))fail('MODELS_SOURCE_REFUSED',502);
    const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
+   diagnostic({phase:'response',httpStatus:response.status,body:Buffer.concat(chunks),bodyAvailable:body?.operation?.state!=='outcome_unknown'});
    const after=await binding(context,{brand,write});if(before.binding!==after.binding||before.snapshot!==after.snapshot||before.sourceActor!==after.sourceActor)fail('MODELS_ACCESS_CHANGED',403);
    return {status:response.status,body:masked(body,before),authority:before};
-  }catch(e){if(/^MODELS_[A-Z_]+$/.test(e.code||''))throw e;fail('MODELS_SOURCE_UNCONFIRMED',503);}finally{clearTimeout(timer);controller.abort();}
+  }catch(e){try{diagnostic({phase:'exception',httpStatus:response?.status||null,body:Buffer.concat(chunks),error:e,bodyAvailable:chunks.length>0,captureComplete:readComplete});}catch{}if(e.code==='TEST_DIAGNOSTIC_UNAVAILABLE'||/^MODELS_[A-Z_]+$/.test(e.code||''))throw e;fail('MODELS_SOURCE_UNCONFIRMED',503);}finally{clearTimeout(timer);controller.abort();}
  }
  function draftEnvelope(raw,brand){
   if(!plain(raw)||raw.contract!=='crm-model-drafts-v1'||raw.brand!==brand||!Array.isArray(raw.drafts)||raw.drafts.length>20)fail('MODELS_RESPONSE_REFUSED',502);

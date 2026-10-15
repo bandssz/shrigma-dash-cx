@@ -6,7 +6,7 @@ const DESTINATION='https://n8n.shrigma.com.br/webhook/crm-campanha-teste-2026101
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/,VERSION=/^[a-f0-9]{32}$/,HEX=/^[a-f0-9]{64}$/;
 const plain=x=>!!x&&Object.getPrototypeOf(x)===Object.prototype,canonical=x=>JSON.stringify(x,(_k,v)=>plain(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
-function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,now=Date.now}={}){
+function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,now=Date.now,recordDiagnostic}={}){
  if(!db?.prepare||[binding,remoteKey,fetchImpl,now].some(f=>typeof f!=='function'))fail('CAMPAIGN_TEST_CONFIG',503);
  db.exec(`CREATE TABLE IF NOT EXISTS crm_simple_campaign_test_preview_v1(user_id TEXT NOT NULL,brand TEXT NOT NULL,token TEXT NOT NULL,campaign_id INTEGER NOT NULL,campaign_version TEXT NOT NULL,recipient TEXT NOT NULL,source_hash TEXT NOT NULL,expires_at INTEGER NOT NULL,binding TEXT NOT NULL,PRIMARY KEY(user_id,brand,token));
  CREATE TABLE IF NOT EXISTS crm_simple_campaign_test_attempt_v1(user_id TEXT NOT NULL,brand TEXT NOT NULL,client_key TEXT NOT NULL,remote_key TEXT NOT NULL UNIQUE,payload_json TEXT NOT NULL,binding TEXT NOT NULL,state TEXT NOT NULL,receipt_json TEXT,created_at INTEGER NOT NULL,PRIMARY KEY(user_id,brand,client_key));`);
@@ -15,12 +15,18 @@ function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,now=Date.now}={
  function input(body,brand,kind){const fields=kind==='prepare'?['acao','brand','id','expected_version']:['acao','brand','id','expected_version','idempotency_key','preview_token','confirm'];if(!plain(body)||Object.keys(body).sort().join(',')!==fields.sort().join(',')||body.brand!==brand||!Number.isSafeInteger(body.id)||body.id<1||body.id>999999999||!VERSION.test(body.expected_version||'')||kind==='send'&&(!UUID.test(body.idempotency_key||'')||!HEX.test(body.preview_token||'')||body.confirm!=='enviar_teste_campanha'))fail('CAMPAIGN_TEST_INPUT',400);}
  async function call(ctx,brand,action,payload,write,expected){
   const a=await authority(ctx,brand,write);if(expected&&(a.binding!==expected.binding||a.snapshot!==expected.snapshot||a.sourceActor!==expected.sourceActor||a.email!==expected.email))fail('CAMPAIGN_TEST_ACCESS_CHANGED');const url=new URL(DESTINATION),post=['prepare','send'].includes(action),data={action,brand,...(action==='operation'?{idempotency_key:payload}:post?{payload}:{})};if(!post)for(const[k,v]of Object.entries(data))url.searchParams.set(k,String(v));
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),post?60000:20000);try{
+  const diagnostic=(fields)=>recordDiagnostic?.({userId:a.author.id,brand,kind:'campaign',action,operationKey:action==='operation'?payload:payload?.idempotency_key||null,secrets:[a.credential],...fields});
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),post?60000:20000);let responseStatus=null,readComplete=false;const chunks=[];try{
+   if(action==='send')diagnostic({phase:'before_send',bodyAvailable:false});
    const r=await fetchImpl(url.href,{method:post?'POST':'GET',headers:{Accept:'application/json',Authorization:'Bearer '+a.credential,...(post?{'Content-Type':'application/json'}:{})},...(post?{body:JSON.stringify(data)}:{}),redirect:'error',cache:'no-store',signal:controller.signal});
-   if(r.redirected||r.url&&r.url!==url.href||!/^application\/json/i.test(r.headers.get('content-type')||''))fail('CAMPAIGN_TEST_SOURCE_UNAVAILABLE',503);
-   const parts=[];let bytes=0;for await(const p of r.body){bytes+=p.length;if(bytes>2*1024*1024)fail('CAMPAIGN_TEST_SOURCE_UNAVAILABLE',503);parts.push(Buffer.from(p));}const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(parts))),after=await authority(ctx,brand,write);if(a.binding!==after.binding||a.snapshot!==after.snapshot||a.sourceActor!==after.sourceActor||a.email!==after.email)fail('CAMPAIGN_TEST_ACCESS_CHANGED');
+   responseStatus=r.status;
+   if(r.redirected||r.url&&r.url!==url.href)fail('CAMPAIGN_TEST_SOURCE_UNAVAILABLE',503);
+   let bytes=0;for await(const p of r.body){bytes+=p.length;chunks.push(Buffer.from(p));if(bytes>2*1024*1024)fail('CAMPAIGN_TEST_SOURCE_UNAVAILABLE',503);}readComplete=true;const raw=Buffer.concat(chunks);if(!/^application\/json/i.test(r.headers.get('content-type')||''))fail('CAMPAIGN_TEST_SOURCE_UNAVAILABLE',503);
+   const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(raw)),nativeStatus=body?.operation?.native_status;
+   diagnostic({phase:Number.isInteger(nativeStatus)?'source_receipt':'response',httpStatus:r.status,nativeStatus:Number.isInteger(nativeStatus)&&nativeStatus>=100&&nativeStatus<=599?nativeStatus:null,body:raw,bodyAvailable:!Number.isInteger(nativeStatus)});
+   const after=await authority(ctx,brand,write);if(a.binding!==after.binding||a.snapshot!==after.snapshot||a.sourceActor!==after.sourceActor||a.email!==after.email)fail('CAMPAIGN_TEST_ACCESS_CHANGED');
    return {status:r.status,body,authority:a};
-  }catch(e){if(/^CAMPAIGN_TEST_[A-Z_]+$/.test(e.code||''))throw e;fail('CAMPAIGN_TEST_SOURCE_UNAVAILABLE',503);}finally{clearTimeout(timer);controller.abort();}
+  }catch(e){try{diagnostic({phase:'exception',httpStatus:responseStatus,body:Buffer.concat(chunks),error:e,bodyAvailable:chunks.length>0,captureComplete:readComplete});}catch{}if(e.code==='TEST_DIAGNOSTIC_UNAVAILABLE'||/^CAMPAIGN_TEST_[A-Z_]+$/.test(e.code||''))throw e;fail('CAMPAIGN_TEST_SOURCE_UNAVAILABLE',503);}finally{clearTimeout(timer);controller.abort();}
  }
  async function capability(ctx,brand){let a;try{a=await authority(ctx,brand,false);}catch{return {contract:CONTRACT,brand,send:false,internalTest:false,recovery:false};}let canEdit=false,available=false;try{await authority(ctx,brand,true);canEdit=true;const r=await call(ctx,brand,'capability',null,true);available=r.status===200&&r.body?.contract===CONTRACT&&r.body?.enabled===true&&r.body.internal_only===true&&r.body.prefix==='[TESTE] ';}catch{}return {contract:CONTRACT,brand,send:false,internalTest:canEdit&&available,recovery:true,recipient:a.email,user_id:a.author.id};}
  async function history(ctx,brand,id){

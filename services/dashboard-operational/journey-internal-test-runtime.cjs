@@ -75,7 +75,7 @@ function createRunner({db,engine,authorize,getDraft,currentIdentity,getBinding,s
       if(job.opt_out||saved.exitOnPurchase&&job.purchase)fail('TEST_EXCLUDED_BEFORE_SEND');
       return true;
      };
-     let r;try{r=await Promise.race([send({binding:b.value,recipient:current.user.email,subject:reservation.step.subject,text:reservation.step.text,requestId:reservation.requestId,attemptKey:reservation.attemptKey,signal:controller.signal,preSend}),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('TEST_SEND_DEADLINE'));},timeoutMs);})]);}finally{clearTimeout(timer);}
+     let r;try{r=await Promise.race([send({binding:b.value,recipient:current.user.email,subject:reservation.step.subject,text:reservation.step.text,requestId:reservation.requestId,attemptKey:reservation.attemptKey,diagnosticContext:{userId:current.user.id,requestId:reservation.requestId},signal:controller.signal,preSend}),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('TEST_SEND_DEADLINE'));},timeoutMs);})]);}finally{clearTimeout(timer);}
      if(r?.state==='accepted')result={state:'accepted',code:null};
      else if(r?.state==='refused')result={state:'refused',code:/^[A-Z0-9_]{3,64}$/.test(r.code||'')?r.code:'TEST_SEND_REFUSED'};
      else if(r?.state==='not_sent')result={state:'not_sent',code:/^TEST_(PAUSED|EXCLUDED|BINDING_CHANGED|ATTEMPT_CHANGED)/.test(r.code||'')?r.code:'TEST_SEND_NOT_STARTED'};

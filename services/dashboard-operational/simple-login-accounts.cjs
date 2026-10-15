@@ -26,7 +26,7 @@ function profile(row){
   return {jobTitle:row.job_title,fronts,brands,writeFronts};
  }catch{fail('SIMPLE_PROFILE_INVALID',403);}
 }
-function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now=Date.now,journeyTestTransport}={}){
+function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now=Date.now,journeyTestTransport,testDiagnostics}={}){
  if(!db||![authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now].every(v=>typeof v==='function'))fail('SIMPLE_ACCOUNT_CONFIG',500);
  const columns=db.prepare('PRAGMA table_info(users)').all();
  for(const [name,type]of [['job_title','TEXT'],['simple_fronts_json','TEXT'],['simple_brands_json','TEXT'],['simple_write_fronts_json','TEXT']])if(!columns.some(c=>c.name===name))db.exec(`ALTER TABLE users ADD COLUMN ${name} ${type}`);
@@ -142,7 +142,7 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   });
  }
  const internalBinding=journeyTestTransport||require('./journey-internal-test-binding.cjs').createBindingReader();
- const internalSend=journeyTestTransport?.send||require('./journey-internal-test-transport.cjs').createTransport({privateApi:internalBinding.privateApi});
+ const internalSend=journeyTestTransport?.send||require('./journey-internal-test-transport.cjs').createTransport({privateApi:internalBinding.privateApi,recordDiagnostic:testDiagnostics?.record});
  const journeyTest=require('./journey-internal-test-runtime.cjs').createRunner({db,now,engine:require('./public/crm-preview/journey-engine.js'),
   authorize:(context,brand)=>labOwner(context,brand,true),
   currentIdentity:id=>{const row=find(id);if(!row)return null;const v=view(row);return {...v,role:row.role};},
