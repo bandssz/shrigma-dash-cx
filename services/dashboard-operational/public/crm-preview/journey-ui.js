@@ -41,7 +41,7 @@
     if(ticket!==sequence||!allowed(session,brand)||session.user.id!==account){accessChanged();return;}
     const base='/api/journey-test';let pending;
     if(action==='start'||action==='control'){
-     if(!canEdit()||session.user.role!=='superadmin'&&!session.user.productWriteFronts?.includes('growth')||typeof session.csrf!=='string')throw Error('TEST_WRITE_REQUIRED');
+     if(!canEdit()||session.user.role!=='superadmin'&&!session.user.productWriteFronts?.includes('growth'))throw Error('TEST_WRITE_REQUIRED');
      let body;
      if(action==='start'){
       if(!serverSaved||internalPending||!d)throw Error('TEST_SAVE_REQUIRED');
@@ -49,7 +49,10 @@
      }else{
       const job=internalTest?.tests?.find(x=>x.draftId===d?.id);if(!job)throw Error('TEST_NOT_FOUND');body={action,brand,requestId:job.requestId,...flags};
      }
-     try{const {response,data}=await remoteJSON(base,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify(body)});if(!response.ok){if(response.status>=400&&response.status<500){if(pending){internalPending=null;storage.removeItem?.(key+':internal-pending');}throw Object.assign(Error('TEST_REFUSED'),{definite:true});}throw Error('TEST_RESPONSE_UNKNOWN');}if(data.requestId!==body.requestId||data.brand!==brand)throw Error('TEST_RESPONSE_UNKNOWN');}catch(e){if(e.definite)throw e;notice='Resposta do teste incerta. Conferindo por leitura; nenhum POST será repetido.';}
+     // The public read session excludes CSRF. The shared guard injects it on
+     // protected fetch; standalone callers may supply it explicitly. The
+     // server still rejects every mutation without the matching cookie/token.
+     try{const {response,data}=await remoteJSON(base,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:{'Content-Type':'application/json',...(typeof session.csrf==='string'?{'X-CSRF-Token':session.csrf}:{})},body:JSON.stringify(body)});if(!response.ok){if(response.status>=400&&response.status<500){if(pending){internalPending=null;storage.removeItem?.(key+':internal-pending');}throw Object.assign(Error('TEST_REFUSED'),{definite:true});}throw Error('TEST_RESPONSE_UNKNOWN');}if(data.requestId!==body.requestId||data.brand!==brand)throw Error('TEST_RESPONSE_UNKNOWN');}catch(e){if(e.definite)throw e;notice='Resposta do teste incerta. Conferindo por leitura; nenhum POST será repetido.';}
     }
     const {response,data}=await remoteJSON(base+'?'+new URLSearchParams({brand}),{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error'}),current=await getSession();
     if(ticket!==sequence||!allowed(current,brand)||current.user.id!==account){accessChanged();return;}

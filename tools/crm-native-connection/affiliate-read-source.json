@@ -445,8 +445,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 42975,
-      "sha256": "a43356a8e482d132191c1a396d3508e3623daddb6f932c77bafb39c6ec9d4877"
+      "bytes": 43215,
+      "sha256": "a52fb0743ad947e1c40ddb8505181d166024c0abb7b1f75dd9bf3f14907401d9"
     },
     {
       "path": "services/dashboard-operational/public/entry.compiled.js",
@@ -750,8 +750,8 @@
     },
     {
       "path": "tests/journey-internal-test.test.cjs",
-      "bytes": 24079,
-      "sha256": "73910ca040964d7a07541ff82b428166ce69a66dbb9018792c5f1021d0561255"
+      "bytes": 28802,
+      "sha256": "95d91cc5d3b212713ca9be44b2edea1cdc9de219ef2fd1156f7eeadbe9e0bbba"
     },
     {
       "path": "tests/journey-lab-panel.test.cjs",
