@@ -580,8 +580,8 @@
     },
     {
       "path": "tests/affiliate-preview.test.cjs",
-      "bytes": 13350,
-      "sha256": "b04e6b0d601fbdfd6b4b0367ed5ea3faf17201150e999067dd8490cb3bbacd03"
+      "bytes": 13467,
+      "sha256": "c41931d124b142b40793bebcfc6682816ab6836c80d3d8743471c1f2ca896ad6"
     },
     {
       "path": "tests/afiliados-creator-share.test.cjs",
