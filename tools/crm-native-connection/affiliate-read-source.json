@@ -205,8 +205,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 159544,
-      "sha256": "8e66643e98d3f663d1b9f9a8076a46adbc846c182fec9042968e1da74b8c10e4"
+      "bytes": 159827,
+      "sha256": "d4b235b4b92afe312512c59d3fcccdde68357a8038f4d8c5589f2b8e3edf7ccd"
     },
     {
       "path": "services/dashboard-operational/bcrypt.mjs",
@@ -830,8 +830,8 @@
     },
     {
       "path": "tests/production-envelope.test.cjs",
-      "bytes": 1675,
-      "sha256": "fc71481d8142f3e025d34dc12e8a030f105f74391cb9e4a0715aa328cb328467"
+      "bytes": 2628,
+      "sha256": "401799cb1b7d35713035d42ecb575b2460e83a41f5817fa39521f8d4213eda15"
     },
     {
       "path": "tests/published-journeys-native/gateway.test.cjs",
@@ -860,8 +860,8 @@
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
-      "bytes": 48319,
-      "sha256": "47d5133644c6564fe2905f7b72168e9ded5da64dcf1dec73477e7f82193fe24b"
+      "bytes": 49258,
+      "sha256": "e79baf583c763e3fd46034fa493006549f55c6007f7fa435b619cf5835c875f5"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
@@ -955,13 +955,13 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 192,
-      "sha256": "84d0c3966b5767dc4c4298e0cb086cd7dd673575bccdb4ad881d506ba006bac8"
+      "bytes": 62,
+      "sha256": "47aa49eea1fe4151d2cb16cd1685d151f5d8fa61c6a824f3166b1dcddaa9d182"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 10095,
-      "sha256": "eafc5e9ccddc180bfe6193e8aaa6a88c5f9ba463e9f803e739e51d698dc94b3b"
+      "bytes": 10683,
+      "sha256": "710ab1f6628685b20514d9d3cb96434437ee45547378b304289b8c51086fdb29"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
