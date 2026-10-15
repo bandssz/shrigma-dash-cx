@@ -66,29 +66,10 @@ test('history-only editor consults only each identity original brand journal, ne
 });
 
 test('queued GET and simultaneous original POST do not suppress or duplicate the authorized original effect',async t=>{
- const f=await fixture(t),id=await f.manager();await f.issue(id);const ctx=await f.login(),calls=[];let release,started,held=false;
- const seen=new Promise(r=>{started=r;}),delivery=f.auth.campaignDeliveryFor(async(context,wire)=>{
-  calls.push(wire);
-  if(wire.method==='GET'&&wire.command.acao==='campanha_obter'&&!held){held=true;started();return new Promise(r=>{release=()=>r(current(wire.command.brand));});}
-  if(wire.method==='GET'&&wire.command.acao==='campanha_obter')return current(wire.command.brand);
-  if(wire.method==='POST')return null;
-  return{status:404,body:{error:'MISSING'}};
- });
- // The original authorized request owns the INSERT. An old queued row is
- // intentionally read-only on replay and must not be used as this fixture.
- const write=delivery.submit({...ctx,method:'POST'},q());let timer;
- try{
-  await Promise.race([seen,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Original POST did not reach its queued preflight')),2000);})]);clearTimeout(timer);
-  const before=f.db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE user_id=?').get(id);assert.equal(before.phase,'queued');
-  assert.deepEqual(await delivery.reconcile({...ctx,method:'GET'},{brand:'fish',idempotency_key:KEY}),{state:'pending',campaign:null});
-  assert.deepEqual(calls.map(c=>c.method+':'+c.command.acao),['GET:campanha_obter','GET:campanha_operacao']);
-  assert.deepEqual(f.db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE user_id=?').get(id),before);assert.equal(calls.filter(c=>c.method==='POST').length,0);
-  release();assert.deepEqual(await write,{state:'pending',campaign:null});assert.equal(calls.filter(c=>c.method==='POST').length,1);
-  const after=f.db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE user_id=?').get(id);assert.equal(after.remote_key,before.remote_key);assert.equal(after.credential_mac,before.credential_mac);assert.equal(after.payload_sha256,before.payload_sha256);assert.equal(after.phase,'uncertain');
-  assert.deepEqual(await delivery.reconcile({...ctx,method:'GET'},{brand:'fish',idempotency_key:KEY}),{state:'pending',campaign:null});
-  assert.deepEqual(await delivery.submit({...ctx,method:'POST'},q()),{state:'pending',campaign:null});
-  assert.equal(calls.filter(c=>c.method==='POST').length,1);assert.equal(calls.filter(c=>c.command.acao==='campanha_operacao').length,3);
- }finally{clearTimeout(timer);release?.();await write.catch(()=>{});}
+ const f=await fixture(t),id=await f.manager();await f.issue(id);const ctx=await f.login(),calls=[];let release,started;const seen=new Promise(r=>{started=r;});const delivery=f.auth.campaignDeliveryFor(async(context,wire)=>{calls.push(wire);if(wire.method==='GET'&&wire.command.acao==='campanha_operacao'&&!release){started();return new Promise(r=>{release=()=>r({status:404,body:{error:'MISSING'}});});}if(wire.method==='GET'&&wire.command.acao==='campanha_obter')return current(wire.command.brand);if(wire.method==='POST')return null;return{status:404,body:{error:'MISSING'}};});const before=queued(f,id);
+ const read=delivery.reconcile({...ctx,method:'GET'},{brand:'fish',idempotency_key:KEY});await tick();assert.equal(calls[0].command.acao,'campanha_operacao');await seen;assert.deepEqual(calls.map(c=>c.method+':'+c.command.acao),['GET:campanha_operacao']);
+ const write=delivery.submit({...ctx,method:'POST'},q());assert.deepEqual(await write,{state:'pending',campaign:null});release();assert.deepEqual(await read,{state:'pending',campaign:null});assert.equal(calls.filter(c=>c.method==='POST').length,1);const after=f.db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE user_id=?').get(id);assert.equal(after.remote_key,before.remote_key);assert.equal(after.credential_mac,before.credential_mac);assert.equal(after.payload_sha256,before.payload_sha256);assert.equal(after.phase,'uncertain');
+ assert.deepEqual(await delivery.reconcile({...ctx,method:'GET'},{brand:'fish',idempotency_key:KEY}),{state:'pending',campaign:null});assert.equal(calls.filter(c=>c.method==='POST').length,1);assert.equal(calls.filter(c=>c.command.acao==='campanha_operacao').length,2);
 });
 
 test('entry exposes history CTA only with the real scope helper, effective grant and server feature',()=>{

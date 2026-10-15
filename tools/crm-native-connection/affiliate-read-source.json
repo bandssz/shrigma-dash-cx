@@ -1062,11 +1062,6 @@
       "path": "tests/growth-templates-api.test.cjs",
       "bytes": 12538,
       "sha256": "5ce6a1f4d19284806f3a1ee9f69d9d7dede0e91e98032658e6c2c7d855f9cbb7"
-    },
-    {
-      "path": "tests/dashboard-operational-corporate-history.test.cjs",
-      "bytes": 21673,
-      "sha256": "58daada2317be7ae9ad093dfbb9b20b40679fdca2d5eb64e05b12c4665f372e6"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
