@@ -12,9 +12,10 @@ function start(env=process.env,{Pool=require('pg').Pool}={}){
  const pool=new Pool(c.pg),transaction=createTransaction({pool,statementTimeoutMs:c.pg.statement_timeout});
  pool.on('error',()=>process.stderr.write('CRM_AUDIENCE_DATABASE_UNAVAILABLE\n'));
  const refreshCatalog=({query,brand})=>query('SELECT crm_audience_v2.refresh_native_catalog($1::text)',[brand]);
- const segments=createAudienceAPI({store:createAudienceStore({transaction,countProvider:Counter.countAudience,refreshCatalog})});
- const bindingOnly=createCampaignBindingAPI({store:createSegmentCampaignBinding({transaction,countProvider:Counter.countAudience,refreshCatalog})});
- const regular=createRegularAdmissionAPI({store:Regular.createRegularAdmission({transaction,countProvider:Counter.countAudience,refreshCatalog})});
+ const countProvider=require('../../n8n/growth/segment-count-diagnostics.cjs').createCounter(Counter.countAudience,{revision:c.revision,write:line=>process.stderr.write(line)});
+ const segments=createAudienceAPI({store:createAudienceStore({transaction,countProvider,refreshCatalog})});
+ const bindingOnly=createCampaignBindingAPI({store:createSegmentCampaignBinding({transaction,countProvider,refreshCatalog})});
+ const regular=createRegularAdmissionAPI({store:Regular.createRegularAdmission({transaction,countProvider,refreshCatalog})});
  const binding={handle(input,options){const action=input?.request?.body?.acao??input?.request?.query?.acao;return (Object.values(Regular.ACTIONS).includes(action)?regular:bindingOnly).handle(input,options);}};
  const experiments=createABPanelAPI({transaction,enabled:c.abEnabled&&c.regularEnabled&&c.bindingEnabled});
  const graphLifecycle=createLifecyclePanelAPI({pool,checkoutSha:c.revision,enabled:c.graphLifecycleEnabled});

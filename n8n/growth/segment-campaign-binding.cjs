@@ -83,7 +83,7 @@ function createSegmentCampaignBinding({transaction,countProvider=null,refreshCat
   const active=()=>{if(signal.aborted)throw fail('SEGMENT_BINDING_UNCONFIRMED');};
   async function work(tx){
    if(typeof tx?.query!=='function')throw fail('SEGMENT_BINDING_ADAPTER');
-   const query=async(q,v=[])=>{active();const r=await tx.query(q,v);active();if(!r||!Array.isArray(r.rows))throw fail('SEGMENT_BINDING_CORRUPT');return r;};
+   const query=async(q,v=[],options={})=>{active();const r=await tx.query(q,v,options);active();if(!r||!Array.isArray(r.rows))throw fail('SEGMENT_BINDING_CORRUPT');return r;};
    await query(S.SQL.setup);const session=(await query(S.SQL.boundary)).rows[0];if(session?.isolation!=='read committed'||!(Number(session.timeout_ms)>0&&Number(session.timeout_ms)<=30000))throw fail('SEGMENT_SESSION_BOUNDARY');
    const auth=async()=>{const a=await S.readAuth(query,key,p.acao===ACTIONS.validate?'validate':writing?'draft':'read_content');if((writing||p.acao===ACTIONS.validate)&&!a.caps.includes('read_content'))throw fail('SEGMENT_ACCESS_DENIED',403);return a;};
    const who=await auth(),reauth=async()=>{const again=await auth();if(again.actor!==who.actor)throw fail('SEGMENT_UNAUTHORIZED',401);if(validationHooks?.authorize)await validationHooks.authorize(again);};

@@ -182,7 +182,7 @@ function createAudienceStore({transaction,countProvider=null,refreshCatalog=null
   const active=()=>{if(signal.aborted)throw fail('SEGMENT_SERVICE_UNAVAILABLE');};
   const run=()=>transaction(async tx=>{
    if(!tx||typeof tx.query!=='function')throw fail('SEGMENT_ADAPTER_INVALID');
-   const query=async(text,values=[])=>{active();const r=await tx.query(text,values);active();if(!r||!Array.isArray(r.rows))throw fail('SEGMENT_READBACK_UNCONFIRMED');return r;};
+   const query=async(text,values=[],options={})=>{active();const r=await tx.query(text,values,options);active();if(!r||!Array.isArray(r.rows))throw fail('SEGMENT_READBACK_UNCONFIRMED');return r;};
    await query(SQL.setup);const boundary=(await query(SQL.boundary)).rows[0];
    if(boundary?.isolation!=='read committed'||!(Number(boundary.timeout_ms)>0&&Number(boundary.timeout_ms)<=30000))throw fail('SEGMENT_SESSION_BOUNDARY');
    const first=await readAuth(query,key,needed),reauth=async()=>{const a=await readAuth(query,key,needed);if(a.actor!==first.actor)throw fail('SEGMENT_UNAUTHORIZED',401);return a;};
