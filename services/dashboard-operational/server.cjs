@@ -18,7 +18,7 @@ const READ_WORKSPACES=Object.freeze({
  [ORGANIC_WORKSPACE]:{front:'organico',area:'organico',directory:'organico-workspace',files:['index.html','app.js','organico-attribution.js']},
  [INFLUS_WORKSPACE]:{front:'influs',area:'influs',directory:'influs-workspace',files:['index.html','app.js','math.js','influs-conferencia.js']}
 });
-const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','home.js','drafts.js','journey-engine.js','journey-ui.js']);
+const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','home.js','analytics.compiled.js','drafts.js','journey-engine.js','journey-ui.js']);
 const CRM_PREVIEW_FILES=Object.freeze([...CRM_PREVIEW_OWN_FILES,...AFFILIATE_PREVIEW_FILES.filter(n=>n==='workspace.js'||n==='tema.css'||n.startsWith('vendor/'))]);
 const jsonError=(status,code)=>Object.assign(new Error(code),{status,code});
 const LOGIN_PENDING_PER_SOCKET=8,LOGIN_SOCKET_KEYS_MAX=1024;
