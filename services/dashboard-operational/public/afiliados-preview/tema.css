@@ -51,3 +51,18 @@ body{font-family:var(--tblr-font-sans-serif)}
 @media(max-width:767px){.workspace-content{padding:20px 14px}.workspace-topbar{padding:0 14px}.workspace-heading{align-items:flex-start;flex-wrap:wrap;gap:10px}.workspace-heading .page-title{font-size:22px}.workspace-heading .filter-select{width:150px}.workspace .table th,.workspace .table td{padding:11px 14px}.workspace .card-header{padding:14px 16px}.flow-detail-layout{grid-template-columns:1fr}.flow-canvas{min-height:350px;padding:24px 12px}.flow-inspector{border-left:0;border-top:1px solid #e5e8ed}.editor-toolbar{flex-wrap:wrap}.workspace .chart-wrap{height:220px}.workspace-tabs{gap:12px}.filter-select,.search-field{width:100%;max-width:none}.workspace-breadcrumb{gap:8px;font-size:10px}.workspace-topbar .badge{display:none}.workspace-footer{flex-direction:column}.workspace .metric-value{font-size:21px}.detail-panel{width:100%}}
 
 .workspace .published-step-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-content:start;align-items:start;min-height:320px}.published-step-grid .flow-node{width:100%}
+/* CRM has channel and brand filters. Its wrapped header must keep its height
+   in document flow; analytical tables scroll instead of crushing piece names. */
+.crm-workspace .workspace-topbar{height:auto;min-height:66px;padding-top:12px;padding-bottom:12px;flex-shrink:0}
+.crm-workspace .workspace-topbar>.d-flex{max-width:100%}
+.crm-workspace .workspace-topbar .form-select{max-width:100%}
+.crm-workspace #results-pieces .table{min-width:1140px}
+.crm-workspace #results-conversion .table{min-width:1450px}
+.crm-workspace #results-closes .table{min-width:820px}
+.crm-workspace #journey-analytics .table{min-width:1100px}
+.crm-workspace #journey-utm .table{min-width:1800px}
+.crm-workspace #results-content .table td,.crm-workspace #journey-analytics .table td{word-break:normal!important;overflow-wrap:break-word!important;white-space:nowrap}
+.crm-workspace #results-content .table td:first-child,.crm-workspace #journey-analytics .table td:first-child{min-width:130px}
+.crm-workspace #results-pieces .table td:nth-child(2){min-width:270px;max-width:360px;white-space:normal}
+.crm-workspace #results-conversion .table td:nth-child(3),.crm-workspace #results-conversion .table td:nth-child(4){min-width:200px;max-width:340px;white-space:normal}
+@media(max-width:991px){.crm-workspace .workspace-topbar{min-height:54px;row-gap:10px}}
