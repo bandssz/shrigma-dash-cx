@@ -2,38 +2,6 @@
 (function(){'use strict';
  const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test']);
  const nativeFetch=window.fetch.bind(window);
- // A release flag is independent from WRITE permission or source capability.
- // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
- const crmRelease=Object.freeze({internalTest:false,recipientValidation:false,audienceCount:false,journeyActivation:false,scheduling:false});
- window.ShrigmaCrmRelease=crmRelease;
- const crmDocument=/^\/(?:app\/crm\/|previas\/crm\/|growth\.html(?:$|\/)|crm\/)/.test(location.pathname||'')||['crm.shrigma.com.br','gerencial.shrigma.com.br'].includes(location.hostname);
- const crmHeldControls=[
-  ['internalTest','#campaign-test-prepare,#campaign-test-send,#d-email-test-preview,#d-email-test-send'],
-  ['recipientValidation','[data-crm-validate],[data-ce-validate],[data-ca="validate"],#campaign-validate,[data-abx-review]'],
-  ['audienceCount','[data-crm-count],[data-audience-count],#campaign-audience-validate,[data-gs="count"]'],
-  ['journeyActivation','[data-lab-internal-start],[data-graph="activation-review"],[data-graph="activate"]'],
-  ['scheduling','[data-ce-schedule],[data-ca="schedule"],#campaign-schedule,[data-abx-prepare],[data-abx-schedule]']
- ];
- function holdCrmControl(button){
-  if(!button.disabled)button.disabled=true;
-  button.setAttribute('aria-disabled','true');button.title='Em breve. Esta operação ainda está em homologação.';
-  if(!button.querySelector('[data-crm-soon-label],[data-shrigma-soon-label]')){const label=document.createElement('span');label.className='badge bg-secondary-lt ms-2';label.setAttribute('data-shrigma-soon-label','');label.textContent='em breve';button.append(label);}
- }
- function holdCrmControls(){
-  if(!crmDocument)return;
-  for(const [feature,selector]of crmHeldControls)if(!crmRelease[feature])for(const button of document.querySelectorAll(selector))holdCrmControl(button);
-  if(!crmRelease.journeyActivation)for(const button of document.querySelectorAll('[data-lab-internal-pause]'))if(button.textContent.trim().startsWith('Retomar'))holdCrmControl(button);
- }
- if(crmDocument){
-  document.addEventListener('click',event=>{
-   const button=event.target?.closest?.('button');if(!button)return;
-   const held=crmHeldControls.some(([feature,selector])=>!crmRelease[feature]&&button.matches(selector))||!crmRelease.journeyActivation&&button.matches('[data-lab-internal-pause]')&&button.textContent.trim().startsWith('Retomar');
-   if(held){event.preventDefault();event.stopImmediatePropagation();holdCrmControl(button);}
-  },true);
-  document.addEventListener('submit',event=>{if(!crmRelease.scheduling&&event.target?.matches?.('[data-abx-form]')){event.preventDefault();event.stopImmediatePropagation();holdCrmControls();}},true);
-  holdCrmControls();
-  if(typeof MutationObserver==='function'&&document.documentElement)new MutationObserver(holdCrmControls).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled']});
- }
  let csrfPromise=null,campaignWriter=false,audienceWriter=false,sessionState=null,sessionSequence=0,brandPresentationSignature=null;
  const AffiliateSession=require('./afiliados-session-read.cjs');
  const uiKey=value=>typeof value==='string'&&/^ui-[a-f0-9]{16,128}$/.test(value);
@@ -154,12 +122,7 @@
   const headers=new Headers(init.headers||(input instanceof Request?input.headers:{}));cleanHeaders(headers);
   if(route==='templates'&&sessionState?.features?.simpleRead===true&&window.ShrigmaBrandAccess){const scope=window.ShrigmaBrandAccess,selected=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca??scope.brand??scope.brands[0];if(!scope.brands.includes(selected)||headers.has('X-Shrigma-View-Brand')&&headers.get('X-Shrigma-View-Brand')!==selected)return reject();headers.set('X-Shrigma-View-Brand',selected);}
   if(method==='GET'&&['cx','cache','crm-read'].includes(route)&&window.ShrigmaBrandAccess){
-   const scope=window.ShrigmaBrandAccess;let selected=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca??scope.brand??scope.brands[0];
-   // Grouped CRM analytics still make one authenticated GET per allowed brand.
-   // This never admits an aggregate scope or a write at the server boundary.
-   if(route==='crm-read'&&url.searchParams.get('action')==='cache_growth'&&document.querySelector('#brand')?.value==='todas'){
-    const requested=headers.get('X-Shrigma-View-Brand');if(!requested||!scope.brands.includes(requested))return reject();selected=requested;
-   }
+   const scope=window.ShrigmaBrandAccess,selected=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca??scope.brand??scope.brands[0];
    if(scope.brandAccess==='multiple'||selected==='olivas'||sessionState?.features?.simpleRead===true){
    if(!scope.brands.includes(selected))return reject();headers.set('X-Shrigma-View-Brand',selected);
    }
