@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 36983,
-      "sha256": "3eb57a4bb8cb7e295185bd6d4a5ce6f2bf8d0a39463e700a80577392d8bd25b5"
+      "bytes": 37033,
+      "sha256": "d11c81a786f9be308ecd903a7517ebbb6d4c86ec1e3c78cd0e89281bc88bc027"
     },
     {
       "path": "afiliados-proprios.js",
@@ -530,8 +530,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-tests.cjs",
-      "bytes": 15778,
-      "sha256": "831831e0280c09aff61761d8a87690f162496a2eb03e0e71dc0df1b9786e7535"
+      "bytes": 16325,
+      "sha256": "7667f1de614ab1d77ac921108b816cfa597e0753a243d3192dc959735ee0c837"
     },
     {
       "path": "services/dashboard-operational/simple-crm-model-tests.cjs",
@@ -784,6 +784,11 @@
       "sha256": "545786b05490b14f15064f57ae9a9f9afc40428f6c102e860e70e0e17fae4d7d"
     },
     {
+      "path": "tests/native-test-error-envelope.test.cjs",
+      "bytes": 4269,
+      "sha256": "5258794cd005a19a16969a5b75c539d5efa193f7757296be0456de8b49083567"
+    },
+    {
       "path": "tests/organico-access.test.cjs",
       "bytes": 9331,
       "sha256": "cd637f46d9145d7628fa44f372df5fac54c60910ed1432b0d5862188e05464f3"
@@ -845,8 +850,8 @@
     },
     {
       "path": "tests/simple-crm-campaign-tests.test.cjs",
-      "bytes": 22443,
-      "sha256": "3ab1515bf696121a11db6ee776f68ae949f7bd86880102a3e5201e3565dffb18"
+      "bytes": 25025,
+      "sha256": "b5171a9dd8560094c35d9c4c57d6dc1888bcc55ffad50a5eaa033cf664718f43"
     },
     {
       "path": "tests/simple-crm-model-tests.test.cjs",
@@ -924,9 +929,14 @@
       "sha256": "ab2247bfec0ad13f394c174078766379c1df3fcd714cf6d650a2e0d3983d7b96"
     },
     {
+      "path": "tools/crm-native-connection/native-test-error-envelope.cjs",
+      "bytes": 5268,
+      "sha256": "96b50411b933889625cb88aa1fac19c5b1cc6e32b16d27d6b9bbbefd67c0b163"
+    },
+    {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 2719,
-      "sha256": "1cb7d559ae74113b508a3b88db989e7574882de1b9c97f70e4214af34858536b"
+      "sha256": "ce1d0e00cf04ac300a13f87e0ec90494ea121cdb7045b05b6074145460637857"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
