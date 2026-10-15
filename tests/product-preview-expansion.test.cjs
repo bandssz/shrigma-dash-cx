@@ -49,12 +49,19 @@ test('Tabler public catalog loads, filters and reopens source rules in each bran
 }});
 test('public source refusal remains an error, never an empty or zero result',async()=>{const {document,window}=parseHTML(fs.readFileSync(crm+'index.html','utf8'));elements(document,window);const session={authenticated:true,user:{id:'test',brands:['fish'],permissions:{growth:{read:true}}}},ctx=vm.createContext({window:{ShrigmaReadSession:async()=>session,ShrigmaJourneyLabUI:{instance:null}},document,location:{pathname:'/app/crm/',search:'?brand=fish&view=audiences'},history:{replaceState(){}},URLSearchParams,AbortController,Date,Intl,fetch:async()=>({ok:false,status:503,json:async()=>({error:'AUDIENCE_READ_SOURCE_NOT_LINKED'})})});vm.runInContext(fs.readFileSync(crm+'app.js','utf8'),ctx);await tick();a.match(document.getElementById('error').textContent,/HTTP 503.*AUDIENCE_READ_SOURCE_NOT_LINKED/);a.equal(document.getElementById('audience-list').textContent,'');a.equal(document.getElementById('audience-time').textContent,'');});
 
-function serverLab(db,{values=new Map(),losePost=false,refuseRead=false,reader=false,accountChanged=false,holdPost=false,hangPost=false,requestTimeoutMs=15000,publicRows=[],internal=false,loseTestPost=false,refuseTestRead=false}={}){
+test('unreleased journey activation stays disabled despite a healthy synthetic transport and forged click',async()=>{
+ const d=engine.createDraft({brand:'fish',id:'not-released'}),db={revision:1,store:{schema:engine.SCHEMA,drafts:[d],runs:[]}};
+ const f=serverLab(db,{internal:true,activationReady:false});await f.app.read();f.q('[data-lab-internal-read]').click();await tick();await tick();
+ const b=f.q('[data-lab-internal-start]');a.equal(b.disabled,true);a.match(b.textContent,/em breve/);a.match(f.q('[data-lab-internal-state]').textContent,/homologação/);
+ const before=f.calls.length;b.dispatchEvent(new f.window.Event('click'));await tick();a.equal(f.calls.length,before);a.equal(db.tests?.length||0,0);
+ await f.app.read();a.equal(f.q('[data-lab-internal-start]').disabled,true);
+});
+function serverLab(db,{values=new Map(),losePost=false,refuseRead=false,reader=false,accountChanged=false,holdPost=false,hangPost=false,requestTimeoutMs=15000,publicRows=[],internal=false,loseTestPost=false,refuseTestRead=false,activationReady=true}={}){
  const {document,window}=parseHTML('<main id="host"></main>');elements(document,window);
  const host=document.getElementById('host'),calls=[],session={authenticated:true,csrf:'synthetic-csrf',user:{id:'synthetic-account',role:reader?'manager':'superadmin',brands:['fish'],permissions:{growth:{read:true}},productWriteFronts:reader?[]:['growth']}};
  let uuid=0,postStarted=false,account='synthetic-account',refuse=refuseRead,releasePost;const postHeld=new Promise(r=>releasePost=r);
  const sessionValue=()=>({...session,user:{...session.user,id:account}});
- const app=UI.create({host,engine,serverStorage:true,requestTimeoutMs,storage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)},uuid:()=>String(++uuid),now:()=>0,getSession:async()=>sessionValue(),fetchImpl:async(url,options)=>{
+ const app=UI.create({host,engine,serverStorage:true,availability:{journeyActivation:activationReady},requestTimeoutMs,storage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)},uuid:()=>String(++uuid),now:()=>0,getSession:async()=>sessionValue(),fetchImpl:async(url,options)=>{
   calls.push({url,method:options.method});
   if(url.startsWith('/api/journey-test')){
    if(options.method==='POST'){
