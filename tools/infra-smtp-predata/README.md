@@ -1,0 +1,17 @@
+# SMTP pre-DATA repair candidate
+
+This recipe builds and publishes only a candidate. It never changes a running service, settings, secrets, sender, DNS, suppression, database, n8n workflow, or historical delivery. Deployment belongs to the infrastructure operator after a private settings backup and a quiet window.
+
+The exact parent image is `ghcr.io/bandssz/shrigma-crm-listmonk@sha256:85acc4a8b455d9fa9f841cfb2c307fba1263651402ec569a213d8fb0d20544ad`. The recipe obtains its corresponding source and manifest from a container which is never started. It checks their fixed hashes, reconstructs the original Go 1.26.1 executable and all 130 embedded assets, and requires the entire original binary SHA `4abc9b3bac58ede5a922479ba703486248ca5218a84e263a03af56a47e0860bb` before making a candidate.
+
+The only runtime source change is `smtppool/pool.go`, from SHA `277094a1b9b1dc266424d7505dfc88ca995f322cecd24fcfc81ddfc8fb9a63dd` to `ffe979909222c1d37bd8ae385cee13e97d38983445e5babf7e1e0036a0f04d8e`. All other 608 source files, Batch JIT SQL, kernel, worker transaction, graph-cache implementation, `SendGuarded`, and embedded assets stay byte exact. The candidate binary is fixed at SHA `4fbdf596c1f4abfaf2b544ec922bc862de1f247ce5766cce747288af55c2dfaa`.
+
+The new retry classifier is used only while borrowing/creating a connection and issuing MAIL, RCPT, or DATA before any body write. It recognizes temporary 451, EOF/network errors, TLS record-header errors, and the exact missing-STARTTLS error. Failed connections are discarded. Body-write failures and final DATA acknowledgements never cause another attempt. A failed body is not finalized during cleanup. The existing total-attempt limit and concurrency semantics remain unchanged. `SendGuarded` remains a single attempt. No historical send is replayed.
+
+The workflow runs the five inherited test targets and 22 synthetic SMTP boundary scenarios with Go's race detector on Ubuntu. The local reconstruction passed 105 inherited tests and the 22 scenarios without the race detector. All SMTP peers in these tests are loopback fakes. The only image execution is `--version` with network disabled.
+
+The image is built `FROM` the fixed parent, replacing only its binary and corresponding-source documents. The recipe verifies inherited entrypoint, command, work directory, environment, user, ports, volumes, stop signal, healthcheck, and original filesystem layers. It publishes only `smtp-predata-<commit SHA>` on the dedicated infrastructure branch, never `:producao`, and calls no deployment webhook.
+
+The prepared workflow is `.github/workflows/infra-smtp-predata.yml`; entrypoint `python3 tools/infra-smtp-predata/ci-build.py --out <fresh directory> --tag ghcr.io/bandssz/shrigma-crm-listmonk:smtp-predata-<40hex commit> --race`. Parent source extraction, compiler and preparation images are pinned by digest. Go dependencies come from the exact installed go.mod/go.sum and are verified before offline compilation. Source/build tests must pass before registry authentication or publication.
+
+Rollback is the immutable original image digest above, with the service's exact prior configuration. Do not replay accepted or uncertain messages during either change. This candidate preserves `idle_timeout=5s`, `max_msg_retries=10`, and `max_conns=40`; changing those settings is outside this patch. Its expected benefit is safe recovery from pre-DATA failures, not a guarantee that every TLS/451 symptom has one root cause.
