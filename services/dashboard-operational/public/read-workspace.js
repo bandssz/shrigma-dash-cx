@@ -131,7 +131,7 @@
     function chart(id,labels,values,label,format=integer){
       const canvas=el(id);if(!canvas||!values.some(v=>number(v)!==null))return;
       const color=getComputedStyle(document.documentElement).getPropertyValue('--brand-color').trim();
-      state.charts.push(new Chart(canvas,{type:'line',data:{labels,datasets:[{label,data:values,borderColor:color,backgroundColor:color+'14',fill:true,pointRadius:0,borderWidth:2,tension:.2,spanGaps:false}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>format(c.raw)}}},scales:{x:{ticks:{maxTicksLimit:8,maxRotation:0},grid:{display:false}},y:{beginAtZero:true,ticks:{callback:v=>format(v)},grid:{color:'#e9edf2'}}}}}));
+      state.charts.push(new Chart(canvas,{type:'line',data:{labels,datasets:[{label,data:values,borderColor:color,backgroundColor:color+'14',fill:true,pointRadius:values.filter(v=>number(v)!==null).length===1?3:0,borderWidth:2,tension:.2,spanGaps:false}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>format(c.raw)}}},scales:{x:{ticks:{maxTicksLimit:8,maxRotation:0},grid:{display:false}},y:{beginAtZero:true,ticks:{callback:v=>format(v)},grid:{color:'#e9edf2'}}}}}));
     }
     function effectivePeriod(){
       const p=state.selectedPeriod;state.ini=p.ini;state.fim=p.fim;

@@ -335,8 +335,8 @@
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/app.js",
-      "bytes": 21634,
-      "sha256": "d6be02b58ce0e3f743e31dd987a352ead800aab697dea1732002c0cbab0fa652"
+      "bytes": 21674,
+      "sha256": "f0de011e450d0d8709d5e41c98851c972bdde008a2b51aeed507d0d30cb863fb"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/daily.js",
@@ -515,8 +515,8 @@
     },
     {
       "path": "services/dashboard-operational/public/read-workspace.js",
-      "bytes": 22872,
-      "sha256": "97126faae145a12e9cc4f34f5aed81b6b2bef6da7cc36bc91fe910512aa1709f"
+      "bytes": 22920,
+      "sha256": "c5a3a4eb35cfbe54c02dc35744b12627ac92486980f52e6c83c8e6888c857db1"
     },
     {
       "path": "services/dashboard-operational/server.cjs",
