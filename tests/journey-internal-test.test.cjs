@@ -194,7 +194,7 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
    if(url.startsWith('/api/segments?'))return new Response(JSON.stringify({segments:[]}));
    return w.fetch(url,init);
   };
-  const values=new Map(),host=d.document.getElementById('journey-ui'),instance=require(runtime+'/public/crm-preview/journey-ui.js').create({host,engine,storage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)},fetchImpl:source,getSession:()=>w.ShrigmaReadSession(),serverStorage:true,availability:{journeyActivation:true},uuid:()=>nonce});
+  const values=new Map(),host=d.document.getElementById('journey-ui'),instance=require(runtime+'/public/crm-preview/journey-ui.js').create({host,engine,storage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)},fetchImpl:source,getSession:()=>w.ShrigmaReadSession(),serverStorage:true,uuid:()=>nonce});
   instance.sync({brand:'aristo',section:'regua',tab:'lab'});await instance.read();
   const settle=async()=>{for(let i=0;i<200;i++){if(!instance.state().busy)return;await new Promise(r=>setImmediate(r));}a.fail('Journey control did not settle');};
   a.equal(Object.hasOwn(await w.ShrigmaReadSession(),'csrf'),false);
