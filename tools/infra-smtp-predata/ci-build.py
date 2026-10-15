@@ -35,7 +35,7 @@ def main():
  py('extract-source.py')
  def go(source,output,code,network='none'):
   return run(['docker','run','--rm','--network',network,'--read-only','--user',user,'--cpus','2','--memory','2g','--tmpfs','/tmp:rw,exec,nosuid,nodev,size=1073741824,mode=1777','--mount','type=bind,source='+str(work/source)+',target=/src,readonly','--mount','type=bind,source='+str(work/'module-cache')+',target=/cache','--mount','type=bind,source='+str(work/'compile-cache')+',target=/gocache','--mount','type=bind,source='+str(work/output)+',target=/out','-e','GOMODCACHE=/cache','-e','GOCACHE=/gocache','-e','GOPATH=/tmp/gopath','-e','GOTOOLCHAIN=local','-e','GOWORK=/src/go.work','-e','GOPROXY='+('https://proxy.golang.org' if network=='bridge' else 'off'),'-e','GOSUMDB='+('sum.golang.org' if network=='bridge' else 'off'),'-e','CGO_ENABLED=0','-w','/src/listmonk',GO,'sh','-ec',code])
- go('installed-source','baseline-build','go mod download && go mod verify','bridge')
+ go('installed-source','baseline-build','mkdir -m700 /tmp/module-inputs && cp go.mod go.sum /tmp/module-inputs/ && cd /tmp/module-inputs && GOWORK=off go mod download && GOWORK=off go mod verify','bridge')
  command='GOOS=linux GOARCH=amd64 go build -trimpath -buildvcs=false -o /out/listmonk.unstuffed -ldflags="-s -w -X main.buildString=v6.1.0-crm-regular-fe301a0926a5 -X main.versionString=v6.1.0 -X main.graphCacheRuntimeSHA=52991c68b5d94dd469b7b0d3a1bc731db108c3e4d139a17351690ae7c37a3335" ./cmd'
  go('installed-source','baseline-build',command+' && go build -trimpath -buildvcs=false -o /out/stuffbin github.com/knadh/stuffbin/stuffbin')
  prefix=sha((work/'baseline-build/listmonk.unstuffed').read_bytes());assert prefix=='2ed409125aedd9f829bf851119561cbd05d1be0e80b019fc983b9784c1f794e9'
