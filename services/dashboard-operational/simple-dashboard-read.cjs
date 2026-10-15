@@ -381,14 +381,21 @@ function createAffiliateEditor({auth,upstreams,readKey,writeKey,otherReadKeys=[]
 function projectCrmHome(body){
  if(!body||!['fish','aristo'].includes(body.brand)||!Array.isArray(body.brands)||body.brands.length!==1||body.brands[0]!==body.brand)fail('CRM_HOME_SCOPE_UNCONFIRMED',502);
  const brand=body.brand,fields=(row,names)=>Object.fromEntries(names.filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));
- const scoped=rows=>Array.isArray(rows)?rows.filter(r=>r&&r.marca===brand):[];
- const a=body.crm_attribution||{},daily=scoped(a.daily).filter(r=>r.model==='last_click'&&r.grain==='channel'&&Array.isArray(r.dimension)&&r.dimension[0]==='email');
- const sourceDaily=scoped(body.crm_diario).filter(r=>r.canal==='email'),hasWindow=sourceDaily.some(r=>r.janela!==undefined);
+ function marked(row){const values=['marca','brand'].filter(k=>Object.hasOwn(row||{},k)).map(k=>({fishermans:'fish',aristocrata:'aristo'}[row[k]]||row[k]));if(!values.length||values.some(b=>!['fish','aristo'].includes(b)||b!==values[0]))fail('CRM_HOME_SCOPE_UNCONFIRMED',502);return values[0];}
+ const scoped=rows=>Array.isArray(rows)?rows.filter(r=>marked(r)===brand).map(r=>({...r,marca:brand})):null;
+ const a=body.crm_attribution||{},original=scoped(a.daily),all=original?.every(require('./public/crm-preview/home.js').validAttributionRow)?original:null,daily=all?.filter(r=>r.model==='last_click'&&r.grain==='channel'&&Array.isArray(r.dimension)&&r.dimension[0]==='email')??null;
+ const sourceDaily=scoped(body.crm_diario)?.filter(r=>r.canal==='email')??null,hasWindow=sourceDaily?.some(r=>r.janela!==undefined),coverage=scoped(a.coverage);
+ const sharedSources=Array.isArray(body.crm_fontes)?body.crm_fontes.filter(r=>(!Object.hasOwn(r,'brand')&&!Object.hasOwn(r,'marca')||marked(r)===brand)&&['listmonk_snapshot','shopify_conversao'].includes(r.fonte||r.source)).map(r=>({...fields(r,['source','fonte','status','coletado_em','cadencia_seg']),scope:!Object.hasOwn(r,'brand')&&!Object.hasOwn(r,'marca')?'shared':'brand'})):null;
+ const attributeFields=['marca','dia','model','grain','dimension','receita','pedidos'];
  return {contract:'shrigma-crm-home-read-v1',brand,brands:[brand],gerado_em:body.gerado_em,_cache_gerado_em:body._cache_gerado_em,
-  crm_diario:sourceDaily.filter(r=>!hasWindow||r.janela==='1d').map(r=>fields(r,['marca','dia','canal','janela','enviados','entregues','abriram','clicaram','hard','complaints','descadastros','coletado_em'])),
-  crm_attribution:{schema_version:a.schema_version,default_model:a.default_model,money_basis:a.money_basis,generated_at:a.generated_at,
-   coverage:(a.coverage||[]).filter(r=>r&&r.brand===brand).map(r=>fields(r,['brand','day','checked_at'])),
-   daily:daily.map(r=>fields(r,['marca','dia','model','grain','dimension','receita','pedidos']))},
-  crm_campanha:scoped(body.crm_campanha).map(r=>fields(r,['marca','nome','campanha_id','status','agendado_em','enviado_em'])),capabilities:{read:true,send:false}};
+  crm_diario:sourceDaily?.filter(r=>!hasWindow||r.janela==='1d').map(r=>fields(r,['marca','dia','canal','janela','enviados','entregues','abriram','clicaram','hard','complaints','descadastros','coletado_em']))??null,
+  crm_attribution:{schema_version:a.schema_version,default_model:a.default_model,money_basis:a.money_basis,generated_at:a.generated_at,window_days:a.window_days,
+   coverage:coverage?.map(r=>({brand,day:r.day,checked_at:r.checked_at}))??null,
+   daily:daily?.map(r=>fields(r,attributeFields))??null,
+   quality:scoped(a.quality)?.map(r=>fields(r,['marca','dia','model','pagos_elegiveis','pagos_sem_ultima_sessao','jornada_pendente','jornada_parcial','coletado_em']))??null},
+  flow_attribution:all?.filter(r=>r.model==='last_click'&&r.grain==='flow_piece'&&Array.isArray(r.dimension)&&r.dimension[0]==='email').map(r=>fields(r,attributeFields))??null,
+  crm_collection_receipt:scoped(body.crm_collection_receipt)?.map(r=>fields(r,['marca','source','pages','checked_at','observed_at']))??null,
+  crm_fontes:sharedSources,
+  crm_campanha:scoped(body.crm_campanha)?.map(r=>fields(r,['marca','nome','campanha_id','status','agendado_em','enviado_em','coletado_em']))??null,capabilities:{read:true,send:false}};
 }
 module.exports={createPublicReadKeyInstaller,readPublicReadKey,PUBLIC_READ_PURPOSE,PUBLIC_READ_LABEL,createReader,sourceKeysFromEnv,createAffiliateEditor,affiliateWriteKeyFromEnv,projectCrmHome};
