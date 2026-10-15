@@ -1166,12 +1166,16 @@ function createAuth(options){
  // Master cookie/context, issues a key, or changes a source grant.
  // Use the actual administrator's existing encrypted TTS slot. The ordinary
  // account is still the author; no key, grant or Root context is manufactured.
- function simpleTTSBinding(context,{brand,write=false}={}){
+ function simpleTTSAuthor(context,{brand,write=false}={}){
   if(!simpleReadMode||!simpleAccounts||context?.nativeBearer!==undefined)err('TTS_SERVICE_UNAVAILABLE',503);
   if(!['fish','aristo'].includes(brand))err('TTS_INPUT',400);
   const author=authorizeBrand({...context,area:'influs',productFront:'afiliados',edit:false},brand);
   if(author.role!=='superadmin'&&!author.simpleRead)err('TTS_SERVICE_DENIED',403);
   if(write&&author.role!=='superadmin'&&(author.permissions.influs?.edit!==true||!author.productWriteFronts?.includes('afiliados')))err('PRODUCT_WRITE_DENIED',403);
+  return author;
+ }
+ function simpleTTSBinding(context,{brand,write=false}={}){
+  const author=simpleTTSAuthor(context,{brand,write});
   const row=db.prepare("SELECT * FROM users WHERE email=? AND role='superadmin' AND state='active'").get(adminEmail);
   if(!row)err('TTS_SERVICE_UNAVAILABLE',503);
   const holder=publicUser(row),stored=db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='tts-write'").get(row.id);
@@ -1183,7 +1187,7 @@ function createAuth(options){
  }
  function simpleTTSFactory(transport,businessAllowed){
   if(!simpleReadMode||!simpleAccounts)return undefined;
-  return require('./simple-tts-manual.cjs').createSimpleTTS({db,binding:simpleTTSBinding,transport,businessAllowed,now:current});
+  return require('./simple-tts-manual.cjs').createSimpleTTS({db,binding:simpleTTSBinding,readAuthor:simpleTTSAuthor,transport,businessAllowed,now:current});
  }
  const simpleDraftContexts=new WeakMap();
  function simpleDraftBinding(context,{brand,write=true}={}){

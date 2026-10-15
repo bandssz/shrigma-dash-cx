@@ -1766,7 +1766,11 @@ function environmentForSimpleDashboardRead(requested,preserved){
  if(flag!=='enabled')return preserved;
  if(preserved.DASHBOARD_MODE!=='operational'||(preserved.DASHBOARD_UPSTREAM_PROFILE||'production')!=='production')throw Error('Simple READ projection invalid');
  const P=require('./proxy.cjs'),routes=JSON.parse(preserved.DASHBOARD_UPSTREAMS),hosts=JSON.parse(preserved.DASHBOARD_UPSTREAM_HOSTS);
- for(const name of ['cx','cache','influ']){
+ const names=['cx','cache','influ'];
+ // Optional original TTS transport belongs only to this simple Own Master
+ // composition. Legacy managed profiles retain their exact route contract.
+ if(preserved.DASHBOARD_CRM_CAMPAIGN_WRITER_PROFILE==='own-master-production-v1'&&[undefined,'disabled'].includes(preserved.DASHBOARD_CRM_MANAGED_READ)&&[undefined,'disabled'].includes(preserved.DASHBOARD_CRM_MANAGED_WRITER))names.push('tts-action');
+ for(const name of names){
   if(Object.hasOwn(routes,name)&&routes[name]!==P.FIXED_DESTINATIONS[name])throw Error('Simple READ destination invalid');
   routes[name]=P.FIXED_DESTINATIONS[name];const host=new URL(routes[name]).hostname;if(!hosts.includes(host))hosts.push(host);
  }

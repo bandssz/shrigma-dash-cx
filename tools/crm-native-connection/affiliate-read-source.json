@@ -200,8 +200,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 159827,
-      "sha256": "d4b235b4b92afe312512c59d3fcccdde68357a8038f4d8c5589f2b8e3edf7ccd"
+      "bytes": 159988,
+      "sha256": "97e0af70b4d97d2ebf588d582965e3d3e37983f8ad87a302e49b4e4cc4b02210"
     },
     {
       "path": "services/dashboard-operational/BCRYPT-LICENSE",
@@ -330,13 +330,13 @@
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
-      "bytes": 49729,
-      "sha256": "3ff5ab3a72ed8493004edb2ab2d6dcbc2a484ecf0b1b797d72c4cead1d544d5b"
+      "bytes": 49853,
+      "sha256": "1281e9e04fad90dd76a1ca56c131d0bcafb3fa360bb2eb87bf7f19410bd58bf8"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/app.js",
-      "bytes": 21674,
-      "sha256": "f0de011e450d0d8709d5e41c98851c972bdde008a2b51aeed507d0d30cb863fb"
+      "bytes": 21701,
+      "sha256": "6b84c32675b49c45dd80dd8a539bf2cc5394b7f65c6e9e36bac3824417b3715d"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/daily.js",
@@ -360,8 +360,8 @@
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/tts.js",
-      "bytes": 8347,
-      "sha256": "3e8109cdcbd71eaf577d18b17ac9336e3a25bb9d43385017ade6b89da2ca63d2"
+      "bytes": 9088,
+      "sha256": "5957c999cd0373c74819cb8ea56a519a6c84ec04bc1b5c487cd355b73969a4af"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/chart.umd.js",
@@ -520,8 +520,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 206568,
-      "sha256": "56f531e7e2b589445bee01a7031089194fc11ae1d6b72501e888c272e07058c4"
+      "bytes": 206990,
+      "sha256": "e4434f65319917604e0ab4426af935b01de2feb6ed358323e8b910340b3bf704"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -555,8 +555,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-tts-manual.cjs",
-      "bytes": 8697,
-      "sha256": "f2b4a08513d5268bbafb48e21e6620d53c8bf88cecc23a8145b0aca67dbe7a8d"
+      "bytes": 8847,
+      "sha256": "5f80fd767edd589f8f7dc9175449c97c97b8e6d49552ba4042dcb490950e4727"
     },
     {
       "path": "tests/ab-experiment-integration.test.cjs",
@@ -895,8 +895,8 @@
     },
     {
       "path": "tests/simple-tts-manual.test.cjs",
-      "bytes": 14146,
-      "sha256": "d60d6108de90a4f738266fd19404780b462c53c48c450b4fb9c7bb3e8720e33c"
+      "bytes": 22280,
+      "sha256": "1137e653fa82c9e7868e362492f07dd74fadaaa6e60dbdcfdf655a50c12caeb6"
     },
     {
       "path": "tests/source-commit-diagnostics-native/diagnostics.test.cjs",
