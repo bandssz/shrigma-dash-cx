@@ -98,7 +98,7 @@ function createSegmentCampaignBinding({transaction,countProvider=null,refreshCat
    let result,applied=false,campaign=null,current=null,catalog=null,a=null,record=null;
    async function fresh({afterWrite=false,requireAudience=false}={}){
     const c=await S.readCatalog(query,p.brand),now=(await query(SQL.current,[p.campaign_id])).rows[0]?.current;
-    if(!c.ready||catalog&&c.expires_at!==catalog.expires_at||catalog&&c.catalog.catalog_hash!==catalog.catalog.catalog_hash||!now||now.version!==current.version)throw fail(afterWrite?'SEGMENT_BINDING_UNCONFIRMED':'SEGMENT_BINDING_CHANGED',409);
+    if(!c.ready||catalog&&(c.expires_at!==catalog.expires_at||c.metadataSnapshot!==catalog.metadataSnapshot)||catalog&&c.catalog.catalog_hash!==catalog.catalog.catalog_hash||!now||now.version!==current.version)throw fail(afterWrite?'SEGMENT_BINDING_UNCONFIRMED':'SEGMENT_BINDING_CHANGED',409);
     if(requireAudience){const r=(await query(SQL.audience,[p.audience_id,p.audience_revision,p.brand])).rows;if(r.length!==1)throw fail(afterWrite?'SEGMENT_BINDING_UNCONFIRMED':'SEGMENT_BINDING_AUDIENCE_CHANGED',409);const n=audience(r[0],p);if(n.context_hash!==a.context_hash||n.definition_hash!==a.definition_hash||H.digest(S.pins(n.definition,c))!==n.context_hash)throw fail(afterWrite?'SEGMENT_BINDING_UNCONFIRMED':'SEGMENT_BINDING_AUDIENCE_CHANGED',409);}
     await reauth();return c;
    }

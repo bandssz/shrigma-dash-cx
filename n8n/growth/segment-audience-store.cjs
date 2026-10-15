@@ -4,6 +4,7 @@
 const A=require('./segment-audience-contract.js');
 const H=require('./segment-audience-review.cjs');
 const Shopify=require('./segment-shopify-facts.cjs');
+const NativeEmail=require('./segment-audience-listmonk.cjs');
 const Recorded=require('./segment-recorded-origin.cjs');
 const ContextReview=require('./segment-audience-context-review.cjs');
 const VERSION=A.VERSION,ENABLED=false,MAX_VERSION=999999999;
@@ -36,9 +37,10 @@ const SQL=Object.freeze({
  auth:"SELECT operator,live_count,live_actor FROM crm_audience_v2.authenticate($1::text)",
  lock:"SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('crm-audience-v2-request:'||pg_catalog.jsonb_build_array($1::text,$2::text)::text,0))",
  operation:"SELECT brand,payload,payload_hash,response FROM crm_audience_v2.request WHERE actor=$1::text AND operation_key=$2::text",
- config:"SELECT brand,enabled,base_list_id,revision,catalog,checked_at,expires_at,pg_catalog.clock_timestamp() AS read_at FROM crm_audience_v2.config_snapshot($1::text)",
+ config:"SELECT brand,enabled,base_list_id,revision,catalog,checked_at,expires_at,pg_catalog.clock_timestamp() AS read_at,pg_catalog.transaction_timestamp() AS catalog_observed_at,pg_catalog.transaction_timestamp()+interval '4 minutes' AS catalog_valid_until FROM crm_audience_v2.config_snapshot($1::text)",
  recorded:"SELECT crm_audience_v2.recorded_origin_source_current($1::text,$2::text,$3::text) AS current",
  shopify:"SELECT crm_audience_v2.shopify_snapshot($1::text) AS source",
+ shopifyCurrent:"SELECT crm_audience_v2.shopify_source_current($1::text,$2::text,$3::text) AS current",
  lists:"SELECT id,name,status,optin FROM crm_audience_v2.catalog_lists($1::text)",
  list:"SELECT * FROM crm_audience_v2.audience WHERE brand=$1::text ORDER BY updated_at DESC,id LIMIT $2::integer OFFSET $3::integer",
  get:"SELECT * FROM crm_audience_v2.audience WHERE id=$1::uuid AND brand=$2::text FOR SHARE",
@@ -68,10 +70,26 @@ function sourceConfig(raw,brand){
 async function readCatalog(query,brand){
  const rows=(await query(SQL.config,[brand])).rows,listRows=(await query(SQL.lists,[brand])).rows;
  if(rows?.length!==1||!Array.isArray(listRows)||listRows.length>1000)throw fail('SEGMENT_UNAVAILABLE');
- const c=rows[0],base=listRows.find(x=>x.id===c.base_list_id);let source,ready=false;
+ const c=rows[0],base=listRows.find(x=>x.id===c.base_list_id);let source,ready=false,metadataSnapshot=null,observationValid=false;
  const empty={currency:null,timezone:null,shop_id:null,fields:Object.keys(A.FIELDS).map(key=>({key,available:false,source_hash:null})),products:[],origins:[]};
- try{source=sourceConfig(c.catalog,brand);ready=c.enabled===true&&positive(c.base_list_id)&&positive(c.revision)&&!!base&&base.status==='active'&&['single','double'].includes(base.optin)&&date(c.checked_at)<=date(c.read_at)&&date(c.expires_at)>date(c.read_at)&&date(c.expires_at)-date(c.checked_at)<=300000;}catch{source=empty;}
+ try{
+  source=sourceConfig(c.catalog,brand);
+  // A retained catalog is re-observed, never refreshed in the database. The
+  // original metadata stays a separate fence; this window says only when this
+  // transaction checked it. Shopify keeps its independent real 26-hour expiry.
+  const metadataValid=date(c.checked_at)<=date(c.read_at)&&date(c.expires_at)>date(c.checked_at)&&date(c.expires_at)-date(c.checked_at)<=300000;
+  observationValid=date(c.catalog_observed_at)<=date(c.read_at)&&date(c.catalog_valid_until)>date(c.read_at)&&date(c.catalog_valid_until)-date(c.catalog_observed_at)===240000;
+  if(metadataValid)metadataSnapshot=H.digest({brand:c.brand,enabled:c.enabled,base_list_id:c.base_list_id,revision:c.revision,catalog:c.catalog,checked_at:iso(c.checked_at),expires_at:iso(c.expires_at)});
+  ready=c.brand===brand&&c.enabled===true&&positive(c.base_list_id)&&positive(c.revision)&&!!base&&base.status==='active'&&['single','double'].includes(base.optin)&&metadataValid&&observationValid;
+ }catch{source=empty;}
+ source.fields=source.fields.map(field=>['email.opened','email.clicked'].includes(field.key)&&field.available&&field.source_hash!==NativeEmail.engagementSourceHash(brand,field.key)?{...field,available:false}:field);
  source.fields=source.fields.map(field=>Shopify.FIELDS.includes(field.key)&&field.available&&!Shopify.sourceReady(brand,field.key,source)?{...field,available:false}:field);
+ const observesShopify=Shopify.FIELDS.some(field=>Shopify.sourceReady(brand,field,source));
+ for(const field of source.fields.filter(f=>f.available&&Shopify.FIELDS.includes(f.key))){
+  const evidence=(await query(SQL.shopifyCurrent,[brand,field.key,field.source_hash])).rows;
+  if(evidence?.length!==1||evidence[0].current!==null&&typeof evidence[0].current!=='boolean')throw fail('SEGMENT_UNAVAILABLE');
+  if(evidence[0].current!==true)field.available=false;
+ }
  if(source.recorded_origins){
   for(const o of source.recorded_origins){
    if(!Recorded.sourceReady(brand,o.key,source)){o.available=false;continue;}
@@ -82,7 +100,7 @@ async function readCatalog(query,brand){
   if(!source.recorded_origins.some(o=>o.available))source.fields=source.fields.map(f=>f.key===Recorded.FIELD?{...f,available:false}:f);
  }
  let shopify=null;
- if(Shopify.FIELDS.some(field=>Shopify.sourceReady(brand,field,source))){
+ if(observesShopify){
   const evidence=(await query(SQL.shopify,[brand])).rows;
   const v=evidence?.length===1?evidence[0].source:null;
   if(!v||typeof v.current!=='boolean')throw fail('SEGMENT_UNAVAILABLE');
@@ -102,7 +120,7 @@ async function readCatalog(query,brand){
  // opt-in, native list state, currency/timezone and origin provenance.
  const catalog_hash=H.digest({contract:'crm-audience-catalog-semantics-v1',brand,base_list_id:c.base_list_id,lists:listRows,source});
  const catalog={brand,current:ready,...source,lists,coverage:'unconfirmed',checked_at:iso(c.read_at),catalog_hash,...(shopify?{shopify_snapshot:shopify}:{})};
- return {catalog,ready,base_list_id:c.base_list_id,config_revision:c.revision,base:base?{id:base.id,brand,optin:base.optin}:null,lists:listRows,expires_at:c.expires_at===null?null:iso(c.expires_at)};
+ return {catalog,ready,base_list_id:c.base_list_id,config_revision:c.revision,metadataSnapshot,base:base?{id:base.id,brand,optin:base.optin}:null,lists:listRows,expires_at:observationValid?iso(c.catalog_valid_until):null};
 }
 function pins(definition,current){
  if(!current.ready||!A.checkCatalog(definition,current.catalog).ok)throw fail('SEGMENT_LIST_UNAVAILABLE',422);
@@ -207,7 +225,7 @@ function createAudienceStore({transaction,countProvider=null,refreshCatalog=null
      const readRow=async()=>{const rows=(await query(SQL.get,[p.id,p.brand])).rows;if(!rows.length)throw fail('SEGMENT_NOT_FOUND',404);if(rows.length!==1)throw fail('SEGMENT_READBACK_UNCONFIRMED');const s=validStored(rows[0]);row=s;if(s.id!==p.id||s.brand!==p.brand)throw fail('SEGMENT_READBACK_UNCONFIRMED');if(s.version!==p.expected_version)throw fail('SEGMENT_VERSION_CONFLICT',409);if(s.archived)throw fail('SEGMENT_ARCHIVED',409);return s;};
      row=await readRow();const custody=s=>copy({id:s.id,brand:s.brand,version:s.version,definition:s.definition,definition_hash:s.definition_hash,context:s.context,context_hash:s.context_hash});const saved=custody(row),current=reviewPins(saved.definition,before);
      await reauth();const after=await readCatalog(query,p.brand);await reauth();checkCatalog(after);
-     if(before.config_revision!==after.config_revision||before.expires_at!==after.expires_at||H.digest(current)!==H.digest(reviewPins(saved.definition,after)))throw fail('SEGMENT_CATALOG_CHANGED',409);
+     if(before.config_revision!==after.config_revision||before.metadataSnapshot!==after.metadataSnapshot||before.expires_at!==after.expires_at||H.digest(current)!==H.digest(reviewPins(saved.definition,after)))throw fail('SEGMENT_CATALOG_CHANGED',409);
      const final=await readRow();if(H.digest(custody(final))!==H.digest(saved))throw fail('SEGMENT_READBACK_UNCONFIRMED');
      const body=ContextReview.create({brand:p.brand,id:p.id,version:saved.version,definition:saved.definition,definition_hash:saved.definition_hash,stored_context:saved.context,stored_context_hash:saved.context_hash,current_context:current.context,source_ready:current.source_ready,unavailable_fields:current.unavailable_fields,catalog_hash:after.catalog.catalog_hash,checked_at:after.catalog.checked_at},{secrets:[key,first.actor]});
      await reauth();active();return response(200,body);
@@ -224,7 +242,7 @@ function createAudienceStore({transaction,countProvider=null,refreshCatalog=null
    let result,applied=false,initialCatalog=null;
    const freshCatalog=async(afterWrite=false)=>{
     const fresh=await readCatalog(query,p.brand);
-    if(!fresh.ready||initialCatalog&&fresh.expires_at!==initialCatalog.expires_at){if(afterWrite)throw fail('SEGMENT_CATALOG_UNCONFIRMED');throw fail('SEGMENT_UNAVAILABLE');}
+    if(!fresh.ready||initialCatalog&&(fresh.expires_at!==initialCatalog.expires_at||fresh.metadataSnapshot!==initialCatalog.metadataSnapshot)){if(afterWrite)throw fail('SEGMENT_CATALOG_UNCONFIRMED');throw fail('SEGMENT_UNAVAILABLE');}
     if(initialCatalog&&fresh.catalog.catalog_hash!==initialCatalog.catalog.catalog_hash){if(afterWrite)throw fail('SEGMENT_CATALOG_UNCONFIRMED');throw fail('SEGMENT_CATALOG_CHANGED',409);}
     return fresh;
    };

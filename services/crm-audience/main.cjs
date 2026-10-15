@@ -11,11 +11,12 @@ function start(env=process.env,{Pool=require('pg').Pool}={}){
  const c=config(env);if(c.productSemantics!==ShopifyFacts.PRODUCT_SEMANTICS_MODE)throw Error('CRM_AUDIENCE_PRODUCT_SEMANTICS');
  const pool=new Pool(c.pg),transaction=createTransaction({pool,statementTimeoutMs:c.pg.statement_timeout});
  pool.on('error',()=>process.stderr.write('CRM_AUDIENCE_DATABASE_UNAVAILABLE\n'));
- const refreshCatalog=({query,brand})=>query('SELECT crm_audience_v2.refresh_native_catalog($1::text)',[brand]);
+ // Catalog reads revalidate the retained configuration and source pins in RAM.
+ // They must never renew persisted metadata as a side effect of GET/COUNT.
  const countProvider=require('../../n8n/growth/segment-count-diagnostics.cjs').createCounter(Counter.countAudience,{revision:c.revision,write:line=>process.stderr.write(line)});
- const segments=createAudienceAPI({store:createAudienceStore({transaction,countProvider,refreshCatalog})});
- const bindingOnly=createCampaignBindingAPI({store:createSegmentCampaignBinding({transaction,countProvider,refreshCatalog})});
- const regular=createRegularAdmissionAPI({store:Regular.createRegularAdmission({transaction,countProvider,refreshCatalog})});
+ const segments=createAudienceAPI({store:createAudienceStore({transaction,countProvider})});
+ const bindingOnly=createCampaignBindingAPI({store:createSegmentCampaignBinding({transaction,countProvider})});
+ const regular=createRegularAdmissionAPI({store:Regular.createRegularAdmission({transaction,countProvider})});
  const binding={handle(input,options){const action=input?.request?.body?.acao??input?.request?.query?.acao;return (Object.values(Regular.ACTIONS).includes(action)?regular:bindingOnly).handle(input,options);}};
  const experiments=createABPanelAPI({transaction,enabled:c.abEnabled&&c.regularEnabled&&c.bindingEnabled});
  const graphLifecycle=createLifecyclePanelAPI({pool,checkoutSha:c.revision,enabled:c.graphLifecycleEnabled});

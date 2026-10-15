@@ -87,7 +87,9 @@ test('catalog scopes, base/brand and semantic pins are trusted and fresh; change
  const count=await f.call({acao:'segmento_contar',brand:'fish',expected_catalog_hash:f.catalogHashes.fish,id:s.id,expected_version:s.version});assert.equal(count.status,409);assert.equal(count.body.error,'SEGMENT_CATALOG_CHANGED');
  assert.equal((await f.call(get('fish',s.id))).body.segment.definition.name,s.name);assert.equal((await f.call({...p,idempotency_key:'context-second',expected_catalog_hash:(await f.call(list('fish'))).body.catalog.catalog_hash})).status,201);
  await f.db.query("UPDATE crm_audience_v2.config SET checked_at=clock_timestamp()-interval '10 minutes',expires_at=clock_timestamp()-interval '6 minutes' WHERE brand='fish'");
- assert.equal((await f.call(list('fish'))).body.catalog.current,false);assert.equal((await f.call(f.create('fish','stale-catalog'))).status,503);
+ const originalMetadata=(await f.db.query("SELECT checked_at,expires_at,catalog,revision FROM crm_audience_v2.config WHERE brand='fish'")).rows[0];
+ assert.equal((await f.call(list('fish'))).body.catalog.current,true);assert.equal((await f.call({...f.create('fish','stale-catalog'),expected_catalog_hash:(await f.call(list('fish'))).body.catalog.catalog_hash})).status,201);
+ assert.deepEqual((await f.db.query("SELECT checked_at,expires_at,catalog,revision FROM crm_audience_v2.config WHERE brand='fish'")).rows[0],originalMetadata);
  await f.refresh('fish');await f.db.query("UPDATE crm_audience_v2.config SET base_list_id=16 WHERE brand='fish'");assert.equal((await f.call(list('fish'))).body.catalog.current,false);
 });
 
@@ -150,12 +152,11 @@ test('intent pins the displayed catalog; refresh-only dates preserve hash; reope
  assert.equal((await rows(f,'revision')).length,1);assert.equal((await f.call({acao:'segmento_arquivar',brand:'fish',id:saved.id,expected_version:1,idempotency_key:'semantic-archive-old'})).status,200);
 });
 
-test('catalog expiry after waits rejects before write, and expiry after write rolls back audience plus receipt',async t=>{
+test('observed catalog window expires before write; expiry after write rolls back audience plus receipt',async t=>{
  const f=await fixture(t,{timeoutMs:2000});
- const expireSoon=()=>f.db.query("UPDATE crm_audience_v2.config SET checked_at=clock_timestamp()-interval '1 second',expires_at=clock_timestamp()+interval '100 milliseconds' WHERE brand='fish'");
- await expireSoon();let delayed=false;f.control.afterQuery=async text=>{if(text===S.SQL.config&&!delayed){delayed=true;await new Promise(resolve=>setTimeout(resolve,200));}};
+ let observed=false;f.control.afterQuery=async(text,_values,_tx,_options,result)=>{if(text===S.SQL.config){if(observed)result.rows[0].read_at=new Date(new Date(result.rows[0].catalog_observed_at).getTime()+240001);observed=true;}};
  const before=await f.call(f.create('fish','expire-before-write'));assert.equal(before.status,503);assert.equal(before.body.error,'SEGMENT_UNAVAILABLE');assert.equal((await rows(f,'audience')).length,0);assert.equal((await rows(f,'request')).length,1);
- f.control.afterQuery=null;await expireSoon();delayed=false;f.control.afterQuery=async text=>{if(text===S.SQL.create&&!delayed){delayed=true;await new Promise(resolve=>setTimeout(resolve,200));}};
+ let written=false;f.control.afterQuery=async(text,_values,_tx,_options,result)=>{if(text===S.SQL.create)written=true;if(text===S.SQL.config&&written)result.rows[0].read_at=new Date(new Date(result.rows[0].catalog_observed_at).getTime()+240001);};
  const after=await f.call(f.create('fish','expire-after-write'));assert.equal(after.status,202);assert.equal((await rows(f,'audience')).length,0);assert.equal((await rows(f,'revision')).length,0);assert.equal((await rows(f,'request')).length,1);
  f.control.afterQuery=null;assert.equal((await f.call({acao:'segmento_operacao',brand:'fish',idempotency_key:'expire-after-write'})).body.error,'SEGMENT_OPERATION_UNCONFIRMED');
  // Expire at the intended boundary; CPU load must not expire the catalog before counting.
