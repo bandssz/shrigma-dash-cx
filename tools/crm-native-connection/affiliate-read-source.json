@@ -955,8 +955,8 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 62,
-      "sha256": "47aa49eea1fe4151d2cb16cd1685d151f5d8fa61c6a824f3166b1dcddaa9d182"
+      "bytes": 192,
+      "sha256": "84d0c3966b5767dc4c4298e0cb086cd7dd673575bccdb4ad881d506ba006bac8"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
