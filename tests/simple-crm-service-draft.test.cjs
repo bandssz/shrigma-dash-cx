@@ -85,6 +85,13 @@ async function fixture(t,{write=true,fronts=['growth'],brands=['aristo'],holder=
 }
 const createCampaign=()=>({acao:'campanha_criar',brand:'aristo',definition:campaignDefinition(),idempotency_key:crypto.randomUUID()});
 const createAudience=()=>({acao:'segmento_criar',brand:'aristo',definition:audienceDefinition(),expected_catalog_hash:'a'.repeat(64),idempotency_key:crypto.randomUUID()});
+test('HTTP TEST history is scoped to the cookie person and remains READ after WRITE withdrawal',async t=>{
+ const f=await fixture(t),key=crypto.randomUUID(),p={brand:'aristo',campaign_id:185,expected_version:'a'.repeat(32),recipient:f.created.user.email,preview_token:'b'.repeat(64)};
+ f.dbQuery(db=>db.prepare('INSERT INTO crm_simple_campaign_test_attempt_v1 VALUES(?,?,?,?,?,?,?,?,?)').run(f.created.user.id,'aristo',key,crypto.randomUUID(),JSON.stringify(p),'synthetic-binding','uncertain',null,Date.parse(STAMP)));
+ const path='/api/campaigns?acao=campanha_teste_historico&brand=aristo&id=185',r=await f.request(path,{viewBrand:'aristo'});a.equal(r.status,200);a.equal(r.body.user_id,f.created.user.id);a.equal(r.body.attempts[0].key,key);a.equal(r.body.attempts[0].state,'outcome_unknown');a(!JSON.stringify(r.body).includes(p.recipient));a(!JSON.stringify(r.body).includes(p.preview_token));a.equal((await f.request(path,{viewBrand:'fish'})).status,403);a.equal((await f.request(path+'&unexpected=1',{viewBrand:'aristo'})).status,400);
+ f.update({writeFronts:[]});const login=await f.loginAgain(),read=await f.request(path,{viewBrand:'aristo',login});a.equal(read.status,200);a.equal(read.body.attempts.length,1);a.equal(f.posts(),0);
+ const other=await f.auth.simpleAccounts.create({context:f.adminContext,email:'history-other@oaristocrata.com',password:PASS,jobTitle:'consulta',fronts:['growth'],brands:['aristo'],writeFronts:[]}),otherLogin=await f.auth.login({email:other.user.email,password:PASS,host:HOST,origin:'https://'+HOST});a.deepEqual((await f.request(path,{viewBrand:'aristo',login:otherLogin})).body.attempts,[]);
+});
 test('content preflight explains invalid models before any journal or native write',async t=>{
  const f=await fixture(t),request=definition=>f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:{acao:'campanha_previa',brand:'aristo',definition}});
  const missing={...campaignDefinition(),html:'<p>Conteúdo sem destino {{ UnsubscribeURL }}</p>',text:'Conteúdo {{ UnsubscribeURL }}'},bad=await request(missing);a.equal(bad.status,200);a.equal(bad.body.ready,false);a.equal(bad.body.code,'NO_COMMERCIAL_LINK');a.equal(bad.body.schema,'crm-campaign-preflight-v1');a(!JSON.stringify(bad.body).includes(missing.html));

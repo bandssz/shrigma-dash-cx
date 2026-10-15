@@ -23,6 +23,13 @@ function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,now=Date.now}={
   }catch(e){if(/^CAMPAIGN_TEST_[A-Z_]+$/.test(e.code||''))throw e;fail('CAMPAIGN_TEST_SOURCE_UNAVAILABLE',503);}finally{clearTimeout(timer);controller.abort();}
  }
  async function capability(ctx,brand){let a;try{a=await authority(ctx,brand,false);}catch{return {contract:CONTRACT,brand,send:false,internalTest:false,recovery:false};}let canEdit=false,available=false;try{await authority(ctx,brand,true);canEdit=true;const r=await call(ctx,brand,'capability',null,true);available=r.status===200&&r.body?.contract===CONTRACT&&r.body?.enabled===true&&r.body.internal_only===true&&r.body.prefix==='[TESTE] ';}catch{}return {contract:CONTRACT,brand,send:false,internalTest:canEdit&&available,recovery:true,recipient:a.email,user_id:a.author.id};}
+ async function history(ctx,brand,id){
+  if(!Number.isSafeInteger(id)||id<1||id>999999999)fail('CAMPAIGN_TEST_INPUT',400);
+  const a=await authority(ctx,brand,false),rows=db.prepare("SELECT client_key,payload_json,binding,state,created_at FROM crm_simple_campaign_test_attempt_v1 WHERE user_id=? AND brand=? AND json_extract(payload_json,'$.campaign_id')=? ORDER BY created_at DESC,client_key DESC LIMIT 100").all(a.author.id,brand,id).reverse(),attempts=[];
+  for(const row of rows){const p=JSON.parse(row.payload_json);if(!UUID.test(row.client_key)||p.campaign_id!==id||p.brand!==brand||!VERSION.test(p.expected_version))fail('CAMPAIGN_TEST_HISTORY_UNCONFIRMED',502);attempts.push({key:row.client_key,campaign_id:id,campaign_version:p.expected_version,state:row.state==='accepted'?'accepted':['refused','not_sent'].includes(row.state)?'refused':'outcome_unknown',created_at:new Date(row.created_at).toISOString()});}
+  const after=await authority(ctx,brand,false);if(a.author.id!==after.author.id||a.binding!==after.binding||a.snapshot!==after.snapshot||a.email!==after.email)fail('CAMPAIGN_TEST_ACCESS_CHANGED');
+  return {contract:CONTRACT,schema:'crm-campaign-test-history-v1',user_id:a.author.id,brand,campaign_id:id,attempts};
+ }
  async function prepare(ctx,brand,body){input(body,brand,'prepare');const a=await authority(ctx,brand,true),payload={brand,campaign_id:body.id,expected_version:body.expected_version,recipient:a.email},r=await call(ctx,brand,'prepare',payload,true,a),p=r.body;
   if(p?.contract===CONTRACT&&p.eligible===false&&typeof p.code==='string'&&/^[a-z_]{1,90}$/.test(p.code))return {status:200,body:{contract:CONTRACT,eligible:false,code:p.code}};
   if(r.status!==200||p?.contract!==CONTRACT||p.eligible!==true||p.brand!==brand||p.campaign_id!==body.id||p.campaign_version!==body.expected_version||p.recipient!==a.email||!HEX.test(p.preview_token||'')||!HEX.test(p.source_hash||'')||typeof p.subject!=='string'||!p.subject.startsWith('[TESTE] ')||typeof p.from_email!=='string'||typeof p.reply_to!=='string'||typeof p.template_name!=='string'||!Number.isFinite(Date.parse(p.expires_at))||Date.parse(p.expires_at)<=now()||Date.parse(p.expires_at)>now()+330000)fail('CAMPAIGN_TEST_PREVIEW_UNCONFIRMED',502);
@@ -44,6 +51,6 @@ function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,now=Date.now}={
   }catch(e){if(!mayHaveSent){const negative={contract:CONTRACT,operation:{idempotency_key:key,actor:'crm-user:'+a.author.id,brand,state:'refused',code:/^[A-Z_]+$/.test(e.code||'')?e.code:'CAMPAIGN_TEST_PRECHECK_FAILED',request_payload:local,request_sha256:pgHash(local),request_hash_schema:'postgres-jsonb-text-sha256-v1',campaign_id:body.id,campaign_version:body.expected_version,http_accepted:false,nothing_changed:true,local_refusal:true}};db.prepare("UPDATE crm_simple_campaign_test_attempt_v1 SET state='not_sent',receipt_json=? WHERE user_id=? AND brand=? AND client_key=?").run(JSON.stringify(negative),a.author.id,brand,key);}}
   return operation(ctx,brand,key);
  }
- return Object.freeze({capability,prepare,send,operation});
+ return Object.freeze({capability,history,prepare,send,operation});
 }
 module.exports={create,DESTINATION,CONTRACT};

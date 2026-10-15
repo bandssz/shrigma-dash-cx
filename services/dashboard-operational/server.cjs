@@ -1357,12 +1357,13 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(simpleReader&&!nativeContext&&route==='campaigns'){
           if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'ARGUMENTS_INVALID');
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields?.brand,action=fields?.acao;
-          if(['campanha_teste_capacidade','campanha_teste_previa','campanha_teste','campanha_teste_operacao'].includes(action)){
+          if(['campanha_teste_capacidade','campanha_teste_previa','campanha_teste','campanha_teste_operacao','campanha_teste_historico'].includes(action)){
             if(!simpleCampaignTests)throw jsonError(503,'CAMPAIGN_TEST_UNAVAILABLE');
             if(req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'CAMPAIGN_TEST_BRAND_REFUSED');
             releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
             let result;
             if(action==='campanha_teste_capacidade'&&req.method==='GET'&&Object.keys(fields).sort().join(',')==='acao,brand')result={status:200,body:await simpleCampaignTests.capability(ctx,brand)};
+            else if(action==='campanha_teste_historico'&&req.method==='GET'&&Object.keys(fields).sort().join(',')==='acao,brand,id')result={status:200,body:await simpleCampaignTests.history(ctx,brand,/^[1-9]\d{0,8}$/.test(fields.id)?Number(fields.id):null)};
             else if(action==='campanha_teste_operacao'&&req.method==='GET'&&Object.keys(fields).sort().join(',')==='acao,brand,idempotency_key')result=await simpleCampaignTests.operation(ctx,brand,fields.idempotency_key);
             else if(action==='campanha_teste_previa'&&req.method==='POST')result=await simpleCampaignTests.prepare(ctx,brand,body);
             else if(action==='campanha_teste'&&req.method==='POST')result=await simpleCampaignTests.send(ctx,brand,body);
