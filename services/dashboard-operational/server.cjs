@@ -1378,6 +1378,15 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           }
           if(!simpleCampaignDrafts)throw jsonError(503,'CRM_SERVICE_DRAFT_UNAVAILABLE');
           releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
+          if(action==='campanha_previa'&&req.method==='POST'){
+            if(Object.keys(fields).sort().join(',')!=='acao,brand,definition'||req.headers['x-shrigma-view-brand']!==brand||!fields.definition||fields.definition.brand!==brand||fields.definition.send_at!==null)throw jsonError(400,'ARGUMENTS_INVALID');
+            const context=auth.simpleDraftContext(ctx,{brand});await auth.verifySimpleDraftBinding(context,{brand,fetchImpl});
+            const catalog=await simpleDraftTransport(context,{method:'GET',command:{acao:'campanha_catalogo',brand}});
+            if(catalog.status!==200)throw jsonError(503,'CRM_SERVICE_DRAFT_SOURCE_REFUSED');
+            const hints={FIELD_INVALID:'Preencha os campos obrigatórios.',SLUG_INVALID:'Use letras minúsculas, números, hífen ou sublinhado no código e na UTM.',SENDER_BRAND:'Escolha um remetente já utilizado pela marca.',REPLY_BRAND:'Escolha um endereço de respostas da marca.',SUBJECT_INVALID:'Use uma única linha no assunto.',UNSUBSCRIBE_MISSING:'Inclua {{ UnsubscribeURL }} no HTML e no texto.',HTML_ACTIVE_CONTENT:'Remova scripts, formulários e eventos do HTML.',NO_COMMERCIAL_LINK:'Inclua um link para produto, página ou coleção da loja.',TRACKING_INVALID:'Confira os links: cupons precisam de destino explícito; UTMs existentes devem corresponder à campanha.',LIST_SCOPE:'Escolha uma lista disponível para esta marca.',TEMPLATE_SCOPE:'Escolha um layout de campanha disponível.',INITIATIVE_CONFLICT:'Esta UTM já pertence a outra iniciativa.',CATALOG_UNAVAILABLE:'Atualize o catálogo da marca.'};
+            try{require('./campaign-write-contract.js').preflight(fields.definition,{catalog:catalog.body,tracking:require('./campaign-write-tracking.js')});return sendJson(req,res,200,{schema:'crm-campaign-preflight-v1',brand,ready:true});}
+            catch(e){const code=Object.hasOwn(hints,e.code)?e.code:'CAMPAIGN_CONTENT_INVALID';return sendJson(req,res,200,{schema:'crm-campaign-preflight-v1',brand,ready:false,code,message:hints[code]||'Revise os campos e o conteúdo da campanha.'});}
+          }
           if(req.method==='POST'){
             if(!['campanha_criar','campanha_salvar','campanha_validar'].includes(action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
             const context=auth.simpleDraftContext(ctx,{brand});await auth.verifySimpleDraftBinding(context,{brand,fetchImpl});
