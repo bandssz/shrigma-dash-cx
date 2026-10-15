@@ -180,7 +180,7 @@ test('master missing a route-specific credential remains a documented gap; neith
  assert.equal(bridgeCalls,0);assert.equal(calls,0);assert.deepEqual(f.baseline(),before);assert.equal(f.auth.managedCrmJournal.status(admin),null);
  // Pin the reviewed independent CREATE gate, including opt-in CURRENT transport/operation guards; dedicated HTTP/UI regressions
  // cover OFF denial and ON requiring a ready, individual FULL writer.
- for(const[name,start,end,expected]of [["auth.cjs"," function campaignCreateFor(transport){"," async function setSandboxCredential(","bac52aeb08f088d39e9fd7b07502968c973360beed1f2fd858f9248d7f07930d"],["server.cjs","      if(url.pathname==='/auth/campaign-create'){","      if(url.pathname==='/auth/campaign-delivery'","6fd078fea0f9d9b63034481abb86019fd17c96abe234e1121d4ac917e408750d"]]){
+ for(const[name,start,end,expected]of [["auth.cjs"," function campaignCreateFor(transport){"," async function setSandboxCredential(","517d1ee904a0738f0dd500fba94a65d93f9560add4aff87aa45754b1fac0ccc6"],["server.cjs","      if(url.pathname==='/auth/campaign-create'){","      if(url.pathname==='/auth/campaign-delivery'","6fd078fea0f9d9b63034481abb86019fd17c96abe234e1121d4ac917e408750d"]]){
   const proposed=fs.readFileSync(path.join(ROOT,'services/dashboard-operational',name),'utf8'),begin=proposed.indexOf(start),finish=proposed.indexOf(end,begin);assert.ok(begin>=0&&finish>begin);assert.equal(crypto.createHash('sha256').update(proposed.slice(begin,finish)).digest('hex'),expected);
  }
  assert.equal(B.PASSTHROUGH_DESTINATIONS.cx,P.FIXED_DESTINATIONS.cx);assert.equal(B.PASSTHROUGH_DESTINATIONS.influ,P.FIXED_DESTINATIONS.influ);

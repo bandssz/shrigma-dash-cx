@@ -23,7 +23,7 @@ test('erros traduzidos por status (R5.7): 401 esquece chave, 409 diz quem/quando
  assert.match(e(409,{erro:'idempotency_replay_mismatch'}).texto,/idempotência/);
  const v=e(422,FIX.validar_422);assert.equal(v.tipo,'validacao');assert.match(v.texto,/1025 caracteres/);assert.equal(v.erros[0].campo,'corpo');
  assert.match(e(502,FIX.erros['502']).texto,/nada foi alterado\. Tente em 60 s/);
- assert.match(e(502,{erro:'upstream_error'}).texto,/estado incerto/);
+ assert.equal(e(502,{erro:'upstream_error'}).tipo,'incerto');assert.match(e(502,{erro:'upstream_error'}).texto,/resultado permanece incerto/);assert.match(e(502,{erro:'upstream_error'}).texto,/mesma tentativa/);
  assert.match(e(429,{retry_after:5}).texto,/Tente em 5 s/);
  assert.match(e(0,null,true).texto,/Falha de rede: nada foi confirmado/);
 });

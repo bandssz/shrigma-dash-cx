@@ -235,8 +235,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-campaign-delivery.cjs",
-      "bytes": 24561,
-      "sha256": "e3c5c9234c6a7e4c28ce9771e66088dc943e66383eec164b18666048402892b7"
+      "bytes": 25289,
+      "sha256": "49870992b902a1a061a6a8ac4cc9f2f68589ff3e5467a50bfeb748cddd32a80a"
     },
     {
       "path": "services/dashboard-operational/crm-manager-runtime.cjs",
@@ -540,8 +540,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 208181,
-      "sha256": "053de164a906b0c02e3e9d6d39939533ba7de317cf7404e1be5cfd91834dba0e"
+      "bytes": 208804,
+      "sha256": "9eeba09f13c7788e4ff446a825766ed771993dad9075896118eefeff265ab9fe"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -700,8 +700,8 @@
     },
     {
       "path": "tests/dashboard-operational-campaign-ui-assets.test.cjs",
-      "bytes": 1852,
-      "sha256": "cd5662169d300d588a0334982d54b2efb1c9cbf3496b0ec3f6e532f30f1e6ab5"
+      "bytes": 1890,
+      "sha256": "d6654c3643ae6c2806e7cfda6913c1778fe2f9287368e6ec7a06c1e667c1ec9b"
     },
     {
       "path": "tests/dashboard-operational-content-access-ui.test.cjs",
@@ -970,8 +970,8 @@
     },
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
-      "bytes": 2719,
-      "sha256": "93674b4479cf40fc4d7db15850b9644c62ea3c3031ea430c66e76a00fc59d4cb"
+      "bytes": 2876,
+      "sha256": "4abf487db578c6737cab5574920c8478a5a571659a77ee3bfd0d78267283db4f"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -1007,6 +1007,61 @@
       "path": "tools/production-release/publish-ci.cjs",
       "bytes": 10683,
       "sha256": "710ab1f6628685b20514d9d3cb96434437ee45547378b304289b8c51086fdb29"
+    },
+    {
+      "path": "tests/campaign-delivery-replay-http.test.cjs",
+      "bytes": 2684,
+      "sha256": "134f33805d0a6568dbb11b9fa974a07bfd724346e1130b2f81b3ef7a3c77732b"
+    },
+    {
+      "path": "tests/campaign-delivery-replay.test.cjs",
+      "bytes": 6455,
+      "sha256": "4968b93f05531c0293cf82bc472f74204b6e62b254869d0122b9890c0a9f2b0b"
+    },
+    {
+      "path": "tests/claude-front-read-brand.test.cjs",
+      "bytes": 27565,
+      "sha256": "4bbda3a2eb98187035476a18b6e3454c764a08398f88fc97255b9c44967ecf82"
+    },
+    {
+      "path": "tests/claude-portal-shell-campaign-path.test.cjs",
+      "bytes": 14580,
+      "sha256": "34bbf9908715f651e7920664abe8720fd3a35d0d53e6afe462fe90a5c0acaaff"
+    },
+    {
+      "path": "tests/dashboard-operational-campaign-create-http.test.cjs",
+      "bytes": 9661,
+      "sha256": "fe574089d5ce9456817a152686974a44519806c2ba14cd6e4e84648f07313083"
+    },
+    {
+      "path": "tests/dashboard-operational-campaign-create-independent.test.cjs",
+      "bytes": 5617,
+      "sha256": "67638ff7af6409a095adeff4d33850795c233945e8430ac0c095b108c2a197c5"
+    },
+    {
+      "path": "tests/dashboard-operational-campaign-shell.test.cjs",
+      "bytes": 12276,
+      "sha256": "940b7e0f1c0f3a768be6883618c589367d08f57450c2ae97b9f49c466f5d93ab"
+    },
+    {
+      "path": "tests/dashboard-operational-crm-managed-read-bridge.test.cjs",
+      "bytes": 31355,
+      "sha256": "1b9b7e1f5f9cd34c93c58b9bd5be0567f272376c93ebc7bdc7ed600afef8c601"
+    },
+    {
+      "path": "tests/growth-email-native-ui.test.cjs",
+      "bytes": 10771,
+      "sha256": "743de6e94fabe10bf6c3bb84d7486e883388055b02084ab78b2ff2ceafbc4f37"
+    },
+    {
+      "path": "tests/growth-template-journal.test.cjs",
+      "bytes": 12061,
+      "sha256": "d889ff588b0ce613d69a740fc8dd3dc0b41c5531167e0feb085ff094355f540c"
+    },
+    {
+      "path": "tests/growth-templates-api.test.cjs",
+      "bytes": 12538,
+      "sha256": "5ce6a1f4d19284806f3a1ee9f69d9d7dede0e91e98032658e6c2c7d855f9cbb7"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",

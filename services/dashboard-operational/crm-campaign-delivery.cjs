@@ -202,13 +202,26 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
     if (active.has(key)) return active.get(key);
     const promise = (readOnly ? row.phase === 'rejected' && row.remote_operation_id === null ? Promise.resolve(result('rejected')) : reconcileRow(context, row) : run(context, row)).finally(() => active.delete(key)); active.set(key, promise); return promise;
   }
+  const submissionCommand = input => {
+    const q = command(input);
+    if(draftOnly&&(!['campanha_salvar','campanha_validar'].includes(q.acao)||q.acao==='campanha_salvar'&&q.definition.send_at!==null))fail('CAMPAIGN_EDIT_DENIED');
+    return q;
+  };
+  async function recoverSubmission(context, input) {
+    outside(); const q = submissionCommand(input), a = identity(context, q), row = get(a.userId, q.idempotency_key);
+    if (!row) return null;
+    if (row.payload_sha256 !== sha(q) || row.credential_mac !== a.credentialMac) fail('CAMPAIGN_DELIVERY_CONFLICT');
+    // A replay is a read, even when a crash left the intention queued.
+    return coalesce(context, row, true);
+  }
   async function submit(context, input) {
-    outside(); const q = command(input);if(draftOnly&&(!['campanha_salvar','campanha_validar'].includes(q.acao)||q.acao==='campanha_salvar'&&q.definition.send_at!==null))fail('CAMPAIGN_EDIT_DENIED');const a = identity(context, q), fingerprint = sha(q), t = clock();
+    outside(); const q = submissionCommand(input), a = identity(context, q), fingerprint = sha(q), t = clock();
     let cipher=null;
     if(q.acao==='campanha_salvar'){
       if(![encrypt,decrypt,prepareDefinition].every(f=>typeof f==='function'))fail('CAMPAIGN_DELIVERY_CONFIG');
       cipher=encrypt(JSON.stringify(q.definition));if(typeof cipher!=='string'||!/^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(cipher))fail('CAMPAIGN_DELIVERY_CONFIG');
     }
+    let isNew = false;
     const row = atomic(() => {
       const prior = get(a.userId, q.idempotency_key);
       if (prior) {
@@ -218,13 +231,15 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
       if (db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(a.userId, q.brand)) fail('CAMPAIGN_DELIVERY_PENDING');
       db.prepare("INSERT INTO crm_campaign_delivery_v1(user_id,client_key,remote_key,brand,action,campaign_id,expected_version,audience_review_id,payload_sha256,credential_mac,phase,created_at,updated_at,definition_ciphertext) VALUES(?,?,?,?,?,?,?,?,?,?,'queued',?,?,?)")
         .run(a.userId, q.idempotency_key, 'bff-' + crypto.randomBytes(32).toString('hex'), q.brand, q.acao.replace('campanha_', ''), q.id, q.expected_version, q.audience_review_id ?? null, fingerprint, a.credentialMac, t, t,cipher);
+      isNew = true;
       return get(a.userId, q.idempotency_key);
     });
-    return coalesce(context, row);
+    return coalesce(context, row, !isNew);
   }
   async function reconcile(context, input) { return coalesce(context, select(context, input), true); }
   return Object.freeze({
     submit: async (context, input) => { try { return await submit(context, input); } catch (error) { closedError(error); } },
+    recoverSubmission: async (context, input) => { try { return await recoverSubmission(context, input); } catch (error) { closedError(error); } },
     reconcile: async (context, input) => { try { return await reconcile(context, input); } catch (error) { closedError(error); } },
     describe: (context,input) => {try{const row=select(context,input);return Object.freeze({action:'campanha_'+row.action});}catch(error){closedError(error);}}
   });

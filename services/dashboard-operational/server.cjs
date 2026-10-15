@@ -760,6 +760,20 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     return forward({route:'campaigns',method,query,body:method==='POST'?command:undefined,user,credential,upstreams,origin:'https://'+context.host,crmCampaignSubmitWrite:true,...(campaignWriter?{crmCorporateWriter:coexistence&&user.role==='manager'?corporateWriter:campaignWriter}:{}),fetchImpl});
   };
   const campaignDelivery=allowCampaignSubmit?auth.campaignDeliveryFor(campaignTransport):null;
+  const submitCampaignDelivery=async(context,command)=>{
+    const prior=await campaignDelivery.recoverSubmission(context,command);
+    if(prior!==null)return prior;
+    try{await requireCampaignSchedule(context,command);}
+    catch(error){
+      // Another identical request may have completed while this preflight
+      // waited. Recover its receipt; never repeat the original source POST.
+      const recovered=await campaignDelivery.recoverSubmission(context,command);
+      if(recovered!==null)return recovered;
+      throw error;
+    }
+    // submit decides INSERT versus replay atomically; only INSERT may dispatch.
+    return campaignDelivery.submit(context,command);
+  };
   if(allowCampaignSubmit&&typeof auth.campaignCreateFor!=='function')throw Error('Campaign create configuration required');
   const campaignCreator=allowCampaignSubmit?auth.campaignCreateFor(campaignTransport):null;
   const campaignDto=(action,key,value)=>({schema:'crm-campaign-bff-operation-v1',action,attemptKey:key,state:value.state,campaign:value.campaign,validation:value.validation??null});
@@ -1615,8 +1629,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
               const command={...body};delete command.k;
               // Refuse before reserving a delivery intention; dispatch repeats the
               // authoritative check immediately before a possible source POST.
-              await requireCampaignSchedule(ctx,command);
-              const value=await campaignDelivery.submit(ctx,command);
+              const value=await submitCampaignDelivery(ctx,command);
               return sendJson(req,res,campaignStatus(value),campaignDto(d.action,body.idempotency_key,value));
             }
             if(d.action==='campanha_operacao'){

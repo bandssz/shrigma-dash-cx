@@ -34,7 +34,7 @@ function shell(f,{area='crm',cookie:initialCookie='',values=new Map(),loseAck=nu
   if(loseAck&&loseAck(method,body,r))throw new TypeError('synthetic lost ACK');
   return {status:r.status,ok:r.status>=200&&r.status<300,json:async()=>realm(r.json??{})};
  };
- for(const src of [...document.querySelectorAll('script[src]')].map(n=>n.getAttribute('src')))vm.runInContext(fs.readFileSync(path.join(pub,src.replace(/^\//,'')),'utf8'),sandbox,{filename:src});
+ for(const src of [...document.querySelectorAll('script[src]')].map(n=>n.getAttribute('src'))){const url=new URL(src,originUrl);assert.equal(url.origin,originUrl);assert.equal(url.search,url.pathname==='/entry.js'?'?v=crm-seguro-20261015':'');vm.runInContext(fs.readFileSync(path.join(pub,url.pathname.slice(1)),'utf8'),sandbox,{filename:src});}
  const el=id=>document.getElementById(id);
  return {document,window:w,dialog,calls,values,el,cookie:()=>cookie,input(id,v){const e=el(id);e.value=v;e.dispatchEvent(new w.Event('input',{bubbles:true}));},confirm(){const e=el('campaign-confirm');e.checked=true;e.dispatchEvent(new w.Event('change',{bubbles:true}));},
   async login(email){await until(()=>calls.some(c=>c.path==='/auth/session')&&!el('entry-login').hidden,'tela de entrada');el('login-email').value=email;el('login-password').value=PASSWORD;await el('login-form').onsubmit?.({preventDefault(){}})??el('login-form').dispatchEvent(new w.Event('submit',{cancelable:true}));await until(()=>!el('entry-shell').hidden||calls.some(c=>c.path==='/auth/login'&&c.status!==200),'login');}};
