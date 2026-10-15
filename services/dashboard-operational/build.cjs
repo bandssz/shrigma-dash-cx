@@ -172,7 +172,7 @@ function safeCopy(source,destination){
  fs.writeFileSync(destination,/\.(?:html|js|css)$/.test(source)?transform(bytes.toString('utf8'),source):bytes);
 }
 function verifyCampaignAssets(directory=__dirname){
- const inputs=[['crm-campaign-bff-client.cjs','public/campaign-bff-client.js','campaign-bff-client.js'],['public/campaign-edit.js','public/campaign-edit.compiled.js','campaign-edit.js'],['public/entry.js','public/entry.compiled.js','entry.js'],['public/guard.js','public/guard.compiled.js','guard.js'],['public/crm-preview/analytics.js','public/crm-preview/analytics.compiled.js','crm-analytics.js']];
+ const inputs=[['crm-campaign-bff-client.cjs','public/campaign-bff-client.js','campaign-bff-client.js'],['public/campaign-edit.js','public/campaign-edit.compiled.js','campaign-edit.js'],['public/entry.js','public/entry.compiled.js','entry.js'],['public/guard.js','public/guard.compiled.js','guard.js']];
  const read=file=>{const from=path.join(directory,file),stat=fs.lstatSync(from);if(!stat.isFile()||stat.isSymbolicLink())throw Error('Invalid campaign UI asset');return fs.readFileSync(from);};
  const bytes=read('campaign-ui-assets.json');if(bytes.length>4096)throw Error('Invalid campaign UI manifest');
  const manifest=JSON.parse(bytes.toString('utf8'));
@@ -203,7 +203,7 @@ function build(destination){
   if(fs.lstatSync(from).isSymbolicLink())throw Error('Symlink forbidden: '+file);
   fs.copyFileSync(from,path.join(publicRoot,file));
  }
- for(const asset of verifyCampaignAssets().filter(a=>a.publicName!=='crm-analytics.js'))fs.writeFileSync(path.join(publicRoot,asset.publicName),asset.bytes);
+ for(const asset of verifyCampaignAssets())fs.writeFileSync(path.join(publicRoot,asset.publicName),asset.bytes);
  const manifest={schema:'shrigma_dashboard_operational_artifact_v1',mode:'cookie-session-bff',areas:Object.values(ENTRIES).map(x=>x.area),publicFiles:[...CONTENT,...Object.keys(ENTRIES).map(x=>`${x}/index.html`),'entry.js','entry.css','guard.js','media-read.js','campaign-edit.js','campaign-bff-client.js'],fixedApiRoutes:[...new Set(Object.values(ENDPOINTS))],dynamicApiRoutes:DYNAMIC_ROUTES};
  fs.writeFileSync(path.join(out,'artifact-manifest.json'),JSON.stringify(manifest,null,2)+'\n');
  return {directory:out,files:manifest.publicFiles.length,areas:manifest.areas};

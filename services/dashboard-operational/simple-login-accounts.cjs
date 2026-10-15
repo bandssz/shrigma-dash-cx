@@ -26,43 +26,6 @@ function profile(row){
   return {jobTitle:row.job_title,fronts,brands,writeFronts};
  }catch{fail('SIMPLE_PROFILE_INVALID',403);}
 }
-// Descriptive registry: the fields and two arms reuse growth-ab-protocol's
-// create contract. This table is local planning only; it has no executor.
-function createAbRegistry({db,authorize,now=Date.now}){
- db.exec("CREATE TABLE IF NOT EXISTS simple_crm_ab_plans_v1(request_id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo','olivas')),payload_json TEXT NOT NULL,payload_sha256 TEXT NOT NULL,created_at INTEGER NOT NULL)");
- const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).sort().join(',')===keys.slice().sort().join(',');
- const text=(v,max)=>typeof v==='string'&&!!v.trim()&&v.length<=max&&!/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(v);
- const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(v);
- const view=r=>({requestId:r.request_id,brand:r.brand,plan:JSON.parse(r.payload_json),createdAt:new Date(r.created_at).toISOString(),executes:false,schedules:false});
- function owner(context,brand,write=false){
-  if(!BRANDS.includes(brand)||context?.nativeBearer!==undefined||write&&context?.method!=='POST')fail('AB_COOKIE_CONTEXT_REQUIRED',403);
-  const u=authorize({...context,area:'growth',productFront:'growth',brand,edit:false});
-  if(write&&(!u.permissions?.growth?.edit||u.role!=='superadmin'&&!u.productWriteFronts?.includes('growth')))fail('PRODUCT_WRITE_DENIED',403);
-  return u;
- }
- function validate(plan){
-  if(!exact(plan,['name','hypothesis','variable','metric','minEffect','windowDays','channel','variants'])||!['name','hypothesis','variable','metric'].every(k=>text(plan[k],k==='name'?200:4000))||!['email','whatsapp'].includes(plan.channel)||!Number.isInteger(plan.windowDays)||plan.windowDays<1||plan.windowDays>365||plan.minEffect!==null&&!(typeof plan.minEffect==='number'&&Number.isFinite(plan.minEffect)&&plan.minEffect>=0&&plan.minEffect<=1000000)||!Array.isArray(plan.variants)||plan.variants.length!==2)fail('AB_PLAN_INVALID');
-  for(const v of plan.variants)if(!exact(v,['label','campaignId','description'])||!text(v.label,64)||!text(v.description,4000)||v.campaignId!==null&&(!Number.isInteger(v.campaignId)||v.campaignId<1||v.campaignId>2147483647))fail('AB_PLAN_VARIANT_INVALID');
-  if(plan.variants[0].label.trim()===plan.variants[1].label.trim())fail('AB_PLAN_VARIANT_DUPLICATE');
-  return {name:plan.name.trim(),hypothesis:plan.hypothesis.trim(),variable:plan.variable.trim(),metric:plan.metric.trim(),minEffect:plan.minEffect,windowDays:plan.windowDays,channel:plan.channel,variants:plan.variants.map(v=>({label:v.label.trim(),campaignId:v.campaignId,description:v.description.trim()}))};
- }
- function read({context,brand,requestId}){
-  const u=owner(context,brand);if(requestId!==undefined&&!uuid(requestId))fail('AB_REQUEST_INVALID');
-  if(requestId!==undefined){const row=db.prepare('SELECT * FROM simple_crm_ab_plans_v1 WHERE request_id=? AND user_id=? AND brand=?').get(requestId,u.id,brand);if(!row)fail('AB_RECORD_NOT_FOUND',404);return {schema:'crm-ab-planning-v1',record:view(row),executes:false,schedules:false};}
-  const rows=db.prepare('SELECT * FROM simple_crm_ab_plans_v1 WHERE user_id=? AND brand=? ORDER BY created_at DESC,request_id DESC LIMIT 101').all(u.id,brand);
-  return {schema:'crm-ab-planning-v1',brand,records:rows.slice(0,100).map(view),more:rows.length>100,scope:'own',executes:false,schedules:false};
- }
- function append({context,brand,requestId,expectedUserId,plan}){
-  const u=owner(context,brand,true);if(expectedUserId!==u.id)fail('AB_ACCESS_CHANGED',403);if(!uuid(requestId))fail('AB_REQUEST_INVALID');const serialized=JSON.stringify(validate(plan)),hash=crypto.createHash('sha256').update(serialized).digest('hex');
-  if(db.isTransaction)fail('AB_TRANSACTION_INVALID',409);db.exec('BEGIN IMMEDIATE');
-  try{if(owner(context,brand,true).id!==u.id)fail('AB_ACCESS_CHANGED',403);const old=db.prepare('SELECT * FROM simple_crm_ab_plans_v1 WHERE request_id=?').get(requestId);
-   if(old){if(old.user_id!==u.id||old.brand!==brand||old.payload_sha256!==hash)fail('AB_REQUEST_CONFLICT',409);}
-   else{const t=now();if(!Number.isSafeInteger(t)||t<0)fail('CLOCK_INVALID',500);db.prepare('INSERT INTO simple_crm_ab_plans_v1(request_id,user_id,brand,payload_json,payload_sha256,created_at) VALUES(?,?,?,?,?,?)').run(requestId,u.id,brand,serialized,hash,t);}
-   const result=read({context,brand,requestId});db.exec('COMMIT');return result;
-  }catch(e){if(db.isTransaction)db.exec('ROLLBACK');throw e;}
- }
- return Object.freeze({read,append});
-}
 function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now=Date.now,journeyTestTransport,testDiagnostics}={}){
  if(!db||![authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now].every(v=>typeof v==='function'))fail('SIMPLE_ACCOUNT_CONFIG',500);
  const columns=db.prepare('PRAGMA table_info(users)').all();
@@ -185,7 +148,6 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   currentIdentity:id=>{const row=find(id);if(!row)return null;const v=view(row);return {...v,role:row.role};},
   getDraft:(context,brand,draftId)=>{const draft=labRead({context,brand}).store.drafts.find(d=>d.id===draftId);if(!draft)fail('TEST_DRAFT_NOT_FOUND',404);return draft;},
   getBinding:internalBinding.getBinding,send:internalSend});
- const abRegistry=createAbRegistry({db,authorize:authorizeUser,now});
- return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,journeyTest,abRegistry});
+ return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,journeyTest});
 }
-module.exports={createSimpleAccounts,createAbRegistry,profile,FRONTS,BRANDS};
+module.exports={createSimpleAccounts,profile,FRONTS,BRANDS};
