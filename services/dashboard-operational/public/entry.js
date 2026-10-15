@@ -96,8 +96,16 @@ function initialProductView(requested,search,views){
  if(front)return views.find(v=>(requested==='todos'||v.area===area)&&v.view===front)||null;
  return views.find(v=>v.area===area&&v.view===area)||views.find(v=>v.area===area)||null;
 }
-if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation,sessionBrandScope,productViewsForAreas,initialProductView};
+function installUnavailableCampaignControls(document,Observer){
+ const selector='#campaign-validate,#campaign-schedule';
+ const hold=button=>{if(!button.disabled)button.disabled=true;button.setAttribute('aria-disabled','true');button.title='Em breve. Esta operação ainda está em homologação.';if(!button.querySelector('[data-crm-soon-label]')){const label=document.createElement('span');label.className='badge bg-secondary-lt ms-2';label.setAttribute('data-crm-soon-label','');label.textContent='em breve';button.append(label);}};
+ const refresh=()=>{for(const button of document.querySelectorAll(selector))hold(button);};
+ document.addEventListener('click',event=>{const button=event.target?.closest?.(selector);if(button){event.preventDefault();event.stopImmediatePropagation();hold(button);}},true);
+ refresh();if(typeof Observer==='function'&&document.documentElement)new Observer(refresh).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled']});
+}
+if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation,sessionBrandScope,productViewsForAreas,initialProductView,installUnavailableCampaignControls};
 else (function(){'use strict';
+ installUnavailableCampaignControls(document,typeof MutationObserver==='function'?MutationObserver:null);
  const AREAS={growth:{label:'CRM',page:'/growth.html'},organico:{label:'Orgânico',page:'/organico.html'},influs:{label:'Influs',page:'/influs.html'}};
  const PRODUCTS={growth:{area:'growth',label:'CRM'},organico:{area:'organico',label:'Orgânico'},influs:{area:'influs',label:'Influs'},afiliados:{area:'influs',label:'Afiliados / TikTok'}};
  const requested=document.body.dataset.accessPanel;
