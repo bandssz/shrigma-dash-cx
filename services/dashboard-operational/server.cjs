@@ -679,6 +679,7 @@ async function templateOwnershipWriteGate(user,action,{isolatedSandbox=false,adm
  }
 }
 function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime,nativeInstaller,sourcePeerTransport,sourceDiagnostics,deliveryHealth,schedulerState,ttsBusinessAllowed=()=>false}={}){
+  const endAnalyticsJson=require('./analytics-json-end.cjs').createJsonEnd();
   const readWorkspacePublicFiles=s.simpleReadMode===true?Object.entries(READ_WORKSPACES).flatMap(([prefix,spec])=>[...spec.files.map(name=>({name,file:path.join(__dirname,'public',spec.directory,name)})),{name:'workspace.js',file:path.join(__dirname,'public/read-workspace.js')},...AFFILIATE_PREVIEW_FILES.filter(n=>n==='tema.css'||n.startsWith('vendor/')).map(name=>({name,file:path.join(__dirname,'public/afiliados-preview',name)}))].map(({name,file})=>{
     const st=fs.lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||fs.realpathSync(file)!==file||st.size<1||st.size>2*1024*1024)throw Error('WORKSPACE_ASSET_UNAVAILABLE');const b=fs.readFileSync(file);return {path:prefix+name,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')};
   })):undefined;
@@ -1510,9 +1511,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           }
           return sendJson(req,res,result.status,result.body);
         }
-        if(simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],origin});
+        if(simpleReader&&!nativeContext){let responseGuard;const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],origin,responseGuard:guard=>{responseGuard=guard;}});
           if(route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200&&req.headers['x-shrigma-crm-view']==='home')result.body=require('./simple-dashboard-read.cjs').projectCrmHome(result.body);
           if(simpleModels&&route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200&&req.headers['x-shrigma-crm-view']!=='home'){const brand=req.headers['x-shrigma-view-brand']||auth.session(ctx).user?.brand;let availability;try{availability=await simpleModels.capability(ctx,brand);}catch{availability={read:false,draft:false,validate:false,submit:false,send:false};}const cap=result.body.capabilities||{};result.body.capabilities={...cap,write_key_required:false,templates:{...(cap.templates||{}),read_content:availability.read,read_contract:'crm-template-read-v1',server_drafts:availability.read,draft:availability.draft,validate:availability.validate,submit:availability.submit,submit_email:availability.submit,list_history:false,read_submission:false,send:false,native_email_preview:availability.read,native_email_test:availability.internalTest===true,...(availability.testRecovery===true?{test_recovery:true,email_test_recipient:'crm_email_test_recipient_v2',test_internal_only:true,test_recipient:availability.recipient,test_user_id:availability.userId}:{})},endpoints:{...(cap.endpoints||{}),templates:origin+'/api/templates'}};}
+          const analyticsRead=result.status===200&&typeof responseGuard==='function'&&(route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'||['cx','cache'].includes(route)&&req.method==='GET'&&result.body._escopo==='organico'||route==='influ'&&req.method==='POST'&&body?.acao==='listar');
+          if(analyticsRead)return await endAnalyticsJson(req,res,result.body,responseGuard);
           return sendJson(req,res,result.status,result.body);}
         const parityAction=req.method==='GET'&&(crmManagedAudienceRead&&Object.hasOwn(AudienceRead.ACTIONS[route]||{},url.searchParams.get('acao'))||crmManagedTemplateRead&&Object.hasOwn(TemplateRead.ACTIONS[route]||{},url.searchParams.get('acao')));
         const parityUser=parityAction?auth.authorize({...ctx,area:'growth',edit:false}):null;
