@@ -109,7 +109,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   return {schema:'shrigma-affiliate-read-availability-v1',brand,readLinked:!!credentials.afiliados,binding:versions.afiliados||null,readOnly:true};
  }
  async function readDnsOnce(invoke,stillCurrent,{front,brand}){try{return await invoke();}catch(e){if(e.readDnsTemporary!==true)throw e;stillCurrent();try{onReadFailure?.({event:'DASHBOARD_READ_DNS_RETRY',front,brand,code:'EAI_AGAIN',at:new Date().toISOString(),retry:1});}catch{}await new Promise(resolve=>setTimeout(resolve,250));stillCurrent();return invoke();}}
- async function read({context,route,method,query,body,viewBrand,origin,responseGuard}){
+ async function read({context,route,method,query,body,viewBrand,origin}){
   let front,brand,d,affiliateCommand;
   if(route==='segments'){
    if(method==='POST'&&body?.acao==='segmento_contar'){
@@ -211,7 +211,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
     if(upstreams?.segments?.href===require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)payload.capabilities={...(payload.capabilities||{}),segments:{read:!!credentials.audiences,save:false,count:false,operation:false,send:false,brands:[brand],contract_version:'crm-audience-v2'},endpoints:{...(payload.capabilities?.endpoints||{}),segments:origin+'/api/segments'}};
     if(typeof growthDiagnostics==='function')payload.cart_contract=growthDiagnostics(result.body,brand);
    }
-   same(context,front,brand,before);if(typeof responseGuard==='function')responseGuard(()=>same(context,front,brand,before));return {status:200,body:payload};
+   same(context,front,brand,before);return {status:200,body:payload};
   }catch(error){recordFailure(error,{front,brand,started});throw error;}finally{pending--;}
  }
  async function summary(context,brands,origin,now=Date.now()){

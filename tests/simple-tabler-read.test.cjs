@@ -11,12 +11,12 @@ async function fixture(t,{fronts=['organico','influs'],brands=['aristo','fish'],
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tabler-read-')),areaHosts={growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influs.synthetic.invalid'},boot='synthetic-bootstrap';
  const auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),managerHost:HOST,areaHosts,allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'admin@synthetic.invalid',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,8),simpleReadMode:true});await auth.completeBootstrap({email:'admin@synthetic.invalid',token:boot,password:PASS,host:HOST,origin:'https://'+HOST});
  const admin=await auth.login({email:'admin@synthetic.invalid',password:PASS,host:HOST,origin:'https://'+HOST}),ctx={host:HOST,origin:'https://'+HOST,method:'POST',cookieHeader:admin.cookie.split(';')[0],csrf:admin.csrf},user=await auth.simpleAccounts.create({context:ctx,email:'analyst@synthetic.invalid',password:PASS,jobTitle:'analista',fronts,brands}),login=await auth.login({email:user.user.email,password:PASS,host:HOST,origin:'https://'+HOST});
- const keys={growth:'synthetic-growth-read',organico:'synthetic-organic-read',influs:'synthetic-influs-read'},upstreams=Object.fromEntries(['crm-read','cache','influ'].map(k=>[k,new URL(FIXED_DESTINATIONS[k])])),calls=[];
+ const keys={organico:'synthetic-organic-read',influs:'synthetic-influs-read'},upstreams=Object.fromEntries(['cache','influ'].map(k=>[k,new URL(FIXED_DESTINATIONS[k])])),calls=[];
  const source=brand=>({gerado_em:STAMP,coleta:{[brand]:STAMP},influs:[{marca:brand,influ:'Synthetic creator',modelo:'fixo',nicho:'Synthetic niche',comissao_pct:null}],roi:[{marca:brand,influ:'Synthetic creator',receita:null,pedidos:null,custo_lancado:null,comissao:null,patrocinio:null,investimento:null,investimento_total:null,roi:null,roi_total:null}],cupons:[{marca:brand,codigo:'SYNTHETIC',influ:null,tipo:'pendente',usos_lifetime:null,desconto_pct:null,influ_comissao_pct:null}],custos:[{marca:brand,influ:'Synthetic creator',competencia:'2026-10',fixo:25,produto:10,frete:5,patrocinio:null}],receita_cupom:[{marca:brand,codigo:'SYNTHETIC',pedidos:1,receita:40}],termos:[{marca:brand,influ:'Synthetic creator',modelo:'fixo',comissao_pct:5,vigente_desde:'2026-10-01'}],saude:[],private_customer:'synthetic-private@invalid.test'});
- const fetchImpl=async(url,o)=>{const u=new URL(url),influ=u.href.startsWith(FIXED_DESTINATIONS.influ),body=o.body?JSON.parse(o.body):null,brand=body?.marca||'aristo';calls.push({url:u.href,body});a.equal(o.headers.Cookie,undefined);a.equal(o.headers.Origin,undefined);const growth=u.href.startsWith(FIXED_DESTINATIONS['crm-read']);a.equal(o.headers.Authorization,'Bearer '+keys[growth?'growth':influ?'influs':'organico']);let value;
- if(growth)value={crm_diario:['aristo','fish'].flatMap(marca=>Array.from({length:50},(_,i)=>({marca,dia:new Date(Date.UTC(2026,8,1+i)).toISOString().slice(0,10),canal:'email',janela:'1d',enviados:100+i,abriram:20,clicaram:3,descadastros:0}))),crm_credencial:[{api_key:'synthetic-private-do-not-return'}]};else if(influ){value={...source(brand),janela:{ini:body.ini,fim:body.fim}};}else value={_escopo:'organico',_cache_gerado_em:STAMP,cx_post:['aristo','fish'].map(b=>({marca:b,post_id:b+'-image',formato:'IMAGE',publicado_em:STAMP,ultima_coleta:STAMP,impulsionado:false,alcance:10,salvos:2,compartilhamentos:3,comentarios:null})),cx_story:[{marca:'aristo',story_id:'synthetic-story',publicado_em:STAMP,ultima_coleta:STAMP,alcance:10,respostas:2,saidas:3,link_clicks:4}],cx_conta_dia:[],cx_organico_receita:[]};await hooks.read?.(value);return new Response(JSON.stringify(value),{headers:{'content-type':'application/json'}});};
+ const fetchImpl=async(url,o)=>{const u=new URL(url),influ=u.href.startsWith(FIXED_DESTINATIONS.influ),body=o.body?JSON.parse(o.body):null,brand=body?.marca||'aristo';calls.push({url:u.href,body});a.equal(o.headers.Cookie,undefined);a.equal(o.headers.Origin,undefined);a.equal(o.headers.Authorization,'Bearer '+keys[influ?'influs':'organico']);let value;
+ if(influ){value={...source(brand),janela:{ini:body.ini,fim:body.fim}};}else value={_escopo:'organico',_cache_gerado_em:STAMP,cx_post:['aristo','fish'].map(b=>({marca:b,post_id:b+'-image',formato:'IMAGE',publicado_em:STAMP,ultima_coleta:STAMP,impulsionado:false,alcance:10,salvos:2,compartilhamentos:3,comentarios:null})),cx_story:[{marca:'aristo',story_id:'synthetic-story',publicado_em:STAMP,ultima_coleta:STAMP,alcance:10,respostas:2,saidas:3,link_clicks:4}],cx_conta_dia:[],cx_organico_receita:[]};await hooks.read?.();return new Response(JSON.stringify(value),{headers:{'content-type':'application/json'}});};
  const settings={mode:'operational',simpleReadMode:true,simpleReadSources:keys,managerHost:HOST,areaHosts,allowedEmailDomains:['synthetic.invalid'],upstreamProfile:'production',upstreams,allowedUpstreamHosts:[...new Set(Object.values(upstreams).map(u=>u.hostname))],publicDir:dir},server=createServer(settings,{auth,fetchImpl});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(async()=>{await new Promise(r=>server.close(r));auth.close();fs.rmSync(dir,{recursive:true,force:true});});
- const request=(url,{body,brand,host=HOST,cookie=login.cookie.split(';')[0],acceptEncoding,crmView}={})=>new Promise((resolve,reject)=>{const bytes=body?Buffer.from(JSON.stringify(body)):null,req=http.request({host:'127.0.0.1',port:server.address().port,path:url,method:body?'POST':'GET',headers:{Host:host,Origin:'https://'+host,Cookie:cookie,...(acceptEncoding?{'Accept-Encoding':acceptEncoding}:{}),...(crmView?{'X-Shrigma-Crm-View':crmView}:{}),'X-CSRF-Token':login.csrf,...(brand?{'X-Shrigma-View-Brand':brand}:{}),...(bytes?{'content-type':'application/json','content-length':bytes.length}:{})}},res=>{const chunks=[];res.on('data',b=>chunks.push(b));res.on('end',()=>{const wire=Buffer.concat(chunks),raw=(res.headers['content-encoding']==='gzip'?require('node:zlib').gunzipSync(wire):wire).toString('utf8');resolve({status:res.statusCode,body:res.headers['content-type']?.startsWith('application/json')?JSON.parse(raw):raw,headers:res.headers,wireBytes:wire.length});});});req.on('error',reject);req.end(bytes);});
+ const request=(url,{body,brand,host=HOST,cookie=login.cookie.split(';')[0]}={})=>new Promise((resolve,reject)=>{const bytes=body?Buffer.from(JSON.stringify(body)):null,req=http.request({host:'127.0.0.1',port:server.address().port,path:url,method:body?'POST':'GET',headers:{Host:host,Origin:'https://'+host,Cookie:cookie,'X-CSRF-Token':login.csrf,...(brand?{'X-Shrigma-View-Brand':brand}:{}),...(bytes?{'content-type':'application/json','content-length':bytes.length}:{})}},res=>{let raw='';res.on('data',b=>raw+=b);res.on('end',()=>resolve({status:res.statusCode,body:res.headers['content-type']?.startsWith('application/json')?JSON.parse(raw):raw,headers:res.headers}));});req.on('error',reject);req.end(bytes);});
  return{request,auth,ctx,user,calls,source,login,hooks};
 }
 test('Tabler assets use each real front grant; shared kit aliases and health hashes are closed',async t=>{
@@ -36,32 +36,6 @@ test('Influs nullable sums preserve unknown costs, orders and ROI; known totals 
  const known={marca:'aristo',receita:100,pedidos:2,custo_lancado:20,comissao:5,patrocinio:10},totals=G.influKPI([known],'aristo');a.equal(totals.investimento,25);a.equal(totals.roi,4);a.equal(totals.pedidos,2);a.equal(G.influKPI([known,{...known,custo_lancado:null}],'aristo').investimento,null);
 });
 module.exports={fixture};
-async function modelPageWithPendingCatalog(brand){
- const {parseHTML}=require('linkedom'),{window,document}=parseHTML(fs.readFileSync(runtime+'/public/crm-preview/index.html','utf8')),proto=Object.getPrototypeOf(document.createElement('select'));
- Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
- let finish,started=false;const pending=new Promise(r=>finish=r),session={authenticated:true,user:{id:'synthetic-user',brands:[brand],role:'manager',productFronts:['growth'],productWriteFronts:['growth'],permissions:{growth:{read:true,edit:true}}}};
- window.ShrigmaPrepareRead=async()=>true;window.ShrigmaReadSession=async()=>session;window.ShrigmaCrmAssetsReady=async()=>{};window.ShrigmaJourneyLabUI={clear(){},instance:{hasUnsaved:()=>false}};window.ShrigmaCrmRelease={modelPieces:true};
- window.ShrigmaCrmModels={content:()=>null,mount(host){host.textContent='Catalog original rendered separately';return{};}};
- window.ShrigmaCrmModelImport={create({host,brand:actual}){a.equal(actual,brand);host.innerHTML='<textarea id="model-import-content"></textarea>';return{hasUnsaved:()=>true,dispose(){},warnUnsaved(){}};}};
- const sandbox=vm.createContext({window,document,location:{pathname:'/app/crm/',search:'?brand='+brand+'&view=templates'},history:{replaceState(){}},URLSearchParams,AbortController,Date,Intl,fetch:async url=>{if(url.startsWith('/api/templates?')){started=true;return pending;}if(url.startsWith('/api/crm-ab-plans?'))return new Response(JSON.stringify({error:'SOURCE_REFUSED'}),{status:503});throw Error('Unexpected source');}});
- vm.runInContext(fs.readFileSync(runtime+'/public/crm-preview/app.js','utf8'),sandbox);for(let i=0;i<30&&!started;i++)await new Promise(setImmediate);a(started);const input=document.getElementById('model-import-content');a(input);a.equal(document.getElementById('templates').firstElementChild,document.getElementById('model-import-host'));input.value='Unsaved own CRM piece';a(document.getElementById('loading').classList.contains('d-none'));
- const resolve=async body=>{finish(new Response(JSON.stringify(body),{status:body.error?503:200}));for(let i=0;i<15;i++)await new Promise(setImmediate);};return{document,input,sandbox,resolve};
-}
-test('a failed original model catalog cannot hold or destroy own CRM import in either brand',async()=>{
- for(const brand of ['aristo','fish']){const p=await modelPageWithPendingCatalog(brand);await p.resolve({error:'SOURCE_REFUSED'});a.equal(p.document.getElementById('model-import-content'),p.input);a.equal(p.input.value,'Unsaved own CRM piece');a.match(p.document.getElementById('template-coverage').textContent,/continuam disponíveis/);a.equal(p.document.getElementById('error').classList.contains('d-none'),true);a.equal(vm.runInContext('crmState.templates',p.sandbox),null);}
-});
-test('a late successful catalog mounts in its own host without wiping an edited imported piece',async()=>{
- for(const brand of ['aristo','fish']){const p=await modelPageWithPendingCatalog(brand);await p.resolve({brand,total:1,consultado_em:STAMP,next_offset:null,templates:[{brand,id:1,name:'Original',type:'tx',content_available:false}]});a.equal(p.document.getElementById('model-import-content'),p.input);a.equal(p.input.value,'Unsaved own CRM piece');a.match(p.document.getElementById('model-library-host').textContent,/Catalog original rendered separately/);a.match(p.document.getElementById('template-list').textContent,/Original/);}
-});
-test('changing scope clears the prior own piece before authentication and ignores its late catalog',async()=>{
- const p=await modelPageWithPendingCatalog('aristo');vm.runInContext("crmState.brand='fish';crmLoad()",p.sandbox);a.equal(p.document.getElementById('model-import-host'),null);await p.resolve({brand:'aristo',total:1,next_offset:null,templates:[{brand:'aristo',id:1,name:'Prior brand must stay hidden'}]});a.equal(p.document.getElementById('model-import-content'),null);a(!p.document.getElementById('templates').textContent.includes('Prior brand must stay hidden'));a.equal(p.document.getElementById('template-list').textContent,'');
-});
-test('a prior-brand A/B recovery404 cannot clear edits or replace the current form handlers',async()=>{
- const {parseHTML}=require('linkedom'),{document,window:dom}=parseHTML('<html><body><div id="ab-plan-host"></div></body></html>'),source=fs.readFileSync(runtime+'/public/crm-preview/app.js','utf8'),start=source.indexOf('async function crmLoadAbPlans('),end=source.indexOf('function crmTemplates(',start),nonce='11111111-1111-4111-8111-111111111111',values=new Map([['shrigma_ab_plan_pending_v1:actor:aristo',nonce]]),session={user:{id:'actor',role:'manager',productWriteFronts:['growth'],permissions:{growth:{edit:true}}}};
- let refuse,waiting=false;const pending=new Promise((_resolve,reject)=>refuse=reject),state={brand:'aristo',ticket:1,abDirty:false,abBusy:false},sandbox=vm.createContext({crmState:state,crmEl:id=>document.getElementById(id),crmSessionStamp:()=> 'synthetic-stamp',crmSession:async()=>session,crmEsc:x=>String(x??''),crmWhen:x=>x||'',window:{ShrigmaCrmAnalytics:{names:{aristo:'Aristo',fish:'Fish'}}},sessionStorage:{getItem:k=>values.get(k)||null,removeItem:k=>values.delete(k)},URLSearchParams,crypto,crmRead:async(url,brand)=>{a(!url.startsWith('/api/crm-ab-plans')||!url.includes('unexpected'));if(url.includes('requestId=')){waiting=true;return pending;}return{schema:'crm-ab-planning-v1',brand,scope:'own',executes:false,schedules:false,records:[]};}});
- vm.runInContext(source.slice(start,end),sandbox);const old=sandbox.crmLoadAbPlans(session,1);for(let i=0;i<20&&!waiting;i++)await new Promise(setImmediate);a(waiting);a.equal(document.getElementById('ab-name').disabled,true);const event=new dom.Event('submit',{cancelable:true});document.getElementById('ab-plan-form').dispatchEvent(event);a.equal(event.defaultPrevented,true);
- state.brand='fish';state.ticket=2;await sandbox.crmLoadAbPlans(session,2);const form=document.getElementById('ab-plan-form'),handler=form.onsubmit;document.getElementById('ab-name').value='Unsaved Fish plan';form.dispatchEvent(new dom.Event('input',{bubbles:true}));a.equal(state.abDirty,true);refuse(Object.assign(Error('missing'),{status:404}));await old;a.equal(document.getElementById('ab-plan-form'),form);a.equal(form.onsubmit,handler);a.equal(state.abDirty,true);a.equal(document.getElementById('ab-name').value,'Unsaved Fish plan');a.equal(values.get('shrigma_ab_plan_pending_v1:actor:aristo'),nonce);
-});
 test('CRM Home clears the prior brand synchronously even when preparation waits and authentication then fails',async()=>{
  const {parseHTML}=require('linkedom'),{window,document}=parseHTML(fs.readFileSync(runtime+'/public/crm-preview/index.html','utf8'));const proto=Object.getPrototypeOf(document.createElement('select'));Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.options].find(o=>o.hasAttribute('selected'))?.value||this.options[0]?.value||'';},set(v){for(const o of this.options)o.toggleAttribute('selected',o.value===String(v));}});
  let finish;const pending=new Promise(r=>finish=r);window.ShrigmaPrepareRead=()=>pending;window.ShrigmaJourneyLabUI={instance:{hasUnsaved:()=>false},clear(){}};window.ShrigmaCrmHome={dates:()=>['2026-10-14']};
@@ -172,91 +146,3 @@ test('CRM available window retains selected proven daily clicks even without sen
  data.crm_diario[0].cliques=null;a.deepEqual(H.availableWindow(data,'fish','2026-10-15','2026-10-15'),{start:'2026-10-14',end:'2026-10-14'});
  data.crm_diario[0].cliques=25;delete data.crm_diario[0].janela;a.deepEqual(H.availableWindow(data,'fish','2026-10-15','2026-10-15'),{start:'2026-10-14',end:'2026-10-14'});
 });
-
-test('cookie HTTP compresses only projected analytics for both brands and preserves exact DTOs',async t=>{
- const f=await fixture(t,{hooks:{read:value=>{if(value.cx_post)value.cx_post=Array.from({length:60},(_,n)=>({...value.cx_post[n%2],post_id:'synthetic-'+n}));if(value.influs)value.influs=Array.from({length:60},(_,n)=>({...value.influs[0],influ:n===0?value.influs[0].influ:'Synthetic creator '+n}));}}});
- for(const brand of ['aristo','fish'])for(const [url,options] of [['/api/cache?painel=organico',{brand}],['/api/influ',{body:{acao:'listar',marca:brand,ini:'2026-10-01',fim:'2026-10-14',pilot:false}}]]){
-  const identity=await f.request(url,options),gzip=await f.request(url,{...options,acceptEncoding:'gzip'});a.equal(gzip.status,200,JSON.stringify({url,brand,body:gzip.body}));a.equal(gzip.headers['content-encoding'],'gzip');a.equal(gzip.headers['cache-control'],'no-store');a.deepEqual(gzip.body,identity.body);a(gzip.wireBytes<identity.wireBytes/2);a(!JSON.stringify(gzip.body).includes('private_customer'));a.equal(gzip.body.brand,brand);
- }
- const session=await f.request('/auth/session',{acceptEncoding:'gzip'});a.equal(session.status,200);a.equal(session.headers['content-encoding'],undefined);
- const denied=await f.request('/api/cache?painel=organico',{brand:'olivas',acceptEncoding:'gzip'});a.equal(denied.status,403);a.equal(denied.headers['content-encoding'],undefined);
-});
-test('actual HTTP authorization is rechecked after pending gzip and revocation emits only its error',async t=>{
- const z=require('node:zlib'),original=z.gzip;let release,entered;const started=new Promise(r=>entered=r);
- z.gzip=(bytes,_options,done)=>{release=()=>done(null,z.gzipSync(bytes));entered();};let f;
- try{f=await fixture(t,{hooks:{read:value=>{if(value.cx_post)value.cx_post=Array.from({length:60},(_,n)=>({...value.cx_post[n%2],post_id:'synthetic-'+n}));}}});}finally{z.gzip=original;}
- const pending=f.request('/api/cache?painel=organico',{brand:'aristo',acceptEncoding:'gzip'});await started;
- f.auth.simpleAccounts.update({context:f.ctx,userId:f.user.user.id,jobTitle:'analista',fronts:['organico','influs'],brands:['aristo','fish'],active:false});release();
- const r=await pending;a([401,403].includes(r.status));a.equal(r.headers['content-encoding'],undefined);a(!JSON.stringify(r.body).includes('synthetic-'));a.equal(r.body.cx_post,undefined);
-});
-test('CRM reader supplies the same final authorization fence after projection',async()=>{
- const {createReader}=require(runtime+'/simple-dashboard-read.cjs');let active=true,guard;
- const user={id:'synthetic-analyst',role:'manager',areas:['growth'],permissions:{growth:{read:true}},productFronts:['growth'],brands:['aristo','fish']};
- const auth={authorize:()=>user,authorizeBrand:(_ctx,brand)=>{if(!active)throw Object.assign(Error('ACCESS_DENIED'),{status:403});a(user.brands.includes(brand));return user;}};
- const reader=createReader({auth,upstreams:{'crm-read':new URL(FIXED_DESTINATIONS['crm-read'])},keys:{growth:'synthetic-cache-only'},projectGrowth:(_body,brand)=>({brand,metrics:[]}),fetchImpl:async()=>new Response('{}',{headers:{'content-type':'application/json'}})});
- for(const brand of ['aristo','fish']){const r=await reader.read({context:{},route:'crm-read',method:'GET',query:new URLSearchParams({action:'cache_growth',painel:'growth'}),viewBrand:brand,origin:'https://crm.synthetic.invalid',responseGuard:fn=>{guard=fn;}});a.equal(r.body.brand,brand);a.equal(typeof guard,'function');guard();}
- active=false;a.throws(guard,e=>e.status===403);
-});
-test('real CRM cookie HTTP Home and decorated full cache are exact under gzip for both brands',async t=>{
- const f=await fixture(t,{fronts:['growth']});
- for(const brand of ['aristo','fish'])for(const crmView of ['home','full']){
-  const options={brand,crmView},url='/api/crm-read?action=cache_growth&painel=growth',plain=await f.request(url,options),gzip=await f.request(url,{...options,acceptEncoding:'gzip'});
-  a.equal(gzip.status,200,JSON.stringify(gzip.body));a.equal(gzip.headers['content-encoding'],'gzip');a.deepEqual(gzip.body,plain.body);a.equal(gzip.body.brand,brand);a(gzip.body.crm_diario.every(x=>x.marca===brand));a(!JSON.stringify(gzip.body).includes('synthetic-private'));a(gzip.wireBytes<plain.wireBytes/2);a.equal(gzip.headers['cache-control'],'no-store');
- }
- const session=await f.request('/auth/session',{acceptEncoding:'gzip'});a.equal(session.status,200);a.equal(session.headers['content-encoding'],undefined);
-});
-test('legacy runtime constructs without loading the new simple-read compression dependency',()=>{
- const Module=require('node:module'),original=Module._load,dir=fs.mkdtempSync(path.join(os.tmpdir(),'legacy-analytics-off-'));let requested=0,auth,server;
- try{
-  auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),managerHost:HOST,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influs.synthetic.invalid'},allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'admin@synthetic.invalid',bootstrapTokenSha256:'a'.repeat(64),encryptionKey:Buffer.alloc(32,5)});
-  Module._load=function(name,...args){if(name==='./analytics-json-end.cjs'){requested++;throw Object.assign(Error('Synthetic missing optional dependency'),{code:'MODULE_NOT_FOUND'});}return original.call(this,name,...args);};
-  server=createServer({mode:'demo',managerHost:HOST,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influs.synthetic.invalid'},allowedEmailDomains:['synthetic.invalid'],publicDir:dir},{auth});
-  a.equal(server.address(),null);a.equal(requested,0);
- }finally{Module._load=original;server?.removeAllListeners();auth?.close();fs.rmSync(dir,{recursive:true,force:true});}
-});
-
-{
-'use strict';
-const test=require('node:test'),a=require('node:assert/strict'),z=require('node:zlib'),{createJsonEnd}=require(runtime+'/analytics-json-end.cjs');
-function response(){return {headers:{},ended:false,setHeader(k,v){this.headers[k.toLowerCase()]=v;},getHeader(k){return this.headers[k.toLowerCase()];},end(v){this.ended=true;this.raw=v;}};}
-const payload=brand=>({brand,unicode:'ação · 🍊',metrics:Array.from({length:150},(_,i)=>({day:'2026-10-15',revenue:i,coverage:'confirmed'}))});
-test('gzip is byte-exact UTF-8 for each projected read and both brands; identity and no-store stay intact',async()=>{
- const end=createJsonEnd();for(const route of ['crm','organico','influs'])for(const brand of ['aristo','fish']){
-  const dto={...payload(brand),route},before=JSON.stringify(dto);for(const accept of ['gzip','gzip;q=0','']){
-   const res=response();let checked=0;await end({headers:{'accept-encoding':accept}},res,dto,()=>checked++);
-   a.equal(checked,1);a.equal(res.statusCode,200);a.equal(res.headers['cache-control'],'no-store');a.equal(res.headers.vary,'Accept-Encoding');a.equal(res.headers['content-length'],res.raw.length);
-   a.equal((res.headers['content-encoding']?z.gunzipSync(res.raw):res.raw).toString('utf8'),before);a.equal(JSON.stringify(dto),before);
-   a.equal(res.headers['content-encoding'],accept==='gzip'?'gzip':undefined);
-  }
- }
-});
-test('encoding negotiation refuses invalid or fully excluded encodings and supports gzip-only small bodies',async()=>{
- const end=createJsonEnd();for(const accept of ['gzip;q=0, identity;q=0','*;q=0','gzip;q=2, identity;q=0','gzip;q=0, gzip;q=1, identity;q=0']){
-  const res=response();await a.rejects(end({headers:{'accept-encoding':accept}},res,payload('fish'),()=>{}),e=>e.status===406);a.equal(res.ended,false);a.deepEqual(res.headers,{});
- }
- const res=response();await end({headers:{'accept-encoding':'gzip, identity;q=0'}},res,{ok:true},()=>{});a.equal(res.headers['content-encoding'],'gzip');a.equal(z.gunzipSync(res.raw).toString(),'{"ok":true}');
-});
-test('authorization changing while compression is pending prevents every response byte and header',async()=>{
- let finish;const end=createJsonEnd({gzip:(raw,_opts,done)=>{finish=()=>done(null,z.gzipSync(raw));}}),res=response();let active=true;
- const pending=end({headers:{'accept-encoding':'gzip'}},res,payload('aristo'),()=>{if(!active)throw Object.assign(Error('ACCESS_CHANGED'),{status:403});});
- active=false;finish();await a.rejects(pending,e=>e.status===403);a.equal(res.ended,false);a.deepEqual(res.headers,{});
-});
-test('queue/input saturation falls back only to admitted identity, and failure releases retained capacity',async()=>{
- const calls=[],end=createJsonEnd({maxActive:1,maxJobs:1,maxInputBytes:20000,gzip:(raw,_opts,done)=>calls.push({raw,done})}),first=response();
- const pending=end({headers:{'accept-encoding':'gzip'}},first,payload('fish'),()=>{});const fallback=response();await end({headers:{'accept-encoding':'gzip'}},fallback,payload('aristo'),()=>{});a.equal(fallback.headers['content-encoding'],undefined);
- const refused=response();await a.rejects(end({headers:{'accept-encoding':'gzip, identity;q=0'}},refused,payload('aristo'),()=>{}),e=>e.status===503);a.equal(refused.ended,false);
- calls[0].done(Error('synthetic zlib failure'));await pending;a.equal(first.headers['content-encoding'],undefined);
- const third=response(),after=end({headers:{'accept-encoding':'gzip'}},third,payload('aristo'),()=>{});a.equal(calls.length,2);calls[1].done(null,z.gzipSync(calls[1].raw));await after;a.equal(third.headers['content-encoding'],'gzip');
- const tiny=createJsonEnd({maxInputBytes:5}),small=response();await tiny({headers:{'accept-encoding':'gzip'}},small,payload('fish'),()=>{});a.equal(small.headers['content-encoding'],undefined);
-});
-test('bounded workers drain cold reads once and never cache or coalesce person payloads',async()=>{
- const calls=[],end=createJsonEnd({maxActive:2,gzip:(raw,_opts,done)=>calls.push({raw,done})}),rs=Array.from({length:5},response),ps=rs.map(r=>end({headers:{'accept-encoding':'gzip'}},r,payload('fish'),()=>{}));
- a.equal(calls.length,2);for(let n=0;n<5;n++){const c=calls[n];a(c);const encoded=z.gzipSync(c.raw);c.done(null,encoded);c.done(null,encoded);a(calls.length<=n+3);}
- await Promise.all(ps);a.equal(calls.length,5);a(rs.every(r=>r.ended));
-});
-test('a missing authorization fence or a failed gzip-only response cannot emit content',async()=>{
- const end=createJsonEnd({gzip(){throw Error('synthetic failure');}}),res=response();await a.rejects(end({headers:{}},res,{},undefined),e=>e.status===503);a.equal(res.ended,false);
- await a.rejects(end({headers:{'accept-encoding':'gzip, identity;q=0'}},res,payload('fish'),()=>{}),e=>e.status===503);a.equal(res.ended,false);
-});
-
-}
