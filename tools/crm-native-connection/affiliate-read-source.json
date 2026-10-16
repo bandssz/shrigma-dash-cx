@@ -445,8 +445,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 57718,
-      "sha256": "69bed9dfcd4c80c95a37f80317a2dc27a7828d992c43596967122e5b2057cdca"
+      "bytes": 59323,
+      "sha256": "0c9ae1fccc5ed079de29eeeff34ba71e0d680e2d6eaf3fe1f36b6ff5121a1af3"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -460,8 +460,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 11264,
-      "sha256": "f0490aa33a40ca4a0f881d432acb36594f6bcb2aae5cbdba00de0df4cf40e9e5"
+      "bytes": 18404,
+      "sha256": "960b9127625cabe82dfd28fe5ffcd7e74641267a9dcd799be14c9332b0841872"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
@@ -750,8 +750,8 @@
     },
     {
       "path": "tests/dashboard-operational-brand-ui.test.cjs",
-      "bytes": 18697,
-      "sha256": "1c6913087732ce8db19c15634fb9f1a8165a1c62c6994ac94cb4a8853f030aad"
+      "bytes": 21330,
+      "sha256": "4c9f6f7f49a57677fdb66f3f816b7203c66fa7a0d2b42c83bf30287c0302eba1"
     },
     {
       "path": "tests/dashboard-operational-campaign-create-http.test.cjs",
