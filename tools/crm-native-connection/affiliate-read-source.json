@@ -226,7 +226,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "9c7558531e8216bf6a5944cd78a6d73b3820a77549550d42adfd10800a3ee402"
+      "sha256": "48c5dddf588b654bbaaf4f098daa98fca665ae653dd8d1673cb3a6927e6328de"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -465,8 +465,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 44172,
-      "sha256": "480b75cc73229f951fd6db59c66d4196ca5076d9ec9dee5ae0ba7f173714463a"
+      "bytes": 44174,
+      "sha256": "4f069ef633bccaa302420dd6bddcf2e065815e30ba05432387cf5441f61c6b4b"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-library.js",
@@ -495,13 +495,13 @@
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 20263,
-      "sha256": "d86f4f86c4efbd2ef0973235f386eacf0eb7fdcb5790ce9e3dc612c30634d3f5"
+      "bytes": 20316,
+      "sha256": "28f6f9cd845e9b0fa5c3bde43db2a0b3bd9ca2ea704483074242382c1b23b501"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 18754,
-      "sha256": "943b1addcaa7d003e0dd77c3d734ef5c7bf6368012afe1118eb4c880f62c15b3"
+      "bytes": 18812,
+      "sha256": "16fddbb558623f51b25a7ae6784ab659a76e93f9d6d1470dbd2f53273994a511"
     },
     {
       "path": "services/dashboard-operational/public/influs-workspace/app.js",
@@ -845,8 +845,8 @@
     },
     {
       "path": "tests/journey-internal-test.test.cjs",
-      "bytes": 30509,
-      "sha256": "54f67a9f185cb5c6f0a5ba7294fce0b1e8de529eb9824cd04ce595d1048a80b4"
+      "bytes": 30511,
+      "sha256": "ca95369cd4e0bd420c5bae541478728061cf48babfff3f0119111eb626e0e646"
     },
     {
       "path": "tests/journey-lab-panel.test.cjs",
@@ -925,8 +925,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 41955,
-      "sha256": "80f84254fdebdeb9b2244c1ce7e67f46701c0f61d4e3f597f8bfdecbcd6a3f29"
+      "bytes": 43337,
+      "sha256": "1609204cc89c1d9ce6a1a826c22776d59ffdd7a495ec7edb6751b2f61d01e46d"
     },
     {
       "path": "tests/production-envelope.test.cjs",

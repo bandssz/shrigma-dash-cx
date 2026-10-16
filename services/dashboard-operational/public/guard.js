@@ -4,7 +4,7 @@
  const nativeFetch=window.fetch.bind(window);
  // A release flag is independent from WRITE permission or source capability.
  // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
- const crmRelease=Object.freeze({internalTest:false,recipientValidation:false,audienceCatalog:true,audienceCount:true,audienceProducts:false,audienceUpdates:false,legacyAudienceOperations:false,journeyActivation:false,scheduling:false});
+ const crmRelease=Object.freeze({internalTest:false,recipientValidation:false,audienceCatalog:true,audienceCount:true,audienceProducts:false,audienceUpdates:false,legacyAudienceOperations:false,internalJourneyTest:true,journeyActivation:false,scheduling:false});
  window.ShrigmaCrmRelease=crmRelease;
  const crmDocument=/^\/(?:app\/crm\/|previas\/crm\/|growth\.html(?:$|\/)|crm\/)/.test(location.pathname||'')||['crm.shrigma.com.br','gerencial.shrigma.com.br'].includes(location.hostname);
  const crmHeldControls=[
@@ -13,7 +13,8 @@
   ['audienceCount','[data-crm-count],[data-audience-count]'],
   ['audienceUpdates','[data-crm-archive]'],
   ['legacyAudienceOperations','[data-gs="count"],[data-gs="save"],[data-gs="archive"]'],
-  ['journeyActivation','[data-lab-internal-start],[data-graph="activation-review"],[data-graph="activate"]'],
+  ['internalJourneyTest','[data-lab-internal-start]'],
+  ['journeyActivation','[data-graph="activation-review"],[data-graph="activate"]'],
   ['scheduling','[data-ce-schedule],[data-ca="schedule"],#campaign-schedule,[data-abx-prepare],[data-abx-schedule]']
  ];
  function holdCrmControl(button){
@@ -24,12 +25,12 @@
  function holdCrmControls(){
   if(!crmDocument)return;
   for(const [feature,selector]of crmHeldControls)if(!crmRelease[feature])for(const button of document.querySelectorAll(selector))holdCrmControl(button);
-  if(!crmRelease.journeyActivation)for(const button of document.querySelectorAll('[data-lab-internal-pause]'))if(button.textContent.trim().startsWith('Retomar'))holdCrmControl(button);
+  if(!crmRelease.internalJourneyTest)for(const button of document.querySelectorAll('[data-lab-internal-pause]'))if(button.textContent.trim().startsWith('Retomar'))holdCrmControl(button);
  }
  if(crmDocument){
   document.addEventListener('click',event=>{
    const button=event.target?.closest?.('button');if(!button)return;
-   const held=crmHeldControls.some(([feature,selector])=>!crmRelease[feature]&&button.matches(selector))||!crmRelease.journeyActivation&&button.matches('[data-lab-internal-pause]')&&button.textContent.trim().startsWith('Retomar');
+   const held=crmHeldControls.some(([feature,selector])=>!crmRelease[feature]&&button.matches(selector))||!crmRelease.internalJourneyTest&&button.matches('[data-lab-internal-pause]')&&button.textContent.trim().startsWith('Retomar');
    if(held){event.preventDefault();event.stopImmediatePropagation();holdCrmControl(button);}
   },true);
   document.addEventListener('submit',event=>{if(!crmRelease.scheduling&&event.target?.matches?.('[data-abx-form]')){event.preventDefault();event.stopImmediatePropagation();holdCrmControls();}},true);

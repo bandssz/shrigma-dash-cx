@@ -23,7 +23,7 @@
   const scenario={bought:false,optout:false,stale:false,result:'simulated'};
   let serverRevision=0,serverSaved=false,serverUncertain=false,pendingServerStore=null;
   let internalTest=null,internalPending=null;
-  const activationReady=availability?.journeyActivation===true;
+  const activationReady=availability?.internalJourneyTest===true;
   const writable=u=>u?.permissions?.growth?.edit===true&&(u.role==='superadmin'||u.productWriteFronts?.includes('growth'));
   const canEdit=()=>!serverStorage||writable(user);
   const active=()=>context?.section==='regua'&&context?.tab==='lab'&&['fish','aristo'].includes(context.brand);
