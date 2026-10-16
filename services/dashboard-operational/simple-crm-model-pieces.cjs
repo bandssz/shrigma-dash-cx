@@ -44,6 +44,16 @@ function create({db,authorize,now=Date.now}={}){
    const result=receipt(user,brand,body.idempotency_key,row);db.exec('COMMIT');return result;
   }catch(e){if(db.isTransaction)db.exec('ROLLBACK');throw e;}
  }
- return Object.freeze({read,append,get});
+ // Internal runner resolver. Enforces the same brand access as the model UI,
+ // including colleague-owned pieces, and validates stored integrity first.
+ function internalTestSnapshot(context,brand,id,version){
+  owner(context,brand);if(!REF.test(id||'')||version!==1)fail('TEST_HTML_MODEL_VERSION',409);
+  const row=db.prepare('SELECT * FROM crm_model_piece_v1 WHERE brand=? AND draft_id=?').get(brand,id);if(!row)fail('PIECE_NOT_FOUND',404);
+  let payload;try{payload=JSON.parse(row.request_json);}catch{fail('TEST_HTML_MODEL_INTEGRITY',503);}
+  if(canonical(payload)!==row.request_json||hash(payload)!==row.request_sha256)fail('TEST_HTML_MODEL_INTEGRITY',503);
+  const p=Input.fromDraft(draft(row),brand);
+  return {id:p.id,brand,version:p.version,subject:p.subject,html:p.html};
+ }
+ return Object.freeze({read,append,get,internalTestSnapshot});
 }
 module.exports={create};

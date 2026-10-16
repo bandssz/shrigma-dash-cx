@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 37353,
-      "sha256": "425c0bb76778a948e0979a277bec09c94416702bd62579228aa7f1619457fb09"
+      "bytes": 37522,
+      "sha256": "e9f6538c2e2de95e94a8e5f571d15e31fc9332daed372166b0867c4016be2929"
     },
     {
       "path": "afiliados-proprios.js",
@@ -134,9 +134,14 @@
       "sha256": "afcc644baf4514ca67a765da1a540d399d3bcbd1f423a919dacca90d236142f0"
     },
     {
+      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
+      "bytes": 8874,
+      "sha256": "d9480e820cfd1ed7a2843edfa940b0e206452ab51adbcbecbbbf91354dc708e6"
+    },
+    {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 15492,
-      "sha256": "c23a3f47baf8fb0afd514a23c685744f8b716227e9568eece537932a1be179d2"
+      "bytes": 15565,
+      "sha256": "0b135d4c4ddbf64fabe6fd1ae76b790d510fda582db0efb8b84b7989fb894d80"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -145,13 +150,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 7896,
-      "sha256": "fd8053ce71dfa663c527dd2d31381c396c7b61b74498148e13d365054c209e9d"
-    },
-    {
-      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 8743,
-      "sha256": "516a16f26bb8ef6060cf81401c062387f4498cf054fb94ce33219cedb98e0822"
+      "bytes": 7969,
+      "sha256": "eb268a914b67baab215e63f5ce4dc514f111bf848dec8c50249bfd471dee5c93"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
@@ -184,6 +184,11 @@
       "sha256": "262c4841e3bb84cc0730c52dd95dd5ef1ecb37758c88e2d5a58cacf95139411f"
     },
     {
+      "path": "services/dashboard-operational/BCRYPT-LICENSE",
+      "bytes": 1530,
+      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
+    },
+    {
       "path": "services/dashboard-operational/afiliados-native-consent.cjs",
       "bytes": 12773,
       "sha256": "6501c565bab8673286a0d13fbf1ab56c60e4cb43d72ed20f5d6894bb333268fb"
@@ -207,11 +212,6 @@
       "path": "services/dashboard-operational/auth.cjs",
       "bytes": 160173,
       "sha256": "ff6bcaed504237373b60e9f5efa955ff3171d2db0c9f55c5ef31d0520164e83f"
-    },
-    {
-      "path": "services/dashboard-operational/BCRYPT-LICENSE",
-      "bytes": 1530,
-      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
     },
     {
       "path": "services/dashboard-operational/bcrypt.mjs",
@@ -289,19 +289,29 @@
       "sha256": "ed3666821b0307f270d588fa7a39a27e0de307cbd559c6edc78aef032a895c00"
     },
     {
+      "path": "services/dashboard-operational/journey-internal-html-binding.cjs",
+      "bytes": 2190,
+      "sha256": "e506ff09590e6397881c7b8bf4a953c9bfeb40b10e2d011a387aa2d12f655a54"
+    },
+    {
+      "path": "services/dashboard-operational/journey-internal-html-snapshot.cjs",
+      "bytes": 4563,
+      "sha256": "58ea02b61c4cad46ea3cafba101628141ea69446ca90bdcefec3c58f609b6b14"
+    },
+    {
       "path": "services/dashboard-operational/journey-internal-test-binding.cjs",
       "bytes": 2198,
       "sha256": "272fda587329cb063ec2529b2db3b87beb502221ca0ce2eefbef103b1852a06f"
     },
     {
       "path": "services/dashboard-operational/journey-internal-test-runtime.cjs",
-      "bytes": 16546,
-      "sha256": "3acd838dc2f50c8906f23c954c02c98834c8953227f95797e1fbaede19b6275f"
+      "bytes": 21096,
+      "sha256": "c876011cfbf498799e2b1a2ae82108fee4e6c17a13cf66f08c5b34dd49dbae2a"
     },
     {
       "path": "services/dashboard-operational/journey-internal-test-transport.cjs",
-      "bytes": 5561,
-      "sha256": "c246d81647b68e90e79f2c530f4dbd7fef806c0090f391b94ffab3b9480963d6"
+      "bytes": 6385,
+      "sha256": "ba49ad7a2c947690bed8735d1e3133a193f7be6402ce1c91d87d57943dce4802"
     },
     {
       "path": "services/dashboard-operational/model-piece-input.cjs",
@@ -379,6 +389,11 @@
       "sha256": "5957c999cd0373c74819cb8ea56a519a6c84ec04bc1b5c487cd355b73969a4af"
     },
     {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
+      "bytes": 6733,
+      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
+    },
+    {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/chart.umd.js",
       "bytes": 208518,
       "sha256": "ecc3cd1eeb8c34d2178e3f59fd63ec5a3d84358c11730af0b9958dc886d7652a"
@@ -402,11 +417,6 @@
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/inter-700.woff2",
       "bytes": 24356,
       "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
-    },
-    {
-      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
-      "bytes": 6733,
-      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/tabler.min.css",
@@ -470,8 +480,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 44850,
-      "sha256": "753e5f66051ef798853687248923bbba7fece7cc21b23a6b8ba6bba45b29d930"
+      "bytes": 49335,
+      "sha256": "d31eb502ec360e46723cedec709c7536c954cd8257f03a3152c1df69b9630ec8"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-import.js",
@@ -560,8 +570,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 212945,
-      "sha256": "0a1a2e910911ae82614d10f092815992ce618e7406effcd470017d778cc2274c"
+      "bytes": 213112,
+      "sha256": "8f294872e06be31a468253dc3914d9152eaa75553a950ae686d656c151d6b91a"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -575,8 +585,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-model-pieces.cjs",
-      "bytes": 5179,
-      "sha256": "8a4feb9e4cc3715825158fa307d6381f641dd4709670568980d8368883b6b5c3"
+      "bytes": 5987,
+      "sha256": "9e5f3f1b46548d3779c667184deca65989f5521fd3b58505fed48c77178d3215"
     },
     {
       "path": "services/dashboard-operational/simple-crm-model-tests.cjs",
@@ -595,8 +605,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
-      "bytes": 20694,
-      "sha256": "1523d6fe44b51827ee1ea2470878a2843bee0986e3219b474e52f6a0793e3d09"
+      "bytes": 21246,
+      "sha256": "3c676a25f67ac9eb50df4417c239234e19816df68416f764d4b9c71d9f455836"
     },
     {
       "path": "services/dashboard-operational/simple-tts-manual.cjs",
@@ -819,6 +829,11 @@
       "sha256": "815d669a74bdf6a0b587b0e660cb43d50a59e8595dd674e55bb98ea2b5184dc8"
     },
     {
+      "path": "tests/fixtures/journey-internal-test-return-90af.cjs",
+      "bytes": 16546,
+      "sha256": "3acd838dc2f50c8906f23c954c02c98834c8953227f95797e1fbaede19b6275f"
+    },
+    {
       "path": "tests/frontend-read-consistency.test.cjs",
       "bytes": 10977,
       "sha256": "abb69fd4924c0dc1e63693b08264d94fd197b9f6dce351452f0db77007d194b1"
@@ -872,6 +887,26 @@
       "path": "tests/influs-affiliates-mount.test.cjs",
       "bytes": 8076,
       "sha256": "78ae0f6a0d54ffebcdaa796a62b33dacc8f7ac43206153688553801bbeb0fd52"
+    },
+    {
+      "path": "tests/journey-html-http.test.cjs",
+      "bytes": 7032,
+      "sha256": "3365b469aad86e1642585fcd21c94d254955bd2f072b6c73ef0a1cf0fe960c5d"
+    },
+    {
+      "path": "tests/journey-html-runner.test.cjs",
+      "bytes": 11669,
+      "sha256": "57f9bffae74c1a62e9d6ccd2710eb8a044b2f9217813f22a6dd3cfe74af46e56"
+    },
+    {
+      "path": "tests/journey-html-transport.test.cjs",
+      "bytes": 6122,
+      "sha256": "ef519c175b55ec0a1a1d3789fcce2de57990c94c6becd3ad0c4afb73bf92aa6b"
+    },
+    {
+      "path": "tests/journey-html-ui.test.cjs",
+      "bytes": 8043,
+      "sha256": "f38be80e69e7e80602d80457555ab18d1488f4c7e4bdc2a39e220422a56b29bd"
     },
     {
       "path": "tests/journey-internal-test.test.cjs",
@@ -1118,5 +1153,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Confirmed single-product audience counting in existing CRM; other product shapes remain held. No presentation theme or transport changes."
+  "candidatePurpose": "HTML-only QA journey TEST: freeze final saved model HTML, current-account canary, immutable snapshots and safe return. Keeps a9 approved UI unchanged; three presentation corrections remain separate after latency rollback. No commercial activation or new scheduling worker/lease/claim/journal."
 }

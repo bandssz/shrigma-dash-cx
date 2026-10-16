@@ -187,16 +187,19 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
    return labRead({context,brand});
   });
  }
+ const modelPieces=require('./simple-crm-model-pieces.cjs').create({db,authorize:authorizeUser,now});
  const internalBinding=journeyTestTransport||require('./journey-internal-test-binding.cjs').createBindingReader();
  const internalSend=journeyTestTransport?.send||require('./journey-internal-test-transport.cjs').createTransport({privateApi:internalBinding.privateApi,recordDiagnostic:testDiagnostics?.record});
+ const htmlBinding=journeyTestTransport?.html||(typeof internalBinding.privateApi==='function'?require('./journey-internal-html-binding.cjs').createHtmlBindingReader({baseBinding:internalBinding}):null);
+ const htmlSend=journeyTestTransport?.html?.send||(htmlBinding?require('./journey-internal-test-transport.cjs').createHtmlTransport({privateApi:htmlBinding.privateApi,recordDiagnostic:testDiagnostics?.record}):undefined);
  const journeyTest=require('./journey-internal-test-runtime.cjs').createRunner({db,now,engine:require('./public/crm-preview/journey-engine.js'),
   authorize:(context,brand)=>labOwner(context,brand,true),
   authorizeRead:(context,brand)=>labOwner(context,brand),
   currentIdentity:currentUser,
   getDraft:(context,brand,draftId)=>{const draft=labRead({context,brand}).store.drafts.find(d=>d.id===draftId);if(!draft)fail('TEST_DRAFT_NOT_FOUND',404);return draft;},
-  getBinding:internalBinding.getBinding,send:internalSend});
+  getBinding:internalBinding.getBinding,send:internalSend,getModelPiece:modelPieces.internalTestSnapshot,...(htmlBinding?{getHtmlBinding:htmlBinding.getBinding,sendHtml:htmlSend}:{})});
  const abRegistry=createAbRegistry({db,authorize:authorizeUser,now});
- const modelPieces=require('./simple-crm-model-pieces.cjs').create({db,authorize:authorizeUser,now});
+
  return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,journeyTest,abRegistry,modelPieces});
 }
 module.exports={createSimpleAccounts,createAbRegistry,profile,FRONTS,BRANDS};

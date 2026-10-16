@@ -1257,8 +1257,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }
         if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
         if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
-        const body=await readJson(req,2048),{action,...args}=body||{};
+        const body=await readJson(req,8192),{action,...args}=body||{};
         if(action==='start'&&Object.keys(args).sort().join(',')==='brand,draftId,requestId,version')return sendJson(req,res,201,test.start(ctx,args));
+        if(action==='start_html'&&Object.keys(args).sort().join(',')==='brand,draftId,models,requestId,version')return sendJson(req,res,201,test.startHtml(ctx,args));
         if(action==='control'&&['brand','requestId'].every(k=>Object.hasOwn(args,k))&&Object.keys(args).every(k=>['brand','requestId','paused','purchase','optOut'].includes(k)))return sendJson(req,res,200,test.control(ctx,args));
         throw jsonError(400,'TEST_ARGUMENTS_INVALID');
       }
