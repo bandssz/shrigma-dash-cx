@@ -204,6 +204,11 @@
       "sha256": "f425cccfff164ac27c142243c6e1f624f0dfdb6152b220996d50a5979b5d94e3"
     },
     {
+      "path": "services/dashboard-operational/analytics-json-end.cjs",
+      "bytes": 3011,
+      "sha256": "bed77806fc0c41d0b19d38921b7f6098d81cd714e03e0b470debab367c7fe8f8"
+    },
+    {
       "path": "services/dashboard-operational/auth.cjs",
       "bytes": 160173,
       "sha256": "ff6bcaed504237373b60e9f5efa955ff3171d2db0c9f55c5ef31d0520164e83f"
