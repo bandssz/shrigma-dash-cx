@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 37306,
-      "sha256": "169a39891e9f39797ae2c3fe55526746f01bfebdc950888eee0ea64b63972623"
+      "bytes": 37353,
+      "sha256": "425c0bb76778a948e0979a277bec09c94416702bd62579228aa7f1619457fb09"
     },
     {
       "path": "afiliados-proprios.js",
@@ -204,11 +204,6 @@
       "sha256": "f425cccfff164ac27c142243c6e1f624f0dfdb6152b220996d50a5979b5d94e3"
     },
     {
-      "path": "services/dashboard-operational/analytics-json-end.cjs",
-      "bytes": 3011,
-      "sha256": "bed77806fc0c41d0b19d38921b7f6098d81cd714e03e0b470debab367c7fe8f8"
-    },
-    {
       "path": "services/dashboard-operational/auth.cjs",
       "bytes": 160173,
       "sha256": "ff6bcaed504237373b60e9f5efa955ff3171d2db0c9f55c5ef31d0520164e83f"
@@ -231,7 +226,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "a7b86d6cc5dc8aad9348aa5a9b50347db766c14d1d7158c540ddc213963b1eb5"
+      "sha256": "aa7bfe0860265bbe11f3d841b1e52ebcde66f2e10b63447287dc874030cb8aad"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -300,8 +295,8 @@
     },
     {
       "path": "services/dashboard-operational/journey-internal-test-runtime.cjs",
-      "bytes": 16953,
-      "sha256": "bd2dc837a3c182854e95c4d66b02555de33079149db7b54d5815ec26519ad48a"
+      "bytes": 16546,
+      "sha256": "3acd838dc2f50c8906f23c954c02c98834c8953227f95797e1fbaede19b6275f"
     },
     {
       "path": "services/dashboard-operational/journey-internal-test-transport.cjs",
@@ -450,13 +445,13 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 57457,
-      "sha256": "4d9807d279c69b2ca1eac4e69113f6b273d0bb32236d2d5ee3998482449830ee"
+      "bytes": 57718,
+      "sha256": "69bed9dfcd4c80c95a37f80317a2dc27a7828d992c43596967122e5b2057cdca"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 63682,
-      "sha256": "a4035a230e8b06744f5276dcdd98f5e61d28b198d52eb45a3dfd25b44f3e878c"
+      "bytes": 65668,
+      "sha256": "83924881d74e660777a2ea09745a65a488c0d05b3f02c0b2e9ca502305aed520"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -475,8 +470,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 44945,
-      "sha256": "6b15ae6ff6751a5311055bd7a031a102c79e7a5908b7d66260ca31144ac835d2"
+      "bytes": 44850,
+      "sha256": "753e5f66051ef798853687248923bbba7fece7cc21b23a6b8ba6bba45b29d930"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-import.js",
@@ -515,13 +510,13 @@
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 20397,
-      "sha256": "59aba7616c087de3ebe050dfd9e96978a2b9eb06734e4e86ca33e997b6b26e46"
+      "bytes": 20424,
+      "sha256": "91cc6eb4e44070ec54af0f5cd6ff436b081601e3132b3df67bc58cbc77b78ea1"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 18900,
-      "sha256": "0c93ce8a96139af24e805f741423186d43a7f874fbddcfd856c6ddc587d817b0"
+      "bytes": 18929,
+      "sha256": "b64a53512baf11f330454049464ccb1e9a0800a0d1227dc3b649a58902f992b2"
     },
     {
       "path": "services/dashboard-operational/public/influs-workspace/app.js",
@@ -595,8 +590,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 51389,
-      "sha256": "217a7c8760fb326c1a957b75a30a8eafd8510ce3b172c62b3a39ffee1a6490fd"
+      "bytes": 49597,
+      "sha256": "dfe500df32353be51702465c1ad04dcde1c7d63a9f0f4b1daaac94d76ba5a26f"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -714,9 +709,14 @@
       "sha256": "25f45d084eba4199caa9bdf5cd7d440422b4b27cce99ffef3320aa3d27bc49dc"
     },
     {
+      "path": "tests/crm-product-positive-ui.test.cjs",
+      "bytes": 5282,
+      "sha256": "9506882f2c0881fb96a92b41347ba88c2ec9a8b7abf725ea3de1ba9cbe2e1b30"
+    },
+    {
       "path": "tests/crm-read-inflight.test.cjs",
-      "bytes": 7499,
-      "sha256": "ce5db06b3f17a0845bdd7b5d5476362a08f3ae855adfe8d84323e0218004ecd0"
+      "bytes": 4149,
+      "sha256": "e40ccfe10f6f716066ccfd278ceac0cf41bdc79d0ebd2b51638a520c41a89533"
     },
     {
       "path": "tests/crm-reader-diagnostic.test.cjs",
@@ -875,8 +875,8 @@
     },
     {
       "path": "tests/journey-internal-test.test.cjs",
-      "bytes": 37773,
-      "sha256": "445297ec7cb0a260ba7c435f072df8c11c88dc42c54156e50951b27678797325"
+      "bytes": 36871,
+      "sha256": "b8ac530521328a107590b7e05dfeef9edf7dc1c5dc085a5e7ed819d150d76f5c"
     },
     {
       "path": "tests/journey-lab-panel.test.cjs",
@@ -1010,8 +1010,8 @@
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
-      "bytes": 42633,
-      "sha256": "4ca50a06ca5715a19c60a6d73d62e409742484062793f2d92cb81def696fe574"
+      "bytes": 42391,
+      "sha256": "00e9a389132db1b8b55092eaea27804e9de9cb4b15aff927e9fa72643a2ab9b6"
     },
     {
       "path": "tests/simple-login-ui.test.cjs",
@@ -1118,5 +1118,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "CRM antigo reestruturado em Tabler: navegação guiada, marcas autorizadas, canal, resultados/CSV e automações; base autenticada e botões seguros preservados. Nenhuma Source/SQL/n8n/ativação alterada."
+  "candidatePurpose": "Confirmed single-product audience counting in existing CRM; other product shapes remain held. No presentation theme or transport changes."
 }

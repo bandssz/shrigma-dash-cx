@@ -44,7 +44,6 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,curr
   return transaction(()=>{const old=find(requestId);if(old){const prior=JSON.parse(old.draft_json);if(old.user_id!==u.id||old.brand!==brand||prior.id!==draftId||prior.revision!==version)fail('TEST_REQUEST_CHANGED',409);return summary(old);}
    const sameVersion=db.prepare("SELECT 1 FROM journey_internal_test_v1 t WHERE t.user_id=? AND t.brand=? AND json_extract(t.draft_json,'$.id')=? AND (json_extract(t.draft_json,'$.revision')=? OR EXISTS(SELECT 1 FROM journey_internal_revision_v2 p WHERE p.request_id=t.request_id AND p.revision=?))").get(u.id,brand,draftId,version,version);
    if(sameVersion)fail('TEST_VERSION_ALREADY_RUN',409);
-   if(db.prepare("SELECT 1 FROM journey_internal_test_v1 t WHERE t.user_id=? AND t.brand=? AND json_extract(t.draft_json,'$.id')=? AND (t.status IN ('waiting','attempting','compatibility_hold','uncertain') OR EXISTS(SELECT 1 FROM journey_internal_attempt_v1 a WHERE a.request_id=t.request_id AND a.state IN ('reserved','uncertain'))) LIMIT 1").get(u.id,brand,draftId))fail('TEST_DRAFT_ALREADY_ACTIVE',409);
    db.prepare('INSERT INTO journey_internal_test_v1(request_id,user_id,brand,draft_json,identity_hash,binding_hash,started_at,status) VALUES(?,?,?,?,?,?,?,?)').run(requestId,u.id,brand,JSON.stringify(d),who.hash,b.hash,time(),'waiting');return summary(find(requestId));});
  }
  const inspect=(context,{brand,requestId})=>summary(owner(context,brand,requestId));

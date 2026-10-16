@@ -1,0 +1,27 @@
+'use strict';
+const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
+const source=fs.readFileSync(path.join(process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.join(__dirname,'../services/dashboard-operational'),'public/crm-preview/drafts.js'),'utf8');
+const hit=(id='1')=>({op:'confirmed',rule:{op:'condition',field:'purchase.product',operator:'purchased',value:'gid://shopify/Product/'+id}}),list={op:'in_list',list_id:7};
+test('limited product release accepts only the optimized mandatory positive shapes',()=>{
+ const window={};vm.runInNewContext(source,{window});const allowed=window.ShrigmaCrmDrafts.productRuleAllowed;
+ for(const r of [list,{op:'or',rules:[list,list]},hit(),{op:'and',rules:[hit(),list,{op:'and',rules:[list,list]}]}])a.equal(allowed(r),true);
+ for(const r of [hit().rule,{op:'confirmed',rule:{...hit().rule,operator:'not_purchased'}},{op:'or',rules:[hit(),list]},{op:'and',rules:[hit(),hit('2')]},{op:'and',rules:[{op:'and',rules:[hit()]},list]},{op:'and',rules:[hit(),{op:'or',rules:[list,list]}]}])a.equal(allowed(r),false,JSON.stringify(r));
+});
+async function fixture(brand){
+ const {parseHTML}=require('linkedom'),{window,document}=parseHTML('<html><body>'+['new-campaign','new-audience'].map(id=>'<button id="'+id+'"></button>').join('')+['crm-pending','campaign-editor','audience-editor','campaign-drafts','audience-draft-status','campaign-draft-status'].map(id=>'<div id="'+id+'"></div>').join('')+'</body></html>');
+ Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return this.querySelector('option[selected]')?.value||this.querySelector('option')?.value||'';},set(v){for(const o of this.querySelectorAll('option'))o.removeAttribute('selected');const o=[...this.querySelectorAll('option')].find(o=>o.value===String(v));if(o)o.setAttribute('selected','');}});
+ const catalog={brand,catalog_hash:'a'.repeat(64),currency:'BRL',lists:[{id:7,brand,name:'Synthetic list',available:true}],fields:[{key:'purchase.product',available:true}],products:[{id:'gid://shopify/Product/1',brand,name:'Synthetic product',available:true}],origins:[]},state={brand,view:'audiences',ticket:1,audiences:{catalog}},calls=[];
+ vm.runInNewContext(source,{window,document,sessionStorage:{getItem(){return null;},setItem(){},removeItem(){}},crypto:crypto.webcrypto,URLSearchParams});
+ const editor=window.ShrigmaCrmDrafts.create({availability:{audienceCount:true,audienceProducts:false,audienceProductPositive:true},state:()=>state,session:async()=>({authenticated:true,user:{id:'synthetic-user',role:'manager',brands:[brand],productWriteFronts:['growth'],permissions:{growth:{read:true,edit:true}}}}),read:async(url,b,t,opts={})=>{const p=opts.method==='POST'?JSON.parse(opts.body):Object.fromEntries(new URL('https://synthetic.invalid'+url).searchParams);calls.push(p);if(p.acao==='segmento_capacidade')return {brand,read:true,draft:true,send:false};if(p.acao==='segmento_contar')return {definition:p.definition,segment_id:null,version:null,definition_hash:'b'.repeat(64),source_confirmed:true,eligible_count:4,checked_at:new Date().toISOString()};throw Error('UNEXPECTED '+p.acao);},esc:String,when:String,number:String,reload(){}});
+ await editor.load('audiences',1);document.getElementById('new-audience').click();document.getElementById('audience-edit-name').value='Synthetic product audience';
+ const settle=async()=>{for(let i=0;i<12;i++)await new Promise(setImmediate);};
+ return {window,document,editor,calls,settle,select(select,value){select.value=value;select.dispatchEvent(new window.Event('change',{bubbles:true}));}};
+}
+for(const brand of ['aristo','fish'])test('product editor counts a confirmed positive and preserves limits after asynchronous completion '+brand,async()=>{
+ const f=await fixture(brand),d=f.document,select=d.querySelector('[data-rule-field]');a.equal(select.querySelector('option[value="purchase.product"]').disabled,false);f.select(select,'purchase.product');
+ const confirm=d.querySelector('[data-rule-confirm]');a.equal(confirm.checked,true,JSON.stringify({field:select.value,confirmChecked:confirm.checked,confirmDisabled:confirm.disabled,html:confirm.outerHTML}));a.equal(confirm.disabled,true);a.equal(d.querySelector('[data-operator] option[value="not_purchased"]'),null);a.equal(d.querySelector('[data-group-op] option[value="or"]').disabled,true);
+ d.querySelector('[data-crm-count]').click();await f.settle();const counts=()=>f.calls.filter(x=>x.acao==='segmento_contar');a.equal(counts().length,1);a.equal(counts()[0].definition.rule.rules[0].op,'confirmed');a.match(d.getElementById('audience-edit-count').textContent,/4 destinatários/);a.equal(confirm.disabled,true);
+ d.querySelector('[data-add-rule]').click();const fields=d.querySelectorAll('[data-rule-field]');a.equal(fields.length,2);a.equal(fields[1].querySelector('option[value="purchase.product"]').disabled,true);
+ // Even a programmatically forced unsupported tree is rejected before transport.
+ f.select(d.querySelector('[data-group-op]'),'or');d.querySelector('[data-crm-count]').click();await f.settle();a.equal(counts().length,1);a.match(d.getElementById('audience-edit-count').textContent,/único produto/);
+});
