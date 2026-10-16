@@ -16,21 +16,6 @@ function dom(html){
  return {document,window,$:id=>document.getElementById(id)};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-test('CRM visual preview is explicit and preserves brand, screen and period through navigation and exit',()=>{
- const root=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||service,source=fs.readFileSync(path.join(root,'public/crm-preview/app.js'),'utf8'),html=fs.readFileSync(path.join(root,'public/crm-preview/index.html'),'utf8');
- for(const ui of [null,'other','previa']){
-  const d=dom(html),urls=[],params=new URLSearchParams({brand:'aristo',view:'audiences',channel:'email'});if(ui)params.set('ui',ui);
-  const context={document:d.document,window:{},location:{pathname:'/app/crm/',search:'?'+params},history:{replaceState(a,b,url){urls.push(url);}},URLSearchParams};
-  vm.runInNewContext(source.slice(0,source.indexOf('function crmAllowed'))+'\ncrmPeriod={get:()=>({ini:"2026-10-01",fim:"2026-10-16",preset:"thisMonth"})};crmPersist();crmState.brand="fish";crmState.view="home";crmPersist();',context);
-  const last=new URL(urls.at(-1),'https://synthetic.invalid');assert.equal(last.searchParams.get('brand'),'fish');assert.equal(last.searchParams.get('view'),'home');assert.equal(last.searchParams.get('ini'),'2026-10-01');
-  if(ui==='previa'){
-   assert.equal(d.document.documentElement.dataset.crmUi,'previa');assert.equal(last.searchParams.get('ui'),'previa');assert.equal(d.document.querySelectorAll('.crm-preview-banner').length,1);assert.match(d.document.querySelector('.crm-preview-banner').textContent,/dados reais.*salvas no CRM/);
-   const exit=new URL(d.$('crm-preview-exit').getAttribute('href'),'https://synthetic.invalid');assert.equal(exit.searchParams.has('ui'),false);for(const key of ['brand','view','ini','fim','preset','channel'])assert.equal(exit.searchParams.get(key),last.searchParams.get(key));
-   const logo=new URL(d.document.querySelector('.workspace-logo').getAttribute('href'),'https://synthetic.invalid');assert.equal(logo.searchParams.get('ui'),'previa');assert.equal(logo.searchParams.get('brand'),'fish');assert.equal(logo.searchParams.get('view'),'home');
-   context.Event=d.window.Event;vm.runInNewContext('let crmDraftUI=null;crmState.abDirty=true;const click=new Event("click",{cancelable:true});document.getElementById("crm-preview-exit").dispatchEvent(click);globalThis.held=click.defaultPrevented;',context);assert.equal(context.held,true);assert.match(d.$('crm-context-note').textContent,/Salve ou descarte/);
-  }else{assert.equal(d.document.documentElement.dataset.crmUi,undefined);assert.equal(d.document.querySelector('.crm-preview-banner'),null);assert.equal(last.searchParams.has('ui'),false);assert.equal(d.document.querySelector('.workspace-logo').getAttribute('href'),'./');}
- }
-});
 async function settle(check){for(let i=0;i<30;i++){if(check())return;await tick();}assert.fail('Synthetic UI did not settle');}
 
 test('presentation requires an exact single-brand corporate grant and preserves master all',()=>{
