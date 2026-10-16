@@ -560,8 +560,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 210042,
-      "sha256": "2aabe3eb9fd88eb13bcf00072c8a16d1fd8f97019317276db0c80f1349c46fca"
+      "bytes": 212893,
+      "sha256": "cc8121486290f88711809479b347b9a91ce0180032953185992a00551e446b9c"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -610,8 +610,8 @@
     },
     {
       "path": "tests/affiliate-preview.test.cjs",
-      "bytes": 13467,
-      "sha256": "c41931d124b142b40793bebcfc6682816ab6836c80d3d8743471c1f2ca896ad6"
+      "bytes": 18045,
+      "sha256": "847e0a6ccc83d26a966d35d987c75f7e52a0bf069de92637d1190ed07487a211"
     },
     {
       "path": "tests/afiliados-creator-share.test.cjs",
@@ -1100,8 +1100,8 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 192,
-      "sha256": "cb8095189af3766d31ecc1ebd2aa426680040616ab969920360ba816f3415bca"
+      "bytes": 62,
+      "sha256": "47aa49eea1fe4151d2cb16cd1685d151f5d8fa61c6a824f3166b1dcddaa9d182"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",

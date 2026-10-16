@@ -244,7 +244,34 @@ function presentationStyle(s,area='growth'){
   if(!Object.hasOwn(names,area)||s.crmNativeEnabled!==true||!v||Object.getPrototypeOf(v)!==Object.prototype||Object.keys(v).sort().join(',')!=='bytes,path,sha256'||typeof v.path!=='string'||!path.isAbsolute(v.path)||path.basename(v.path)!==names[area]||!Number.isSafeInteger(v.bytes)||v.bytes<1||v.bytes>262144||!/^[a-f0-9]{64}$/.test(v.sha256||''))throw jsonError(503,'CRM_PRESENTATION_STYLE_UNAVAILABLE');
   try{const st=fs.lstatSync(v.path);if(fs.realpathSync(v.path)!==v.path||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size!==v.bytes)throw Error();const data=fs.readFileSync(v.path);if(data.length!==v.bytes||crypto.createHash('sha256').update(data).digest('hex')!==v.sha256)throw Error();return data;}catch{throw jsonError(503,'CRM_PRESENTATION_STYLE_UNAVAILABLE');}
 }
-function serveFile(req,res,url,host,s,auth){
+// Only static CSS/JS representations are cached, after route authorization and
+// verification of the original file. HTML, APIs and person data are excluded.
+const staticGzipCache=new Map(),staticGzipPending=new Map(),STATIC_GZIP_LIMIT=8*1024*1024;let staticGzipBytes=0;
+async function staticEnd(req,res,file,data,recheck=()=>{}){
+ let encoded=false;
+ if(/\.(?:js|css)$/.test(file)&&data.length>=1024){
+  const vary=String(res.getHeader('Vary')||'').split(',').map(x=>x.trim()).filter(Boolean);if(!vary.some(x=>x.toLowerCase()==='accept-encoding'))vary.push('Accept-Encoding');res.setHeader('Vary',vary.join(', '));
+  const encodings=new Map();for(const part of String(req.headers['accept-encoding']||'').toLowerCase().split(',')){
+   const [name,...parameters]=part.trim().split(';').map(x=>x.trim());if(!name)continue;let q=1;
+   for(const parameter of parameters){const m=/^q=(.*)$/.exec(parameter);if(m)q=Math.min(q,/^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/.test(m[1])?Number(m[1]):0);}
+   encodings.set(name,Math.min(encodings.get(name)??1,q));
+  }
+  const identityAllowed=(encodings.get('identity')??encodings.get('*')??1)>0,gzipAllowed=(encodings.get('gzip')??encodings.get('*')??0)>0;
+  if(!identityAllowed&&!gzipAllowed)throw jsonError(406,'STATIC_ENCODING_UNAVAILABLE');
+  if(gzipAllowed){
+   const key=crypto.createHash('sha256').update(data).digest('hex');let compressed=staticGzipCache.get(key);
+   if(!compressed){
+    let pending=staticGzipPending.get(key);
+    if(!pending&&staticGzipPending.size<2){pending=new Promise((resolve,reject)=>require('node:zlib').gzip(data,{level:6},(error,result)=>error?reject(error):resolve(result))).then(result=>{if(result.length<data.length&&result.length<=STATIC_GZIP_LIMIT){while(staticGzipBytes+result.length>STATIC_GZIP_LIMIT){const first=staticGzipCache.keys().next().value;staticGzipBytes-=staticGzipCache.get(first).length;staticGzipCache.delete(first);}staticGzipCache.set(key,result);staticGzipBytes+=result.length;}return result;}).finally(()=>staticGzipPending.delete(key));staticGzipPending.set(key,pending);}
+    if(pending)try{compressed=await pending;}catch{if(!identityAllowed)throw jsonError(503,'STATIC_ENCODING_UNAVAILABLE');}
+   }
+   if(compressed&&(compressed.length<data.length||!identityAllowed)){data=compressed;encoded=true;}
+   else if(!identityAllowed)throw jsonError(503,'STATIC_ENCODING_BUSY');
+  }
+ }
+ recheck();if(encoded)res.setHeader('Content-Encoding','gzip');res.setHeader('Content-Length',data.length);return res.end(req.method==='HEAD'?undefined:data);
+}
+async function serveFile(req,res,url,host,s,auth){
   if(!['GET','HEAD'].includes(req.method))throw jsonError(405,'METHOD_DENIED');
   const readPrefix=Object.keys(READ_WORKSPACES).find(prefix=>url.pathname===prefix.slice(0,-1)||url.pathname.startsWith(prefix));
   if(readPrefix){
@@ -255,7 +282,7 @@ function serveFile(req,res,url,host,s,auth){
     if(!spec.files.includes(name)&&name!=='workspace.js'&&!shared)throw jsonError(404,'NOT_FOUND');
     const file=path.join(__dirname,'public',shared?'afiliados-preview':name==='workspace.js'?'':spec.directory,name==='workspace.js'?'read-workspace.js':name);let data;
     try{const st=fs.lstatSync(file);if(fs.realpathSync(file)!==file||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size<1||st.size>2*1024*1024)throw Error();data=fs.readFileSync(file);}catch{throw jsonError(503,'WORKSPACE_ASSET_UNAVAILABLE');}
-    const metadata=typeAndCsp(name,data);res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);res.setHeader('Cache-Control','no-store');return res.end(req.method==='HEAD'?undefined:data);
+    const metadata=typeAndCsp(name,data);res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);res.setHeader('Cache-Control','no-store');return staticEnd(req,res,name,data,()=>auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area:spec.area,productFront:spec.front,edit:false}));
   }
   if(s.simpleReadMode===true&&url.searchParams.get('legacy')!=='1'&&['/growth.html','/organico.html','/influs.html'].includes(url.pathname)){
     const crm=url.pathname==='/growth.html',organic=url.pathname==='/organico.html',affiliate=url.pathname==='/influs.html'&&url.searchParams.get('view')==='afiliados',area=crm?'growth':organic?'organico':'influs',front=crm?'growth':organic?'organico':affiliate?'afiliados':'influs';
@@ -275,7 +302,7 @@ function serveFile(req,res,url,host,s,auth){
     // Reuse the installed kit; CRM-only accounts receive it through their own route.
     const root=path.join(__dirname,crm&&CRM_PREVIEW_OWN_FILES.includes(name)?'public/crm-preview':'public/afiliados-preview'),file=name==='workspace.js'?path.join(__dirname,'public/read-workspace.js'):path.join(root,name);let data;
     try{const st=fs.lstatSync(file);if(fs.realpathSync(file)!==file||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size<1||st.size>2*1024*1024)throw Error();data=fs.readFileSync(file);}catch{throw jsonError(503,'AFFILIATE_PREVIEW_ASSET_UNAVAILABLE');}
-    const metadata=typeAndCsp(name,data);res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);res.setHeader('Cache-Control','no-store');return res.end(req.method==='HEAD'?undefined:data);
+    const metadata=typeAndCsp(name,data);res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);res.setHeader('Cache-Control','no-store');return staticEnd(req,res,name,data,()=>auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area,productFront:crm?'growth':'afiliados',edit:false}));
   }
   const file=fileForHost(url.pathname,host,s);
   if(!file||!/^\/(?:gestao\/index\.html|crm\/index\.html|organico\/index\.html|creators\/index\.html|growth\.html|growth-diagnostico\.html|growth-(?:control|delivery|diagnostic|diagnostic-ui)\.js|media-read\.js|campaign-(?:edit|bff-client)\.js|organico\.html|influs\.html|entry\.(?:js|css)|guard\.js|assets\/panels\/[A-Za-z0-9._-]+\.(?:js|css)|logos\/[A-Za-z0-9._-]+\.(?:png|jpg|svg))$/.test(file))throw jsonError(404,'NOT_FOUND');
@@ -295,7 +322,7 @@ function serveFile(req,res,url,host,s,auth){
   else try{const real=fs.realpathSync(candidate);if(!real.startsWith(realRoot+path.sep)||fs.lstatSync(candidate).isSymbolicLink()||!fs.statSync(candidate).isFile())throw Error();data=fs.readFileSync(candidate);}catch{throw jsonError(404,'NOT_FOUND');}
   const metadata=typeAndCsp(file,data);if(!metadata)throw jsonError(404,'NOT_FOUND');
   res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);
-  res.setHeader('Cache-Control',file.endsWith('.html')||file==='/guard.js'&&s.dashboardAffiliateRead===true?'no-store':'public, max-age=300');res.end(req.method==='HEAD'?undefined:data);
+  res.setHeader('Cache-Control',file.endsWith('.html')||file==='/guard.js'&&s.dashboardAffiliateRead===true?'no-store':'public, max-age=300');return staticEnd(req,res,file,data,()=>{if(area)auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area});});
 }
 // A brand grant is enforced before selecting an individual upstream principal.
 // Aggregate payloads have a separate, explicit projection; a client selector
@@ -1755,7 +1782,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         return sendJson(req,res,result.status,result.body);
         }finally{if(releaseCacheWork)releaseCacheWork();if(draftPostOwner){const left=(simpleDraftPostsInFlight.get(draftPostOwner)||1)-1;if(left) simpleDraftPostsInFlight.set(draftPostOwner,left);else simpleDraftPostsInFlight.delete(draftPostOwner);}}
       }
-      return serveFile(req,res,url,host,s,auth);
+      return await serveFile(req,res,url,host,s,auth);
     };
     handle().catch(error=>{
       if(res.destroyed)return;
