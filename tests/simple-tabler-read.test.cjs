@@ -205,6 +205,15 @@ test('real CRM cookie HTTP Home and decorated full cache are exact under gzip fo
  }
  const session=await f.request('/auth/session',{acceptEncoding:'gzip'});a.equal(session.status,200);a.equal(session.headers['content-encoding'],undefined);
 });
+test('legacy runtime constructs without loading the new simple-read compression dependency',()=>{
+ const Module=require('node:module'),original=Module._load,dir=fs.mkdtempSync(path.join(os.tmpdir(),'legacy-analytics-off-'));let requested=0,auth,server;
+ try{
+  auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),managerHost:HOST,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influs.synthetic.invalid'},allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'admin@synthetic.invalid',bootstrapTokenSha256:'a'.repeat(64),encryptionKey:Buffer.alloc(32,5)});
+  Module._load=function(name,...args){if(name==='./analytics-json-end.cjs'){requested++;throw Object.assign(Error('Synthetic missing optional dependency'),{code:'MODULE_NOT_FOUND'});}return original.call(this,name,...args);};
+  server=createServer({mode:'demo',managerHost:HOST,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influs.synthetic.invalid'},allowedEmailDomains:['synthetic.invalid'],publicDir:dir},{auth});
+  a.equal(server.address(),null);a.equal(requested,0);
+ }finally{Module._load=original;server?.removeAllListeners();auth?.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
 
 {
 'use strict';

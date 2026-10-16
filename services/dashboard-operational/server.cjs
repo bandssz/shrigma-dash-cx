@@ -679,7 +679,7 @@ async function templateOwnershipWriteGate(user,action,{isolatedSandbox=false,adm
  }
 }
 function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIMEOUT_MS,managedCrmRuntime,nativeInstaller,sourcePeerTransport,sourceDiagnostics,deliveryHealth,schedulerState,ttsBusinessAllowed=()=>false}={}){
-  const endAnalyticsJson=require('./analytics-json-end.cjs').createJsonEnd();
+  const endAnalyticsJson=s.simpleReadMode===true?require('./analytics-json-end.cjs').createJsonEnd():null;
   const readWorkspacePublicFiles=s.simpleReadMode===true?Object.entries(READ_WORKSPACES).flatMap(([prefix,spec])=>[...spec.files.map(name=>({name,file:path.join(__dirname,'public',spec.directory,name)})),{name:'workspace.js',file:path.join(__dirname,'public/read-workspace.js')},...AFFILIATE_PREVIEW_FILES.filter(n=>n==='tema.css'||n.startsWith('vendor/')).map(name=>({name,file:path.join(__dirname,'public/afiliados-preview',name)}))].map(({name,file})=>{
     const st=fs.lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||fs.realpathSync(file)!==file||st.size<1||st.size>2*1024*1024)throw Error('WORKSPACE_ASSET_UNAVAILABLE');const b=fs.readFileSync(file);return {path:prefix+name,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')};
   })):undefined;

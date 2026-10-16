@@ -565,8 +565,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 214394,
-      "sha256": "f642aa00e51ce626e8b98b8aead4d2dcd09a18b1cf6da5b4c4d6d30e943dd63a"
+      "bytes": 214423,
+      "sha256": "b6c2f7c01d3234ce4a17b1721347f7abd0b52c7b717a83ad3a31f30607162cfd"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -1020,8 +1020,8 @@
     },
     {
       "path": "tests/simple-tabler-read.test.cjs",
-      "bytes": 44706,
-      "sha256": "5bff1376471e5faf609c1a9021887a5ea6be8c570c039de78c3a32be14adaa0f"
+      "bytes": 45952,
+      "sha256": "2f86e9b002777170491e4d1e0c7355720a778ddaaf37e00f157ee9d807f5aa4f"
     },
     {
       "path": "tests/simple-tts-manual.test.cjs",
