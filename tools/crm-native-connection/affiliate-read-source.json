@@ -295,8 +295,8 @@
     },
     {
       "path": "services/dashboard-operational/journey-internal-test-runtime.cjs",
-      "bytes": 13197,
-      "sha256": "9b8e03c40f431014434b0a5b4b21dbde66dc91fcb0ee37777abf55264f074d78"
+      "bytes": 16546,
+      "sha256": "3acd838dc2f50c8906f23c954c02c98834c8953227f95797e1fbaede19b6275f"
     },
     {
       "path": "services/dashboard-operational/journey-internal-test-transport.cjs",
@@ -470,8 +470,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 44328,
-      "sha256": "9b7155203f02060d6dadf0912117b4f89629176e57149e4dc6646e83e3cd8486"
+      "bytes": 44850,
+      "sha256": "753e5f66051ef798853687248923bbba7fece7cc21b23a6b8ba6bba45b29d930"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-import.js",
@@ -870,8 +870,8 @@
     },
     {
       "path": "tests/journey-internal-test.test.cjs",
-      "bytes": 32117,
-      "sha256": "10c9b861d64f60656af122e5b15f05f105f4ef81698298e8c0b0ead9ff881587"
+      "bytes": 36871,
+      "sha256": "b8ac530521328a107590b7e05dfeef9edf7dc1c5dc085a5e7ed819d150d76f5c"
     },
     {
       "path": "tests/journey-lab-panel.test.cjs",
@@ -1100,8 +1100,8 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 192,
-      "sha256": "cb8095189af3766d31ecc1ebd2aa426680040616ab969920360ba816f3415bca"
+      "bytes": 62,
+      "sha256": "47aa49eea1fe4151d2cb16cd1685d151f5d8fa61c6a824f3166b1dcddaa9d182"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
