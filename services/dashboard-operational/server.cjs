@@ -246,7 +246,28 @@ function presentationStyle(s,area='growth'){
 }
 // Only static CSS/JS representations are cached, after route authorization and
 // verification of the original file. HTML, APIs and person data are excluded.
-const staticGzipCache=new Map(),staticGzipPending=new Map(),STATIC_GZIP_LIMIT=8*1024*1024;let staticGzipBytes=0;
+const staticGzipCache=new Map(),staticGzipPending=new Map(),staticGzipQueue=[],STATIC_GZIP_LIMIT=8*1024*1024;let staticGzipBytes=0,staticGzipInputs=0,staticGzipActive=0;
+function drainStaticGzip(){
+ while(staticGzipActive<2&&staticGzipQueue.length){
+  const task=staticGzipQueue.shift();staticGzipActive++;let settled=false;
+  const finish=(error,result)=>{
+   if(settled)return;settled=true;staticGzipActive--;staticGzipInputs-=task.data.length;staticGzipPending.delete(task.key);
+   try{
+    if(error)throw error;if(!Buffer.isBuffer(result))throw Error('STATIC_ENCODING_INVALID');
+    if(result.length<task.data.length&&result.length<=STATIC_GZIP_LIMIT){while(staticGzipBytes+result.length>STATIC_GZIP_LIMIT){const first=staticGzipCache.keys().next().value;staticGzipBytes-=staticGzipCache.get(first).length;staticGzipCache.delete(first);}staticGzipCache.set(task.key,result);staticGzipBytes+=result.length;}
+    task.resolve(result);
+   }catch(e){task.reject(e);}finally{drainStaticGzip();}
+  };
+  try{require('node:zlib').gzip(task.data,{level:6},finish);}catch(e){finish(e);}
+ }
+}
+function queueStaticGzip(key,data){
+ const old=staticGzipPending.get(key);if(old)return old;
+ // Bound retained input as well as CPU. Normal cold page bursts fit in this
+ // queue; saturation keeps the existing identity/503 negotiation semantics.
+ if(staticGzipPending.size>=64||staticGzipInputs+data.length>STATIC_GZIP_LIMIT)return null;
+ let resolve,reject;const pending=new Promise((yes,no)=>{resolve=yes;reject=no;});staticGzipPending.set(key,pending);staticGzipInputs+=data.length;staticGzipQueue.push({key,data,resolve,reject});drainStaticGzip();return pending;
+}
 async function staticEnd(req,res,file,data,recheck=()=>{}){
  let encoded=false;
  if(/\.(?:js|css)$/.test(file)&&data.length>=1024){
@@ -261,8 +282,7 @@ async function staticEnd(req,res,file,data,recheck=()=>{}){
   if(gzipAllowed){
    const key=crypto.createHash('sha256').update(data).digest('hex');let compressed=staticGzipCache.get(key);
    if(!compressed){
-    let pending=staticGzipPending.get(key);
-    if(!pending&&staticGzipPending.size<2){pending=new Promise((resolve,reject)=>require('node:zlib').gzip(data,{level:6},(error,result)=>error?reject(error):resolve(result))).then(result=>{if(result.length<data.length&&result.length<=STATIC_GZIP_LIMIT){while(staticGzipBytes+result.length>STATIC_GZIP_LIMIT){const first=staticGzipCache.keys().next().value;staticGzipBytes-=staticGzipCache.get(first).length;staticGzipCache.delete(first);}staticGzipCache.set(key,result);staticGzipBytes+=result.length;}return result;}).finally(()=>staticGzipPending.delete(key));staticGzipPending.set(key,pending);}
+    const pending=queueStaticGzip(key,data);
     if(pending)try{compressed=await pending;}catch{if(!identityAllowed)throw jsonError(503,'STATIC_ENCODING_UNAVAILABLE');}
    }
    if(compressed&&(compressed.length<data.length||!identityAllowed)){data=compressed;encoded=true;}

@@ -295,8 +295,8 @@
     },
     {
       "path": "services/dashboard-operational/journey-internal-test-runtime.cjs",
-      "bytes": 16546,
-      "sha256": "3acd838dc2f50c8906f23c954c02c98834c8953227f95797e1fbaede19b6275f"
+      "bytes": 16953,
+      "sha256": "bd2dc837a3c182854e95c4d66b02555de33079149db7b54d5815ec26519ad48a"
     },
     {
       "path": "services/dashboard-operational/journey-internal-test-transport.cjs",
@@ -470,8 +470,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 44850,
-      "sha256": "753e5f66051ef798853687248923bbba7fece7cc21b23a6b8ba6bba45b29d930"
+      "bytes": 44945,
+      "sha256": "6b15ae6ff6751a5311055bd7a031a102c79e7a5908b7d66260ca31144ac835d2"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-import.js",
@@ -560,8 +560,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 212893,
-      "sha256": "cc8121486290f88711809479b347b9a91ce0180032953185992a00551e446b9c"
+      "bytes": 213837,
+      "sha256": "0a5b909ff47a36fa3afdd898ab50925542d1fdc82f0b93c2769c1438ff31aa04"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -610,8 +610,8 @@
     },
     {
       "path": "tests/affiliate-preview.test.cjs",
-      "bytes": 18045,
-      "sha256": "847e0a6ccc83d26a966d35d987c75f7e52a0bf069de92637d1190ed07487a211"
+      "bytes": 21367,
+      "sha256": "d74c471efe53f0d62161e4756c1632d674b20c53c93c92ac981a34f102500d16"
     },
     {
       "path": "tests/afiliados-creator-share.test.cjs",
@@ -870,8 +870,8 @@
     },
     {
       "path": "tests/journey-internal-test.test.cjs",
-      "bytes": 36871,
-      "sha256": "b8ac530521328a107590b7e05dfeef9edf7dc1c5dc085a5e7ed819d150d76f5c"
+      "bytes": 37773,
+      "sha256": "445297ec7cb0a260ba7c435f072df8c11c88dc42c54156e50951b27678797325"
     },
     {
       "path": "tests/journey-lab-panel.test.cjs",
@@ -1100,8 +1100,8 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 192,
-      "sha256": "8b1b177c19c2b4263ab07fd4796a7f26505da45a25e19edeb438fed551203554"
+      "bytes": 62,
+      "sha256": "47aa49eea1fe4151d2cb16cd1685d151f5d8fa61c6a824f3166b1dcddaa9d182"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
