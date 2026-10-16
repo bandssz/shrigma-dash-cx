@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 37158,
-      "sha256": "b57f91806cb3b40512ec1013917258dc7d20bcc64c3d9c45af8c1497ece2bc38"
+      "bytes": 37306,
+      "sha256": "169a39891e9f39797ae2c3fe55526746f01bfebdc950888eee0ea64b63972623"
     },
     {
       "path": "afiliados-proprios.js",
@@ -134,9 +134,14 @@
       "sha256": "afcc644baf4514ca67a765da1a540d399d3bcbd1f423a919dacca90d236142f0"
     },
     {
+      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
+      "bytes": 8743,
+      "sha256": "516a16f26bb8ef6060cf81401c062387f4498cf054fb94ce33219cedb98e0822"
+    },
+    {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 15438,
-      "sha256": "b9e07467faf8b15f8840d73b521ff7b2cda5cdaef6abc8174898ab60e60ce771"
+      "bytes": 15492,
+      "sha256": "c23a3f47baf8fb0afd514a23c685744f8b716227e9568eece537932a1be179d2"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -145,13 +150,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 7842,
-      "sha256": "424af2dc52025d2438ceee90e46e125e7f5c3ee86183c3ab134e322a007b0e89"
-    },
-    {
-      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 8592,
-      "sha256": "06d7a34e66843ad9fb214d5461e82ba3d860ce32fc69469d120fda76edbaf013"
+      "bytes": 7896,
+      "sha256": "fd8053ce71dfa663c527dd2d31381c396c7b61b74498148e13d365054c209e9d"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
@@ -184,6 +184,11 @@
       "sha256": "262c4841e3bb84cc0730c52dd95dd5ef1ecb37758c88e2d5a58cacf95139411f"
     },
     {
+      "path": "services/dashboard-operational/BCRYPT-LICENSE",
+      "bytes": 1530,
+      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
+    },
+    {
       "path": "services/dashboard-operational/afiliados-native-consent.cjs",
       "bytes": 12773,
       "sha256": "6501c565bab8673286a0d13fbf1ab56c60e4cb43d72ed20f5d6894bb333268fb"
@@ -209,11 +214,6 @@
       "sha256": "ff6bcaed504237373b60e9f5efa955ff3171d2db0c9f55c5ef31d0520164e83f"
     },
     {
-      "path": "services/dashboard-operational/BCRYPT-LICENSE",
-      "bytes": 1530,
-      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
-    },
-    {
       "path": "services/dashboard-operational/bcrypt.mjs",
       "bytes": 41528,
       "sha256": "e2f9a84ca97cf0330da7af00f4b93dd4672f391c912306f7047d244cc19e0a5b"
@@ -226,7 +226,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "48c5dddf588b654bbaaf4f098daa98fca665ae653dd8d1673cb3a6927e6328de"
+      "sha256": "c5588380beba036f188c4d8b33cbc29082b45e55eac3b120b4c6f8a388afca33"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -304,6 +304,11 @@
       "sha256": "c246d81647b68e90e79f2c530f4dbd7fef806c0090f391b94ffab3b9480963d6"
     },
     {
+      "path": "services/dashboard-operational/model-piece-input.cjs",
+      "bytes": 28218,
+      "sha256": "f76b16be3d7232748f8995b384b613a3a1853c3be35a074e94916235e0cd20ca"
+    },
+    {
       "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
       "bytes": 12666,
       "sha256": "d1f24dd44ca3c17c4fc6f65ffd9b6817c9ff137ccbdf35ae876fbde865bb8211"
@@ -374,6 +379,11 @@
       "sha256": "5957c999cd0373c74819cb8ea56a519a6c84ec04bc1b5c487cd355b73969a4af"
     },
     {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
+      "bytes": 6733,
+      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
+    },
+    {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/chart.umd.js",
       "bytes": 208518,
       "sha256": "ecc3cd1eeb8c34d2178e3f59fd63ec5a3d84358c11730af0b9958dc886d7652a"
@@ -397,11 +407,6 @@
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/inter-700.woff2",
       "bytes": 24356,
       "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
-    },
-    {
-      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
-      "bytes": 6733,
-      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/tabler.min.css",
@@ -430,23 +435,23 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 85363,
-      "sha256": "0a4ac5f3d6b884c417a76f2b7f470f0a9220ff9fa3e46453bf68c3376b0c6722"
+      "bytes": 128350,
+      "sha256": "48a3f28ebc17ef5402e52d5015b258a3493864978dbcd8a52aafcff23305cd0c"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
-      "bytes": 21220,
-      "sha256": "6ec6f45197c454391eef9f91820a0a3e6074f77de7082829119018c0ce3ef78a"
+      "bytes": 21250,
+      "sha256": "a4e1e860d5443e19a73d80047ffb351392d070607a89c4bde383d1d43acacaea"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 56228,
-      "sha256": "74a1d5642172febde07976f4aceb54eb506d2e41508d91726f3e2fd4df87ff2f"
+      "bytes": 57220,
+      "sha256": "3283385cc5d69de8493ff053fd77b64292dd046baa75aa63c6950b20b2779dec"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 58488,
-      "sha256": "13c2b4d920825c0a293c2a6b5003648565f5af859b24af3693d365c885e6a28b"
+      "bytes": 63577,
+      "sha256": "c80014346dfe0bb5fb78bbd38a5f59c21acaa078c3a56ff7a3c29d484d10e867"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -469,9 +474,19 @@
       "sha256": "4f069ef633bccaa302420dd6bddcf2e065815e30ba05432387cf5441f61c6b4b"
     },
     {
+      "path": "services/dashboard-operational/public/crm-preview/model-import.js",
+      "bytes": 17770,
+      "sha256": "70011712af5e02345c7486a88cffe79762f8d2de38b6706b7c73d7e28284fa57"
+    },
+    {
       "path": "services/dashboard-operational/public/crm-preview/model-library.js",
-      "bytes": 7006,
-      "sha256": "7c61230458c08e04a67b030ee2d2e395d3a0ebe6ff5ff7cb4b63de3aeea2f6e3"
+      "bytes": 7014,
+      "sha256": "748492804169b5754f64e7d8bd9136a7901e0ed48f9086ebadbf1d92e59604da"
+    },
+    {
+      "path": "services/dashboard-operational/public/crm-preview/model-piece-input.js",
+      "bytes": 3978,
+      "sha256": "370084ca40343fdf693d79bd8923c18d3153031dd1651c48a534c393449083b0"
     },
     {
       "path": "services/dashboard-operational/public/entry.compiled.js",
@@ -495,13 +510,13 @@
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 20316,
-      "sha256": "28f6f9cd845e9b0fa5c3bde43db2a0b3bd9ca2ea704483074242382c1b23b501"
+      "bytes": 20397,
+      "sha256": "c5f3d770a075fbfeb3c53b35f60ba075cc0c1cf29263003e135a54a6569ced36"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 18812,
-      "sha256": "16fddbb558623f51b25a7ae6784ab659a76e93f9d6d1470dbd2f53273994a511"
+      "bytes": 18901,
+      "sha256": "bc3d0fcfe7f213070fa86e1197a9efe3934b2240a349244caa195d7720205c3f"
     },
     {
       "path": "services/dashboard-operational/public/influs-workspace/app.js",
@@ -540,13 +555,13 @@
     },
     {
       "path": "services/dashboard-operational/public/read-workspace.js",
-      "bytes": 22957,
-      "sha256": "96258591a5ce227c5113284264a64d98b1ba9443efcba65246100500f5b729d3"
+      "bytes": 23140,
+      "sha256": "667d8de8e3705173c3dfbecd163496dd27c96eb75c4703a93bce209172c6b1f4"
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 208804,
-      "sha256": "9eeba09f13c7788e4ff446a825766ed771993dad9075896118eefeff265ab9fe"
+      "bytes": 210068,
+      "sha256": "28071dca19b5fbef03587f96cef9ad070a76e547c91b9281b99b21a5d71a7b18"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -559,14 +574,19 @@
       "sha256": "7667f1de614ab1d77ac921108b816cfa597e0753a243d3192dc959735ee0c837"
     },
     {
+      "path": "services/dashboard-operational/simple-crm-model-pieces.cjs",
+      "bytes": 5179,
+      "sha256": "8a4feb9e4cc3715825158fa307d6381f641dd4709670568980d8368883b6b5c3"
+    },
+    {
       "path": "services/dashboard-operational/simple-crm-model-tests.cjs",
       "bytes": 12675,
       "sha256": "741c3bbde97168f5530a19ed591c786bc10585a2f20ed1952a0054111ae54f57"
     },
     {
       "path": "services/dashboard-operational/simple-crm-models.cjs",
-      "bytes": 15477,
-      "sha256": "9ef2da312ae08586c366ebe150cf49c28fd044d20399f2e58c4573d118bfacdd"
+      "bytes": 15568,
+      "sha256": "879344b5935e242e3075505553d6b39873685d58719c9e6d4f641991609b67bb"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -575,8 +595,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
-      "bytes": 20522,
-      "sha256": "13293242564f3c0a7f0becac6e90e17917fa84e00056a39d2e79feaab96b6fb1"
+      "bytes": 20636,
+      "sha256": "e460e1362702a6327f1223b2e33b687351d3179c795d81866ba20b19d7299f75"
     },
     {
       "path": "services/dashboard-operational/simple-tts-manual.cjs",
@@ -682,6 +702,11 @@
       "path": "tests/crm-legacy-parity.test.cjs",
       "bytes": 12902,
       "sha256": "bb7cc0246454b73abb8ac71d7824b317f052fd78a456ab59f806ba7f8b118463"
+    },
+    {
+      "path": "tests/crm-model-import.test.cjs",
+      "bytes": 12611,
+      "sha256": "25f45d084eba4199caa9bdf5cd7d440422b4b27cce99ffef3320aa3d27bc49dc"
     },
     {
       "path": "tests/crm-read-inflight.test.cjs",
@@ -925,8 +950,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 43337,
-      "sha256": "1609204cc89c1d9ce6a1a826c22776d59ffdd7a495ec7edb6751b2f61d01e46d"
+      "bytes": 43397,
+      "sha256": "203d919f3d92d3f8ffbbffd5fc072fe8ceaa35b0c928f0e5c53570b2fbc3f41c"
     },
     {
       "path": "tests/production-envelope.test.cjs",
@@ -940,8 +965,8 @@
     },
     {
       "path": "tests/shared-period.test.cjs",
-      "bytes": 11277,
-      "sha256": "386a9139d7a44e91e69e78ff17c3f28ebe324b396828d7f6366fb36e5d48188c"
+      "bytes": 12652,
+      "sha256": "3ed17af65ffa757c92c64db56942b09f65919c9c7fd6433cbde7a9b6eb933c69"
     },
     {
       "path": "tests/simple-audience-read.test.cjs",
@@ -950,8 +975,13 @@
     },
     {
       "path": "tests/simple-crm-campaign-tests.test.cjs",
-      "bytes": 27327,
-      "sha256": "2ca09ecc1d952798042abd434e2618869557c4f83527c25b4891b512ab97c4b7"
+      "bytes": 29947,
+      "sha256": "f1bc19a050c40ae0bccf3c2d7621cc3aced15c3dcb552e3acc423a550b5825cd"
+    },
+    {
+      "path": "tests/simple-crm-model-pieces.test.cjs",
+      "bytes": 4869,
+      "sha256": "355525b3e85d88976142e9cbef4df0fe85ad5cbb1dd090eba16ae54b181f656c"
     },
     {
       "path": "tests/simple-crm-model-tests.test.cjs",
@@ -960,8 +990,8 @@
     },
     {
       "path": "tests/simple-crm-models.test.cjs",
-      "bytes": 9922,
-      "sha256": "d9b096c083e432a63f4f39a5d0226c2748e2da55293eee8db7480a6b6ca11e9f"
+      "bytes": 11238,
+      "sha256": "5d3f29f3ad035dce8b2b97469254f2b671f4a98f8ac4726233ca3542236b89c5"
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
@@ -975,8 +1005,8 @@
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
-      "bytes": 40900,
-      "sha256": "53087ca8402584886ecbb6aa18decf9ba651759dd36d20d137038005aba5d88a"
+      "bytes": 42391,
+      "sha256": "00e9a389132db1b8b55092eaea27804e9de9cb4b15aff927e9fa72643a2ab9b6"
     },
     {
       "path": "tests/simple-login-ui.test.cjs",
@@ -1042,6 +1072,11 @@
       "path": "tools/dashboard-campaign-ui-build.cjs",
       "bytes": 2995,
       "sha256": "393083115902814b5a79d22ffce7ab5ba988a9e38e5a9afa199784e8dd9465f4"
+    },
+    {
+      "path": "tools/dashboard-model-piece-build.cjs",
+      "bytes": 1062,
+      "sha256": "a10742a11b7a012c6293c45315c3e83f81a2c940ac8703cf5fea1e448a07b17d"
     },
     {
       "path": "tools/panel-build/manifest.json",

@@ -78,12 +78,12 @@
       return {available:true,text,percent,difference,arrow};
     }
     function comparison(current,prior,options={}){const c=change(current,prior,options);return '<div class="source-line mt-2" data-period-comparison'+(options.period?' title="'+esc('Anterior: '+label(options.period)+(options.period.clamped?' · mês com duração diferente':''))+'"':'')+'>'+esc(c.text)+'</div>';}
-    function bind({document,location,select,start,end,apply,note,onChange,now=Date.now,defaultPreset='last30'}={}){
+    function bind({document,location,select,start,end,apply,note,onChange,beforeChange,now=Date.now,defaultPreset='last30'}={}){
       if(!select||!start||!end)return null;let selected=initial({search:location?.search||'',cookie:document?.cookie||'',now:now(),defaultPreset});
       function paint(){select.replaceChildren();for(const [key,name]of presets){const option=document.createElement('option');option.value=key;option.textContent=name;select.append(option);}select.value=selected.preset;start.value=selected.ini;end.value=selected.fim;start.min=end.min='2000-01-01';start.max=end.max='2100-12-31';if(note)note.textContent='Anterior: '+label(selected.previous)+(selected.previous.clamped?' · mês com duração diferente':'')+' · Brasília · semana de segunda a domingo';}
-      function commit(p){selected=p;paint();save(document,location,selected);onChange?.(selected);}
-      select.addEventListener('change',()=>{if(select.value==='custom'){start.focus?.();return;}commit(resolve(select.value,now()));});
-      for(const field of [start,end])field.addEventListener('input',()=>{select.value='custom';field.setCustomValidity?.('');});
+      function commit(p){if(beforeChange?.(p)===false){paint();return false;}selected=p;paint();save(document,location,selected);onChange?.(selected);return true;}
+      select.addEventListener('change',()=>{if(select.value==='custom'){if(beforeChange?.(selected)===false){paint();return;}start.focus?.();return;}commit(resolve(select.value,now()));});
+      for(const field of [start,end])field.addEventListener('input',()=>{if(beforeChange?.(selected)===false){paint();return;}select.value='custom';field.setCustomValidity?.('');});
       const submit=event=>{event?.preventDefault();try{const p=resolve(select.value,now(),{ini:start.value,fim:end.value});start.setCustomValidity?.('');end.setCustomValidity?.('');commit(p);}catch{end.setCustomValidity?.('Escolha um período válido de até '+MAX_DAYS+' dias.');end.reportValidity?.();if(note)note.textContent='Período inválido: use datas válidas, em ordem, e até '+MAX_DAYS+' dias.';}};
       if(apply)apply.addEventListener(apply.tagName==='FORM'?'submit':'click',submit);
       paint();save(document,location,selected);

@@ -195,6 +195,7 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   getDraft:(context,brand,draftId)=>{const draft=labRead({context,brand}).store.drafts.find(d=>d.id===draftId);if(!draft)fail('TEST_DRAFT_NOT_FOUND',404);return draft;},
   getBinding:internalBinding.getBinding,send:internalSend});
  const abRegistry=createAbRegistry({db,authorize:authorizeUser,now});
- return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,journeyTest,abRegistry});
+ const modelPieces=require('./simple-crm-model-pieces.cjs').create({db,authorize:authorizeUser,now});
+ return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,journeyTest,abRegistry,modelPieces});
 }
 module.exports={createSimpleAccounts,createAbRegistry,profile,FRONTS,BRANDS};

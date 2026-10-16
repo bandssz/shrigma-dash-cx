@@ -21,7 +21,7 @@ function create({db,binding,remoteKey,fetchImpl=globalThis.fetch,destination,rec
   const before=await binding(context,{brand,write});
   const target=new URL(destination);if(method==='GET')for(const [k,v]of Object.entries(input))target.searchParams.set(k,String(v));
   if(['email_teste_capacidades_v2','email_teste_operacao_v2','email_teste_previa_v2','email_teste_v2'].includes(input.acao))target.searchParams.set('marca',brand);
-  const isTest=/^email_teste_/.test(input.acao),diagnostic=fields=>isTest&&recordDiagnostic?.({userId:before.author.id,brand,kind:'model',action:input.acao,operationKey:input.idempotency_key||null,secrets:[before.credential],...fields});
+  const needsDiagnostic=/^email_teste_/.test(input.acao)||method==='POST'&&['rascunho','validar','submeter'].includes(input.acao),diagnostic=fields=>needsDiagnostic&&recordDiagnostic?.({userId:before.author.id,brand,kind:'model',action:input.acao,operationKey:input.idempotency_key||null,secrets:[before.credential],...fields});
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),method==='POST'?60000:20000);let response,readComplete=false;const chunks=[];
   try{
    if(input.acao==='email_teste_v2')diagnostic({phase:'before_send',bodyAvailable:false});

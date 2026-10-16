@@ -1189,6 +1189,20 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const body=await readJson(req,65536);if(!body||Object.keys(body).sort().join(',')!=='brand,expectedUserId,plan,requestId')throw jsonError(400,'AB_ARGUMENTS_INVALID');
         return sendJson(req,res,200,auth.simpleAccounts.abRegistry.append({context:ctx,...body}));
       }
+      if(url.pathname==='/api/model-pieces'&&s.simpleReadMode===true&&auth.simpleAccounts?.modelPieces){
+        if(nativeContext)throw jsonError(403,'PIECE_COOKIE_CONTEXT_REQUIRED');
+        const pieces=auth.simpleAccounts.modelPieces;
+        if(req.method==='GET'){
+          const keys=[...url.searchParams.keys()],action=url.searchParams.get('acao');
+          const fields={modelos_capacidade:['acao','marca'],rascunhos_listar:['acao','marca','offset'],rascunho_obter:['acao','marca','draft_id'],operacao:['acao','marca','idempotency_key','operacao']}[action];
+          if(!fields||new Set(keys).size!==keys.length||!keys.includes('marca')||keys.some(k=>!fields.includes(k)))throw jsonError(400,'PIECE_INPUT');
+          return sendJson(req,res,200,pieces.read({context:ctx,brand:url.searchParams.get('marca'),query:url.searchParams}));
+        }
+        if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
+        if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,300000);
+        return sendJson(req,res,200,pieces.append({context:ctx,brand:body?.rascunho?.marca,body}));
+      }
       if(url.pathname==='/api/journey-lab'&&s.simpleReadMode===true&&auth.simpleAccounts){
         if(nativeContext)throw jsonError(403,'LAB_COOKIE_REQUIRED');
         if(req.method==='GET'&&url.searchParams.size===1&&url.searchParams.has('brand'))return sendJson(req,res,200,auth.simpleAccounts.labRead({context:ctx,brand:url.searchParams.get('brand')}));

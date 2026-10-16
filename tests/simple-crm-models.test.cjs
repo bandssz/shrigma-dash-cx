@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),{DatabaseSy
 const M=require((process.env.DASHBOARD_ACCESS_TEST_RUNTIME||require('node:path').resolve(__dirname,'../services/dashboard-operational'))+'/simple-crm-models.cjs');
 const destination='https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd';
 function fixture(){
- const db=new DatabaseSync(':memory:'),receipts=new Map(),drafts=new Map();let posts=0,mode='normal',edit=true,actor='analyst-one';
+ const db=new DatabaseSync(':memory:'),receipts=new Map(),drafts=new Map(),diagnostics=[];let posts=0,mode='normal',edit=true,actor='analyst-one';
  const sourceActor='panel:real-source-principal',credential='fixture-private-transport-key';
  const binding=async(_context,{brand,write})=>{if(!['fish','aristo'].includes(brand)||write&&!edit)throw Object.assign(Error('DENIED'),{code:'PRODUCT_WRITE_DENIED',status:403});return {author:{id:actor},credential,sourceActor,binding:'binding-'+actor+'-'+brand,snapshot:'stable'};};
  const remoteKey=({userId,brand,key,action})=>{const h=crypto.createHash('sha256').update(JSON.stringify([userId,brand,key,action])).digest('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-4'+h.slice(13,16)+'-8'+h.slice(17,20)+'-'+h.slice(20,32);};
@@ -24,6 +24,8 @@ function fixture(){
   }
   assert.equal(init.method,'POST');posts++;const b=JSON.parse(init.body);
   if(mode==='lost-before-effect')throw Error('lost POST before source effect');
+  if(mode==='refused-before-receipt')return new Response(JSON.stringify({erro:'email_envelope_required'}),{status:422,headers:{'content-type':'application/json'}});
+  if(mode==='malformed-before-receipt')return new Response('source parse failure',{status:500,headers:{'content-type':'text/plain'}});
   const payload={acao:b.acao,rascunho:b.rascunho??null,draft_id:b.draft_id??null,expected_version:b.expected_version??null,confirm:b.confirm??null};
   const id=b.draft_id||'d_model',version=b.acao==='rascunho'?(b.draft_id?b.expected_version+1:1):b.expected_version;
   const claim=b.acao==='submeter'?crypto.randomUUID():null;
@@ -33,13 +35,14 @@ function fixture(){
   if(mode==='lost-after-effect')throw Error('lost ACK after commit');
   return response(body);
  };
- const api=M.create({db,binding,remoteKey,fetchImpl,destination});
- return {api,db,receipts,drafts,get posts(){return posts;},setMode:v=>mode=v,setEdit:v=>edit=v,setActor:v=>actor=v};
+ const api=M.create({db,binding,remoteKey,fetchImpl,destination,recordDiagnostic:entry=>diagnostics.push(entry)});
+ return {api,db,receipts,drafts,diagnostics,get posts(){return posts;},setMode:v=>mode=v,setEdit:v=>edit=v,setActor:v=>actor=v};
 }
 function input(brand='fish',name='Modelo do teste'){return {acao:'rascunho',idempotency_key:crypto.randomUUID(),rascunho:{marca:brand,canal:'email',nome:name,assunto:'Assunto',corpo:'<p>Conteúdo</p>',idioma:'pt_BR',categoria:'MARKETING',peca:'campanha',cabecalho:'',rodape:'',exemplos:{},botoes:[]}};}
 for(const brand of ['fish','aristo'])test('save/reopen brand and real verified actor separation '+brand,async()=>{const f=fixture(),b=input(brand),r=await f.api.write({},brand,b);assert.equal(r.body.operation.state,'completed');assert.equal(r.body.operation.actor,'crm-user:analyst-one');assert.equal(r.body.operation.request_sha256,M.hash(r.body.operation.request_payload));assert.equal(f.posts,1);assert.equal((await f.api.getDraft({},brand,'d_model')).rascunho.nome,b.rascunho.nome);assert.ok(!JSON.stringify(r).includes('real-source-principal'));assert.ok(!JSON.stringify(r).includes('fixture-private-transport-key'));f.db.close();});
 test('lost ACK after committed effect reconciles; repeated POST never repeats transport',async()=>{const f=fixture(),b=input();f.setMode('lost-after-effect');const r=await f.api.write({},'fish',b);assert.equal(r.body.operation.state,'completed');await f.api.write({},'fish',b);assert.equal(f.posts,1);assert.equal(f.db.prepare('SELECT state FROM crm_simple_models_operation_v1').get().state,'confirmed');f.db.close();});
 test('uncertain POST remains pending; another model works',async()=>{const f=fixture(),a=input('fish','A');f.setMode('lost-before-effect');const r=await f.api.write({},'fish',a);assert.equal(r.body.operation.state,'outcome_unknown');await f.api.write({},'fish',a);assert.equal(f.posts,1);f.setMode('normal');assert.equal((await f.api.write({},'fish',input('fish','B'))).body.operation.state,'completed');assert.equal(f.posts,2);f.db.close();});
+test('source refusal and non-JSON failures retain private mutation diagnostics without claiming no effect',async()=>{for(const mode of ['refused-before-receipt','malformed-before-receipt']){const f=fixture(),b=input();f.setMode(mode);const r=await f.api.write({},'fish',b);assert.equal(r.body.operation.state,'outcome_unknown');assert.equal(r.body.operation.response,null);const d=f.diagnostics.find(x=>x.phase===(mode==='refused-before-receipt'?'response':'exception'));assert.equal(d.action,'rascunho');assert.equal(d.brand,'fish');assert.equal(d.userId,'analyst-one');assert.equal(d.httpStatus,mode==='refused-before-receipt'?422:500);assert.equal(d.captureComplete??true,true);assert.match(d.body.toString(),mode==='refused-before-receipt'?/email_envelope_required/:/source parse failure/);const count=f.diagnostics.length;await f.api.write({},'fish',b);assert.equal(f.posts,1);assert.equal(f.diagnostics.length,count);f.db.close();}});
 test('preflight outage records proof of no POST and releases next attempt',async()=>{const f=fixture();f.setMode('preflight-down');const r=await f.api.write({},'fish',input());assert.equal(r.body.operation.response.body.nothing_changed,true);assert.equal(f.posts,0);assert.equal(f.db.prepare('SELECT state FROM crm_simple_models_operation_v1').get().state,'not_sent');f.setMode('normal');assert.equal((await f.api.write({},'fish',input())).body.operation.state,'completed');assert.equal(f.posts,1);f.db.close();});
 test('inconsistent missing receipt never admits POST',async()=>{const f=fixture();f.setMode('bad-missing');const r=await f.api.write({},'fish',input());assert.equal(r.body.operation.response.body.erro,'MODELS_RECEIPT_REFUSED');assert.equal(f.posts,0);f.db.close();});
 test('malformed terminal receipt leaves fence intact',async()=>{const f=fixture(),b=input();f.setMode('bad-terminal');await assert.rejects(f.api.write({},'fish',b),e=>e.code==='MODELS_RECEIPT_REFUSED');assert.equal(f.db.prepare('SELECT state FROM crm_simple_models_operation_v1').get().state,'pending');await assert.rejects(f.api.write({},'fish',b));assert.equal(f.posts,1);f.db.close();});

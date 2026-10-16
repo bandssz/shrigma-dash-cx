@@ -8,8 +8,8 @@ const ModelLibrary=(()=>{
   try{const u=new URL(value),shopify=u.hostname==='cdn.shopify.com'&&u.pathname.startsWith('/s/files/'),listmonk=u.hostname==='email.shrigma.com.br'&&u.pathname.startsWith('/uploads/');if(u.protocol!=='https:'||u.username||u.password||u.port||u.hash||(!shopify&&!listmonk)||!/[.](png|jpe?g|gif|webp)$/i.test(u.pathname))return null;if([...u.searchParams.keys()].some(k=>!['v','width','height','crop','format','quality'].includes(k)))return null;return {url:u.href,host:shopify?'Shopify':'Listmonk'};}catch{return null;}
  }
  const snippet=(url,alt)=>{const image=publicImage(url);return image?'<img src="'+esc(image.url)+'" alt="'+esc(alt)+'" width="600" style="display:block;max-width:100%;height:auto;border:0;">':null;};
- function isolate(source){
-  const box=document.createElement('template');box.innerHTML=String(source);
+ function isolate(source,doc=document){
+  const box=doc.createElement('template');box.innerHTML=String(source);
   box.content.querySelectorAll('script,iframe,object,embed,form,input,button,textarea,select,base,meta,link,svg,math,audio,video,source').forEach(n=>n.remove());
   for(const n of box.content.querySelectorAll('*'))for(const attr of [...n.attributes]){const k=attr.name.toLowerCase();if(k.startsWith('on')||['srcdoc','target','action','formaction','srcset','ping','background','src','href'].includes(k))n.removeAttribute(attr.name);}
   const policy="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'none'; base-uri 'none'; form-action 'none';";

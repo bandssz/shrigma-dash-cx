@@ -56,6 +56,17 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
 test('ordinary session exposes four product fronts without individual credentials or writer features',async t=>{
  const f=await fixture(t),r=await f.request('/auth/session');assert.equal(r.status,200);assert.equal(r.body.features.simpleLogin,true);assert.deepEqual(r.body.user.productFronts,['growth','organico','influs','afiliados']);assert.equal(r.body.features.campaignSubmitWrite,false);assert.equal(f.reads(),0);
 });
+test('piece import uses the real cookie route, delegated WRITE and CSRF without a source request',async t=>{
+ const f=await fixture(t,{fronts:['growth'],brands:['fish'],writeFronts:['growth']}),Input=require(runtime+'/model-piece-input.cjs');
+ const body={acao:'rascunho',idempotency_key:crypto.randomUUID(),rascunho:Input.prepare({name:'Peça local',subject:'Conteúdo pronto',format:'html',content:'<p>Uma peça da marca</p><a href="{{ .UnsubscribeURL }}">Sair</a>'},'fish')};
+ const cap=await f.request('/api/model-pieces?acao=modelos_capacidade&marca=fish');assert.equal(cap.status,200);assert.equal(cap.body.draft,true);
+ assert.equal((await f.request('/api/model-pieces',{method:'POST',body,csrf:false})).status,403);
+ assert.equal((await f.request('/api/model-pieces?acao=rascunho',{method:'POST',body})).status,405);
+ const saved=await f.request('/api/model-pieces',{method:'POST',body});assert.equal(saved.status,200,JSON.stringify(saved.body));assert.equal(saved.body.operation.state,'completed');const id=saved.body.operation.response.body.draft_id;
+ const reopened=await f.request('/api/model-pieces?'+new URLSearchParams({acao:'rascunho_obter',marca:'fish',draft_id:id}));assert.equal(reopened.status,200);assert.equal(reopened.body.drafts[0].rascunho.corpo,body.rascunho.corpo);
+ assert.equal((await f.request('/api/model-pieces?'+new URLSearchParams({acao:'rascunho_obter',marca:'aristo',draft_id:id}))).status,403);
+ assert.equal(f.reads(),0);assert.equal(f.writes(),0);
+});
 test('same gateway serves the simple form and password controls without an old public-page dependency',async t=>{
  const f=await fixture(t),html=await f.request('/');assert.equal(html.status,200);assert.match(html.body,/id="simple-user-form"/);assert.match(html.body,/data-access-panel="todos"/);assert.match(html.body,/id="simple-password-dialog"/);assert.doesNotMatch(html.body,/__PANEL__|__LABEL__/);
  const css=await f.request('/entry.css');assert.equal(css.status,200);assert.match(css.body,/#simple-user-form/);

@@ -1,14 +1,15 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','crm-ab-plans']);
+ const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','crm-ab-plans','model-pieces']);
  const nativeFetch=window.fetch.bind(window);
  // A release flag is independent from WRITE permission or source capability.
  // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
- const crmRelease=Object.freeze({internalTest:false,recipientValidation:false,audienceCatalog:true,audienceCount:true,audienceProducts:false,audienceUpdates:false,legacyAudienceOperations:false,internalJourneyTest:true,journeyActivation:false,scheduling:false});
+ const crmRelease=Object.freeze({modelPieces:false,internalTest:false,internalCampaignTest:true,recipientValidation:false,audienceCatalog:true,audienceCount:true,audienceProducts:false,audienceUpdates:false,legacyAudienceOperations:false,internalJourneyTest:true,journeyActivation:false,scheduling:false});
  window.ShrigmaCrmRelease=crmRelease;
  const crmDocument=/^\/(?:app\/crm\/|previas\/crm\/|growth\.html(?:$|\/)|crm\/)/.test(location.pathname||'')||['crm.shrigma.com.br','gerencial.shrigma.com.br'].includes(location.hostname);
  const crmHeldControls=[
-  ['internalTest','#campaign-test-prepare,#campaign-test-send,#d-email-test-preview,#d-email-test-send'],
+  ['internalCampaignTest','#campaign-test-prepare,#campaign-test-send'],
+  ['internalTest','#d-email-test-preview,#d-email-test-send'],
   ['recipientValidation','[data-crm-validate],[data-ce-validate],[data-ca="validate"],#campaign-validate,#campaign-audience-validate,[data-abx-review]'],
   ['audienceCount','[data-crm-count],[data-audience-count]'],
   ['audienceUpdates','[data-crm-archive]'],
