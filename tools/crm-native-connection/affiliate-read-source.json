@@ -445,8 +445,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 57710,
-      "sha256": "58a701c45bedf896bd5ac2325cc0361e3a463c61b122b545822761d583be83b2"
+      "bytes": 58111,
+      "sha256": "2954a23b54b680523c34a97518310b06f240086e470676af4787103795a34500"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -460,8 +460,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 28759,
-      "sha256": "b249c2066d9ab2677336f4ccc2c813152eb0cf3d00ef19ab696047aa07f4520a"
+      "bytes": 32949,
+      "sha256": "af998e21417d87fe1937b4be164f30c0e0ba7dc21cdfc974d9cb8e8428a3c783"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
@@ -1118,5 +1118,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Confirmed single-product audience counting in existing CRM; other product shapes remain held. No presentation theme or transport changes."
+  "candidatePurpose": "Presentation-only corrections: brand select fit, accessible mobile Result cards retaining all cells and CSV, and model import first. No new operation, source query, authority or delivery feature."
 }
