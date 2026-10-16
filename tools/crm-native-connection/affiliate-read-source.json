@@ -465,8 +465,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 43940,
-      "sha256": "4b6f4b5d642401473bd6f23aaae80a8ad6179c1f3ec50906a96f27f084754255"
+      "bytes": 44172,
+      "sha256": "480b75cc73229f951fd6db59c66d4196ca5076d9ec9dee5ae0ba7f173714463a"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-library.js",
@@ -925,8 +925,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 40856,
-      "sha256": "8b20ef245665966de3e13d5493da8d1c16731f74faf12486a68f946cc1ff0dd7"
+      "bytes": 41955,
+      "sha256": "80f84254fdebdeb9b2244c1ce7e67f46701c0f61d4e3f597f8bfdecbcd6a3f29"
     },
     {
       "path": "tests/production-envelope.test.cjs",
