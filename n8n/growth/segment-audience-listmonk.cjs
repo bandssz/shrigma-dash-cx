@@ -53,7 +53,7 @@ function compileCount({definition,baseListId,catalog}={}){
   // its catalog extension before applying the wrapper's exact seven-field cap.
   compiler='shopify-aggregate';
   const aggregateCatalog={...c,fields:c.fields.filter(f=>f?.key!==Recorded.FIELD)};delete aggregateCatalog.recorded_origins;
-  q={text:'SELECT source_confirmed,eligible_count,checked_at FROM crm_audience_v2.shopify_count_for_rule($1::jsonb,$2::text,$3::integer,$4::jsonb)',values:[JSON.stringify(d.rule),d.brand,baseListId,JSON.stringify(aggregateCatalog)]};
+  q={text:'SELECT source_confirmed,eligible_count,checked_at FROM crm_audience_v2.shopify_count_for_rule_product_typed_20261016($1::jsonb,$2::text,$3::integer,$4::jsonb)',values:[JSON.stringify(d.rule),d.brand,baseListId,JSON.stringify(aggregateCatalog)]};
  }
  else{
   compiler=leaves.some(({rule})=>Shopify.FIELDS.includes(rule.field)||rule.field===Recorded.FIELD)?'external':'inline-email';

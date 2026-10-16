@@ -28,8 +28,14 @@ BEGIN
  JOIN public.lists l ON l.id=sl.list_id WHERE s.status='enabled' AND sl.list_id=base_list_id
  AND l.status='active' AND public.shrigma_campaign_list_brand(l)=b
  AND ((l.optin='double' AND sl.status='confirmed') OR (l.optin='single' AND sl.status IN('confirmed','unconfirmed')));
-END $$;`;
-async function dropShopifyStubs(db){await db.exec('DROP FUNCTION IF EXISTS crm_audience_v2.shopify_count_for_rule(jsonb,text,integer,jsonb),crm_audience_v2.shopify_customer_match(jsonb,integer,text,text),crm_audience_v2.shopify_source_current(text,text,text),crm_audience_v2.shopify_snapshot(text)');}
+END $$;
+-- Synthetic alias only. Native wrapper semantics are proved separately against
+-- the actual additive function and the real PostgreSQL API role.
+CREATE FUNCTION crm_audience_v2.shopify_count_for_rule_product_typed_20261016(jsonb,text,integer,jsonb)
+RETURNS TABLE(source_confirmed boolean,eligible_count bigint,checked_at timestamptz) LANGUAGE sql STABLE AS $$
+ SELECT * FROM crm_audience_v2.shopify_count_for_rule($1,$2,$3,$4)
+$$;`;
+async function dropShopifyStubs(db){await db.exec('DROP FUNCTION IF EXISTS crm_audience_v2.shopify_count_for_rule_product_typed_20261016(jsonb,text,integer,jsonb),crm_audience_v2.shopify_count_for_rule(jsonb,text,integer,jsonb),crm_audience_v2.shopify_customer_match(jsonb,integer,text,text),crm_audience_v2.shopify_source_current(text,text,text),crm_audience_v2.shopify_snapshot(text)');}
 async function setup(db,{enabled=true,countProvider=null,timeoutMs=1000}={}){
  await db.exec(read('tests/fixtures/journey-graph-auth.sql'));
  await db.exec('CREATE TABLE public.shrigma_panel_permission_v1(principal_id text,area text,caps jsonb,PRIMARY KEY(principal_id,area));');
