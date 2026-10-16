@@ -79,7 +79,7 @@ function sourceKeysFromEnv(env){
  const out={};for(const [front,name]of Object.entries(names)){const value=env[name];if(value!==undefined){if(typeof value!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(value))fail('SERVICE_READ_CONFIG_INVALID',500);out[front]=value;}}
  if(out.audiences===undefined){const privateKey=readPublicReadKey();if(privateKey)out.audiences=privateKey;}return Object.freeze(out);
 }
-function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth,growthDiagnostics,onReadFailure}={}){
+function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth,growthDiagnostics,onReadFailure,now=Date.now}={}){
  if(!auth?.authorizeBrand||!auth?.authorize||typeof fetchImpl!=='function'||typeof projectGrowth!=='function'||Object.keys(keys).some(k=>!Object.hasOwn(AREA,k)&&k!=='audiences'))fail('SERVICE_READ_CONFIG_INVALID',500);
  const credentials={...keys},versions=Object.fromEntries(Object.keys(credentials).map(front=>[front,crypto.randomBytes(32).toString('hex')]));
  const noSecrets=value=>{const serialized=JSON.stringify(value);for(const secret of Object.values(credentials))if(serialized.includes(secret))fail('BRAND_RESPONSE_UNSCOPED',502);};
@@ -87,6 +87,19 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
  // Concurrent brand projections share only an identical upstream GET in flight.
  // No TTL, stale response or authorization result is retained.
  const growthReads=new Map();
+ // These two fronts read snapshots, not operational objects. Reuse a validated
+ // projection for at most ten seconds, scoped to person/brand/query/source.
+ // Never retain authorization, errors, audiences, campaigns or journey state.
+ const frontCache=new Map(),frontReads=new Map();let frontCacheBytes=0;
+ function dropFrontCache(key){const item=frontCache.get(key);if(item){frontCacheBytes-=item.bytes;frontCache.delete(key);}}
+ function cachedFront(key){const item=frontCache.get(key),at=now();if(!item)return null;if(at<item.at||at-item.at>=10000){dropFrontCache(key);return null;}return JSON.parse(item.json);}
+ function saveFront(key,body){
+  const at=now(),json=JSON.stringify(body),bytes=Buffer.byteLength(json);
+  for(const [k,item]of frontCache)if(at<item.at||at-item.at>=10000)dropFrontCache(k);
+  dropFrontCache(key);if(bytes>2*1024*1024)return;
+  while(frontCache.size>=12||frontCacheBytes+bytes>8*1024*1024)dropFrontCache(frontCache.keys().next().value);
+  frontCache.set(key,{at,json,bytes});frontCacheBytes+=bytes;
+ }
  const readFailures=[];
  function recordFailure(error,{front,brand,started}){
   if(front!=='growth'||Number(error.status)<500)return;
@@ -192,6 +205,8 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   if(route==='affiliate-read'&&affiliateCommand.expected_binding!==versions.afiliados)fail('AFFILIATE_READ_BINDING_CHANGED',409);
   const targetRoute=route==='affiliate-read'?'tts':route;
   if(upstreams?.[targetRoute]?.href!==FIXED_DESTINATIONS[targetRoute])fail('SERVICE_READ_DESTINATION_INVALID',503);
+  const frontCacheKey=['influs','organico'].includes(front)?JSON.stringify([front,brand,before.user.id,versions[front],targetRoute,method,query.toString(),body,origin]):null;
+  if(frontCacheKey){const cached=cachedFront(frontCacheKey);if(cached){same(context,front,brand,before);noSecrets(cached);return {status:200,body:cached};}}
   if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
   const started=Date.now();
   try{
@@ -202,6 +217,10 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
     const key=JSON.stringify([targetRoute,query.toString(),origin]);let inFlight=growthReads.get(key);
     if(!inFlight){inFlight=call();growthReads.set(key,inFlight);inFlight.then(()=>{if(growthReads.get(key)===inFlight)growthReads.delete(key);},()=>{if(growthReads.get(key)===inFlight)growthReads.delete(key);});}
     result=await inFlight;
+   }else if(frontCacheKey){
+    let inFlight=frontReads.get(frontCacheKey);
+    if(!inFlight){inFlight=call();frontReads.set(frontCacheKey,inFlight);inFlight.then(()=>{if(frontReads.get(frontCacheKey)===inFlight)frontReads.delete(frontCacheKey);},()=>{if(frontReads.get(frontCacheKey)===inFlight)frontReads.delete(frontCacheKey);});}
+    result=await inFlight;
    }else result=await call();
    same(context,front,brand,before);if(result.status!==200)throw Object.assign(Error('SERVICE_READ_SOURCE_REFUSED'),{code:'SERVICE_READ_SOURCE_REFUSED',status:503,sourceDiagnostic:result.sourceDiagnostic});
    noSecrets(result.body);
@@ -211,7 +230,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
     if(upstreams?.segments?.href===require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)payload.capabilities={...(payload.capabilities||{}),segments:{read:!!credentials.audiences,save:false,count:false,operation:false,send:false,brands:[brand],contract_version:'crm-audience-v2'},endpoints:{...(payload.capabilities?.endpoints||{}),segments:origin+'/api/segments'}};
     if(typeof growthDiagnostics==='function')payload.cart_contract=growthDiagnostics(result.body,brand);
    }
-   same(context,front,brand,before);return {status:200,body:payload};
+   same(context,front,brand,before);if(frontCacheKey)saveFront(frontCacheKey,payload);return {status:200,body:payload};
   }catch(error){recordFailure(error,{front,brand,started});throw error;}finally{pending--;}
  }
  async function summary(context,brands,origin,now=Date.now()){
