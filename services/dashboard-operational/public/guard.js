@@ -4,13 +4,15 @@
  const nativeFetch=window.fetch.bind(window);
  // A release flag is independent from WRITE permission or source capability.
  // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
- const crmRelease=Object.freeze({internalTest:false,recipientValidation:false,audienceCount:false,journeyActivation:false,scheduling:false});
+ const crmRelease=Object.freeze({internalTest:false,recipientValidation:false,audienceCatalog:true,audienceCount:true,audienceProducts:false,audienceUpdates:false,legacyAudienceOperations:false,journeyActivation:false,scheduling:false});
  window.ShrigmaCrmRelease=crmRelease;
  const crmDocument=/^\/(?:app\/crm\/|previas\/crm\/|growth\.html(?:$|\/)|crm\/)/.test(location.pathname||'')||['crm.shrigma.com.br','gerencial.shrigma.com.br'].includes(location.hostname);
  const crmHeldControls=[
   ['internalTest','#campaign-test-prepare,#campaign-test-send,#d-email-test-preview,#d-email-test-send'],
-  ['recipientValidation','[data-crm-validate],[data-ce-validate],[data-ca="validate"],#campaign-validate,[data-abx-review]'],
-  ['audienceCount','[data-crm-count],[data-audience-count],#campaign-audience-validate,[data-gs="count"]'],
+  ['recipientValidation','[data-crm-validate],[data-ce-validate],[data-ca="validate"],#campaign-validate,#campaign-audience-validate,[data-abx-review]'],
+  ['audienceCount','[data-crm-count],[data-audience-count]'],
+  ['audienceUpdates','[data-crm-archive]'],
+  ['legacyAudienceOperations','[data-gs="count"],[data-gs="save"],[data-gs="archive"]'],
   ['journeyActivation','[data-lab-internal-start],[data-graph="activation-review"],[data-graph="activate"]'],
   ['scheduling','[data-ce-schedule],[data-ca="schedule"],#campaign-schedule,[data-abx-prepare],[data-abx-schedule]']
  ];
@@ -165,6 +167,10 @@
    }
   }
   let body;try{body=await cleanBody(input,init,method,headers);}catch(_){return reject(415);}
+  if(route==='segments'&&method==='POST'&&!crmRelease.audienceUpdates){
+   let command;try{command=JSON.parse(body);}catch{return reject(400);}
+   if(['segmento_salvar','segmento_arquivar'].includes(command?.acao))return new Response(JSON.stringify({error:'CRM_OPERATION_COMING_SOON'}),{status:403,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
+  }
   const editReceipt=method==='GET'&&(route==='templates'&&['operacao','email_teste_operacao_v2','email_teste_capacidades_v2'].includes(url.searchParams.get('acao'))||route==='campaigns'&&['campanha_operacao','campanha_teste_operacao','campanha_teste_capacidade'].includes(url.searchParams.get('acao'))||route==='segments'&&url.searchParams.get('acao')==='segmento_operacao'||route==='tts-manual'&&url.searchParams.get('action')==='operation');
   if(!['GET','HEAD'].includes(method)||editReceipt||route==='campaigns'&&campaignWriter||route==='segments'&&audienceWriter){
    try{headers.set('X-CSRF-Token',await csrf());}catch(_){return reject(401);}
