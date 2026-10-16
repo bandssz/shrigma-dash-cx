@@ -1,7 +1,9 @@
 'use strict';
 const http=require('node:http'),{gzip}=require('node:zlib'),{promisify}=require('node:util');
 const compress=promisify(gzip),ORIGIN='https://bandssz.github.io';
+const SOURCE_SHA256=require('node:crypto').createHash('sha256').update(require('node:fs').readFileSync(__filename)).digest('hex');
 const QUERY='SELECT status_code,body FROM public.shrigma_crm_read_fast_v1($1::text,$2::text,$3::jsonb)';
+const QUERY_HOME='SELECT status_code,body FROM public.shrigma_crm_home_read_20261016_v1($1::text,$2::text,$3::jsonb)';
 function acceptsGzip(header=''){return header.split(',').some(x=>{const [name,...params]=x.trim().split(';');return name==='gzip'&&!params.some(p=>/^\s*q\s*=\s*0(?:\.0*)?\s*$/.test(p));});}
 function createServer({pool,revision,enabled=false,maxPending=16,deadlineMs=9000}){
  let pending=0,closing=false;
@@ -16,7 +18,7 @@ function createServer({pool,revision,enabled=false,maxPending=16,deadlineMs=9000
  const server=http.createServer({maxHeaderSize:8192,requestTimeout:12000,headersTimeout:10000},async(req,res)=>{
   try{
    const url=new URL(req.url,'http://localhost');
-   if(req.method==='GET'&&url.pathname==='/healthz'&&!url.search)return await reply(req,res,closing?503:200,{service:'crm-panel-read',revision,enabled,stopping:closing});
+   if(req.method==='GET'&&url.pathname==='/healthz'&&!url.search)return await reply(req,res,closing?503:200,{service:'crm-panel-read',revision,enabled,stopping:closing,sourceSha256:SOURCE_SHA256,homeReader:true});
    if(url.pathname!=='/read')return await reply(req,res,404,{erro:'rota indisponível'});
    if(req.headers.origin&&req.headers.origin!==ORIGIN)return await reply(req,res,403,{erro:'origem não permitida'});
    if(req.method==='OPTIONS')return await reply(req,res,204,null);
@@ -31,7 +33,7 @@ function createServer({pool,revision,enabled=false,maxPending=16,deadlineMs=9000
    const responseDone=new Promise(resolve=>{finished=resolve;});
    // Keep admission occupied until the actual query settles, including a late
    // transport response after the HTTP deadline. PostgreSQL has its own limit.
-   const read=Promise.resolve().then(()=>pool.query(QUERY,[auth,req.headers.origin||null,JSON.stringify(Object.fromEntries(pairs))]));
+   const read=Promise.resolve().then(()=>pool.query(req.headers['x-shrigma-crm-view']==='home'&&url.searchParams.get('action')==='cache_growth'?QUERY_HOME:QUERY,[auth,req.headers.origin||null,JSON.stringify(Object.fromEntries(pairs))]));
    Promise.allSettled([read,responseDone]).then(()=>{pending--;});
    try{
     const result=await Promise.race([read,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('CRM_READ_DEADLINE')),deadlineMs);})]);
@@ -45,4 +47,4 @@ function createServer({pool,revision,enabled=false,maxPending=16,deadlineMs=9000
  const stop=()=>{closing=true;server.closeIdleConnections();return new Promise(resolve=>server.close(resolve));};
  return {server,stop,pending:()=>pending};
 }
-module.exports={createServer,QUERY,ORIGIN,acceptsGzip};
+module.exports={createServer,QUERY,QUERY_HOME,ORIGIN,acceptsGzip};
