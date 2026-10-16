@@ -408,7 +408,7 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,simpleAudienceRead=false,simpleAudienceCount=false,simpleCampaignDraft=false,simpleAudienceDraft=false,captureReadDiagnostic=false,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,simpleAudienceRead=false,simpleAudienceCount=false,simpleCampaignDraft=false,simpleAudienceDraft=false,crmHomeRead=false,captureReadDiagnostic=false,fetchImpl=fetch}){
   if(require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)&&route==='campaigns'&&user?.role!=='superadmin')throw new ProxyError(403,'EDIT_NOT_READY');
   const d=decide(route,method,query,body,{crmCampaignSubmitWrite,crmCampaignDraftService:simpleCampaignDraft}),target=upstreams[route];
   const serviceProfile=require('./crm-manager-runtime.cjs').isServiceDraftDescriptor(crmCorporateWriter);
@@ -446,6 +446,7 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   // through the same idempotency key, never by minting a new request.
   const options={method,redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(route==='campaigns'&&d.action==='campanha_salvar'?93000:method==='GET'?25000:45000),headers:{Accept:'application/json'}};
   if(header)options.headers[header]=header==='Authorization'?'Bearer '+credential:credential;
+  if(crmHomeRead===true&&route==='crm-read'&&method==='GET'&&d.action==='cache_growth')options.headers['X-Shrigma-Crm-View']='home';
   if(header==='X-Template-Key')options.headers.Authorization='Bearer '+credential;
   if(method==='POST'){
     const payload={...body};delete payload.k;
