@@ -1010,8 +1010,8 @@
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
-      "bytes": 42391,
-      "sha256": "00e9a389132db1b8b55092eaea27804e9de9cb4b15aff927e9fa72643a2ab9b6"
+      "bytes": 42633,
+      "sha256": "4ca50a06ca5715a19c60a6d73d62e409742484062793f2d92cb81def696fe574"
     },
     {
       "path": "tests/simple-login-ui.test.cjs",

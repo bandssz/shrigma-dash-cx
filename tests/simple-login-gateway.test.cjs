@@ -85,7 +85,10 @@ test('CRM and Organic reload select only the requested brand; missing sources ne
   const crm=await f.request('/api/crm-read?action=cache_growth&painel=growth',{brand});assert.equal(crm.status,200,JSON.stringify(crm.body));assert.equal(crm.body.crm_diario.length,1);assert.equal(crm.body.crm_diario[0].marca,brand);assert.deepEqual(crm.body.crm_credencial,[]);
   const organic=await f.request('/api/cx?painel=organico',{brand});assert.equal(organic.status,200);assert.equal(organic.body.cx_post.length,1);assert.equal(organic.body.cx_post[0].marca,brand);assert.equal(organic.body.cx_post[0].ultima_coleta,STAMP);
  }
- const olivas=await f.request('/api/cx?painel=organico',{brand:'olivas'});assert.equal(olivas.status,503);assert.equal(olivas.body.error,'BRAND_READ_CONTRACT_NOT_READY');assert.equal(f.reads(),8);
+ // Four CRM reads stay fresh; the two validated Organic projections are reused
+ // within the short snapshot window. A refused brand never starts a source read.
+ assert.equal(f.reads(),6);const beforeRefusedBrand=f.reads();
+ const olivas=await f.request('/api/cx?painel=organico',{brand:'olivas'});assert.equal(olivas.status,503);assert.equal(olivas.body.error,'BRAND_READ_CONTRACT_NOT_READY');assert.equal(f.reads(),beforeRefusedBrand);
 });
 test('Influs and Affiliates are independent fronts; TTS keeps the same UI contract',async t=>{
  const f=await fixture(t,{fronts:['afiliados'],brands:['fish']});
