@@ -63,8 +63,8 @@ function createAbRegistry({db,authorize,now=Date.now}){
  }
  return Object.freeze({read,append});
 }
-function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now=Date.now,journeyTestTransport,testDiagnostics}={}){
- if(!db||![authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now].every(v=>typeof v==='function'))fail('SIMPLE_ACCOUNT_CONFIG',500);
+function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now=Date.now,journeyTestTransport,testDiagnostics,currentUser}={}){
+ if(!db||![authorizeAdmin,authorizeUser,normalizeEmail,hashPassword,verifyPassword,now,currentUser].every(v=>typeof v==='function'))fail('SIMPLE_ACCOUNT_CONFIG',500);
  const columns=db.prepare('PRAGMA table_info(users)').all();
  for(const [name,type]of [['job_title','TEXT'],['simple_fronts_json','TEXT'],['simple_brands_json','TEXT'],['simple_write_fronts_json','TEXT']])if(!columns.some(c=>c.name===name))db.exec(`ALTER TABLE users ADD COLUMN ${name} ${type}`);
  // Metadata only: one durable attempt and its original person/brand/candidate.
@@ -72,7 +72,8 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
  db.exec(`CREATE TABLE IF NOT EXISTS simple_affiliate_edits_v1(request_id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),candidate_id TEXT NOT NULL,expected_version INTEGER NOT NULL,binding TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('reserved','uncertain','confirmed','rejected','not_sent')),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
  CREATE UNIQUE INDEX IF NOT EXISTS simple_affiliate_edits_pending_v1 ON simple_affiliate_edits_v1(brand,candidate_id) WHERE state IN ('reserved','uncertain');`);
  // Test drafts only. Reuses the login database; never enrolls or sends.
- db.exec(`CREATE TABLE IF NOT EXISTS simple_journey_lab_v1(user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),revision INTEGER NOT NULL CHECK(revision>0),payload_json TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,brand));`);
+ db.exec(`CREATE TABLE IF NOT EXISTS simple_journey_lab_v1(user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),revision INTEGER NOT NULL CHECK(revision>0),payload_json TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,brand));
+ CREATE TABLE IF NOT EXISTS simple_journey_lab_revision_v1(user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),revision INTEGER NOT NULL CHECK(revision>0),payload_json TEXT NOT NULL,baseline_sha256 TEXT NOT NULL CHECK(length(baseline_sha256)=64),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,brand,revision));`);
  const find=id=>db.prepare('SELECT * FROM users WHERE id=?').get(id);
  const stamp=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)fail('CLOCK_INVALID',500);return t;};
  const snapshot=row=>JSON.stringify([row?.id,row?.role,row?.state,row?.password_hash,row?.updated_at,row?.job_title,row?.simple_fronts_json,row?.simple_brands_json,row?.simple_write_fronts_json]);
@@ -156,11 +157,19 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   // Local test edits require CSRF and delegated WRITE, without borrowing the
   // legacy campaign writer or granting any remote mutation.
   const user=authorizeUser({...context,area:'growth',productFront:'growth',brand,edit:false});
-  if(write&&user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth'))fail('PRODUCT_WRITE_DENIED',403);
+  if(write&&(user.permissions?.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))fail('PRODUCT_WRITE_DENIED',403);
   return user;
  }
+ // Existing v1 is an immutable baseline; new saves append a whole revision.
+ // A later rollback writer changing that baseline is detected, never merged.
+ function labHead(userId,brand){
+  const baseline=db.prepare('SELECT * FROM simple_journey_lab_v1 WHERE user_id=? AND brand=?').get(userId,brand),baselineHash=crypto.createHash('sha256').update(JSON.stringify(baseline||null)).digest('hex');
+  const revision=db.prepare('SELECT * FROM simple_journey_lab_revision_v1 WHERE user_id=? AND brand=? ORDER BY revision DESC LIMIT 1').get(userId,brand);
+  if(revision&&(revision.baseline_sha256!==baselineHash||baseline&&baseline.revision>=revision.revision))fail('LAB_BASELINE_CHANGED',409);
+  return {row:revision||baseline,baselineHash};
+ }
  function labRead({context,brand}){
-  const user=labOwner(context,brand),row=db.prepare('SELECT * FROM simple_journey_lab_v1 WHERE user_id=? AND brand=?').get(user.id,brand);
+  const user=labOwner(context,brand),row=labHead(user.id,brand).row;
   const engine=require('./public/crm-preview/journey-engine.js'),store=engine.readStore(row?.payload_json??null);
   if(store.drafts.some(d=>d.brand!==brand)||store.runs.some(r=>r.draft.brand!==brand))fail('LAB_STORAGE_INVALID',503);
   return {persistence:'server',userId:user.id,brand,revision:row?.revision||0,store,savedAt:row?new Date(row.updated_at).toISOString():null,executes:false};
@@ -172,9 +181,9 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   if(checked.drafts.some(d=>d.brand!==brand)||checked.runs.some(r=>r.draft.brand!==brand))fail('LAB_BRAND_INVALID');
   return transaction(()=>{
    if(labOwner(context,brand,true).id!==user.id)fail('LAB_ACCESS_CHANGED',403);
-   const row=db.prepare('SELECT revision FROM simple_journey_lab_v1 WHERE user_id=? AND brand=?').get(user.id,brand);
+   const head=labHead(user.id,brand),row=head.row;
    if((row?.revision||0)!==expected_revision)fail('LAB_VERSION_CHANGED',409);
-   const t=stamp();db.prepare('INSERT INTO simple_journey_lab_v1(user_id,brand,revision,payload_json,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,brand) DO UPDATE SET revision=excluded.revision,payload_json=excluded.payload_json,updated_at=excluded.updated_at').run(user.id,brand,expected_revision+1,serialized,t,t);
+   const t=stamp();db.prepare('INSERT INTO simple_journey_lab_revision_v1(user_id,brand,revision,payload_json,baseline_sha256,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(user.id,brand,expected_revision+1,serialized,head.baselineHash,t,t);
    return labRead({context,brand});
   });
  }
@@ -182,7 +191,7 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
  const internalSend=journeyTestTransport?.send||require('./journey-internal-test-transport.cjs').createTransport({privateApi:internalBinding.privateApi,recordDiagnostic:testDiagnostics?.record});
  const journeyTest=require('./journey-internal-test-runtime.cjs').createRunner({db,now,engine:require('./public/crm-preview/journey-engine.js'),
   authorize:(context,brand)=>labOwner(context,brand,true),
-  currentIdentity:id=>{const row=find(id);if(!row)return null;const v=view(row);return {...v,role:row.role};},
+  currentIdentity:currentUser,
   getDraft:(context,brand,draftId)=>{const draft=labRead({context,brand}).store.drafts.find(d=>d.id===draftId);if(!draft)fail('TEST_DRAFT_NOT_FOUND',404);return draft;},
   getBinding:internalBinding.getBinding,send:internalSend});
  const abRegistry=createAbRegistry({db,authorize:authorizeUser,now});

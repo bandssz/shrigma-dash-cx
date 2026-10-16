@@ -7,16 +7,16 @@ test('dedicated TEST environment binding admits both brands and invalidates the 
  for(const brand of ['fish','aristo']){const binding=reader.getBinding(brand);a.equal(binding.brand,brand);a.equal(binding.templateId,116);a.equal(reader.privateApi(binding).fromEmail,config.from[brand]);a(!JSON.stringify(binding).includes(config.token));const previous=binding;env.DASHBOARD_JOURNEY_TEST_BINDING=JSON.stringify({...config,token:'SYNTHETIC-ROTATED'});a.equal(reader.privateApi(previous),null);env.DASHBOARD_JOURNEY_TEST_BINDING=JSON.stringify(config);}
  for(const invalid of ['',null,JSON.stringify({...config,purpose:'crm.read'}),JSON.stringify({...config,extra:true}),JSON.stringify({...config,token:''}),JSON.stringify({...config,from:{aristo:'Bad\r\nBcc: customer@external.invalid'}}),'x'.repeat(8193)]){env.DASHBOARD_JOURNEY_TEST_BINDING=invalid;a.equal(reader.getBinding('aristo'),null);}
 });
-function fixture(t,{result='accepted',email='internal@shrigma.com.br',binding=true,wait=1,two=false,timeoutMs=15000}={}){
+function fixture(t,{result='accepted',email='internal@shrigma.com.br',binding=true,wait=1,two=false,timeoutMs=15000,role='manager'}={}){
  const db=new DatabaseSync(':memory:');db.exec("PRAGMA foreign_keys=ON;CREATE TABLE users(id TEXT PRIMARY KEY);INSERT INTO users VALUES('synthetic-user')");
- let time=0,active=true,revision='test-binding-1',calls=[];
+ let time=0,active=true,canEdit=true,revision='test-binding-1',calls=[];
  let draft=engine.createDraft({brand:'aristo',id:'synthetic-draft'});draft.steps[0].waitMinutes=wait;
  if(two)draft.steps.push({...draft.steps[0],id:'step-2',waitMinutes:wait+1});
- const identity=()=>({id:'synthetic-user',role:'manager',active,email,writeFronts:['growth'],brands:['aristo']});
+ const identity=()=>({id:'synthetic-user',role,active,email,productFronts:['growth'],productWriteFronts:['growth'],permissions:{growth:{read:true,edit:canEdit}},brands:['aristo']});
  const args={db,engine,now:()=>time,timeoutMs,authorize(_ctx,brand){if(brand!=='aristo'||!active)throw Error('denied');return identity();},getDraft:()=>draft,currentIdentity:identity,getBinding:()=>binding?{purpose:'crm.journey-internal-test',brand:'aristo',active:true,txSend:true,revision,templateId:1}:null,send:async p=>{calls.push(p);if(result==='lost')throw Error('private@example.invalid secret');if(result==='hanging')return new Promise(()=>{});return {state:result};}};
  let runner=createRunner(args);t.after(()=>db.close());
  const request={brand:'aristo',draftId:draft.id,version:1,requestId:id};
- return {db,args,request,calls,get runner(){return runner},time:t=>{time=t},deactivate(){active=false},rotate(){revision='changed'},restart(){runner=createRunner(args)}};
+ return {db,args,request,calls,get runner(){return runner},time:t=>{time=t},deactivate(){active=false},revokeEdit(){canEdit=false},rotate(){revision='changed'},restart(){runner=createRunner(args)}};
 }
 test('no internal TEST starts without the dedicated tx binding or with an external mailbox',t=>{
  const f=fixture(t,{binding:false});a.throws(()=>f.runner.start({},f.request),{code:'TEST_TX_BINDING_REQUIRED'});a.equal(f.calls.length,0);
@@ -30,6 +30,8 @@ test('purchase, opt-out and pause stop the appropriate internal step',async t=>{
  for(const flag of ['purchase','optOut']){const f=fixture(t);f.runner.start({},f.request);f.runner.control({},{...f.request,[flag]:true});f.time(60000);await f.runner.tick();a.equal(f.calls.length,0);a.equal(f.runner.inspect({},f.request).status,'excluded');}
  const f=fixture(t);f.runner.start({},f.request);f.runner.control({},{...f.request,paused:true});f.time(60000);await f.runner.tick();a.equal(f.calls.length,0);f.runner.control({},{...f.request,paused:false});await f.runner.tick();a.equal(f.calls.length,1);
 });
+test('current WRITE revocation blocks both tick and preSend; READ profile never grants sending',async t=>{for(const when of ['beforeTick','preSend']){const f=fixture(t);f.runner.start({},f.request);const http=when==='preSend'?attachTransport(f,{duringGet(){f.revokeEdit();}}):[];if(when==='beforeTick')f.revokeEdit();f.time(60000);await f.runner.tick();await f.runner.tick();a.equal(f.calls.length,0);a.equal(http.filter(x=>x.method==='POST').length,0);a.equal(f.db.prepare('SELECT status FROM journey_internal_test_v1').get().status,'failed');}for(const role of ['manager','superadmin']){const f=fixture(t,{role});f.revokeEdit();a.throws(()=>f.runner.start({},f.request),{code:'TEST_INTERNAL_IDENTITY_REQUIRED'});a.equal(f.calls.length,0);}});
+test('internal report projects every frozen step, including waits and disabled steps, without delivery claims',t=>{const f=fixture(t,{two:true});f.args.getDraft().steps[1].enabled=false;f.runner.start({},f.request);const r=f.runner.inspect({},f.request);a.equal(r.steps.length,2);a.equal(r.steps[0].state,'waiting');a.equal(r.steps[1].state,'disabled');a.equal(r.steps[0].due_at,'1970-01-01T00:01:00.000Z');a.match(r.steps[0].test_marker,/^QA /);a.notEqual(r.steps[0].test_marker,r.steps[1].test_marker);a.equal(r.accepted,0);a.equal(r.delivered,null);a.equal(f.calls.length,0);});
 test('lost response or expired transport stays uncertain through restart and later ticks',async t=>{
  for(const result of ['lost','hanging']){const f=fixture(t,{result,timeoutMs:5});f.runner.start({},f.request);f.time(60000);await f.runner.tick();a.equal(f.calls.length,1);f.restart();await f.runner.tick();await f.runner.tick();const r=f.runner.inspect({},f.request);a.equal(r.status,'uncertain');a.equal(r.uncertain,1);a.equal(f.calls.length,1);a(!JSON.stringify(r).includes('secret'));a(!JSON.stringify(r).includes('@'));}
 });
@@ -132,6 +134,7 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'journey-internal-http-')),host='gerencial.synthetic.invalid',origin='https://'+host,password='synthetic-internal-test-password',boot='synthetic-bootstrap',sends=[];
  const options={dbPath:path.join(dir,'test.sqlite'),managerHost:host,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influ.synthetic.invalid'},allowedEmailDomains:['shrigma.com.br'],bootstrapAdminEmail:'synthetic-test-never-deliver@shrigma.com.br',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,3),simpleReadMode:true,crmNativeEnabled:true,journeyTestTransport:{getBinding:brand=>brand==='aristo'?{purpose:'crm.journey-internal-test',brand,active:true,txSend:true,revision:'synthetic-test',templateId:1}:null,send:async args=>{a.equal(args.preSend(),true);sends.push(args);return {state:'accepted'};}}};
  const auth=createAuth(options);await auth.completeBootstrap({email:options.bootstrapAdminEmail,token:boot,password,host,origin});
+ const grantDb=new DatabaseSync(options.dbPath);grantDb.prepare('UPDATE grants SET can_edit=1 WHERE area=?').run('growth');grantDb.close();
  const login=await auth.login({email:options.bootstrapAdminEmail,password,host,origin}),cookie=login.cookie.split(';')[0],context={host,origin,method:'POST',cookieHeader:cookie,csrf:login.csrf};
  const app=createServer({...options,mode:'demo',publicDir:path.join(runtime,'public')},{auth});
  t.after(()=>{app.removeAllListeners();auth.close();fs.rmSync(dir,{recursive:true,force:true});});
@@ -159,7 +162,8 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
  const diagnostics=await request('GET','/api/test-diagnostics?brand=aristo');a.equal(diagnostics.status,200);a.equal(diagnostics.body.appendOnly,true);a.deepEqual(diagnostics.body.entries,[]);
  a.equal((await request('GET','/api/test-diagnostics?brand=fish')).status,200);
  a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id,undefined,'')).status,403);
- a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id)).status,403);
+ // This fixture explicitly grants WRITE; an absent private diagnostic is404.
+ a.equal((await request('GET','/api/test-diagnostics?brand=aristo&id='+id)).status,404);
  a.equal((await request('GET','/api/test-diagnostics?brand=aristo&brand=fish')).status,400);
  const delegation=auth.nativeConnections.issue({context,brands:['aristo'],scopes:['crm.read'],expiresDays:1}),before=sends.length;
  const native=await request('POST','/api/native/mcp',{jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'crm_status',arguments:{}}},'', '',delegation.token);

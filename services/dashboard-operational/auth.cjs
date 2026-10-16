@@ -269,6 +269,7 @@ function createAuth(options){
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
  const testDiagnostics=simpleReadMode?require('./private-test-diagnostics.cjs').create({db,encrypt,decrypt,now:current}):null;
  const simpleAccounts=simpleReadMode?require('./simple-login-accounts.cjs').createSimpleAccounts({db,testDiagnostics,
+  currentUser:id=>{const row=db.prepare('SELECT * FROM users WHERE id=?').get(id);if(!row)return null;try{return {...publicUser(row),active:row.state==='active'};}catch{return null;}},
   authorizeAdmin:context=>adminContext(context),authorizeUser:context=>authorize(context),
   normalizeEmail:value=>emailAddress(value,domainSet),hashPassword,verifyPassword,now:current,...(options.journeyTestTransport?{journeyTestTransport:options.journeyTestTransport}:{})}):null;
  // Off by default: records local identity jobs, never starts remote transport
