@@ -1226,7 +1226,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(url.searchParams.size!==1||!url.searchParams.has('brand'))throw jsonError(400,'TEST_ARGUMENTS_INVALID');
           const brand=url.searchParams.get('brand');auth.simpleAccounts.labRead({context:ctx,brand});
           const availability=test.availability(ctx,brand);
-          return sendJson(req,res,200,{...availability,tests:availability.available?test.list(ctx,brand):[]});
+          return sendJson(req,res,200,{...availability,tests:test.list(ctx,brand)});
         }
         if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
         if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');

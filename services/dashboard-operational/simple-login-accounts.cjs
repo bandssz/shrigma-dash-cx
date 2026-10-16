@@ -191,6 +191,7 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
  const internalSend=journeyTestTransport?.send||require('./journey-internal-test-transport.cjs').createTransport({privateApi:internalBinding.privateApi,recordDiagnostic:testDiagnostics?.record});
  const journeyTest=require('./journey-internal-test-runtime.cjs').createRunner({db,now,engine:require('./public/crm-preview/journey-engine.js'),
   authorize:(context,brand)=>labOwner(context,brand,true),
+  authorizeRead:(context,brand)=>labOwner(context,brand),
   currentIdentity:currentUser,
   getDraft:(context,brand,draftId)=>{const draft=labRead({context,brand}).store.drafts.find(d=>d.id===draftId);if(!draft)fail('TEST_DRAFT_NOT_FOUND',404);return draft;},
   getBinding:internalBinding.getBinding,send:internalSend});

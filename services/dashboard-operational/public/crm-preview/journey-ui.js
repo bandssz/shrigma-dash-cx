@@ -42,6 +42,7 @@
    try{
     const session=await getSession();
     if(ticket!==sequence||!allowed(session,brand)||session.user.id!==account){accessChanged();return;}
+    user=session.user;
     const base='/api/journey-test';let pending;
     if(action==='start'||action==='control'){
      if(!canEdit()||!writable(session.user))throw Error('TEST_WRITE_REQUIRED');
@@ -59,6 +60,7 @@
     }
     const {response,data}=await remoteJSON(base+'?'+new URLSearchParams({brand}),{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error'}),current=await getSession();
     if(ticket!==sequence||!allowed(current,brand)||current.user.id!==account){accessChanged();return;}
+    user=current.user;
     if(!response.ok||typeof data.available!=='boolean'||data.mode!=='internal'||data.productionAudienceSelected!==false||!Array.isArray(data.tests)||data.tests.length>50||data.tests.some(x=>x.brand!==brand||x.mode!=='internal'||x.recipient!=='current-corporate-account'||!Array.isArray(x.steps)||x.delivered!==null||x.productionAudienceSelected!==false))throw Error('TEST_READ_UNKNOWN');
     internalTest=data;if(internalPending&&data.tests.some(x=>x.requestId===internalPending.requestId)){internalPending=null;storage.removeItem?.(key+':internal-pending');}
     notice=data.available?'Teste consultado. As esperas usam o relógio real do servidor.':'Envio de teste indisponível. Os rascunhos e a simulação continuam disponíveis.';
@@ -159,7 +161,7 @@
    for(const node of host.querySelectorAll('[data-lab-node]'))node.addEventListener('click',()=>selectNode(node.dataset.labNode));
    selectNode(selectedNode);
    for(const row of host.querySelectorAll('[data-lab-step]')){const i=row.dataset.labStep;row.querySelector('[data-lab-wait]').addEventListener('input',()=>{host.querySelector('[data-canvas-wait="'+i+'"]').textContent='T + '+row.querySelector('[data-lab-wait]').value+' min';});row.querySelector('[data-lab-template]').addEventListener('change',()=>{host.querySelector('[data-canvas-template="'+i+'"]').textContent=row.querySelector('[data-lab-template]').value;});}
-   if(serverStorage&&(!canEdit()||serverUncertain))for(const b of host.querySelectorAll('[data-lab-create],[data-lab-copy-draft],[data-lab-add],[data-lab-remove],[data-lab-copy],[data-lab-save],[data-lab-start],[data-lab-pause],[data-lab-repeat],[data-lab-checks],[data-lab-advance]')){b.disabled=true;b.title='Permissão de escrita CRM necessária para guardar testes.';}
+   if(serverStorage&&(!canEdit()||serverUncertain))for(const b of host.querySelectorAll('[data-lab-create],[data-lab-copy-draft],[data-lab-add],[data-lab-remove],[data-lab-copy],[data-lab-save],[data-lab-start],[data-lab-pause],[data-lab-repeat],[data-lab-checks],[data-lab-advance],[data-lab-internal-start],[data-lab-internal-pause],[data-lab-internal-purchase],[data-lab-internal-optout]')){b.disabled=true;b.title='Permissão de escrita CRM necessária para guardar testes.';}
    if(serverStorage&&!canEdit())for(const field of host.querySelectorAll('[data-lab-revision] input,[data-lab-revision] select,[data-lab-revision] textarea'))field.disabled=true;
    for(const field of host.querySelectorAll('[data-lab-trigger],[data-lab-audience-ref],[data-lab-name],[data-lab-audience],[data-lab-purchase-exit],[data-lab-step] input,[data-lab-step] select,[data-lab-step] textarea'))for(const event of ['input','change'])field.addEventListener(event,()=>{if(serverStorage&&canEdit()&&preserveEdits()){serverSaved=false;const mode=host.querySelector('.editor-mode');if(mode)mode.textContent='Rascunho local — não salvo no servidor, não executa';}});
    host.querySelector('[data-lab-read]').addEventListener('click',read);

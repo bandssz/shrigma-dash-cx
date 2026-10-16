@@ -4,8 +4,8 @@
 const {createHash}=require('node:crypto'),UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
 const hash=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
-function createRunner({db,engine,authorize,getDraft,currentIdentity,getBinding,send,now=Date.now,timeoutMs=15000}={}){
- if(!db?.exec||!db.prepare||[authorize,getDraft,currentIdentity,getBinding,send,now].some(v=>typeof v!=='function')||!engine?.validateDraft||!Number.isInteger(timeoutMs)||timeoutMs<5||timeoutMs>30000)fail('TEST_CONFIG_INVALID',503);
+function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,currentIdentity,getBinding,send,now=Date.now,timeoutMs=15000}={}){
+ if(!db?.exec||!db.prepare||[authorize,authorizeRead,getDraft,currentIdentity,getBinding,send,now].some(v=>typeof v!=='function')||!engine?.validateDraft||!Number.isInteger(timeoutMs)||timeoutMs<5||timeoutMs>30000)fail('TEST_CONFIG_INVALID',503);
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_test_v1(request_id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL,draft_json TEXT NOT NULL,identity_hash TEXT NOT NULL,binding_hash TEXT NOT NULL,started_at INTEGER NOT NULL,status TEXT NOT NULL,cursor INTEGER NOT NULL DEFAULT 0,paused INTEGER NOT NULL DEFAULT 0,purchase INTEGER NOT NULL DEFAULT 0,opt_out INTEGER NOT NULL DEFAULT 0);CREATE TABLE IF NOT EXISTS journey_internal_attempt_v1(attempt_key TEXT PRIMARY KEY,request_id TEXT NOT NULL REFERENCES journey_internal_test_v1(request_id),step_id TEXT NOT NULL,state TEXT NOT NULL,code TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)");
  const time=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)fail('TEST_CLOCK_INVALID',503);return t;};
  const transaction=fn=>{db.exec('BEGIN IMMEDIATE');try{const r=fn();db.exec('COMMIT');return r;}catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}};
@@ -18,7 +18,7 @@ function createRunner({db,engine,authorize,getDraft,currentIdentity,getBinding,s
   const steps=draft.steps.map(step=>{const a=attempts.find(a=>a.step_id===step.id);return {step_id:step.id,template_name:step.templateName,channel:step.channel,enabled:step.enabled,due_at:new Date(r.started_at+step.waitMinutes*60000).toISOString(),test_marker:testMarker(r.request_id,step.id),state:a?.state||(!step.enabled?'disabled':r.status==='excluded'?'excluded':['failed','uncertain'].includes(r.status)?'blocked':r.paused?'paused':'waiting'),code:a?.code||null,created_at:a?.created_at??null,updated_at:a?.updated_at??null};});
   return {requestId:r.request_id,brand:r.brand,draftId:draft.id,version:draft.revision,mode:'internal',recipient:'current-corporate-account',status:r.status,paused:!!r.paused,steps,accepted:attempts.filter(a=>a.state==='accepted').length,uncertain:attempts.filter(a=>['reserved','uncertain'].includes(a.state)).length,delivered:null,productionAudienceSelected:false};
  }
- function owner(context,brand,id){const u=authorize(context,brand),r=find(id);if(!r||r.user_id!==u.id||r.brand!==brand)fail('TEST_NOT_FOUND',404);identity(u.id,brand);return r;}
+ function owner(context,brand,id,write=false){const u=(write?authorize:authorizeRead)(context,brand),r=find(id);if(!r||r.user_id!==u.id||r.brand!==brand)fail('TEST_NOT_FOUND',404);if(write)identity(u.id,brand);return r;}
  function start(context,{brand,draftId,version,requestId}){
   const u=authorize(context,brand);if(!UUID.test(requestId||''))fail('TEST_REQUEST_INVALID',400);
   const who=identity(u.id,brand),b=binding(brand),d=getDraft(context,brand,draftId);engine.validateDraft(d);if(d.id!==draftId||d.brand!==brand||d.revision!==version)fail('TEST_DRAFT_CHANGED',409);
@@ -32,10 +32,10 @@ function createRunner({db,engine,authorize,getDraft,currentIdentity,getBinding,s
   try{const u=authorize(context,brand);identity(u.id,brand);binding(brand);return {available:true,mode:'internal',recipient:'current-corporate-account',productionAudienceSelected:false};}
   catch(e){return {available:false,mode:'internal',error:['TEST_TX_BINDING_REQUIRED','TEST_INTERNAL_IDENTITY_REQUIRED'].includes(e?.code)?e.code:'TEST_WRITE_REQUIRED',productionAudienceSelected:false};}
  }
- function list(context,brand){const u=authorize(context,brand);return db.prepare('SELECT * FROM journey_internal_test_v1 WHERE user_id=? AND brand=? ORDER BY started_at DESC,request_id LIMIT 50').all(u.id,brand).map(summary);}
+ function list(context,brand){const u=authorizeRead(context,brand);return db.prepare('SELECT * FROM journey_internal_test_v1 WHERE user_id=? AND brand=? ORDER BY started_at DESC,request_id LIMIT 50').all(u.id,brand).map(summary);}
  function control(context,{brand,requestId,paused,purchase,optOut}){
-  owner(context,brand,requestId);for(const v of [paused,purchase,optOut])if(v!==undefined&&typeof v!=='boolean')fail('TEST_CONTROL_INVALID',400);
-  return transaction(()=>{const r=owner(context,brand,requestId);if(['finished','excluded','uncertain','failed'].includes(r.status))return summary(r);
+  owner(context,brand,requestId,true);for(const v of [paused,purchase,optOut])if(v!==undefined&&typeof v!=='boolean')fail('TEST_CONTROL_INVALID',400);
+  return transaction(()=>{const r=owner(context,brand,requestId,true);if(['finished','excluded','uncertain','failed'].includes(r.status))return summary(r);
    db.prepare('UPDATE journey_internal_test_v1 SET paused=?,purchase=?,opt_out=? WHERE request_id=?').run(Number(paused??!!r.paused),Number(purchase??!!r.purchase),Number(optOut??!!r.opt_out),requestId);return summary(find(requestId));});
  }
  let working=false;
@@ -49,8 +49,9 @@ function createRunner({db,engine,authorize,getDraft,currentIdentity,getBinding,s
      const r=find(old.request_id),who=identity(r.user_id,r.brand),b=binding(r.brand);
      if(who.hash!==r.identity_hash||b.hash!==r.binding_hash)fail('TEST_BINDING_CHANGED',409);
      if(r.status==='attempting'||db.prepare("SELECT 1 FROM journey_internal_attempt_v1 WHERE request_id=? AND state IN ('reserved','uncertain')").get(r.request_id)){db.prepare("UPDATE journey_internal_test_v1 SET status='uncertain' WHERE request_id=?").run(r.request_id);return null;}
-     if(r.paused)return null;const d=JSON.parse(r.draft_json);engine.validateDraft(d);
-     if(r.opt_out||d.exitOnPurchase&&r.purchase){db.prepare("UPDATE journey_internal_test_v1 SET status='excluded' WHERE request_id=?").run(r.request_id);return null;}
+     const d=JSON.parse(r.draft_json);engine.validateDraft(d);
+     if(r.opt_out||d.exitOnPurchase&&r.purchase){db.prepare("UPDATE journey_internal_test_v1 SET status='excluded',paused=0 WHERE request_id=?").run(r.request_id);return null;}
+     if(r.paused)return null;
      let cursor=r.cursor;while(cursor<d.steps.length&&!d.steps[cursor].enabled)cursor++;
      if(cursor===d.steps.length){db.prepare("UPDATE journey_internal_test_v1 SET status='finished',cursor=? WHERE request_id=?").run(cursor,r.request_id);return null;}
      const step=d.steps[cursor],t=time();if(t<r.started_at+step.waitMinutes*60000)return null;

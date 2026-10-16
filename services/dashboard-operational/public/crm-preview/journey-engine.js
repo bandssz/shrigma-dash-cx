@@ -58,10 +58,10 @@
  function advance(input,{now,purchase,emailAllowed,result='simulated'}={}){
   validateRun(input);const r=clone(input);if(!Number.isSafeInteger(now)||now<r.now||!['simulated','uncertain','failed'].includes(result))fail('LAB_CLOCK_INVALID');r.now=now;
   if(['finished','excluded','uncertain'].includes(r.status))return r;
-  if(r.paused){r.status='paused';return r;}
-  if(r.attempts.some(a=>a.result==='reserved'||a.result==='uncertain')){r.status='uncertain';return r;}
+  if(r.attempts.some(a=>a.result==='reserved'||a.result==='uncertain')){r.status='uncertain';r.paused=false;return r;}
   const bought=observation(purchase,now),allowed=observation(emailAllowed,now);
-  if(allowed===false||r.draft.exitOnPurchase&&bought===true){r.status='excluded';r.trace.push({at:now,kind:'exit',reason:allowed===false?'opt_out':'purchase'});return r;}
+  if(allowed===false||r.draft.exitOnPurchase&&bought===true){r.status='excluded';r.paused=false;r.trace.push({at:now,kind:'exit',reason:allowed===false?'opt_out':'purchase'});return r;}
+  if(r.paused){r.status='paused';return r;}
   if(allowed===null||r.draft.exitOnPurchase&&bought===null){r.status='waiting';r.trace.push({at:now,kind:'wait_data'});return r;}
   while(r.cursor<r.draft.steps.length){
    const s=r.draft.steps[r.cursor],dueAt=r.startedAt+s.waitMinutes*60000;
