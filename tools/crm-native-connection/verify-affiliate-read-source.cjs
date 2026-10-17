@@ -9,7 +9,9 @@ function verify({workspaceOnly=false}={}){
  assert.equal(manifest.schema,'shrigma-affiliate-read-source-v1');assert.equal(manifest.baseHead,BASE);assert.equal(manifest.baseTree,TREE);assert.equal(manifest.operational,false);assert.equal(manifest.newServiceOrDatabase,false);assert.equal(manifest.sourceWorkflow,'ZRPkPSaMRw35uZQj');
  // The explicit source inventory also carries the replay/regression proofs.
  // Every entry remains byte/hash checked and the Git delta must match exactly.
- assert(Array.isArray(manifest.files)&&manifest.files.length>=20&&manifest.files.length<=256);assert.equal(new Set(manifest.files.map(f=>f.path)).size,manifest.files.length);
+ // The two isolated existing-service contexts are inventoried as individual
+ // reviewable sources; the historical base and custody fences stay exact.
+ assert(Array.isArray(manifest.files)&&manifest.files.length>=20&&manifest.files.length<=384);assert.equal(new Set(manifest.files.map(f=>f.path)).size,manifest.files.length);
  for(const f of manifest.files){assert(typeof f.path==='string'&&!f.path.split('/').some(s=>s==='..'||s.startsWith('.private')));assert(!f.path.startsWith('operacao/')&&!f.path.startsWith('arquivo/'));const file=path.join(ROOT,f.path),st=fs.lstatSync(file);assert(st.isFile()&&!st.isSymbolicLink());const b=fs.readFileSync(file);assert.equal(b.length,f.bytes,f.path);assert.equal(sha(b),f.sha256,f.path);}
  if(!workspaceOnly){
   const git=(...args)=>execFileSync('git',args,{cwd:ROOT,encoding:'utf8'}).trim();

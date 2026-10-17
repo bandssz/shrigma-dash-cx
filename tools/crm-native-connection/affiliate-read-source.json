@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 37522,
-      "sha256": "e9f6538c2e2de95e94a8e5f571d15e31fc9332daed372166b0867c4016be2929"
+      "bytes": 41432,
+      "sha256": "39b2c12ac1fa571e7f434633c87f7fb893ba431f9c6976bcd20f476fe1180224"
     },
     {
       "path": "afiliados-proprios.js",
@@ -134,9 +134,14 @@
       "sha256": "afcc644baf4514ca67a765da1a540d399d3bcbd1f423a919dacca90d236142f0"
     },
     {
+      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
+      "bytes": 9151,
+      "sha256": "79845d01628bba7d1839ae43b06c605b9271280e65d14b2c86c6e4d9a7497db6"
+    },
+    {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 15623,
-      "sha256": "a24a1e966117b047acaf34a031d2da42fef93ca86654d42846ffa5e3afc76ed6"
+      "bytes": 15687,
+      "sha256": "9ed04a71b4a0cce2e9e4c6b8820d7be85837c22dd7de0affbdbe48b1dee1750b"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -145,13 +150,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 8027,
-      "sha256": "5228e62cc652c4c7f69d922a350e65a17a29ad196a63178b56c25654f7b59d50"
-    },
-    {
-      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 8990,
-      "sha256": "148d235d3946789ba73bf83dcd60e5fa4020a82c92fb7770ed921f284e60689b"
+      "bytes": 8091,
+      "sha256": "233bb700b5a29f82a495ed6da279dcd01763f095e92e63c7526ced0e4cb6a8c9"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
@@ -162,6 +162,651 @@
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
       "bytes": 5235,
       "sha256": "26456ef5a2c84beff951c78206f65191174320421fe68e063858bb3c880ba463"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/growth-ab-experiment-contract.js",
+      "bytes": 7623,
+      "sha256": "71d2f1ba0f17f9387e884df4156f9ad891cc811d736d0a65eb43161a73f25b4f"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/growth-campaign-audience-client.js",
+      "bytes": 19051,
+      "sha256": "b8759f6a0c939b6507477f38869a8252620e15287c2861038922f22fcb323017"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/growth-campaign-regular-client.js",
+      "bytes": 11450,
+      "sha256": "88ca144d92326d99edfa60901793a7377b525f7fdead182494c4b396ed2e43f8"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/growth-email-contract.js",
+      "bytes": 14367,
+      "sha256": "ce9ec117e01139b9066c207c8c97dd0e3c1c62a96fdff502d11a8c548c9f182f"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/growth-email-expressions.js",
+      "bytes": 20645,
+      "sha256": "fc5181b72b379fea287bf7cf38bb3bef19088ec11eb6a86242430428f40e5349"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-admission-api.cjs",
+      "bytes": 3240,
+      "sha256": "4ca01e3bd30c94ce6ab3b3c66c428e81bdcdaa5d7a456d4aa3649eaaa9856c2e"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-admission-contract.cjs",
+      "bytes": 5588,
+      "sha256": "32d4ad1c76195a15eb5fb8f0429828ba0b0627d97ab034c81d4168c3b61ce491"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-admission-inspect.cjs",
+      "bytes": 19439,
+      "sha256": "a30f645a7b975845014aac4a1db694da131cc913aad9e4c162fead0973f2a4d0"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-material-read.cjs",
+      "bytes": 8450,
+      "sha256": "04ed28106a318489373229454911b625e9ee23b2b8913dc6603046b8f985d7d5"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-material.cjs",
+      "bytes": 12889,
+      "sha256": "78c0614f0366847899908c0a630d6b47fa7a02ac154906040c02da2e8c5a6b96"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-panel-api.cjs",
+      "bytes": 12862,
+      "sha256": "efbb4b0e0b67c93180c3c1f7b242d7f70380d0db0500f1b92ed536df50fbf9b4"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-prepare.cjs",
+      "bytes": 15437,
+      "sha256": "90f74afea117b1249b92c147ed94ae8103df5aa1a0acc266e467d31173699b6b"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-regular-admission.cjs",
+      "bytes": 12113,
+      "sha256": "9c808de2257069441ac4fa46e8423233a650bdea9ee0fe81a2da7676c2816efb"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-review-api.cjs",
+      "bytes": 6580,
+      "sha256": "379719aaa45bb50daa01c9bbb167d1a5022178847568b94948f390e3a2fb9065"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/ab-audience-review.cjs",
+      "bytes": 25254,
+      "sha256": "016efa8a56fad2f5060d97459555cad07db4008c8f0d12ca32d1364092bc1ebe"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/campaign-contract.js",
+      "bytes": 12470,
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/campaign-tracking.js",
+      "bytes": 4294,
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/journey-graph-catalog.cjs",
+      "bytes": 3069,
+      "sha256": "63354e60b61e01f41f97ffe99baca04713f7e4d7f1c0c5197371e1ac1a30673f"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/journey-graph-contract.js",
+      "bytes": 27098,
+      "sha256": "5a9de6bf3b4081dbba14a39b852976e74a84dfdb8f3ecbf9abd73c3c48d0e624"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/journey-graph-lifecycle-contract.cjs",
+      "bytes": 5783,
+      "sha256": "9d1ccd21ad13e83c351752b0493aa695ae06a2647db1aa4268dcf335fba69c6c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/journey-graph-lifecycle-panel-api.cjs",
+      "bytes": 5072,
+      "sha256": "a5d9b2271192a5f35aaa93a813b6f4ae063d1f4fcf1e3d6a1eb90b1969492d95"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/journey-graph-lifecycle-prepare.cjs",
+      "bytes": 21188,
+      "sha256": "7aa835aead40a7220c0fb5163a0cea8c88d81f814783584828a1e7290dc8ac7a"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/journey-graph-lifecycle-publication.cjs",
+      "bytes": 17133,
+      "sha256": "feca0b16c861aea3e457b55815a4538273d717a1e4934d23f665a06ae5ff6f94"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/journey-graph-lifecycle-review.cjs",
+      "bytes": 10475,
+      "sha256": "f9db842a43a7cb9aeb7a162e2085da576237c9762a87c1b763c312e59c5378d9"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/journey-graph-release.cjs",
+      "bytes": 13720,
+      "sha256": "1e6f63ebd4e69750d9437d20f030b0dd333ef264b58bbef7182ea207ac1495e6"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-api.cjs",
+      "bytes": 15425,
+      "sha256": "18a73aaa435586a85ba09e6dcfd6e034b705333cad768edd41b95556df239856"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-audience-allocated.cjs",
+      "bytes": 7521,
+      "sha256": "119f7912d316ad2536d6405879ef2da10a9068b0c6f48546156bd0ed0f77e1ca"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-audience-api.cjs",
+      "bytes": 12362,
+      "sha256": "7a94ec878859a8ce4a8ec092da696c9dd22f9ce86174a83e830985e940a6c22e"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-audience-cohort.cjs",
+      "bytes": 7165,
+      "sha256": "27710e8917a35cf17f4008deae7a47bb2d8c21f89cca6bfb42b60f39041591cd"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-audience-context-review.cjs",
+      "bytes": 8235,
+      "sha256": "6e2be86a9907a98b23fc936955d6d83be7940f4fdb95e5ed9d424fa4429a0274"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-audience-contract.js",
+      "bytes": 11152,
+      "sha256": "74872d8fd63cd7a7863943e2ee499093b7aa9d1b452916783fade5a4d88befa5"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-audience-listmonk.cjs",
+      "bytes": 14495,
+      "sha256": "63cbaee25faed04827adbc9fcad489b99bf8e941ab43ba7b91d40866f44e7bfc"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-audience-review.cjs",
+      "bytes": 19040,
+      "sha256": "d7e848279a87a4b8a8950ee1dd0daeb8535377d831bdb661c59f35f3e48342ea"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-audience-store.cjs",
+      "bytes": 33293,
+      "sha256": "c4ecacdf0ce6ccd537eb22f5d37235b831fdc6a521b31ff3640d106ca8d7f6be"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-campaign-binding-api.cjs",
+      "bytes": 6423,
+      "sha256": "06a9327fbb9fc3c2cba9ff1cf7e89ee9428b96863ac6d7aeab3d30cbb97af0d6"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-campaign-binding.cjs",
+      "bytes": 25547,
+      "sha256": "94fc16d686bd33d59b37e0dba0ab9715b54ef088b4cc1e26ce36e1ccbcce8501"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-contract.js",
+      "bytes": 4638,
+      "sha256": "b607ab3f3b2914b443e8fa8a25fecc0386a2472e7cd66ce8fb4eb3e78f164d5c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-count-diagnostics.cjs",
+      "bytes": 2161,
+      "sha256": "0902bf360a228227135268465071dcde7309ea3f5bf801665db93821a6d2a087"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-listmonk-selection.cjs",
+      "bytes": 6276,
+      "sha256": "92da074c7ef80aa28429dd51d6ed7adfbcba0d9b1872267cefec8688f675d942"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-recorded-origin.cjs",
+      "bytes": 1519,
+      "sha256": "a7bf515becdb0d69ab30266c5f4e25f885e5e8e2a06cb6a2ba8d39bb2cc85ad8"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-regular-admission-api.cjs",
+      "bytes": 3355,
+      "sha256": "d79276ddc546ccf493db7266bb48e7d2d82eaa94c3cac905db5bdd83135c7ccc"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-regular-admission.cjs",
+      "bytes": 11080,
+      "sha256": "181f5f803aea1d05f3fed1c813a1ba10c520d3fd505d40600d622ff5237de53a"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-regular-render.cjs",
+      "bytes": 2092,
+      "sha256": "b082e0026d0633ecc2988bd86d5cc9f5bb395310996c39b6fe08937ff05c27b3"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-shopify-bulk-evidence.cjs",
+      "bytes": 11543,
+      "sha256": "82fea3830d9c29acb835e982fde5c5e70f7c02bdcbf86444c648dc127ef38c11"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-shopify-facts.cjs",
+      "bytes": 4100,
+      "sha256": "45f2c84988513bdbd84fac1610988a3183b98d1abcbefef15ff06c39193c66d4"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-shopify-product-evidence.cjs",
+      "bytes": 10755,
+      "sha256": "983d734e0696bd4f9755b8991768f2ee287881f8955d0bab506fa51b66a4647a"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-shopify-product-sync-patch.cjs",
+      "bytes": 11799,
+      "sha256": "d19bd4487a675c712a9c66e816d402a8e622d09fc7fa9f10703d7cf61eb55ca4"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-shopify-service-patch.cjs",
+      "bytes": 7501,
+      "sha256": "8ca583d3f206bcdaa9e15be74d79f992329bd623911f40f7f26ebb7719ccb3f5"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/n8n/growth/segment-shopify-sync-patch.cjs",
+      "bytes": 10497,
+      "sha256": "ed4d8e84b2d3b6464e11fb6cbf16997fb247237cf777c7e5b8e2a8bc9a2f099a"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/Dockerfile",
+      "bytes": 1283,
+      "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/config.cjs",
+      "bytes": 1774,
+      "sha256": "67fa469c291c6ca5591927b7db41bf14a96bc1d378a7fcac97f987091cab9813"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/main.cjs",
+      "bytes": 3179,
+      "sha256": "91a8cb52ae1c7c2cfda726e37f3c168a30ace27bc5de8eb4cf968239196f9166"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/package-lock.json",
+      "bytes": 5309,
+      "sha256": "f5d05fa3924437eae7246cbd0a7edf1e7eda9a5dae1840fdb96d8669a47a35e2"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/package.json",
+      "bytes": 304,
+      "sha256": "ef5796e1ee94fef2afe4a6f3de9c42da3ebfc096477647332d2aaa80db9d900c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/server.cjs",
+      "bytes": 6909,
+      "sha256": "2c86d8814c58626537286bc86829c4b93364cb0706b7b15b4725ce45614b8480"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/transaction.cjs",
+      "bytes": 2838,
+      "sha256": "f661ce5865c6960dd832cdd5c27fc115e149ce11daf9a80ad9cb7a1b4a5203ca"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/growth-ab-experiment-contract.js",
+      "bytes": 7623,
+      "sha256": "71d2f1ba0f17f9387e884df4156f9ad891cc811d736d0a65eb43161a73f25b4f"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/growth-campaign-audience-client.js",
+      "bytes": 19051,
+      "sha256": "b8759f6a0c939b6507477f38869a8252620e15287c2861038922f22fcb323017"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/growth-campaign-regular-client.js",
+      "bytes": 11450,
+      "sha256": "88ca144d92326d99edfa60901793a7377b525f7fdead182494c4b396ed2e43f8"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/growth-email-contract.js",
+      "bytes": 14367,
+      "sha256": "ce9ec117e01139b9066c207c8c97dd0e3c1c62a96fdff502d11a8c548c9f182f"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/growth-email-expressions.js",
+      "bytes": 20645,
+      "sha256": "fc5181b72b379fea287bf7cf38bb3bef19088ec11eb6a86242430428f40e5349"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-admission-api.cjs",
+      "bytes": 3240,
+      "sha256": "4ca01e3bd30c94ce6ab3b3c66c428e81bdcdaa5d7a456d4aa3649eaaa9856c2e"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-admission-contract.cjs",
+      "bytes": 5588,
+      "sha256": "32d4ad1c76195a15eb5fb8f0429828ba0b0627d97ab034c81d4168c3b61ce491"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-admission-inspect.cjs",
+      "bytes": 19439,
+      "sha256": "a30f645a7b975845014aac4a1db694da131cc913aad9e4c162fead0973f2a4d0"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-material-read.cjs",
+      "bytes": 8450,
+      "sha256": "04ed28106a318489373229454911b625e9ee23b2b8913dc6603046b8f985d7d5"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-material.cjs",
+      "bytes": 12889,
+      "sha256": "78c0614f0366847899908c0a630d6b47fa7a02ac154906040c02da2e8c5a6b96"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-panel-api.cjs",
+      "bytes": 12862,
+      "sha256": "efbb4b0e0b67c93180c3c1f7b242d7f70380d0db0500f1b92ed536df50fbf9b4"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-prepare.cjs",
+      "bytes": 15437,
+      "sha256": "90f74afea117b1249b92c147ed94ae8103df5aa1a0acc266e467d31173699b6b"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-regular-admission.cjs",
+      "bytes": 12113,
+      "sha256": "9c808de2257069441ac4fa46e8423233a650bdea9ee0fe81a2da7676c2816efb"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-review-api.cjs",
+      "bytes": 6580,
+      "sha256": "379719aaa45bb50daa01c9bbb167d1a5022178847568b94948f390e3a2fb9065"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/ab-audience-review.cjs",
+      "bytes": 25254,
+      "sha256": "016efa8a56fad2f5060d97459555cad07db4008c8f0d12ca32d1364092bc1ebe"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/campaign-contract.js",
+      "bytes": 12470,
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/campaign-tracking.js",
+      "bytes": 4294,
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/journey-graph-catalog.cjs",
+      "bytes": 3069,
+      "sha256": "63354e60b61e01f41f97ffe99baca04713f7e4d7f1c0c5197371e1ac1a30673f"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/journey-graph-contract.js",
+      "bytes": 27098,
+      "sha256": "5a9de6bf3b4081dbba14a39b852976e74a84dfdb8f3ecbf9abd73c3c48d0e624"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/journey-graph-lifecycle-contract.cjs",
+      "bytes": 5783,
+      "sha256": "9d1ccd21ad13e83c351752b0493aa695ae06a2647db1aa4268dcf335fba69c6c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/journey-graph-lifecycle-panel-api.cjs",
+      "bytes": 5072,
+      "sha256": "a5d9b2271192a5f35aaa93a813b6f4ae063d1f4fcf1e3d6a1eb90b1969492d95"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/journey-graph-lifecycle-prepare.cjs",
+      "bytes": 21188,
+      "sha256": "7aa835aead40a7220c0fb5163a0cea8c88d81f814783584828a1e7290dc8ac7a"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/journey-graph-lifecycle-publication.cjs",
+      "bytes": 17133,
+      "sha256": "feca0b16c861aea3e457b55815a4538273d717a1e4934d23f665a06ae5ff6f94"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/journey-graph-lifecycle-review.cjs",
+      "bytes": 10475,
+      "sha256": "f9db842a43a7cb9aeb7a162e2085da576237c9762a87c1b763c312e59c5378d9"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/journey-graph-release.cjs",
+      "bytes": 13720,
+      "sha256": "1e6f63ebd4e69750d9437d20f030b0dd333ef264b58bbef7182ea207ac1495e6"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-api.cjs",
+      "bytes": 15425,
+      "sha256": "18a73aaa435586a85ba09e6dcfd6e034b705333cad768edd41b95556df239856"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-allocated.cjs",
+      "bytes": 7521,
+      "sha256": "119f7912d316ad2536d6405879ef2da10a9068b0c6f48546156bd0ed0f77e1ca"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-api.cjs",
+      "bytes": 12362,
+      "sha256": "7a94ec878859a8ce4a8ec092da696c9dd22f9ce86174a83e830985e940a6c22e"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-cohort.cjs",
+      "bytes": 7165,
+      "sha256": "27710e8917a35cf17f4008deae7a47bb2d8c21f89cca6bfb42b60f39041591cd"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-context-review.cjs",
+      "bytes": 8235,
+      "sha256": "6e2be86a9907a98b23fc936955d6d83be7940f4fdb95e5ed9d424fa4429a0274"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-contract.js",
+      "bytes": 11152,
+      "sha256": "74872d8fd63cd7a7863943e2ee499093b7aa9d1b452916783fade5a4d88befa5"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-listmonk.cjs",
+      "bytes": 14495,
+      "sha256": "63cbaee25faed04827adbc9fcad489b99bf8e941ab43ba7b91d40866f44e7bfc"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-native-freeze-api.cjs",
+      "bytes": 5185,
+      "sha256": "ea7183cde95b534c75f98e4039908b848979bcc3eb56f9f1157e4344db2331c5"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-native-freeze.cjs",
+      "bytes": 7355,
+      "sha256": "155d2f4ead1ad62648b824a1990b98c6ec8cb17abd6be1f52b7c09f0edc70bd4"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-review.cjs",
+      "bytes": 19040,
+      "sha256": "d7e848279a87a4b8a8950ee1dd0daeb8535377d831bdb661c59f35f3e48342ea"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-audience-store.cjs",
+      "bytes": 33293,
+      "sha256": "c4ecacdf0ce6ccd537eb22f5d37235b831fdc6a521b31ff3640d106ca8d7f6be"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-campaign-binding-api.cjs",
+      "bytes": 6423,
+      "sha256": "06a9327fbb9fc3c2cba9ff1cf7e89ee9428b96863ac6d7aeab3d30cbb97af0d6"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-campaign-binding.cjs",
+      "bytes": 25547,
+      "sha256": "94fc16d686bd33d59b37e0dba0ab9715b54ef088b4cc1e26ce36e1ccbcce8501"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-contract.js",
+      "bytes": 4638,
+      "sha256": "b607ab3f3b2914b443e8fa8a25fecc0386a2472e7cd66ce8fb4eb3e78f164d5c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-count-diagnostics.cjs",
+      "bytes": 2161,
+      "sha256": "0902bf360a228227135268465071dcde7309ea3f5bf801665db93821a6d2a087"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-listmonk-selection.cjs",
+      "bytes": 6276,
+      "sha256": "92da074c7ef80aa28429dd51d6ed7adfbcba0d9b1872267cefec8688f675d942"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-recorded-origin.cjs",
+      "bytes": 1519,
+      "sha256": "a7bf515becdb0d69ab30266c5f4e25f885e5e8e2a06cb6a2ba8d39bb2cc85ad8"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-regular-admission-api.cjs",
+      "bytes": 3355,
+      "sha256": "d79276ddc546ccf493db7266bb48e7d2d82eaa94c3cac905db5bdd83135c7ccc"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-regular-admission.cjs",
+      "bytes": 11080,
+      "sha256": "181f5f803aea1d05f3fed1c813a1ba10c520d3fd505d40600d622ff5237de53a"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-regular-render.cjs",
+      "bytes": 2092,
+      "sha256": "b082e0026d0633ecc2988bd86d5cc9f5bb395310996c39b6fe08937ff05c27b3"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-shopify-bulk-evidence.cjs",
+      "bytes": 11543,
+      "sha256": "82fea3830d9c29acb835e982fde5c5e70f7c02bdcbf86444c648dc127ef38c11"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-shopify-facts.cjs",
+      "bytes": 4100,
+      "sha256": "45f2c84988513bdbd84fac1610988a3183b98d1abcbefef15ff06c39193c66d4"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-shopify-product-evidence.cjs",
+      "bytes": 10755,
+      "sha256": "983d734e0696bd4f9755b8991768f2ee287881f8955d0bab506fa51b66a4647a"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-shopify-product-sync-patch.cjs",
+      "bytes": 11799,
+      "sha256": "d19bd4487a675c712a9c66e816d402a8e622d09fc7fa9f10703d7cf61eb55ca4"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-shopify-service-patch.cjs",
+      "bytes": 7501,
+      "sha256": "8ca583d3f206bcdaa9e15be74d79f992329bd623911f40f7f26ebb7719ccb3f5"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/n8n/growth/segment-shopify-sync-patch.cjs",
+      "bytes": 10497,
+      "sha256": "ed4d8e84b2d3b6464e11fb6cbf16997fb247237cf777c7e5b8e2a8bc9a2f099a"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/Dockerfile",
+      "bytes": 1283,
+      "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/config.cjs",
+      "bytes": 1957,
+      "sha256": "a18a20e5b54806290dad42ba332fce1bc6a755d382293e6cf0f23fcdf3c81684"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/main.cjs",
+      "bytes": 3516,
+      "sha256": "62108235124287b82efa7f772032c290fdcdb5bc186cac45a2337869b1774281"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/package-lock.json",
+      "bytes": 5309,
+      "sha256": "f5d05fa3924437eae7246cbd0a7edf1e7eda9a5dae1840fdb96d8669a47a35e2"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/package.json",
+      "bytes": 304,
+      "sha256": "ef5796e1ee94fef2afe4a6f3de9c42da3ebfc096477647332d2aaa80db9d900c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/server.cjs",
+      "bytes": 6909,
+      "sha256": "2c86d8814c58626537286bc86829c4b93364cb0706b7b15b4725ce45614b8480"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/transaction.cjs",
+      "bytes": 2838,
+      "sha256": "f661ce5865c6960dd832cdd5c27fc115e149ce11daf9a80ad9cb7a1b4a5203ca"
+    },
+    {
+      "path": "ops/releases/saturday17-native/campaign-source/Dockerfile",
+      "bytes": 904,
+      "sha256": "296b6bcffa41e2130eae324af0863a307da98a2805d2b06822865ebbf56d361d"
+    },
+    {
+      "path": "ops/releases/saturday17-native/campaign-source/n8n/growth/campaign-native-internal.js",
+      "bytes": 2077,
+      "sha256": "fae5654241e1b89fe13a76e0d5c58180dc4b2d184fbdc1fe8383a0e350337af9"
+    },
+    {
+      "path": "ops/releases/saturday17-native/campaign-source/n8n/growth/campaign-provider.js",
+      "bytes": 6574,
+      "sha256": "d0e7cc535042073d1d3ef9e119fbdb37fcd1f5f121099d029ae5905ee2466344"
+    },
+    {
+      "path": "ops/releases/saturday17-native/campaign-source/n8n/growth/campaign-runtime.js",
+      "bytes": 8864,
+      "sha256": "2ecbd3fbe63abcce8fb5e2015801469c863094a3be7fb869953c5be93d4ac3c2"
+    },
+    {
+      "path": "ops/releases/saturday17-native/campaign-source/n8n/growth/campaign-service.js",
+      "bytes": 10663,
+      "sha256": "5eb4ededfb43f1c09046ba62ffcaffd09789546c6cfec7258387d904cb85466c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/campaign-source/services/crm-campaign/main.cjs",
+      "bytes": 2216,
+      "sha256": "1476aea6faca405990f38b5a6a0eeb7546c97f3b883870fa3642fe6a23b07cfb"
+    },
+    {
+      "path": "ops/releases/saturday17-native/campaign-source/services/crm-campaign/server.cjs",
+      "bytes": 11171,
+      "sha256": "1c086a571c0613bacbd6b775f296339466eaaaf5c61c7765b8fd8de09bb6dea8"
+    },
+    {
+      "path": "ops/releases/saturday17-native/campaign-source/services/crm-campaign/transport.cjs",
+      "bytes": 7753,
+      "sha256": "74cdda69388779fe19a6e469018ae00d12abd1bac76736a796e0b4ed5a4348b4"
+    },
+    {
+      "path": "ops/releases/saturday17-native/catalog-install.sql",
+      "bytes": 4060,
+      "sha256": "569408361665221fc24c5e2d1f0b8d917ced51184bba706f50c87186e2472e66"
+    },
+    {
+      "path": "ops/releases/saturday17-native/catalog-return.sql",
+      "bytes": 2385,
+      "sha256": "6cf74ead343e89383e556ef79cc2a4baca5936285d76328bf01e57003246b13b"
+    },
+    {
+      "path": "ops/releases/saturday17-native/source-contexts.json",
+      "bytes": 21476,
+      "sha256": "ad2a82267ce7024cc1160b68d4942a64bfa327b4e743a094b92d90dad62289ff"
+    },
+    {
+      "path": "ops/releases/saturday17-native/source-smoke.cjs",
+      "bytes": 2023,
+      "sha256": "3d265680454bd363f7352ed0518087491d261582a336920706c38e5f22d9955f"
+    },
+    {
+      "path": "ops/releases/saturday17-native/transition-install.sql",
+      "bytes": 56457,
+      "sha256": "dadd1c426cc0fcaa4581e5e628078d4e00d5d741de9f5f96894dcb41bdee2991"
+    },
+    {
+      "path": "ops/releases/saturday17-native/transition-return.sql",
+      "bytes": 30608,
+      "sha256": "223ffd9de3a2761c1f03f919676fd2d78415aa0e299e364589170490d46ba360"
+    },
+    {
+      "path": "ops/releases/saturday17-native/verify-contexts.cjs",
+      "bytes": 1754,
+      "sha256": "bcd28d11aab66ed8ac0c18359d04b643fc7c39fa1cf3c43474b5a83185e254cd"
     },
     {
       "path": "organico.html",
@@ -182,6 +827,11 @@
       "path": "services/crm-panel-read/server.cjs",
       "bytes": 5894,
       "sha256": "262c4841e3bb84cc0730c52dd95dd5ef1ecb37758c88e2d5a58cacf95139411f"
+    },
+    {
+      "path": "services/dashboard-operational/BCRYPT-LICENSE",
+      "bytes": 1530,
+      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
     },
     {
       "path": "services/dashboard-operational/afiliados-native-consent.cjs",
@@ -205,13 +855,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 160173,
-      "sha256": "ff6bcaed504237373b60e9f5efa955ff3171d2db0c9f55c5ef31d0520164e83f"
-    },
-    {
-      "path": "services/dashboard-operational/BCRYPT-LICENSE",
-      "bytes": 1530,
-      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
+      "bytes": 161584,
+      "sha256": "de7b6663e849b4bbad32964a1a82b0c398649058f30ddda6d2ea783b6dfecc19"
     },
     {
       "path": "services/dashboard-operational/bcrypt.mjs",
@@ -240,8 +885,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-campaign-delivery.cjs",
-      "bytes": 25289,
-      "sha256": "49870992b902a1a061a6a8ac4cc9f2f68589ff3e5467a50bfeb748cddd32a80a"
+      "bytes": 25582,
+      "sha256": "673134fef0ab21ca6e6f5bc29089970bee6e96e1a4e174b1274c1a8ddc7c9428"
     },
     {
       "path": "services/dashboard-operational/crm-manager-runtime.cjs",
@@ -329,6 +974,11 @@
       "sha256": "f76b16be3d7232748f8995b384b613a3a1853c3be35a074e94916235e0cd20ca"
     },
     {
+      "path": "services/dashboard-operational/native-internal-release.json",
+      "bytes": 92,
+      "sha256": "df5e49ed87349c9ce7699b407509da232d66b28f19881c99b70105dbb736b71e"
+    },
+    {
       "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
       "bytes": 12666,
       "sha256": "d1f24dd44ca3c17c4fc6f65ffd9b6817c9ff137ccbdf35ae876fbde865bb8211"
@@ -399,6 +1049,11 @@
       "sha256": "5957c999cd0373c74819cb8ea56a519a6c84ec04bc1b5c487cd355b73969a4af"
     },
     {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
+      "bytes": 6733,
+      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
+    },
+    {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/chart.umd.js",
       "bytes": 208518,
       "sha256": "ecc3cd1eeb8c34d2178e3f59fd63ec5a3d84358c11730af0b9958dc886d7652a"
@@ -422,11 +1077,6 @@
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/inter-700.woff2",
       "bytes": 24356,
       "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
-    },
-    {
-      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
-      "bytes": 6733,
-      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/tabler.min.css",
@@ -470,8 +1120,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 66077,
-      "sha256": "da3f1e63bc7ff32689a37b6c3e148c82f61202852b3f27c1babd1514889559f9"
+      "bytes": 76898,
+      "sha256": "dfe95ebec78999060614f66f1f8039c7457fd166d11b764ccf2a08fb2da30e3d"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -580,8 +1230,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 216953,
-      "sha256": "2e1dedf583ce8c9106d4489b8de3eacd7f18367538e996352965a7ee95e4088a"
+      "bytes": 218325,
+      "sha256": "dceeff5a6a646401d5ede0c93d3a6ec3f88a11d4e5322bdbc29d75c6f2a1e70f"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -607,6 +1257,11 @@
       "path": "services/dashboard-operational/simple-crm-models.cjs",
       "bytes": 15568,
       "sha256": "879344b5935e242e3075505553d6b39873685d58719c9e6d4f641991609b67bb"
+    },
+    {
+      "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
+      "bytes": 7893,
+      "sha256": "68f7c0d5c929c4a5b3f3ece1d4a9fe97436ced31d2a288176f0cf824f4f51323"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -1130,8 +1785,8 @@
     },
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
-      "bytes": 2876,
-      "sha256": "4abf487db578c6737cab5574920c8478a5a571659a77ee3bfd0d78267283db4f"
+      "bytes": 3028,
+      "sha256": "473bcad345ece63527736afdaf36052e5e1ff665c74a35470ad1acb6d35f91d9"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -1178,5 +1833,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "HTML-only QA journey TEST: freeze final saved model HTML, current-account canary, immutable snapshots and safe return. Keeps a9 approved UI unchanged; three presentation corrections remain separate after latency rollback. No commercial activation or new scheduling worker/lease/claim/journal."
+  "candidatePurpose": "QA native scheduling over gateway846: original frozen audience, API16 same campaign, schedule/cancel to draft/null. Existing service/source/identity/operation tables retained. Default visibility remains closed until original two-brand schedule and cancellation receipts. No commercial activation."
 }

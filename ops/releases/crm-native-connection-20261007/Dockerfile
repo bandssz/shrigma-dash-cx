@@ -2,6 +2,7 @@ FROM ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b30
 USER 0:0
 WORKDIR /source
 ARG GIT_SHA
+COPY services/dashboard-operational/simple-crm-native-internal.cjs services/dashboard-operational/native-internal-release.json ./services/dashboard-operational/
 COPY services/dashboard-operational/campaign-write-contract.js ./services/dashboard-operational/
 COPY services/dashboard-operational/journey-internal-test-runtime.cjs services/dashboard-operational/journey-internal-test-transport.cjs services/dashboard-operational/journey-internal-test-binding.cjs services/dashboard-operational/journey-internal-html-binding.cjs services/dashboard-operational/journey-internal-html-snapshot.cjs services/dashboard-operational/journey-send-window.cjs services/dashboard-operational/journey-activation-review.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/simple-tts-manual.cjs services/dashboard-operational/influs-tts-manual.js ./services/dashboard-operational/

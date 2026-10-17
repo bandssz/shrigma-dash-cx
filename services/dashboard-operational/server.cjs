@@ -841,6 +841,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     return result;
   };
   simpleCampaignDrafts=s.simpleReadMode===true&&auth.simpleCampaignDraftFactories?auth.simpleCampaignDraftFactories(simpleDraftTransport):undefined;
+  const nativeInternal=s.simpleReadMode===true&&auth.simpleNativeInternalFactory?auth.simpleNativeInternalFactory({fetchImpl,enabled:require('./native-internal-release.json').enabled===true}):undefined;
   const audienceFeature=ctx=>{
     if(coexistence&&auth.session(ctx).user?.role==='manager'&&s.crmAudienceDraft!==true)return false;
     if(!allowAudienceDraft||!sandbox&&!corporateWriter&&!crmMasterAudienceWrite)return false;
@@ -1398,6 +1399,15 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }
         if(req.method==='POST'&&req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
         const body=req.method==='POST'?await readJson(req,route==='campaigns'?MAX_CAMPAIGN_REQUEST:route==='segments'?MAX_AUDIENCE_REQUEST:undefined):undefined;
+        if(simpleReader&&!nativeContext&&route==='campaigns'&&String(req.method==='POST'?body?.acao:url.searchParams.get('acao')).startsWith('campanha_nativa_')){
+          if(!nativeInternal||new Set(url.searchParams.keys()).size!==url.searchParams.size||req.method==='POST'&&url.search)throw jsonError(403,'NATIVE_INTERNAL_DISABLED');
+          const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields.brand;
+          if(req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'NATIVE_INTERNAL_BRAND');
+          if(req.method==='GET'){if(fields.id!==undefined&&/^[1-9][0-9]{0,8}$/.test(fields.id))fields.id=Number(fields.id);if(fields.expected_version!==undefined&&/^[1-9][0-9]{0,8}$/.test(fields.expected_version))fields.expected_version=Number(fields.expected_version);}
+          const context=auth.simpleDraftContext(ctx,{brand}),result=await nativeInternal.handle(context,req.method,fields);
+          if(result&&Number.isInteger(result.status))return sendJson(req,res,result.status,result.body);
+          return sendJson(req,res,campaignStatus(result),campaignDto(fields.acao,fields.idempotency_key,result));
+        }
         if(simpleReader&&!nativeContext&&req.method==='POST'&&((route==='campaigns'&&['campanha_criar','campanha_salvar','campanha_validar'].includes(body?.acao))||(route==='segments'&&['segmento_criar','segmento_salvar','segmento_arquivar'].includes(body?.acao))))req.crmDraftAttempt={context:ctx,brand:body.brand,key:body.idempotency_key,kind:route==='segments'?'audience':body.acao==='campanha_criar'?'create':'delivery'};
         if(simpleReader&&!nativeContext&&route==='campaign_audience'){
           if(!simpleCampaignAudiences)throw jsonError(503,'CAMPAIGN_AUDIENCE_UNAVAILABLE');

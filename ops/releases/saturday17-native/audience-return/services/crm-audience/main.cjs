@@ -1,0 +1,30 @@
+'use strict';
+const {config}=require('./config.cjs'),{createTransaction}=require('./transaction.cjs'),{createServer}=require('./server.cjs');
+const {createAudienceStore}=require('../../n8n/growth/segment-audience-store.cjs'),{createAudienceAPI}=require('../../n8n/growth/segment-audience-api.cjs');
+const {createSegmentCampaignBinding}=require('../../n8n/growth/segment-campaign-binding.cjs'),{createCampaignBindingAPI}=require('../../n8n/growth/segment-campaign-binding-api.cjs');
+const Regular=require('../../n8n/growth/segment-regular-admission.cjs'),{createRegularAdmissionAPI}=require('../../n8n/growth/segment-regular-admission-api.cjs');
+const Counter=require('../../n8n/growth/segment-audience-listmonk.cjs');
+const ShopifyFacts=require('../../n8n/growth/segment-shopify-facts.cjs');
+const {createABPanelAPI}=require('../../n8n/growth/ab-audience-panel-api.cjs');
+const {createLifecyclePanelAPI}=require('../../n8n/growth/journey-graph-lifecycle-panel-api.cjs');
+function start(env=process.env,{Pool=require('pg').Pool}={}){
+ const c=config(env);if(c.productSemantics!==ShopifyFacts.PRODUCT_SEMANTICS_MODE)throw Error('CRM_AUDIENCE_PRODUCT_SEMANTICS');
+ const pool=new Pool(c.pg),transaction=createTransaction({pool,statementTimeoutMs:c.pg.statement_timeout});
+ pool.on('error',()=>process.stderr.write('CRM_AUDIENCE_DATABASE_UNAVAILABLE\n'));
+ // Catalog reads revalidate the retained configuration and source pins in RAM.
+ // They must never renew persisted metadata as a side effect of GET/COUNT.
+ const countProvider=require('../../n8n/growth/segment-count-diagnostics.cjs').createCounter(Counter.countAudience,{revision:c.revision,write:line=>process.stderr.write(line)});
+ const segments=createAudienceAPI({store:createAudienceStore({transaction,countProvider})});
+ const bindingOnly=createCampaignBindingAPI({store:createSegmentCampaignBinding({transaction,countProvider})});
+ const regular=createRegularAdmissionAPI({store:Regular.createRegularAdmission({transaction,countProvider})});
+ const binding={handle(input,options){const action=input?.request?.body?.acao??input?.request?.query?.acao;return (Object.values(Regular.ACTIONS).includes(action)?regular:bindingOnly).handle(input,options);}};
+ const experiments=createABPanelAPI({transaction,enabled:c.abEnabled&&c.regularEnabled&&c.bindingEnabled});
+ const graphLifecycle=createLifecyclePanelAPI({pool,checkoutSha:c.revision,enabled:c.graphLifecycleEnabled});
+ const app=createServer({segments,binding,experiments,graphLifecycle,revision:c.revision,productSemantics:c.productSemantics,enabled:c.enabled,bindingEnabled:c.bindingEnabled,regularEnabled:c.regularEnabled});
+ app.server.listen(c.port,'0.0.0.0');let stopping=false,stopPromise;
+ const stop=()=>{if(!stopPromise)stopPromise=(async()=>{stopping=true;try{await app.stop();await transaction.drain();await pool.end();}catch{process.exitCode=1;}})();return stopPromise;};
+ process.once('SIGTERM',stop);process.once('SIGINT',stop);
+ return Object.freeze({app,transaction,stop,isStopping:()=>stopping});
+}
+if(require.main===module){try{start();}catch{process.stderr.write('CRM_AUDIENCE_STARTUP_UNAVAILABLE\n');process.exitCode=1;}}
+module.exports={start};

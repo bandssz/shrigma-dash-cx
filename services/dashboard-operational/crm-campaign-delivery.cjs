@@ -66,7 +66,7 @@ function audience(value, row, c, reviewOnly = false) {
   // Evaluate freshness at the historical atomic effect, not the poll time.
   return expires - checked === 300000 && (reviewOnly || rechecked >= checked && rechecked < expires && Date.parse(row.send_at) >= rechecked + 15 * 60000);
 }
-function createCampaignDelivery({ db, authorize, transport, now = Date.now, encrypt, decrypt, prepareDefinition, hasOpenCreate = () => false, serviceDraftProfile }) {
+function createCampaignDelivery({ db, authorize, transport, now = Date.now, encrypt, decrypt, prepareDefinition, hasOpenCreate = () => false, serviceDraftProfile, nativeInternal = false }) {
   const draftOnly=serviceDraftProfile!==undefined;
   if(draftOnly&&!require('./crm-manager-runtime.cjs').isServiceDraftDescriptor(serviceDraftProfile))fail('CAMPAIGN_DELIVERY_CONFIG');
   const caps=draftOnly?new Set(['read_content','draft','validate']):CAPS;
@@ -129,11 +129,12 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
     if (!envelope(value.response)) return null;
     const body = value.response.body;
     if (value.state === 'succeeded') {
-      const fields = row.action === 'validar' ? ['campaign', 'validation', 'tracking'] : ['campaign', 'operation_id', ...(row.action === 'agendar' ? ['audience'] : row.action === 'salvar' ? ['tracking'] : [])];
+      const fields = row.action === 'validar' ? ['campaign', 'validation', 'tracking'] : ['campaign', 'operation_id', ...(row.action === 'agendar' ? ['audience'] : row.action === 'salvar' ? ['tracking'] : []),...(nativeInternal&&['agendar','cancelar'].includes(row.action)?['native_internal']:[])];
       if (value.providerId !== row.campaign_id || value.response.status !== 200 || !exact(body, fields) || row.action !== 'validar' && body.operation_id !== value.id) return null;
+      if(nativeInternal&&['agendar','cancelar'].includes(row.action)&&body.native_internal!==true)return null;
       const c = campaign(body.campaign, row);
       // These gates describe the historical effect, not today's worker state.
-      if (!c || c.status !== ({salvar:'draft',validar:'draft',agendar:'scheduled',cancelar:'cancelled'}[row.action]) || c.sent !== 0 || c.startedAt !== null || c.sendAt !== row.send_at || (row.action === 'validar' ? c.version !== row.expected_version : c.version === row.expected_version)) return null;
+      if (!c || c.status !== ({salvar:'draft',validar:'draft',agendar:'scheduled',cancelar:nativeInternal?'draft':'cancelled'}[row.action]) || c.sent !== 0 || c.startedAt !== null || c.sendAt !== (nativeInternal&&row.action==='cancelar'?null:row.send_at) || (row.action === 'validar' ? c.version !== row.expected_version : c.version === row.expected_version)) return null;
       if(row.action==='salvar'&&(row.definition_sha256!==sha(body.campaign.definition)||!exact(body.tracking,['policy','term','list_ids','changed_links'])||body.tracking.policy!=='crm-campaign-v1'||typeof body.tracking.term!=='string'||body.tracking.term.length<1||body.tracking.term.length>200||!Number.isSafeInteger(body.tracking.changed_links)||body.tracking.changed_links<0||JSON.stringify(body.tracking.list_ids)!==JSON.stringify(body.campaign.definition.list_ids)))return null;
       if (row.action === 'agendar' && !audience(body.audience, row, body.campaign)) return null;
       if (row.action === 'validar' && (!exact(body.validation, ['policy','version','ok','validated_at','audience']) || body.validation.policy !== 'crm-campaign-v1' || body.validation.version !== row.expected_version || body.validation.ok !== true || !date(body.validation.validated_at) || body.validation.validated_at !== body.validation.audience?.checked_at || !audience(body.validation.audience, row, body.campaign, true) || !exact(body.tracking, ['policy','term','list_ids','changed_links']) || body.tracking.policy !== 'crm-campaign-v1' || typeof body.tracking.term !== 'string' || body.tracking.term.length > 200 || body.tracking.term.length < 1 || !Number.isSafeInteger(body.tracking.changed_links) || body.tracking.changed_links < 0 || JSON.stringify(body.tracking.list_ids) !== JSON.stringify(body.campaign.definition.list_ids))) return null;

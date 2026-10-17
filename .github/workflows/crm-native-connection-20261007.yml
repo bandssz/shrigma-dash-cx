@@ -8,8 +8,77 @@ concurrency:
   group: shrigma-native-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  prepare-native:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.event_name == 'push' && github.ref == 'refs/heads/codex/crm-native-connection-20261007' && startsWith(github.event.head_commit.message, 'prepare-native:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-operational-canary
+      RELEASE: ops/releases/saturday17-native
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify exact isolated existing-service contexts
+        run: node ops/releases/saturday17-native/verify-contexts.cjs
+      - name: Open temporary registry session
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          registry_dir="$(mktemp -d "$RUNNER_TEMP/native-registry.XXXXXX")"
+          printf 'DOCKER_CONFIG=%s\n' "$registry_dir" >> "$GITHUB_ENV"
+          export DOCKER_CONFIG="$registry_dir"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build both isolated contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          suffix="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          audience="$IMAGE:saturday17-audience-$suffix"
+          campaign="$IMAGE:saturday17-campaign-$suffix"
+          audience_return="$IMAGE:saturday17-audience-return-$suffix"
+          printf 'AUDIENCE_IMAGE=%s\nCAMPAIGN_IMAGE=%s\nAUDIENCE_RETURN_IMAGE=%s\n' "$audience" "$campaign" "$audience_return" >> "$GITHUB_ENV"
+          docker build --pull --platform linux/amd64 --tag "$audience_return" --file "$RELEASE/audience-return/services/crm-audience/Dockerfile" "$RELEASE/audience-return"
+          docker build --pull --platform linux/amd64 --build-arg "GIT_SHA=$GITHUB_SHA" --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag "$audience" --file "$RELEASE/audience-source/services/crm-audience/Dockerfile" "$RELEASE/audience-source"
+          docker build --pull --platform linux/amd64 --build-arg "GIT_SHA=$GITHUB_SHA" --tag "$campaign" --file "$RELEASE/campaign-source/Dockerfile" "$RELEASE/campaign-source"
+      - name: Prove startup with synthetic identity and no network
+        shell: bash
+        run: |
+          set -euo pipefail
+          for entry in "audience:$AUDIENCE_IMAGE" "campaign:$CAMPAIGN_IMAGE" "audience:$AUDIENCE_RETURN_IMAGE"; do
+            kind="${entry%%:*}"
+            image="${entry#*:}"
+            docker run --rm --network none --read-only --user 1000:1000 --memory 256m --tmpfs /tmp:rw,noexec,nosuid,size=8m --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/source-smoke.cjs,dst=/tmp/source-smoke.cjs,readonly" --env "SMOKE_SOURCE=$kind" --env "SMOKE_REVISION=$GITHUB_SHA" --entrypoint node "$image" /tmp/source-smoke.cjs
+          done
+      - name: Publish prepared images and record digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in "$AUDIENCE_IMAGE" "$CAMPAIGN_IMAGE" "$AUDIENCE_RETURN_IMAGE"; do
+            docker push "$image"
+            printf '%s\n' "$image" >> "$GITHUB_STEP_SUMMARY"
+            docker image inspect "$image" --format '{{range .RepoDigests}}{{println .}}{{end}}' >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Remove temporary registry session
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${DOCKER_CONFIG:-}" == "$RUNNER_TEMP"/native-registry.* ]]; then
+            rm -rf -- "$DOCKER_CONFIG"
+          fi
   verify:
-    if: github.repository == 'bandssz/shrigma-dash-cx' && !startsWith(github.event.head_commit.message, 'test-only:') && !startsWith(github.event.head_commit.message, 'manager-access:') && !startsWith(github.event.head_commit.message, 'affiliate-read:') && !startsWith(github.event.head_commit.message, 'rollback:')
+    if: github.repository == 'bandssz/shrigma-dash-cx' && !startsWith(github.event.head_commit.message, 'test-only:') && !startsWith(github.event.head_commit.message, 'manager-access:') && !startsWith(github.event.head_commit.message, 'affiliate-read:') && !startsWith(github.event.head_commit.message, 'rollback:') && !startsWith(github.event.head_commit.message, 'prepare-native:')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
