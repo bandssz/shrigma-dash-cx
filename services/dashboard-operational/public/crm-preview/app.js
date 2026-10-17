@@ -119,11 +119,12 @@ function crmAnalyticsRange(sources){
 }
 async function crmLoadAnalytics(session,ticket){
  const selected=crmState.brand,brands=selected==='todas'?[...crmState.sessionBrands]:[selected],sources={},errors={};
+ const consumer=crmState.view==='results'?'results-read-v1':'full-v1';
  const stamp=crmSessionStamp(session),check=async brand=>{const current=await crmSession(brand);if(crmSessionStamp(current)!==stamp){crmState.analyticsCache={};throw Error('ACCESS_CHANGED');}return current;};
- await Promise.all(brands.map(async brand=>{if(brand==='olivas'){errors[brand]='BRAND_READ_CONTRACT_NOT_READY';return;}const cache=crmState.analyticsCache[brand];try{
+ await Promise.all(brands.map(async brand=>{if(brand==='olivas'){errors[brand]='BRAND_READ_CONTRACT_NOT_READY';return;}const cacheKey=brand+'|'+consumer,cache=crmState.analyticsCache[cacheKey];try{
   if(cache?.stamp===stamp&&Date.now()-cache.at<60000){await check(brand);sources[brand]=cache.data;return;}
-  const data=await crmRead('/api/crm-read?action=cache_growth&painel=growth',brand,ticket);window.ShrigmaCrmAnalytics.validate(data,brand);if(data.contract==='shrigma-crm-home-read-v1')throw Error('ANALYTICS_FULL_READ_REQUIRED');
-  await check(brand);crmState.analyticsCache[brand]={stamp,data,at:Date.now()};sources[brand]=data;
+  const data=await crmRead('/api/crm-read?action=cache_growth&painel=growth',brand,ticket,consumer==='results-read-v1'?{headers:{'X-Shrigma-Crm-Consumer':consumer}}:{});window.ShrigmaCrmAnalytics.validate(data,brand);if(data.contract==='shrigma-crm-home-read-v1')throw Error('ANALYTICS_FULL_READ_REQUIRED');
+  await check(brand);crmState.analyticsCache[cacheKey]={stamp,data,at:Date.now()};sources[brand]=data;
  }catch(e){if(ticket!==crmState.ticket||selected!==crmState.brand||['ACCESS_CHANGED','ACCESS_DENIED','SESSION_UNAVAILABLE'].includes(e.message)||e.status===403)throw e;errors[brand]=e.code||'SOURCE_UNAVAILABLE';}}));
  await check(crmState.brand);if(ticket!==crmState.ticket||selected!==crmState.brand)throw Error('ACCESS_CHANGED');
  crmState.analyticsSources=sources;crmState.analyticsErrors=errors;crmState.analyticsBrands=brands;crmState.analyticsRange=crmAnalyticsRange(sources);crmBuildAnalytics();
