@@ -784,6 +784,21 @@
       "sha256": "6cf74ead343e89383e556ef79cc2a4baca5936285d76328bf01e57003246b13b"
     },
     {
+      "path": "ops/releases/saturday17-native/freeze-dependencies-install.sql",
+      "bytes": 35397,
+      "sha256": "beee3d98daa0bebc3ca0e66242d177a4a2ed3e5acb92c3f9c1b08200437fb803"
+    },
+    {
+      "path": "ops/releases/saturday17-native/freeze-dependencies-return.sql",
+      "bytes": 1673,
+      "sha256": "ddd2b3f968d2b22e628863430d132ffe59db33d9873f06eb7560b516aaad6e80"
+    },
+    {
+      "path": "ops/releases/saturday17-native/freeze-dependencies.json",
+      "bytes": 1049,
+      "sha256": "3fc75e91fb87b7798b1b9e0743c890fe1738d37f4b27cafd9b8ffa31a39e2157"
+    },
+    {
       "path": "ops/releases/saturday17-native/source-contexts.json",
       "bytes": 21476,
       "sha256": "ad2a82267ce7024cc1160b68d4942a64bfa327b4e743a094b92d90dad62289ff"
@@ -805,8 +820,8 @@
     },
     {
       "path": "ops/releases/saturday17-native/verify-contexts.cjs",
-      "bytes": 1754,
-      "sha256": "bcd28d11aab66ed8ac0c18359d04b643fc7c39fa1cf3c43474b5a83185e254cd"
+      "bytes": 2206,
+      "sha256": "a2bf0c9145e5140b0873981e656fd31774c64886667bb847e50c54ab5cff4b6e"
     },
     {
       "path": "organico.html",

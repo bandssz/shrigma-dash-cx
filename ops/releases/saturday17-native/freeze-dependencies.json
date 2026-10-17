@@ -1,0 +1,27 @@
+{
+  "schema": "crm-native-internal-freeze-dependencies-v1",
+  "installed": false,
+  "helpers": [
+    {
+      "signature": "crm_audience_v2.shopify_native_members_20261017(jsonb,text,integer,jsonb)",
+      "body_md5": "7e189747ece488031da6173487b2aaea",
+      "acl": "{postgres=X/postgres}"
+    },
+    {
+      "signature": "crm_audience_v2.shopify_native_flat_members_20261017(jsonb,text,integer,jsonb)",
+      "body_md5": "513d1b470a3313c1367e8a9fc363ad2e",
+      "acl": "{postgres=X/postgres}"
+    },
+    {
+      "signature": "crm_audience_v2.freeze_native_internal_saved_audience_20261017(text,text,uuid,integer,text,text,text,jsonb,jsonb,text,text)",
+      "body_md5": "bd6a5bf2891da92212422a54ee12b6f9",
+      "acl": "{postgres=X/postgres,crm_audience_api=X/postgres}"
+    }
+  ],
+  "installSha256": "beee3d98daa0bebc3ca0e66242d177a4a2ed3e5acb92c3f9c1b08200437fb803",
+  "returnSha256": "ddd2b3f968d2b22e628863430d132ffe59db33d9873f06eb7560b516aaad6e80",
+  "sourceCounterUnchanged": true,
+  "newTables": 0,
+  "newWorkers": 0,
+  "newJournals": 0
+}
