@@ -60,6 +60,8 @@ jobs:
             tests/product-preview-expansion.test.cjs \
             tests/crm-legacy-parity.test.cjs \
             tests/shared-period.test.cjs
+      - name: Native browser form semantics (synthetic, no production)
+        run: node --test --test-concurrency=1 tests/crm-form-browser.test.cjs
       - name: Logout read-only registry session
         if: always()
         run: docker --config "$RUNNER_TEMP/crm-form-docker" logout ghcr.io
