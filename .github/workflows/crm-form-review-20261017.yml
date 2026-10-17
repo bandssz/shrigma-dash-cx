@@ -15,7 +15,6 @@ jobs:
     timeout-minutes: 20
     env:
       BASE: ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911
-      DOCKER_CONFIG: ${{ runner.temp }}/crm-form-docker
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -31,6 +30,7 @@ jobs:
           REGISTRY_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          export DOCKER_CONFIG="$RUNNER_TEMP/crm-form-docker"
           mkdir -m 0700 "$DOCKER_CONFIG"
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker pull --platform linux/amd64 "$BASE"
@@ -62,4 +62,4 @@ jobs:
             tests/shared-period.test.cjs
       - name: Logout read-only registry session
         if: always()
-        run: docker logout ghcr.io
+        run: docker --config "$RUNNER_TEMP/crm-form-docker" logout ghcr.io
