@@ -48,11 +48,40 @@ test('conflicts, archived rows, disabled catalog and invalid definitions have du
  const loser={...save,idempotency_key:'save-conflict'},conflict=await f.call(loser);assert.equal(conflict.status,409);assert.deepEqual(conflict.body,{error:'SEGMENT_VERSION_CONFLICT',current_version:2});
  assert.deepEqual(await f.call({acao:'segmento_operacao',brand:'fish',idempotency_key:loser.idempotency_key}),conflict);
  await f.call({acao:'segmento_arquivar',brand:'fish',id:first.id,expected_version:2,idempotency_key:'archive-once'});
- const archived=await f.call({...save,expected_version:3,idempotency_key:'save-archived'});assert.equal(archived.body.error,'SEGMENT_ARCHIVED');
+ const archived=await f.call({...save,definition:{...save.definition,name:'changed while archived'},expected_version:3,idempotency_key:'save-archived'});assert.equal(archived.body.error,'SEGMENT_ARCHIVED');
  const malformed=f.create('fish','bad-definition');malformed.definition.rule={op:'raw_sql',text:'DROP TABLE subscribers'};const invalid=await f.call(malformed);assert.equal(invalid.status,422);assert.equal(invalid.body.error,'SEGMENT_SHAPE');assert.deepEqual(await f.call({acao:'segmento_operacao',brand:'fish',idempotency_key:malformed.idempotency_key}),invalid);
  await f.db.query("UPDATE crm_audience_v2.config SET enabled=false WHERE brand='fish'");const unavailable=await f.call(f.create('fish','catalog-disabled'));assert.equal(unavailable.status,503);assert.equal(unavailable.body.error,'SEGMENT_UNAVAILABLE');
  const history=await f.call(list('fish'));assert.equal(history.status,200);assert.equal(history.body.segments.length,1);assert.equal(history.body.catalog.current,false);assert.deepEqual(history.body.capabilities,{draft:false,count:false,send:false});
  assert.equal((await rows(f,'audience')).length,1);assert.equal((await rows(f,'revision')).length,3);
+});
+
+test('restore is an exact-definition SAVE with CAS and the original immutable receipt in both brands',async t=>{
+ const f=await fixture(t),contacts=(await f.db.query('SELECT * FROM subscriber_lists ORDER BY subscriber_id,list_id')).rows;
+ for(const brand of ['fish','aristo']){
+  const first=(await f.call(f.create(brand,'restore-create-'+brand))).body.segment;
+  const archived=(await f.call({acao:'segmento_arquivar',brand,id:first.id,expected_version:1,idempotency_key:'restore-archive-'+brand})).body.segment;
+  const command={acao:'segmento_salvar',brand,id:first.id,expected_version:2,definition:archived.definition,expected_catalog_hash:f.catalogHashes[brand],idempotency_key:'restore-exact-'+brand};
+  const wrong=await f.call({...command,idempotency_key:'restore-mutate-'+brand,definition:{...archived.definition,name:'changed'}});assert.equal(wrong.body.error,'SEGMENT_ARCHIVED');
+  const ruleChanged=await f.call({...command,idempotency_key:'restore-rule-'+brand,definition:{...archived.definition,rule:{op:'condition',field:'purchase.count',operator:'gt',value:100}}});assert.equal(ruleChanged.body.error,'SEGMENT_ARCHIVED');
+  const stale=await f.call({...command,idempotency_key:'restore-stale-'+brand,expected_version:1});assert.equal(stale.body.error,'SEGMENT_VERSION_CONFLICT');
+  const result=await f.call(command);assert.equal(result.status,200);assert.equal(result.body.segment.id,first.id);assert.equal(result.body.segment.version,3);assert.equal(result.body.segment.archived,false);assert.deepEqual(result.body.segment.definition,first.definition);
+  assert.deepEqual(await f.call(command),result);assert.deepEqual(await f.call({acao:'segmento_operacao',brand,idempotency_key:command.idempotency_key}),result);
+  const recovery=await f.call({acao:'segmento_operacao_v2',brand,idempotency_key:command.idempotency_key});assert.equal(recovery.status,200);assert.equal(recovery.body.operation.action,'segmento_salvar');assert.equal(recovery.body.operation.receipt.body.segment.archived,false);
+  const versions=(await f.db.query('SELECT version,archived,definition FROM crm_audience_v2.revision WHERE audience_id=$1 ORDER BY version',[first.id])).rows;
+  assert.deepEqual(versions.map(x=>[x.version,x.archived]),[[1,false],[2,true],[3,false]]);for(const row of versions)assert.deepEqual(row.definition,first.definition);
+ }
+ assert.deepEqual((await f.db.query('SELECT * FROM subscriber_lists ORDER BY subscriber_id,list_id')).rows,contacts);
+});
+
+test('restore refuses changed source context and cannot use receipt recovery to bypass revoked access',async t=>{
+ const f=await fixture(t),brand='fish',first=(await f.call(f.create(brand,'restore-context-create'))).body.segment;
+ await f.call({acao:'segmento_arquivar',brand,id:first.id,expected_version:1,idempotency_key:'restore-context-archive'});
+ const command={acao:'segmento_salvar',brand,id:first.id,expected_version:2,definition:first.definition,expected_catalog_hash:f.catalogHashes[brand],idempotency_key:'restore-context-save'};
+ await f.db.query("UPDATE crm_audience_v2.config SET catalog=jsonb_set(catalog,'{currency}','\"USD\"'),revision=revision+1 WHERE brand='fish'");
+ const current=await f.call(list(brand));const rejected=await f.call({...command,expected_catalog_hash:current.body.catalog.catalog_hash});assert.equal(rejected.body.error,'SEGMENT_CATALOG_CHANGED');
+ assert.equal((await f.call(get(brand,first.id))).body.segment.archived,true);assert.equal((await rows(f,'revision')).length,2);
+ await f.db.query("UPDATE shrigma_panel_permission_v1 SET caps='[]' WHERE principal_id='manager'");
+ assert.equal((await f.call({acao:'segmento_operacao',brand,idempotency_key:command.idempotency_key})).status,403);
 });
 
 test('authorization is server-side, current after locks, and replay never bypasses revoked permissions',async t=>{

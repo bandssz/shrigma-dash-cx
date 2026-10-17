@@ -46,7 +46,7 @@ const SQL=Object.freeze({
  get:"SELECT * FROM crm_audience_v2.audience WHERE id=$1::uuid AND brand=$2::text FOR SHARE",
  getWrite:"SELECT * FROM crm_audience_v2.audience WHERE id=$1::uuid AND brand=$2::text FOR UPDATE",
  create:"INSERT INTO crm_audience_v2.audience(brand,name,definition,definition_hash,context,context_hash,created_by,updated_by) VALUES($1,$2,$3::jsonb,$4,$5::jsonb,$6,$7,$7) RETURNING *",
- save:"UPDATE crm_audience_v2.audience SET name=$3,definition=$4::jsonb,definition_hash=$5,context=$6::jsonb,context_hash=$7,version=version+1,updated_by=$8,updated_at=pg_catalog.clock_timestamp() WHERE id=$1::uuid AND brand=$2 RETURNING *",
+ save:"UPDATE crm_audience_v2.audience SET name=$3,definition=$4::jsonb,definition_hash=$5,context=$6::jsonb,context_hash=$7,archived=false,version=version+1,updated_by=$8,updated_at=pg_catalog.clock_timestamp() WHERE id=$1::uuid AND brand=$2 RETURNING *",
  archive:"UPDATE crm_audience_v2.audience SET archived=true,version=version+1,updated_by=$3,updated_at=pg_catalog.clock_timestamp() WHERE id=$1::uuid AND brand=$2 RETURNING *",
  revision:"INSERT INTO crm_audience_v2.revision(audience_id,version,definition,definition_hash,context,context_hash,archived,actor) VALUES($1::uuid,$2,$3::jsonb,$4,$5::jsonb,$6,$7,$8)",
  receipt:"INSERT INTO crm_audience_v2.request(actor,operation_key,brand,payload,payload_hash,response) VALUES($1,$2,$3,$4::jsonb,$5,$6::jsonb)"
@@ -258,7 +258,12 @@ function createAudienceStore({transaction,countProvider=null,refreshCatalog=null
      return response(200,{segments,limit:p.limit,offset:p.offset,catalog:c.catalog,capabilities:{draft:c.ready&&auth.caps.includes('draft'),count:c.ready&&countProvider!==null,send:false}});
     }
     let s=null;
-    if(p.id){const rows=(await query(writing?SQL.getWrite:SQL.get,[p.id,p.brand])).rows;s=rows.length===1?validStored(rows[0]):null;if(!s)throw fail('SEGMENT_NOT_FOUND',404);if(p.acao==='segmento_obter'){c=await readCatalog(query,p.brand);await reauth();return response(200,{segment:publicSegment(s,c)});}if(s.version!==p.expected_version)throw fail('SEGMENT_VERSION_CONFLICT',409);if(s.archived)throw fail('SEGMENT_ARCHIVED',409);}
+    if(p.id){const rows=(await query(writing?SQL.getWrite:SQL.get,[p.id,p.brand])).rows;s=rows.length===1?validStored(rows[0]):null;if(!s)throw fail('SEGMENT_NOT_FOUND',404);if(p.acao==='segmento_obter'){c=await readCatalog(query,p.brand);await reauth();return response(200,{segment:publicSegment(s,c)});}if(s.version!==p.expected_version)throw fail('SEGMENT_VERSION_CONFLICT',409);
+     // Deliberate restore contract: SAVE of an archived audience is allowed only
+     // with its exact saved definition. Editing it while archived stays denied.
+     // Reuse the existing CAS, row lock, immutable revision and request receipt.
+     if(s.archived&&(p.acao!=='segmento_salvar'||H.digest(p.definition)!==s.definition_hash))throw fail('SEGMENT_ARCHIVED',409);
+    }
     if(!c.ready)throw fail('SEGMENT_UNAVAILABLE');
     if(p.expected_catalog_hash&&p.expected_catalog_hash!==c.catalog.catalog_hash)throw fail('SEGMENT_CATALOG_CHANGED',409);
     if(s&&['segmento_salvar','segmento_contar'].includes(p.acao)&&!semanticContext(s,c).current)throw fail('SEGMENT_CATALOG_CHANGED',409);
