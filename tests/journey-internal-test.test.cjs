@@ -163,7 +163,7 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
  const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
  const {createAuth}=require(runtime+'/auth.cjs'),{createServer}=require(runtime+'/server.cjs');
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'journey-internal-http-')),host='gerencial.synthetic.invalid',origin='https://'+host,password='synthetic-internal-test-password',boot='synthetic-bootstrap',sends=[];
- const options={dbPath:path.join(dir,'test.sqlite'),managerHost:host,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influ.synthetic.invalid'},allowedEmailDomains:['shrigma.com.br'],bootstrapAdminEmail:'synthetic-test-never-deliver@shrigma.com.br',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,3),simpleReadMode:true,crmNativeEnabled:true,journeyTestTransport:{getBinding:brand=>brand==='aristo'?{purpose:'crm.journey-internal-test',brand,active:true,txSend:true,revision:'synthetic-test',templateId:1}:null,send:async args=>{a.equal(args.preSend(),true);sends.push(args);return {state:'accepted'};}}};
+ const options={now:()=>Date.parse('2026-10-16T12:00:00Z'),dbPath:path.join(dir,'test.sqlite'),managerHost:host,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influ.synthetic.invalid'},allowedEmailDomains:['shrigma.com.br'],bootstrapAdminEmail:'synthetic-test-never-deliver@shrigma.com.br',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,3),simpleReadMode:true,crmNativeEnabled:true,journeyTestTransport:{getBinding:brand=>brand==='aristo'?{purpose:'crm.journey-internal-test',brand,active:true,txSend:true,revision:'synthetic-test',templateId:1}:null,send:async args=>{a.equal(args.preSend(),true);sends.push(args);return {state:'accepted'};}}};
  const auth=createAuth(options);await auth.completeBootstrap({email:options.bootstrapAdminEmail,token:boot,password,host,origin});
  const grantDb=new DatabaseSync(options.dbPath);grantDb.prepare('UPDATE grants SET can_edit=1 WHERE area=?').run('growth');grantDb.close();
  const login=await auth.login({email:options.bootstrapAdminEmail,password,host,origin}),cookie=login.cookie.split(';')[0],context={host,origin,method:'POST',cookieHeader:cookie,csrf:login.csrf};
@@ -238,6 +238,9 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
  const uiNonce='33333333-3333-4333-8333-333333333333',uiBody={action:'start',brand:'aristo',draftId:uiDraft.id,version:1,requestId:uiNonce},sendsBeforeUI=sends.length;
  a.equal((await request('POST','/api/journey-test',uiBody,'')).status,403);
  const ui=await journeyUI(cookie,uiNonce);ui.host.querySelector('[data-lab-internal-read]').click();await ui.settle();
+ a.equal(ui.host.querySelector('[data-lab-internal-start]').disabled,true);
+ ui.host.querySelector('[data-lab-save]').click();await ui.settle();
+ a.equal(auth.simpleAccounts.labRead({context,brand:'aristo'}).sendWindows[0].window.start,'09:00');
  a.equal(ui.host.querySelector('[data-lab-internal-start]').disabled,false);ui.host.querySelector('[data-lab-internal-start]').click();await ui.settle();
  a.deepEqual(ui.calls.filter(c=>c.path==='/api/journey-test'&&c.method==='POST').map(c=>[c.protected,c.status]),[[true,201]]);
  a.equal(auth.simpleAccounts.journeyTest.list(context,'aristo').filter(x=>x.draftId===uiDraft.id).length,1);

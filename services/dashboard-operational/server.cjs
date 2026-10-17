@@ -1235,7 +1235,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(req.method==='GET'&&url.searchParams.size===1&&url.searchParams.has('brand'))return sendJson(req,res,200,auth.simpleAccounts.labRead({context:ctx,brand:url.searchParams.get('brand')}));
         if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
         if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
-        const body=await readJson(req,1000000);if(!body||!['brand,expected_revision,store','brand,expected_revision,modelRefs,store'].includes(Object.keys(body).sort().join(',')))throw jsonError(400,'LAB_ARGUMENTS_INVALID');
+        const body=await readJson(req,1000000);if(!body||!['brand,expected_revision,store','brand,expected_revision,modelRefs,store','brand,expected_revision,sendWindows,store','brand,expected_revision,modelRefs,sendWindows,store'].includes(Object.keys(body).sort().join(',')))throw jsonError(400,'LAB_ARGUMENTS_INVALID');
         return sendJson(req,res,200,auth.simpleAccounts.labSave({context:ctx,...body}));
       }
       if(url.pathname==='/api/test-diagnostics'&&s.simpleReadMode===true&&auth.privateTestDiagnostics){

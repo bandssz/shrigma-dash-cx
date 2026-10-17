@@ -4,7 +4,8 @@
 const {createHash}=require('node:crypto'),UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
 const hash=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
-function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,currentIdentity,getBinding,send,getModelPiece,getHtmlBinding,sendHtml,now=Date.now,timeoutMs=15000}={}){
+const Window=require('./journey-send-window.cjs'),WINDOW_CONTRACT='journey-send-window-v1';
+function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,getSendWindow,currentIdentity,getBinding,send,getModelPiece,getHtmlBinding,sendHtml,now=Date.now,timeoutMs=15000}={}){
  if(!db?.exec||!db.prepare||[authorize,authorizeRead,getDraft,currentIdentity,getBinding,send,now].some(v=>typeof v!=='function')||!engine?.validateDraft||!Number.isInteger(timeoutMs)||timeoutMs<5||timeoutMs>30000)fail('TEST_CONFIG_INVALID',503);
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_test_v1(request_id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL,draft_json TEXT NOT NULL,identity_hash TEXT NOT NULL,binding_hash TEXT NOT NULL,started_at INTEGER NOT NULL,status TEXT NOT NULL,cursor INTEGER NOT NULL DEFAULT 0,paused INTEGER NOT NULL DEFAULT 0,purchase INTEGER NOT NULL DEFAULT 0,opt_out INTEGER NOT NULL DEFAULT 0);CREATE TABLE IF NOT EXISTS journey_internal_attempt_v1(attempt_key TEXT PRIMARY KEY,request_id TEXT NOT NULL REFERENCES journey_internal_test_v1(request_id),step_id TEXT NOT NULL,state TEXT NOT NULL,code TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)");
  // Compatibility release only: there is deliberately no adoption writer yet.
@@ -12,6 +13,7 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,curr
  // safe return image which cannot execute the immutable base plan by accident.
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_revision_v2(request_id TEXT NOT NULL REFERENCES journey_internal_test_v1(request_id),revision INTEGER NOT NULL,expected_revision INTEGER NOT NULL,frozen_cursor INTEGER NOT NULL,baseline_sha256 TEXT NOT NULL,draft_json TEXT NOT NULL,adopted_at INTEGER NOT NULL,PRIMARY KEY(request_id,revision))");
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_contract_v2(request_id TEXT NOT NULL REFERENCES journey_internal_test_v1(request_id),contract TEXT NOT NULL,minimum_runner INTEGER NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(request_id,contract))");
+ db.exec("CREATE TABLE IF NOT EXISTS journey_internal_send_window_v1(request_id TEXT PRIMARY KEY REFERENCES journey_internal_test_v1(request_id),draft_sha256 TEXT NOT NULL,policy_json TEXT NOT NULL,policy_sha256 TEXT NOT NULL)");
  const HTML_CONTRACT='journey-html-test-v1',htmlConfigured=[getModelPiece,getHtmlBinding,sendHtml].every(f=>typeof f==='function');
  const snapshots=require('./journey-internal-html-snapshot.cjs').createSnapshots({db,getModelPiece:typeof getModelPiece==='function'?getModelPiece:()=>fail('TEST_HTML_BINDING_REQUIRED',503)});
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_html_job_v1(request_id TEXT PRIMARY KEY REFERENCES journey_internal_test_v1(request_id),binding_hash TEXT NOT NULL)");
@@ -23,8 +25,16 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,curr
  function binding(brand){const b=getBinding(brand);if(!b||b.purpose!=='crm.journey-internal-test'||b.active!==true||b.txSend!==true||b.brand!==brand||typeof b.revision!=='string'||!b.revision||!Number.isSafeInteger(b.templateId)||b.templateId<1)fail('TEST_TX_BINDING_REQUIRED',503);return {value:b,hash:hash([b.purpose,b.brand,b.revision,b.templateId])};}
  const find=id=>db.prepare('SELECT * FROM journey_internal_test_v1 WHERE request_id=?').get(id);
  const adopted=id=>!!db.prepare('SELECT 1 FROM journey_internal_revision_v2 WHERE request_id=? LIMIT 1').get(id);
- const requiresNewRunner=id=>adopted(id)||db.prepare('SELECT contract,minimum_runner FROM journey_internal_contract_v2 WHERE request_id=?').all(id).some(c=>!htmlConfigured||c.contract!==HTML_CONTRACT||c.minimum_runner!==2)||!htmlMarker(id)&&(!!db.prepare('SELECT 1 FROM journey_internal_html_job_v1 WHERE request_id=?').get(id)||!!db.prepare('SELECT 1 FROM journey_internal_html_snapshot_v1 WHERE request_id=? LIMIT 1').get(id));
- function htmlIdentity(id,brand){const who=identity(id,brand);if(who.user.email.toLowerCase()!=='felipebandeira+codex@oaristocrata.com')fail('TEST_HTML_CANARY_ACCOUNT_REQUIRED');return who;}
+ function frozenWindow(r){const row=db.prepare('SELECT * FROM journey_internal_send_window_v1 WHERE request_id=?').get(r.request_id);if(!row)return null;const draft=JSON.parse(r.draft_json),policy=Window.normalize(JSON.parse(row.policy_json));if(row.draft_sha256!==hash(draft)||JSON.stringify(policy)!==row.policy_json||hash(policy)!==row.policy_sha256)fail('TEST_WINDOW_CONTRACT_CHANGED',409);return policy;}
+ function requiresNewRunner(id){
+  if(adopted(id))return true;
+  const contracts=db.prepare('SELECT contract,minimum_runner FROM journey_internal_contract_v2 WHERE request_id=?').all(id);
+  if(contracts.some(c=>c.contract===HTML_CONTRACT?!htmlConfigured||c.minimum_runner!==2:c.contract===WINDOW_CONTRACT?c.minimum_runner!==3:true))return true;
+  if(!htmlMarker(id)&&(db.prepare('SELECT 1 FROM journey_internal_html_job_v1 WHERE request_id=?').get(id)||db.prepare('SELECT 1 FROM journey_internal_html_snapshot_v1 WHERE request_id=? LIMIT 1').get(id)))return true;
+  const marker=contracts.some(c=>c.contract===WINDOW_CONTRACT),row=db.prepare('SELECT 1 FROM journey_internal_send_window_v1 WHERE request_id=?').get(id);
+  if(marker!==!!row)return true;try{if(row)frozenWindow(find(id));}catch{return true;}return false;
+ }
+ function htmlIdentity(id,brand){return identity(id,brand);}
  function frozenHtml(r){htmlIdentity(r.user_id,r.brand);if(!htmlConfigured||!htmlMarker(r.request_id)||requiresNewRunner(r.request_id))fail('TEST_HTML_COMPATIBILITY_HOLD',503);const job=db.prepare('SELECT binding_hash FROM journey_internal_html_job_v1 WHERE request_id=?').get(r.request_id),b=htmlBinding(r.brand);if(!job||job.binding_hash!==b.hash)fail('TEST_HTML_BINDING_CHANGED',409);return {binding:b,snapshots:snapshots.read(r.request_id,JSON.parse(r.draft_json))};}
  function effectiveDraft(r){
   let draft=JSON.parse(r.draft_json);engine.validateDraft(draft);if(draft.brand!==r.brand)fail('TEST_REVISION_CHAIN_INVALID',503);
@@ -42,14 +52,15 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,curr
  function summary(r){
   if(!r)fail('TEST_NOT_FOUND',404);const draft=effectiveDraft(r),attempts=db.prepare('SELECT step_id,state,code,created_at,updated_at FROM journey_internal_attempt_v1 WHERE request_id=? ORDER BY created_at,step_id').all(r.request_id);
   const steps=draft.steps.map(step=>{const a=attempts.find(a=>a.step_id===step.id);return {step_id:step.id,template_name:step.templateName,channel:step.channel,enabled:step.enabled,due_at:new Date(r.started_at+step.waitMinutes*60000).toISOString(),test_marker:testMarker(r.request_id,step.id),state:a?.state||(!step.enabled?'disabled':r.status==='excluded'?'excluded':['failed','uncertain'].includes(r.status)?'blocked':r.paused?'paused':'waiting'),code:a?.code||null,created_at:a?.created_at??null,updated_at:a?.updated_at??null};});
-  return {requestId:r.request_id,brand:r.brand,draftId:draft.id,version:draft.revision,mode:'internal',recipient:'current-corporate-account',status:r.status,paused:!!r.paused,steps,accepted:attempts.filter(a=>a.state==='accepted').length,uncertain:attempts.filter(a=>['reserved','uncertain'].includes(a.state)).length,delivered:null,productionAudienceSelected:false,...(htmlMarker(r.request_id)?{contentFormat:'html',modelHtmlRequired:true}:{}),...(requiresNewRunner(r.request_id)?{compatibilityHold:true}:{})};
+  const hold=requiresNewRunner(r.request_id),window=hold?null:frozenWindow(r),windowState=window&&!['finished','excluded','failed','uncertain'].includes(r.status)?Window.evaluate(window,time()):null;
+  return {requestId:r.request_id,brand:r.brand,draftId:draft.id,version:draft.revision,mode:'internal',recipient:'current-corporate-account',status:r.status,paused:!!r.paused,steps,accepted:attempts.filter(a=>a.state==='accepted').length,uncertain:attempts.filter(a=>['reserved','uncertain'].includes(a.state)).length,delivered:null,productionAudienceSelected:false,...(htmlMarker(r.request_id)?{contentFormat:'html',modelHtmlRequired:true}:{}),...(window?{sendWindow:window,...(windowState?{windowOpen:windowState.allowed,nextWindowAt:windowState.nextAt===null?null:new Date(windowState.nextAt).toISOString()}: {})}:{}),...(hold?{compatibilityHold:true}:{})};
  }
  function owner(context,brand,id,write=false){const u=(write?authorize:authorizeRead)(context,brand),r=find(id);if(!r||r.user_id!==u.id||r.brand!==brand)fail('TEST_NOT_FOUND',404);if(write)identity(u.id,brand);return r;}
  function startPlan(context,{brand,draftId,version,requestId},models){
   const u=authorize(context,brand);if(!UUID.test(requestId||''))fail('TEST_REQUEST_INVALID',400);
   const who=identity(u.id,brand),b=binding(brand),d=getDraft(context,brand,draftId);engine.validateDraft(d);if(d.id!==draftId||d.brand!==brand||d.revision!==version)fail('TEST_DRAFT_CHANGED',409);
   const isHtml=models!==undefined;if(isHtml){htmlIdentity(u.id,brand);if(!htmlConfigured)fail('TEST_HTML_BINDING_REQUIRED',503);htmlBinding(brand);}
-  return transaction(()=>{const frozen=isHtml?snapshots.prepare(context,{brand,draft:d,models}):null;const old=find(requestId);if(old){const prior=JSON.parse(old.draft_json);if(old.user_id!==u.id||old.brand!==brand||prior.id!==draftId||prior.revision!==version||isHtml!==htmlMarker(requestId))fail('TEST_REQUEST_CHANGED',409);if(isHtml&&hash(snapshots.references(frozenHtml(old).snapshots))!==hash(snapshots.references(frozen)))fail('TEST_REQUEST_CHANGED',409);return summary(old);}
+  return transaction(()=>{const fresh=getDraft(context,brand,draftId);engine.validateDraft(fresh);if(hash(fresh)!==hash(d))fail('TEST_DRAFT_CHANGED',409);const selectedWindow=typeof getSendWindow==='function'?getSendWindow(context,brand,draftId,version):null,window=typeof getSendWindow==='function'?Window.normalize(selectedWindow??Window.DEFAULT):null,frozen=isHtml?snapshots.prepare(context,{brand,draft:d,models}):null;const old=find(requestId);if(old){const prior=JSON.parse(old.draft_json);if(old.user_id!==u.id||old.brand!==brand||prior.id!==draftId||prior.revision!==version||isHtml!==htmlMarker(requestId)||hash(window)!==hash(frozenWindow(old)))fail('TEST_REQUEST_CHANGED',409);if(isHtml&&hash(snapshots.references(frozenHtml(old).snapshots))!==hash(snapshots.references(frozen)))fail('TEST_REQUEST_CHANGED',409);return summary(old);}
    const sameVersion=db.prepare("SELECT 1 FROM journey_internal_test_v1 t WHERE t.user_id=? AND t.brand=? AND json_extract(t.draft_json,'$.id')=? AND (json_extract(t.draft_json,'$.revision')=? OR EXISTS(SELECT 1 FROM journey_internal_revision_v2 p WHERE p.request_id=t.request_id AND p.revision=?))").get(u.id,brand,draftId,version,version);
    if(sameVersion)fail('TEST_VERSION_ALREADY_RUN',409);
    // UI already prevents overlapping revisions. Enforce it here too, across
@@ -58,6 +69,7 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,curr
    if(activeDraft)fail('TEST_DRAFT_ALREADY_ACTIVE',409);
    db.prepare('INSERT INTO journey_internal_test_v1(request_id,user_id,brand,draft_json,identity_hash,binding_hash,started_at,status) VALUES(?,?,?,?,?,?,?,?)').run(requestId,u.id,brand,JSON.stringify(d),who.hash,b.hash,time(),'waiting');
    if(isHtml){const h=htmlBinding(brand);db.prepare('INSERT INTO journey_internal_html_job_v1 VALUES(?,?)').run(requestId,h.hash);snapshots.append(requestId,frozen);db.prepare('INSERT INTO journey_internal_contract_v2 VALUES(?,?,2,?)').run(requestId,HTML_CONTRACT,time());}
+   if(window){const json=JSON.stringify(window);db.prepare('INSERT INTO journey_internal_send_window_v1 VALUES(?,?,?,?)').run(requestId,hash(d),json,hash(window));db.prepare('INSERT INTO journey_internal_contract_v2 VALUES(?,?,3,?)').run(requestId,WINDOW_CONTRACT,time());}
    return summary(find(requestId));});
  }
  const start=(context,args)=>startPlan(context,args);
@@ -73,7 +85,7 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,curr
   return transaction(()=>{const r=owner(context,brand,requestId,true);if(['finished','excluded','uncertain','failed'].includes(r.status))return summary(r);
    if(htmlMarker(requestId)&&paused!==true)frozenHtml(r);
    if(requiresNewRunner(requestId)){effectiveDraft(r);if(paused!==true||purchase!==undefined||optOut!==undefined)fail('TEST_COMPATIBILITY_HOLD',409);}
-   if(htmlMarker(requestId)&&r.status==='compatibility_hold'&&paused===false&&!requiresNewRunner(requestId))db.prepare("UPDATE journey_internal_test_v1 SET status='waiting' WHERE request_id=?").run(requestId);
+   if((htmlMarker(requestId)||db.prepare('SELECT 1 FROM journey_internal_send_window_v1 WHERE request_id=?').get(requestId))&&r.status==='compatibility_hold'&&paused===false&&!requiresNewRunner(requestId))db.prepare("UPDATE journey_internal_test_v1 SET status='waiting' WHERE request_id=?").run(requestId);
    db.prepare('UPDATE journey_internal_test_v1 SET paused=?,purchase=?,opt_out=? WHERE request_id=?').run(Number(paused??!!r.paused),Number(purchase??!!r.purchase),Number(optOut??!!r.opt_out),requestId);return summary(find(requestId));});
  }
  let working=false;
@@ -95,6 +107,7 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,curr
      let cursor=r.cursor;while(cursor<d.steps.length&&!d.steps[cursor].enabled)cursor++;
      if(cursor===d.steps.length){db.prepare("UPDATE journey_internal_test_v1 SET status='finished',cursor=? WHERE request_id=?").run(cursor,r.request_id);return null;}
      const step=d.steps[cursor],t=time();if(t<r.started_at+step.waitMinutes*60000)return null;
+     const window=frozenWindow(r);if(window&&!Window.evaluate(window,t).allowed)return null;
      const attemptKey=hash([r.request_id,d.id,d.revision,step.id]),existing=db.prepare('SELECT state FROM journey_internal_attempt_v1 WHERE attempt_key=?').get(attemptKey);
      if(existing&&existing.state!=='not_sent'){db.prepare("UPDATE journey_internal_test_v1 SET status='uncertain' WHERE request_id=?").run(r.request_id);return null;}
      if(existing)db.prepare("UPDATE journey_internal_attempt_v1 SET state='reserved',code=NULL,updated_at=? WHERE attempt_key=? AND state='not_sent'").run(t,attemptKey);
@@ -121,12 +134,13 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,curr
       const saved=JSON.parse(job.draft_json);
       if(job.paused)fail('TEST_PAUSED_BEFORE_SEND');
       if(job.opt_out||saved.exitOnPurchase&&job.purchase)fail('TEST_EXCLUDED_BEFORE_SEND');
+      const window=frozenWindow(job);if(window&&!Window.evaluate(window,time()).allowed)fail('TEST_WINDOW_CLOSED_BEFORE_SEND');
       return true;
      };
      let r;try{r=await Promise.race([(reservation.html?sendHtml:send)({binding:reservation.html?reservation.html.binding.value:b.value,recipient:current.user.email,subject:reservation.step.subject.slice(0,220)+' · '+testMarker(reservation.requestId,reservation.step.id),text:reservation.step.text,...(reservation.html?{html:reservation.html.snapshot.html,htmlSha256:reservation.html.snapshot.htmlSha256}:{}),requestId:reservation.requestId,attemptKey:reservation.attemptKey,diagnosticContext:{userId:current.user.id,requestId:reservation.requestId},signal:controller.signal,preSend}),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('TEST_SEND_DEADLINE'));},timeoutMs);})]);}finally{clearTimeout(timer);}
      if(r?.state==='accepted')result={state:'accepted',code:null};
      else if(r?.state==='refused')result={state:'refused',code:/^[A-Z0-9_]{3,64}$/.test(r.code||'')?r.code:'TEST_SEND_REFUSED'};
-     else if(r?.state==='not_sent')result={state:'not_sent',code:/^TEST_(PAUSED|EXCLUDED|BINDING_CHANGED|ATTEMPT_CHANGED)/.test(r.code||'')?r.code:'TEST_SEND_NOT_STARTED'};
+     else if(r?.state==='not_sent')result={state:'not_sent',code:/^TEST_(PAUSED|EXCLUDED|BINDING_CHANGED|ATTEMPT_CHANGED|WINDOW_CLOSED_BEFORE_SEND)/.test(r.code||'')?r.code:'TEST_SEND_NOT_STARTED'};
     }catch(e){if(e?.code==='TEST_BINDING_CHANGED')result={state:'refused',code:'TEST_BINDING_CHANGED'};}
     transaction(()=>{const a=db.prepare('SELECT state FROM journey_internal_attempt_v1 WHERE attempt_key=?').get(reservation.attemptKey);if(a?.state!=='reserved')return;
      db.prepare('UPDATE journey_internal_attempt_v1 SET state=?,code=?,updated_at=? WHERE attempt_key=?').run(result.state,result.code,time(),reservation.attemptKey);
