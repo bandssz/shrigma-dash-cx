@@ -44,7 +44,7 @@ async function fixture(t,{write=true,create=true}={}){
 
 const C=require(path.join(runtime,'campaign-write-contract.js')),T=require(path.join(runtime,'campaign-write-tracking.js'));
 const result=r=>r.value.result.structuredContent;
-function definition(){return {schema_version:C.VERSION,brand:'fish',channel:'email',initiative:{key:'isolated-fixture',name:'Isolated source fixture'},utm_campaign:'isolated-fixture',name:'Isolated unscheduled draft',subject:'Source fixture',from_email:'avisos@fishermans.com.br',reply_to:'contato@fishermans.com.br',list_ids:[1],template_id:1,html:'<a href="https://fishermans.com.br/products/source-fixture">Fixture</a><a href="{{ UnsubscribeURL }}">Sair</a>',text:'https://fishermans.com.br/products/source-fixture {{ UnsubscribeURL }}',tags:[],send_at:null};}
+function definition(){return {schema_version:C.VERSION,brand:'fish',channel:'email',initiative:{key:'isolated-fixture',name:'Isolated source fixture'},utm_campaign:'isolated-fixture',name:'Isolated unscheduled draft',subject:'Source fixture',from_email:'source@fishermans.com.br',reply_to:'source@fishermans.com.br',list_ids:[1],template_id:1,html:'<a href="https://fishermans.com.br/products/source-fixture">Fixture</a><a href="{{ UnsubscribeURL }}">Sair</a>',text:'https://fishermans.com.br/products/source-fixture {{ UnsubscribeURL }}',tags:[],send_at:null};}
 function originalCampaign(f,{lost=false}={}){
  const catalog={brand:'fish',current:true,lists:[{id:1,brand:'fish',name:'ISOLATED list',available:true}],templates:[{id:1,brand:'fish',name:'ISOLATED template',type:'campaign',available:true,version:'a'.repeat(32)}],initiatives:[]};
  const operations=new Map(),calls=[];let saved=null,posts=0;

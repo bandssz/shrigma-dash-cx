@@ -2,16 +2,6 @@
 const test=require('node:test'),a=require('node:assert/strict'),{DatabaseSync}=require('node:sqlite'),{createRunner}=require((process.env.DASHBOARD_ACCESS_TEST_RUNTIME||require('node:path').resolve(__dirname,'../services/dashboard-operational'))+'/journey-internal-test-runtime.cjs'),engine=require((process.env.DASHBOARD_ACCESS_TEST_RUNTIME||require('node:path').resolve(__dirname,'../services/dashboard-operational'))+'/public/crm-preview/journey-engine.js');
 const path=require('node:path'),runtimeRoot=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
 const id='11111111-1111-4111-8111-111111111111',id2='22222222-2222-4222-8222-222222222222';
-test('unconfirmed senders do not create a new TEST and do not hide or replay an old job',async t=>{
- const f=fixture(t);f.runner.start({},f.request);f.time(60000);await f.runner.tick();await f.runner.tick();a.equal(f.calls.length,1);f.args.confirmedSenders={};f.restart();
- const availability=f.runner.availability({},'aristo');a.equal(availability.available,false);a.equal(availability.error,'TEST_SENDER_UNVERIFIED');
- a.equal(f.runner.start({},f.request).status,'finished');a.equal(f.runner.inspect({},f.request).accepted,1);a.equal(f.runner.list({},'aristo').length,1);
- a.throws(()=>f.runner.start({},{...f.request,requestId:id2}),{code:'TEST_SENDER_UNVERIFIED'});a.equal(f.db.prepare('SELECT count(*) n FROM journey_internal_test_v1').get().n,1);await f.runner.tick();a.equal(f.calls.length,1);
-});
-test('native TEST transport has no implicit sender confirmation',async()=>{
- const f=transportFixture(),send=createTransport({privateApi:()=>({purpose:'crm.journey-internal-test',revision:'1',username:'synthetic-user',token:'SYNTHETIC-ONLY',templateSha256:bodyHash,fromEmail:'Aristo <avisos@oaristocrata.com>'}),fetchImpl:async()=>{throw Error('NO_HTTP_ALLOWED');}});
- a.deepEqual(await send(f.args),{state:'refused',code:'TEST_SENDER_UNVERIFIED'});a.equal(f.calls.length,0);
-});
 test('dedicated TEST environment binding admits both brands and invalidates the old private API on rotation',()=>{
  const {createBindingReader}=require(runtimeRoot+'/journey-internal-test-binding.cjs'),config={from:{aristo:'Aristo <contato@oaristocrata.com>',fish:'Fish <contato@fishermans.com.br>'},purpose:'crm.journey-internal-test',templateId:116,templateSha256:'a'.repeat(64),token:'SYNTHETIC-TEST-ONLY',username:'synthetic-test-api'},env={DASHBOARD_JOURNEY_TEST_BINDING:JSON.stringify(config)},reader=createBindingReader({env,file:'/no-such-fixture-file'});
  for(const brand of ['fish','aristo']){const binding=reader.getBinding(brand);a.equal(binding.brand,brand);a.equal(binding.templateId,116);a.equal(reader.privateApi(binding).fromEmail,config.from[brand]);a(!JSON.stringify(binding).includes(config.token));const previous=binding;env.DASHBOARD_JOURNEY_TEST_BINDING=JSON.stringify({...config,token:'SYNTHETIC-ROTATED'});a.equal(reader.privateApi(previous),null);env.DASHBOARD_JOURNEY_TEST_BINDING=JSON.stringify(config);}
@@ -23,7 +13,7 @@ function fixture(t,{result='accepted',email='internal@shrigma.com.br',binding=tr
  let draft=engine.createDraft({brand:'aristo',id:'synthetic-draft'});draft.steps[0].waitMinutes=wait;
  if(two)draft.steps.push({...draft.steps[0],id:'step-2',waitMinutes:wait+1});
  const identity=()=>({id:'synthetic-user',role,active,email,productFronts:['growth'],productWriteFronts:['growth'],permissions:{growth:{read:true,edit:canEdit}},brands:['aristo']});
- const args={confirmedSenders:{fish:['avisos@fishermans.com.br'],aristo:['avisos@oaristocrata.com']},db,engine,now:()=>time,timeoutMs,authorize(_ctx,brand){if(brand!=='aristo'||!active)throw Error('denied');return identity();},getDraft:()=>draft,currentIdentity:identity,getBinding:()=>binding?{purpose:'crm.journey-internal-test',brand:'aristo',active:true,txSend:true,revision,templateId:1}:null,send:async p=>{calls.push(p);if(result==='lost')throw Error('private@example.invalid secret');if(result==='hanging')return new Promise(()=>{});return {state:result};}};
+ const args={db,engine,now:()=>time,timeoutMs,authorize(_ctx,brand){if(brand!=='aristo'||!active)throw Error('denied');return identity();},getDraft:()=>draft,currentIdentity:identity,getBinding:()=>binding?{purpose:'crm.journey-internal-test',brand:'aristo',active:true,txSend:true,revision,templateId:1}:null,send:async p=>{calls.push(p);if(result==='lost')throw Error('private@example.invalid secret');if(result==='hanging')return new Promise(()=>{});return {state:result};}};
  let runner=createRunner(args);t.after(()=>db.close());
  const request={brand:'aristo',draftId:draft.id,version:1,requestId:id};
  return {db,args,request,calls,get runner(){return runner},time:t=>{time=t},deactivate(){active=false},revokeEdit(){canEdit=false},rotate(){revision='changed'},restart(){runner=createRunner(args)}};
@@ -89,7 +79,7 @@ test('failure pauses following steps; a successful multi-step test uses the save
 const {createTransport,TARGET}=require(runtimeRoot+'/journey-internal-test-transport.cjs'),crypto=require('node:crypto'),body='{{ .Tx.Data.test_text }}',bodyHash=crypto.createHash('sha256').update(body).digest('hex');
 function transportFixture({status=200,type='tx',rotate=false}={}){
  let revision='1';const calls=[],binding={purpose:'crm.journey-internal-test',active:true,txSend:true,brand:'aristo',revision:'1',templateId:1};
- const transport=createTransport({confirmedSenders:{fish:['avisos@fishermans.com.br'],aristo:['avisos@oaristocrata.com']},privateApi:()=>({purpose:'crm.journey-internal-test',revision,username:'synthetic-test-user',token:'SYNTHETIC-ONLY-TEST-TOKEN',templateSha256:bodyHash,fromEmail:'Aristo <avisos@oaristocrata.com>'}),fetchImpl:async(url,options)=>{calls.push({url,options});if(options.method==='GET'){if(rotate)revision='2';return new Response(JSON.stringify({data:{id:1,type,body}}),{headers:{'content-type':'application/json'}});}return new Response(JSON.stringify({data:true}),{status,headers:{'content-type':'application/json'}});}});
+ const transport=createTransport({privateApi:()=>({purpose:'crm.journey-internal-test',revision,username:'synthetic-test-user',token:'SYNTHETIC-ONLY-TEST-TOKEN',templateSha256:bodyHash,fromEmail:'[TESTE] <internal@shrigma.com.br>'}),fetchImpl:async(url,options)=>{calls.push({url,options});if(options.method==='GET'){if(rotate)revision='2';return new Response(JSON.stringify({data:{id:1,type,body}}),{headers:{'content-type':'application/json'}});}return new Response(JSON.stringify({data:true}),{status,headers:{'content-type':'application/json'}});}});
  return {transport,calls,args:{binding,recipient:'internal@shrigma.com.br',subject:'[TESTE] Jornada interna',text:'Texto sintético',signal:new AbortController().signal,preSend:()=>true}};
 }
 test('official v6.1 external transport sends one internal mailbox with the approved test template',async()=>{
@@ -108,7 +98,7 @@ test('a possibly accepted 503 stays uncertain while definitive role rejection is
 
 function attachTransport(f,{duringGet,duringPost}={}){
  const http=[];
- f.args.send=createTransport({confirmedSenders:{fish:['avisos@fishermans.com.br'],aristo:['avisos@oaristocrata.com']},privateApi:b=>({purpose:'crm.journey-internal-test',revision:b.revision,username:'synthetic-test-user',token:'SYNTHETIC-ONLY-TEST-TOKEN',templateSha256:bodyHash,fromEmail:'Aristo <avisos@oaristocrata.com>'}),fetchImpl:async(url,options)=>{
+ f.args.send=createTransport({privateApi:b=>({purpose:'crm.journey-internal-test',revision:b.revision,username:'synthetic-test-user',token:'SYNTHETIC-ONLY-TEST-TOKEN',templateSha256:bodyHash,fromEmail:'[TESTE] <internal@shrigma.com.br>'}),fetchImpl:async(url,options)=>{
   http.push({url,method:options.method});
   if(options.method==='GET'){await duringGet?.();return new Response(JSON.stringify({data:{id:1,type:'tx',body}}));}
   await duringPost?.();return new Response(JSON.stringify({data:true}));
@@ -173,7 +163,7 @@ test('actual cookie HTTP stores a draft, starts an internal test, pauses, reopen
  const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
  const {createAuth}=require(runtime+'/auth.cjs'),{createServer}=require(runtime+'/server.cjs');
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'journey-internal-http-')),host='gerencial.synthetic.invalid',origin='https://'+host,password='synthetic-internal-test-password',boot='synthetic-bootstrap',sends=[];
- const options={now:()=>Date.parse('2026-10-16T12:00:00Z'),dbPath:path.join(dir,'test.sqlite'),managerHost:host,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influ.synthetic.invalid'},allowedEmailDomains:['shrigma.com.br'],bootstrapAdminEmail:'synthetic-test-never-deliver@shrigma.com.br',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,3),simpleReadMode:true,crmNativeEnabled:true,journeyTestTransport:{confirmedSenders:{fish:['avisos@fishermans.com.br'],aristo:['avisos@oaristocrata.com']},getBinding:brand=>brand==='aristo'?{purpose:'crm.journey-internal-test',brand,active:true,txSend:true,revision:'synthetic-test',templateId:1}:null,send:async args=>{a.equal(args.preSend(),true);sends.push(args);return {state:'accepted'};}}};
+ const options={now:()=>Date.parse('2026-10-16T12:00:00Z'),dbPath:path.join(dir,'test.sqlite'),managerHost:host,areaHosts:{growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influ.synthetic.invalid'},allowedEmailDomains:['shrigma.com.br'],bootstrapAdminEmail:'synthetic-test-never-deliver@shrigma.com.br',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,3),simpleReadMode:true,crmNativeEnabled:true,journeyTestTransport:{getBinding:brand=>brand==='aristo'?{purpose:'crm.journey-internal-test',brand,active:true,txSend:true,revision:'synthetic-test',templateId:1}:null,send:async args=>{a.equal(args.preSend(),true);sends.push(args);return {state:'accepted'};}}};
  const auth=createAuth(options);await auth.completeBootstrap({email:options.bootstrapAdminEmail,token:boot,password,host,origin});
  const grantDb=new DatabaseSync(options.dbPath);grantDb.prepare('UPDATE grants SET can_edit=1 WHERE area=?').run('growth');grantDb.close();
  const login=await auth.login({email:options.bootstrapAdminEmail,password,host,origin}),cookie=login.cookie.split(';')[0],context={host,origin,method:'POST',cookieHeader:cookie,csrf:login.csrf};
