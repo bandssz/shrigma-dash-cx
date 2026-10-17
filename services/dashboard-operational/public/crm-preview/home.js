@@ -49,8 +49,7 @@ const CrmHome=(()=>{
 })();
 if(typeof module==='object'&&module.exports)module.exports=CrmHome;else {
  window.ShrigmaCrmHome=CrmHome;
- let assetsPromise,analyticsPromise;
+ let assetsPromise;
  const loadScript=(source,ready)=>ready()?Promise.resolve():new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=source;script.async=true;script.onload=()=>{script.remove();ready()?resolve():reject(Error('CRM_ASSET_UNAVAILABLE'));};script.onerror=()=>{script.remove();reject(Error('CRM_ASSET_UNAVAILABLE'));};document.head.appendChild(script);});
- window.ShrigmaCrmAnalyticsReady=()=>analyticsPromise||(analyticsPromise=loadScript('analytics.compiled.js',()=>!!window.ShrigmaCrmAnalytics&&!!window.ShrigmaCrmModels).catch(error=>{analyticsPromise=null;throw error;}));
- window.ShrigmaCrmAssetsReady=()=>assetsPromise||(assetsPromise=loadScript('vendor/chart.umd.js',()=>typeof window.Chart==='function').then(()=>window.ShrigmaCrmAnalyticsReady()).catch(error=>{assetsPromise=null;throw error;}));
+ window.ShrigmaCrmAssetsReady=()=>assetsPromise||(assetsPromise=loadScript('vendor/chart.umd.js',()=>typeof window.Chart==='function').then(()=>loadScript('analytics.compiled.js',()=>!!window.ShrigmaCrmAnalytics&&!!window.ShrigmaCrmModels)).catch(error=>{assetsPromise=null;throw error;}));
 }
