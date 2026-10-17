@@ -810,8 +810,8 @@
     },
     {
       "path": "ops/releases/saturday17-native/recovery-proof.json",
-      "bytes": 2097,
-      "sha256": "525f643c528c6969e63b4b324a4a0bf91a32614a07038976225168b318990e40"
+      "bytes": 2184,
+      "sha256": "42a1ffd089c4a8e298df981ce1aa4ff21aadc3a89401fea20c9552d623d1f545"
     },
     {
       "path": "ops/releases/saturday17-native/recovery-return.sql",
@@ -920,8 +920,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-campaign-delivery.cjs",
-      "bytes": 25582,
-      "sha256": "673134fef0ab21ca6e6f5bc29089970bee6e96e1a4e174b1274c1a8ddc7c9428"
+      "bytes": 28175,
+      "sha256": "e053091f21fc9115a1e8800996e0571d72113b4954d240e2ab3839b56e19f8b9"
     },
     {
       "path": "services/dashboard-operational/crm-manager-runtime.cjs",
@@ -1155,8 +1155,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 76898,
-      "sha256": "dfe95ebec78999060614f66f1f8039c7457fd166d11b764ccf2a08fb2da30e3d"
+      "bytes": 78003,
+      "sha256": "ecb195328bc693e369f23613032335ef13292162206122c412b8600776f953bb"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1295,8 +1295,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 7893,
-      "sha256": "68f7c0d5c929c4a5b3f3ece1d4a9fe97436ced31d2a288176f0cf824f4f51323"
+      "bytes": 8136,
+      "sha256": "8360f55c5a1d535112c16c6710fa8da58c330886aa542e1fbef2f41ebad1d8cb"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -1855,8 +1855,8 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 192,
-      "sha256": "954550e60f9c2fe2e75ae8ba50be524965246b498fdcefc81990b3e03682d150"
+      "bytes": 62,
+      "sha256": "47aa49eea1fe4151d2cb16cd1685d151f5d8fa61c6a824f3166b1dcddaa9d182"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",

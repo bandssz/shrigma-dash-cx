@@ -129,9 +129,11 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
     if (!envelope(value.response)) return null;
     const body = value.response.body;
     if (value.state === 'succeeded') {
-      const fields = row.action === 'validar' ? ['campaign', 'validation', 'tracking'] : ['campaign', 'operation_id', ...(row.action === 'agendar' ? ['audience'] : row.action === 'salvar' ? ['tracking'] : []),...(nativeInternal&&['agendar','cancelar'].includes(row.action)?['native_internal']:[])];
+      const recovered=nativeInternal&&row.action==='cancelar'&&Object.hasOwn(body,'reconciliation');
+      const fields = row.action === 'validar' ? ['campaign', 'validation', 'tracking'] : ['campaign', 'operation_id', ...(row.action === 'agendar' ? ['audience'] : row.action === 'salvar' ? ['tracking'] : []),...(nativeInternal&&['agendar','cancelar'].includes(row.action)?['native_internal']:[]),...(recovered?['reconciliation']:[])];
       if (value.providerId !== row.campaign_id || value.response.status !== 200 || !exact(body, fields) || row.action !== 'validar' && body.operation_id !== value.id) return null;
       if(nativeInternal&&['agendar','cancelar'].includes(row.action)&&body.native_internal!==true)return null;
+      if(recovered){const r=body.reconciliation,p=r?.previous_operation;if(!exact(r,['contract','operation_id','request_hash','previous_operation'])||r.contract!=='crm-native-cancel-recovery-v1'||r.operation_id!==value.id||r.request_hash!==sha(wire(row))||p?.state!=='outcome_unknown'||p.id!==value.id||Date.parse(p.updated_at)>Date.parse(value.updated_at)||!receipt(p,{...row,receipt_sha256:null,receipt_state:null}))return null;}
       const c = campaign(body.campaign, row);
       // These gates describe the historical effect, not today's worker state.
       if (!c || c.status !== ({salvar:'draft',validar:'draft',agendar:'scheduled',cancelar:nativeInternal?'draft':'cancelled'}[row.action]) || c.sent !== 0 || c.startedAt !== null || c.sendAt !== (nativeInternal&&row.action==='cancelar'?null:row.send_at) || (row.action === 'validar' ? c.version !== row.expected_version : c.version === row.expected_version)) return null;
@@ -238,7 +240,25 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
     return coalesce(context, row, !isNew);
   }
   async function reconcile(context, input) { return coalesce(context, select(context, input), true); }
+  async function recoverNativeCancel(context,input){
+    if(!nativeInternal||draftOnly)fail('CAMPAIGN_EDIT_DENIED');
+    let row=select(context,input);if(row.action!=='cancelar')fail('CAMPAIGN_DELIVERY_INPUT');
+    const initial=await reconcileRow(context,row);if(initial.state==='succeeded')return initial;
+    row=select(context,input);
+    if(row.phase!=='uncertain'||row.receipt_state!=='outcome_unknown'||!row.receipt_sha256||!row.remote_operation_id)return pending();
+    const key=row.user_id+':'+row.client_key+':native-cancel-recovery';if(active.has(key))return active.get(key);
+    const promise=(async()=>{
+      const r=await call(context,row,'POST',Object.freeze({...wire(row),acao:'campanha_reconciliar_cancelamento'}));
+      if(r?.status!==200||!exact(r.body,['schema','prior_receipt_sha256','operation'])||r.body.schema!=='crm-native-cancel-reconciliation-v1'||r.body.prior_receipt_sha256!==row.receipt_sha256)return pending();
+      const prior=r.body.operation?.response?.body?.reconciliation?.previous_operation;if(!plain(prior)||sha(prior)!==row.receipt_sha256)return pending();
+      const proof=receipt(r.body.operation,{...row,receipt_sha256:null,receipt_state:null});if(!proof||proof.state!=='succeeded'||proof.id!==row.remote_operation_id)return pending();
+      const promoted=atomic(()=>{same(context,row);return db.prepare("UPDATE crm_campaign_delivery_v1 SET receipt_sha256=?,receipt_state='succeeded',phase='confirmed',updated_at=? WHERE user_id=? AND client_key=? AND phase='uncertain' AND remote_operation_id=? AND receipt_sha256=? AND receipt_state='outcome_unknown'").run(proof.hash,clock(),row.user_id,row.client_key,row.remote_operation_id,row.receipt_sha256).changes===1;});
+      return promoted?reconcileRow(context,get(row.user_id,row.client_key)):pending();
+    })().finally(()=>active.delete(key));active.set(key,promise);return promise;
+  }
+
   return Object.freeze({
+    recoverNativeCancel: async(context,input)=>{try{return await recoverNativeCancel(context,input);}catch(error){closedError(error);}},
     submit: async (context, input) => { try { return await submit(context, input); } catch (error) { closedError(error); } },
     recoverSubmission: async (context, input) => { try { return await recoverSubmission(context, input); } catch (error) { closedError(error); } },
     reconcile: async (context, input) => { try { return await reconcile(context, input); } catch (error) { closedError(error); } },

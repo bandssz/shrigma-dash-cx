@@ -13,7 +13,7 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false}){
  const identity=async(context,brand)=>{if(!enabled||!['fish','aristo'].includes(brand))throw error(403,'NATIVE_INTERNAL_DISABLED');const p=await binding(context,{brand,write:true,fetchImpl});if(p.author?.email?.toLowerCase()!==EMAIL||p.author.permissions?.growth?.edit!==true)throw error(403,'NATIVE_INTERNAL_QA_ONLY');return p;};
  async function transport(context,{route='campaigns',method,command}){
   const p=await identity(context,command.brand),action=command.acao;
-  const allowed=route==='segments'?(method==='GET'?['segmento_contexto_revisao','segmento_congelamento_nativo_obter']:['segmento_congelar_nativo_interno']):(method==='GET'?['campanha_nativa_contexto','campanha_obter','campanha_catalogo','campanha_operacao']:['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar']);
+  const allowed=route==='segments'?(method==='GET'?['segmento_contexto_revisao','segmento_congelamento_nativo_obter']:['segmento_congelar_nativo_interno']):(method==='GET'?['campanha_nativa_contexto','campanha_obter','campanha_catalogo','campanha_operacao']:['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar','campanha_reconciliar_cancelamento']);
   if(!allowed.includes(action)||!['GET','POST'].includes(method))throw error(403,'NATIVE_INTERNAL_SCOPE');
   if(route==='segments'&&command.id!==undefined&&command.id!==IDS[command.brand])throw error(403,'NATIVE_INTERNAL_AUDIENCE');
   const url=new URL(P.REVIEWED_DYNAMIC.routes[route]);
@@ -45,6 +45,7 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false}){
   if(action==='campanha_nativa_revisar_publico'&&method==='GET'&&exact(q,['acao','brand','id','expected_version','expected_catalog_hash'])){
    if(q.id!==IDS[brand]||!Number.isSafeInteger(q.expected_version)||!HASH.test(q.expected_catalog_hash))throw error(400,'NATIVE_INTERNAL_INPUT');return transport(context,{route:'segments',method,command:{...q,acao:'segmento_contexto_revisao'}});
   }
+  if(action==='campanha_nativa_reconciliar_cancelamento'&&method==='POST'&&exact(q,['acao','brand','idempotency_key']))return delivery.recoverNativeCancel(context,{brand,idempotency_key:q.idempotency_key});
   if(action==='campanha_nativa_operacao'&&method==='GET'&&exact(q,['acao','brand','idempotency_key']))return delivery.reconcile(context,{brand,idempotency_key:q.idempotency_key});
   if(method!=='POST'||!Number.isSafeInteger(q.id)||q.id<1||!UUID.test(q.idempotency_key)||!/^[a-f0-9]{32}$/.test(q.expected_version||''))throw error(400,'NATIVE_INTERNAL_INPUT');
   await eligible(context,brand,q.id);
