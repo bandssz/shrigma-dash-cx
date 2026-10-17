@@ -1,0 +1,65 @@
+name: CRM form review 20261017
+on:
+  push:
+    branches: [codex/crm-form-review-20261017]
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: crm-form-review-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  ui:
+    if: startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      BASE: ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911
+      DOCKER_CONFIG: ${{ runner.temp }}/crm-form-docker
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: DOM dependency
+        run: npm install --prefix "$RUNNER_TEMP/crm-form-deps" --ignore-scripts --no-save --no-package-lock --no-audit --no-fund linkedom@0.18.12
+      - name: Pull preserved runtime
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -m 0700 "$DOCKER_CONFIG"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker pull --platform linux/amd64 "$BASE"
+      - name: Source syntax, DOM behavior and unchanged metric contracts
+        run: |
+          set -euo pipefail
+          run_source() {
+            docker run --rm --platform linux/amd64 \
+              --network none --read-only --user 1000:1000 --memory 512m \
+              --tmpfs /tmp:rw,noexec,nosuid,mode=1777 \
+              --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" \
+              --mount "type=bind,src=$RUNNER_TEMP/crm-form-deps/node_modules,dst=/test-deps,readonly" \
+              --workdir /source --env NODE_PATH=/test-deps \
+              --env DASHBOARD_ACCESS_TEST_RUNTIME=/source/services/dashboard-operational \
+              --entrypoint node "$BASE" "$@"
+          }
+          run_source -e 'const a=require("node:assert/strict");a.equal(process.version,"v22.23.3");a.equal(process.getuid(),1000);a.equal(typeof require("linkedom").parseHTML,"function");const d=new(require("node:sqlite").DatabaseSync)(":memory:");a.equal(d.prepare("SELECT 1 AS n").get().n,1);d.close();'
+          run_source --check services/dashboard-operational/public/crm-preview/drafts.js
+          run_source --check services/dashboard-operational/public/crm-preview/app.js
+          run_source --test --test-concurrency=1 \
+            tests/simple-crm-campaign-tests.test.cjs \
+            tests/crm-form-review.test.cjs \
+            tests/crm-product-positive-ui.test.cjs \
+            tests/crm-model-import.test.cjs \
+            tests/simple-crm-service-draft.test.cjs \
+            tests/simple-tabler-read.test.cjs \
+            tests/product-preview-expansion.test.cjs \
+            tests/crm-legacy-parity.test.cjs \
+            tests/shared-period.test.cjs
+      - name: Logout read-only registry session
+        if: always()
+        run: docker logout ghcr.io
