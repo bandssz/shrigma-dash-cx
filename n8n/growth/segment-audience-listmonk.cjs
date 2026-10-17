@@ -53,7 +53,15 @@ function compileCount({definition,baseListId,catalog}={}){
   // its catalog extension before applying the wrapper's exact seven-field cap.
   compiler='shopify-aggregate';
   const aggregateCatalog={...c,fields:c.fields.filter(f=>f?.key!==Recorded.FIELD)};delete aggregateCatalog.recorded_origins;
-  q={text:'SELECT source_confirmed,eligible_count,checked_at FROM crm_audience_v2.shopify_count_for_rule_product_typed_20261016($1::jsonb,$2::text,$3::integer,$4::jsonb)',values:[JSON.stringify(d.rule),d.brand,baseListId,JSON.stringify(aggregateCatalog)]};
+  // Keep the accepted sparse path for its exact mandatory-positive shape.
+  // Other product trees use bulk joins while retaining the original compiler
+  // and three-valued semantics; negative and OR rules must retain nonmatches.
+  const productLeaves=leaves.filter(x=>x.rule.field==='purchase.product');
+  const hasOr=r=>r.op==='or'||r.rules?.some(hasOr)===true;
+  const positive=r=>r?.op==='confirmed'&&r.rule.field==='purchase.product'&&r.rule.operator==='purchased';
+  const fast=productLeaves.length===1&&!hasOr(d.rule)&&(positive(d.rule)||d.rule.op==='and'&&d.rule.rules.some(positive));
+  const reader=productLeaves.length&&!fast?'shopify_count_for_rule_flat_20261017':'shopify_count_for_rule_product_typed_20261016';
+  q={text:'SELECT source_confirmed,eligible_count,checked_at FROM crm_audience_v2.'+reader+'($1::jsonb,$2::text,$3::integer,$4::jsonb)',values:[JSON.stringify(d.rule),d.brand,baseListId,JSON.stringify(aggregateCatalog)]};
  }
  else{
   compiler=leaves.some(({rule})=>Shopify.FIELDS.includes(rule.field)||rule.field===Recorded.FIELD)?'external':'inline-email';

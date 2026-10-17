@@ -7,6 +7,19 @@ const def=(brand='fish',rule=leaf(brand==='fish'?101:201))=>({schema_version:A.V
 const catalog=brand=>({brand,current:true,lists:(brand==='fish'?[17,101,102]:[16,201,202]).map(id=>({id,brand,available:true})),fields:[],products:[],origins:[]});
 const engagementCatalog=brand=>({...catalog(brand),fields:['email.opened','email.clicked'].map(key=>({key,available:true,source_hash:M.engagementSourceHash(brand,key)}))});
 const args=(brand='fish',rule)=>({definition:def(brand,rule),baseListId:brand==='fish'?17:16,catalog:catalog(brand)});
+test('product rules preserve the accepted positive path and admit negatives and E/OU through the bulk reader without widening source scope',()=>{
+ const F=require('./segment-audience-store-fixture.cjs'),Shopify=require('../n8n/growth/segment-shopify-facts.cjs');
+ for(const brand of ['aristo','fish']){
+  const source=F.source(brand),id=source.products[0].id,other='gid://shopify/Product/999';source.products.push({id:other,brand,name:'Second synthetic product',available:true});
+  source.fields=source.fields.map(f=>Shopify.FIELDS.includes(f.key)?{...f,source_hash:Shopify.sourceHash(brand,f.key,source)}:f);
+  const c={...source,brand,current:true,lists:catalog(brand).lists},product=(operator='purchased',value=id)=>({op:'condition',field:'purchase.product',operator,value}),cf=rule=>({op:'confirmed',rule}),list=leaf(brand==='aristo'?201:101);
+  for(const rule of [cf(product()),{op:'and',rules:[list,cf(product())]}])assert.match(M.compileCount({...args(brand,rule),catalog:c}).text,/shopify_count_for_rule_product_typed_20261016\(/);
+  for(const rule of [product(),cf(product('not_purchased')),{op:'and',rules:[cf(product()),cf(product('purchased',other))]},{op:'or',rules:[cf(product()),list]},{op:'and',rules:[{op:'and',rules:[cf(product()),list]},{op:'condition',field:'purchase.count',operator:'gt',value:0}]}]){
+   const p=M.compileCount({...args(brand,rule),catalog:c});assert.match(p.text,/shopify_count_for_rule_flat_20261017\(/);assert.equal(p.base_list_id,brand==='aristo'?16:17);assert.equal(p.transport_supported,false);assert.equal(p.values[1],brand);assert.deepEqual(JSON.parse(p.values[0]),p.definition.rule);
+  }
+  const stale={...c,current:false};assert.equal(M.compileCount({...args(brand,cf(product())),catalog:stale}).compiler,'unavailable');
+ }
+});
 async function setup(t){
  const db=new PGlite();t.after(()=>db.close());
  await db.exec(`CREATE TABLE lists(id integer PRIMARY KEY,tags varchar[],status text,optin text);
