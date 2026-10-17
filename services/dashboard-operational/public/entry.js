@@ -118,6 +118,7 @@ else (function(){'use strict';
  let inviteToken=bootstrapToken?'':fragment.get('invite')||'';
  if(location.hash)history.replaceState(null,'',location.pathname+location.search);
  let session=null,frame=null,selected='',selectedView='',busy=false,version=0;
+ let adminUserNames=new Map();
  const campaignButton=$('entry-campaign-open');
  $('login-password-toggle')?.addEventListener('click',()=>{const input=$('login-password'),button=$('login-password-toggle'),visible=input.type==='password';input.type=visible?'text':'password';button.textContent=visible?'Ocultar':'Mostrar';button.setAttribute('aria-pressed',String(visible));input.focus();});
  const campaignUi=window.ShrigmaCampaignEdit?.createCampaignEditor({document,getSession:()=>session,storage:window.localStorage,locks:window.navigator?.locks,request:async q=>{
@@ -222,6 +223,7 @@ else (function(){'use strict';
   return Object.hasOwn(AREAS,requested)&&u.areas.includes(requested)&&(u.role==='superadmin'||u.role==='manager'&&u.areas.length===1);
  }
  function showLogin(text=''){
+  adminUserNames.clear();$('admin-journey-inbox')?.replaceChildren();if($('admin-journey-inbox'))$('admin-journey-inbox').hidden=true;if($('admin-journey-reviews')){$('admin-journey-reviews').hidden=true;$('admin-journey-reviews').disabled=false;}
   campaignUi?.close();if(campaignButton)campaignButton.hidden=true;
   version++;session=null;selected='';audienceGate={state:'off'};audienceGatePromise=Promise.resolve(audienceGate);frame?.remove();frame=null;frameHost.replaceChildren();nav.replaceChildren();nav.hidden=true;
   shell.hidden=true;loginScreen.hidden=false;admin.hidden=true;manage.hidden=true;inviteResult.hidden=true;inviteLink.value='';
@@ -630,6 +632,7 @@ else (function(){'use strict';
   const {response,data}=await request('/auth/users',{editReceipt:true});if(!response.ok)throw Error('users_unavailable');
   if(ticket!==version||session!==original)return;
   const users=Array.isArray(data)?data:data?.users;if(!Array.isArray(users))throw Error('users_unavailable');
+  adminUserNames=new Map(users.map(u=>[u.id,u.email]));if($('admin-journey-reviews'))$('admin-journey-reviews').hidden=session.features?.simpleLogin!==true;
   if(session.features?.simpleLogin===true){$('admin-users').replaceChildren(...users.map(simpleUserRow));$('admin-crm-reconcile').hidden=true;return;}
   $('admin-users').replaceChildren(...users.map(userRow));
   $('admin-crm-reconcile').hidden=!users.some(user=>user.role==='manager'&&(user.profileUpdate?.state==='revoking'||['provisioning','revoking','renewing'].includes(user.crmWriter?.state)||['provisioning','revoking'].includes(user.crmAccess?.state)||user.crmAccess?.state==='ready'&&(user.crmAccess.ready===false||typeof user.crmAccess.renewalPhase==='string')));
@@ -658,6 +661,19 @@ else (function(){'use strict';
    await loadUsers();adminMessage.textContent='Conferência solicitada. Acessos ainda pendentes podem ser conferidos novamente em alguns segundos.';
   }catch(_){adminMessage.textContent='Não foi possível conferir os acessos CRM agora.';}
   finally{button.disabled=false;}
+ });
+ $('admin-journey-reviews')?.addEventListener('click',async()=>{
+  if(busy||session?.user?.role!=='superadmin'||session.features?.simpleLogin!==true||requested!=='todos')return;
+  const original=session,ticket=version,box=$('admin-journey-inbox'),button=$('admin-journey-reviews');button.disabled=true;box.hidden=false;box.replaceChildren(document.createTextNode('Consultando solicitações…'));
+  try{
+   const {response,data}=await request('/api/journey-activation-inbox',{editReceipt:true});if(ticket!==version||session!==original||session?.user?.role!=='superadmin')return;
+   if(!response.ok||data?.schema!=='journey-activation-review-v1'||data.scope!=='owner'||data.commercialActivation!==false||data.sends!==false||!Array.isArray(data.records)||data.records.some(r=>r.state!=='review_requested'||r.sends!==false||r.commercialActivation!==false))throw Error('review_inbox');
+   box.replaceChildren();const heading=document.createElement('h3');heading.textContent='Solicitações de jornadas';box.append(heading);const boundary=document.createElement('p');boundary.textContent='Revisões recebidas para sua avaliação. Esta tela não ativa jornadas nem envia mensagens.';box.append(boundary);
+   if(!data.records.length){const empty=document.createElement('p');empty.textContent='Nenhuma solicitação recebida.';box.append(empty);}
+   for(const r of data.records){const item=document.createElement('article');item.className='user-card';item.dataset.journeyReviewId=r.requestId;const title=document.createElement('h4');title.textContent=r.proposal.name+' · '+(AUDIENCE_BRANDS[r.brand]||r.brand);const who=document.createElement('p');who.textContent='Solicitado por '+(adminUserNames.get(r.requestedByUserId)||'usuário da equipe')+' · revisão '+r.version+' · '+new Date(r.createdAt).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});item.append(title,who);const steps=document.createElement('ol');for(const s of r.proposal.stages){const li=document.createElement('li');li.textContent=(s.enabled?'E-mail':'Etapa desabilitada')+' · T + '+s.waitMinutes+' min · '+s.subject;steps.append(li);}item.append(steps);const audience=document.createElement('p');audience.textContent='Público: '+(r.proposal.audience?.name||'Ainda precisa vincular o público final')+(r.proposal.sendWindow?' · '+r.proposal.sendWindow.start+'–'+r.proposal.sendWindow.end+' de Brasília':'');item.append(audience);const details=document.createElement('details'),summary=document.createElement('summary'),list=document.createElement('ul');summary.textContent='Conferir pendências antes de aprovar';for(const requirement of r.proposal.pendingRequirements){const li=document.createElement('li');li.textContent=requirement;list.append(li);}details.append(summary,list);item.append(details);box.append(item);}
+   if(data.more){const more=document.createElement('p');more.textContent='Há solicitações anteriores além das 100 exibidas.';box.append(more);}
+  }catch{if(ticket===version&&session===original)box.replaceChildren(document.createTextNode('Não foi possível consultar as solicitações. Tente atualizar; nenhuma ativação foi feita.'));}
+  finally{if(ticket===version&&session===original)button.disabled=false;}
  });
  manage.addEventListener('click',async()=>{
   if(session?.user?.role!=='superadmin'||requested!=='todos')return;

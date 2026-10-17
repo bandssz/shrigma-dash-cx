@@ -222,8 +222,14 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   getDraft:(context,brand,draftId)=>{const draft=labRead({context,brand}).store.drafts.find(d=>d.id===draftId);if(!draft)fail('TEST_DRAFT_NOT_FOUND',404);return draft;},
   getSendWindow:(context,brand,draftId,version)=>{const saved=labRead({context,brand}),draft=saved.store.drafts.find(d=>d.id===draftId);if(!draft||draft.revision!==version)fail('TEST_DRAFT_CHANGED',409);return saved.sendWindows.find(w=>w.draftId===draftId)?.window||null;},
   getBinding:internalBinding.getBinding,send:internalSend,getModelPiece:modelPieces.internalTestSnapshot,...(htmlBinding?{getHtmlBinding:htmlBinding.getBinding,sendHtml:htmlSend}:{})});
+ const journeyActivationReview=require('./journey-activation-review.cjs').create({db,authorize:authorizeUser,now,getSnapshot(context,brand,draftId,version){
+  const saved=labRead({context,brand}),draft=saved.store.drafts.find(d=>d.id===draftId);if(!draft||draft.revision!==version)fail('JOURNEY_REVIEW_DRAFT_CHANGED',409);
+  const sendWindow=require('./journey-send-window.cjs').normalize(saved.sendWindows.find(w=>w.draftId===draftId)?.window||require('./journey-send-window.cjs').DEFAULT);
+  const models=saved.modelRefs.filter(r=>r.draftId===draftId).map(ref=>{const piece=modelPieces.internalTestSnapshot(context,brand,ref.pieceId,ref.version);return {stepId:ref.stepId,pieceId:piece.id,version:piece.version,htmlSha256:crypto.createHash('sha256').update(piece.html).digest('hex'),htmlBytes:Buffer.byteLength(piece.html)};});
+  return {labRevision:saved.revision,draft,sendWindow,models};
+ }});
  const abRegistry=createAbRegistry({db,authorize:authorizeUser,now});
 
- return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,journeyTest,abRegistry,modelPieces});
+ return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,journeyTest,journeyActivationReview,abRegistry,modelPieces});
 }
 module.exports={createSimpleAccounts,createAbRegistry,profile,FRONTS,BRANDS};

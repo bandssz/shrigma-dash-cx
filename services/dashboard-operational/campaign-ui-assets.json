@@ -20,15 +20,15 @@
       "source": "public/entry.js",
       "compiled": "public/entry.compiled.js",
       "publicName": "entry.js",
-      "sourceSha256": "e9aec7220d3b53deac9a2965b3df9858a3e640fa294ce107e11cd520b686e51e",
-      "compiledSha256": "422f514f639bb85da7fc8b024980c430b354dc92a1a7722149a90dce49975848"
+      "sourceSha256": "628f4da4f4dc1b9836cb30c53a8c51cec0b7d7581f84cdb39e006bb484473e55",
+      "compiledSha256": "cac2a075119d297b86db43ca532b783b85368609f74a4bfb86395aedc55f452c"
     },
     {
       "source": "public/guard.js",
       "compiled": "public/guard.compiled.js",
       "publicName": "guard.js",
-      "sourceSha256": "b64a53512baf11f330454049464ccb1e9a0800a0d1227dc3b649a58902f992b2",
-      "compiledSha256": "91cc6eb4e44070ec54af0f5cd6ff436b081601e3132b3df67bc58cbc77b78ea1"
+      "sourceSha256": "e49b15f0aee62ab6a9f1541949b5be03f06c7c83903ff80d123c355939e2ca03",
+      "compiledSha256": "6cbc6c8539af4632e1aa03c5750ab8a3a73fa716929e20564e3c64735c79a863"
     },
     {
       "source": "public/crm-preview/analytics.js",
