@@ -814,6 +814,11 @@
       "sha256": "1b9b7e1f5f9cd34c93c58b9bd5be0567f272376c93ebc7bdc7ed600afef8c601"
     },
     {
+      "path": "tests/dashboard-operational-managed-template-read.test.cjs",
+      "bytes": 16448,
+      "sha256": "bb1bf0674b5e3c5f9fb27b0eba19f63860ac1ec6a8657ffb36d674b96f79e177"
+    },
+    {
       "path": "tests/dashboard-operational-managed-ui.test.cjs",
       "bytes": 11466,
       "sha256": "97aee8abd4cb0316e0d34b809695b5f29367423a65fe6c3ed228b17275c2b35a"
@@ -887,6 +892,11 @@
       "path": "tests/growth-templates-api.test.cjs",
       "bytes": 12538,
       "sha256": "5ce6a1f4d19284806f3a1ee9f69d9d7dede0e91e98032658e6c2c7d855f9cbb7"
+    },
+    {
+      "path": "tests/helpers/crm-managed-read-auth-fixture.cjs",
+      "bytes": 7284,
+      "sha256": "2c67177263b89a46bc117bcffb95d64f05b28169ae905f25421d3411d13e6c87"
     },
     {
       "path": "tests/helpers/dashboard-row-brand-fixture.cjs",
