@@ -6,8 +6,42 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=297a8f06d1c6">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-79vI5lct7GL26QgGzddjzZwCq0E/leR4OBOhTVLTYBk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=95e26455d660">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-WFR9JL2k/L/+goFjTYU/NIoHWeXRLO6XNYIG5a+ooOk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<style id="crm-configured-journeys-read">
+#control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
+#control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
+#control-fluxos .gjr-source, #control-fluxos .gjr-card { background: #fff; border: 1px solid #d1dce3; border-radius: 14px; padding: 1rem; }
+#control-fluxos .gjr-card header > span, #control-fluxos .gjr-card footer { color: #496270; font-size: .85rem; }
+#control-fluxos .gjr-read-badge { border: 1px solid #aac2ce; border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; display: inline-block; }
+#control-fluxos .gjr-toolbar, #control-fluxos .gjr-view { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+#control-fluxos .gjr-toolbar label { display: grid; gap: .3rem; }
+#control-fluxos .gjr-toolbar input, #control-fluxos .gjr-toolbar select, #control-fluxos .gjr-toolbar button { font: inherit; border: 1px solid #9fb4c0; border-radius: 8px; padding: .55rem .75rem; background: #fff; color: #182a36; }
+#control-fluxos .gjr-toolbar button[aria-pressed="true"] { background: #e8f2f7; border-color: #356d86; }
+#control-fluxos .gjr-toolbar button:disabled { opacity: .5; }
+#control-fluxos .gjr-only :focus-visible { outline: 3px solid #226c96; outline-offset: 3px; }
+#control-fluxos .gjr-caution, #control-fluxos .gjr-warning { background: #fff6e6; padding: .65rem; border-radius: 8px; }
+#control-fluxos .gjr-stages { list-style: none; padding: 0; display: grid; gap: .65rem; }
+#control-fluxos .gjr-stages > li { border: 1px solid #d1dce3; border-radius: 8px; padding: .75rem; }
+#control-fluxos .gjr-stages > li > span { display: block; margin-top: .35rem; color: #496270; }
+#control-fluxos .gjr-links { margin-top: .5rem; }
+#control-fluxos .gjr-diagram { overflow: auto; max-height: 48rem; border: 1px solid #d1dce3; border-radius: 10px; background: #f7fafc; }
+#control-fluxos .gjr-diagram svg { display: block; visibility: visible; width: min(100%, 480px); min-width: 340px; height: auto; margin: auto; }
+#control-fluxos .gjr-node rect { fill: #fff; stroke: #7896a7; stroke-width: 1.5; }
+#control-fluxos .gjr-type-condicao rect { fill: #fff4db; }
+#control-fluxos .gjr-type-espera rect { fill: #eef2fc; }
+#control-fluxos .gjr-type-fim rect { fill: #e9f1f2; }
+#control-fluxos .gjr-node text { fill: #182a36; font: 13px system-ui, sans-serif; }
+#control-fluxos .gjr-node .gjr-node-key { fill: #496270; font-size: 11px; }
+#control-fluxos .gjr-edges > g > path { fill: none; stroke: #356d86; stroke-width: 1.6; }
+#control-fluxos .gjr-edges marker path, #control-fluxos .gjr-diagram marker path { fill: #356d86; }
+#control-fluxos .gjr-edge-label { fill: #496270; font: 10px system-ui, sans-serif; }
+#control-fluxos .gjr-accessible-list { padding: .75rem 0; }
+#control-fluxos .gjr-accessible-list summary { cursor: pointer; }
+#control-fluxos .gjr-history { border-top: 1px solid #d1dce3; padding-top: 1rem; }
+#control-fluxos .gjr-empty { color: #496270; }
+@media (max-width: 640px) { #control-fluxos .gjr-toolbar { align-items: stretch; } #control-fluxos .gjr-toolbar label { width: 100%; } }
+</style>
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -171,6 +205,7 @@
   <div class="sec" id="sec-regua">
     <div class="crm-section-intro"><div><span class="crm-eyebrow">AUTOMAÇÕES</span><h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes. <span id="control-graph-intro" hidden>Construir fluxo prepara novos caminhos.</span><span id="control-graph-off">Construir fluxo está desligado nesta versão.</span> Envios no período mostra o que foi registrado.</p></div></div>
     <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações"><button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
+      <button type="button" id="control-tab-lab" data-control-tab="lab" role="tab" aria-controls="control-lab" aria-selected="false" tabindex="-1">Laboratório de jornadas</button>
       <button type="button" id="control-tab-graph" data-control-tab="graph" role="tab" aria-controls="control-graph" aria-selected="false" tabindex="-1" hidden>Construir fluxo</button>
       <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
       <button type="button" id="control-tab-workflows" data-control-tab="workflows" role="tab" aria-controls="control-workflows" aria-selected="false" tabindex="-1">Operação atual</button>
@@ -180,6 +215,7 @@
     </div>
     <section class="painel control-panel" id="control-fluxos" data-control-panel="fluxos" role="tabpanel" aria-labelledby="control-tab-fluxos" hidden></section>
 
+    <section class="painel control-panel" id="control-lab" data-control-panel="lab" role="tabpanel" aria-labelledby="control-tab-lab" hidden></section>
     <section class="painel control-panel" id="control-graph" data-control-panel="graph" role="tabpanel" aria-labelledby="control-tab-graph" hidden></section>
 
     <section class="painel control-panel" id="control-workflows" data-control-panel="workflows" role="tabpanel" aria-labelledby="control-tab-workflows" hidden></section>
@@ -273,7 +309,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=df664b7ec95b"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=fabbb75c744c"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -284,6 +320,7 @@ const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&am
 GA.install(G);
 let ATTR_MODEL=GA.DEFAULT_MODEL;
 let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
+let SIMPLE_READ_GENERATION=0,SIMPLE_READ_QUEUED=false;
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
 let CONSULTA={em:null,falhou:false,antigo:false},FALHA_LEITURA='';
 // A faixa reúne o estado da leitura (falha, retrato antigo) e os alertas de dados do Início.
@@ -303,6 +340,7 @@ const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita
 const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
 let CRM_LEITURA_BLOQUEADA=false;
 function limpaConsultaCRM(){
+  if(typeof GPR!=='undefined')GPR.clear();
   API=null;AB_PROVA_LEITURA=null;ULT.camp=[];ULT.conv=[];
   GC.readTicket=null;GC.carregando=null;GC.limpaLeitura();GRU.ctx={...GRU.ctx,api:null};
   CRM_LEITURA_BLOQUEADA=true;
@@ -654,6 +692,8 @@ function renderPublicos(){
 // Journeys retain their editor/journal state while hidden. Only the visible route
 // mounts the view; its existing loaded/busy guards own read deduplication.
 function renderJornadas(modeloOp){
+  if(typeof ShrigmaJourneyLabUI!=='undefined')ShrigmaJourneyLabUI.sync({brand:MARCA,section:SEC,tab:GC.activeTab});
+  if(typeof GPR!=='undefined')GPR.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
   if(typeof GJG!=='undefined'){
     GJG.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
     if(PENDENTE_GRAPH&&API){
@@ -668,8 +708,13 @@ function renderJornadas(modeloOp){
   const graphOn=typeof GJG!=='undefined'&&!!API&&GJG.available(API)===true;
   const intro=document.getElementById?.('control-graph-intro'),off=document.getElementById?.('control-graph-off');
   if(intro)intro.hidden=!graphOn;if(off)off.hidden=graphOn;
-  if(!API||SEC!=='regua'||GC.activeTab!=='fluxos')return;
+  if(SEC!=='regua'||GC.activeTab!=='fluxos')return;
   const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
+  if(!API){
+    const root=document.getElementById('control-fluxos');
+    if(root){root.innerHTML='<p role="status">Os dados gerais do CRM estão indisponíveis. A consulta publicada tem sua própria verificação de acesso; escolha uma marca e consulte abaixo.</p>';if(typeof GPR!=='undefined')GPR.mount(ctx,root);}
+    return;
+  }
   GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
 }
 function renderRelatoriosCampanha(){
@@ -682,6 +727,7 @@ function renderRelatoriosCampanha(){
   }
 }
 function render(){
+  if(typeof GPR!=='undefined')GPR.sync({api:CRM_LEITURA_BLOQUEADA?null:API,marca:MARCA,section:SEC,tab:GC.activeTab});
   if(CRM_LEITURA_BLOQUEADA)return;
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
   // Contadores da navegação valem só para a marca em que foram calculados.
@@ -693,7 +739,7 @@ function render(){
   if(tests)renderABExperiment();
   if(SEC==='base'||campaigns)GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
   if(SEC==='templates')GMedia.mount({marca:MARCA,api:API});
-  if(!API)return;
+  if(!API){renderJornadas();return;}
   if(tests)GABF.enter(MARCA,API);
   pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
@@ -753,7 +799,7 @@ function render(){
   const car=G.carrinho(API,MARCA,ini,fim);
   $('#car-rot').textContent=car?`${car.dias} dia(s) no período`:'';
   if(!car){
-    $('#area-carrinho').innerHTML='<div class="vazio">Nenhum carrinho abandonado coletado no período. Amplie o período ou clique em Atualizar.</div>';
+    $('#area-carrinho').innerHTML=Array.isArray(API.crm_carrinho)?'<div class="vazio">Nenhum carrinho abandonado coletado no período. Amplie o período ou clique em Atualizar.</div>':'<div class="vazio">Dados de carrinho indisponíveis nesta consulta. As demais informações continuam disponíveis.</div>';
   } else {
     // Tudo abaixo usa APENAS os dias com cobertura de conversao. Misturar escopo
     // (valor do periodo inteiro contra receita so dos dias medidos) inflava o "perdido".
@@ -773,8 +819,8 @@ function render(){
     const nImaturos=new Set(imaturos).size;
     $('#area-carrinho').innerHTML=`
       <div class="funil">
-        <div class="funil-num"><b>${rf(Math.max(0,car.valor-(car.receitaVoltaram||0)))}</b>
-          <span>abandonados e não recuperados em ${car.dias} dia(s) · ${rf(car.receitaVoltaram)} voltou</span></div>
+        <div class="funil-num"><b>${car.receitaVoltaram===null?'Indisponível':rf(Math.max(0,car.valor-car.receitaVoltaram))}</b>
+          <span>abandonados e não recuperados em ${car.dias} dia(s) · ${car.receitaVoltaram===null?'receita de retorno indisponível':rf(car.receitaVoltaram)+' voltou'}</span></div>
         <div class="funil-barra" title="Voltaram e compraram em até 72h">
           <i style="width:${car.carrinhos?Math.max(.6,100*car.voltaram/car.carrinhos):0}%"></i></div>
         <div class="funil-leg">
@@ -788,6 +834,7 @@ function render(){
             <span>fechados pelo fluxo · ${nf(car.recuperados)} de ${nf(car.voltaramMedidos)} que voltaram</span>
             <span>${car.voltaramMedidos?Math.round(100*car.recuperados/car.voltaramMedidos)+'% do resgate é do CRM':'participação do CRM sem base: ninguém voltou'}</span>
           </div></div>`:''}
+        ${car.receitaVoltaramDiasIndisponiveis?`<div class="mini" style="margin-top:6px">Receita de retorno indisponível em ${car.receitaVoltaramDiasIndisponiveis} dia(s). A receita total e o valor não recuperado não foram calculados; as contagens conhecidas permanecem visíveis.</div>`:''}
         ${nImaturos?`<div class="mini" style="margin-top:6px">${nImaturos} dia(s) ainda em maturação: um carrinho tem até 72h para virar venda, então os dias recentes sempre aparecem abaixo do que vão fechar.</div>`:''}
         ${naoMedidos?`<div class="mini" style="margin-top:6px">${naoMedidos} dia(s) sem coleta de conversão — excluídos da fatia do CRM em vez de contarem como zero.</div>`:''}
         <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${car.carrinhos?Math.round(100*car.consent/car.carrinhos)+'%':'sem base'}).</div>
@@ -1019,14 +1066,18 @@ async function leCacheGrowth(k){
 }
 // GROWTH_CACHE_READ_END
 async function carregar({retryIdentity=false}={}){
+  if(window.ShrigmaPrepareRead&&!(await window.ShrigmaPrepareRead())){$('#load-state').hidden=true;$('#atualizado-em').textContent='Sessão indisponível. Atualize para tentar novamente.';return;}
+  if(typeof GPR!=='undefined')GPR.clear();
   GrowthView.resolve({retry:retryIdentity});
-  if(LOADING)return;
+  if(LOADING){if(window.ShrigmaSimpleRead)SIMPLE_READ_QUEUED=true;return;}
+  const readingBrand=MARCA,readingGeneration=SIMPLE_READ_GENERATION;
   const k=chave();if(!k){mostraAcessoGrowth();return;}
   LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
   if(!API)$('#load-state').hidden=false;
   try{
     const inicioLeituraAB=Date.now();
     const {next:fresh,antigo,r,codigo}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==SIMPLE_READ_GENERATION))return;
     if(r&&r.status===503&&codigo==='CRM_ACCESS_NOT_READY'){limpaConsultaCRM();throw new Error(GrowthAccess.ACESSO_CRM_PENDENTE);}
     if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
     // Sem preparação no prazo, cai para o retrato vencido só se ele for mais novo que o já exibido.
@@ -1056,6 +1107,7 @@ async function carregar({retryIdentity=false}={}){
       :'Consultado em '+horaBR(Date.now());
     $('#atualizado-em').title=!fresh?'A preparação mais recente dos dados tem mais de 20 minutos. O painel mostra o último retrato disponível; os números não são de agora. Atualize em alguns minutos.':ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
   }catch(e){
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==SIMPLE_READ_GENERATION))return;
     $('#load-state').hidden=true;
     CONSULTA={...CONSULTA,falhou:true};FALHA_LEITURA=GrowthAccess.readError(e);
     pintaAlertas();
@@ -1065,12 +1117,13 @@ async function carregar({retryIdentity=false}={}){
     if(!CRM_LEITURA_BLOQUEADA&&SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
     if(!CRM_LEITURA_BLOQUEADA&&SEC==='regua'){
       const ctx={api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim};
-      const modeloOp2=GC.activeTab==='workflows'?GC.render({...ctx,visiblePanel:'workflows',syncTab:false}):GC.model(API.crm_operacao,ctx);
+      const modeloOp2=GC.activeTab==='workflows'?GC.render({...ctx,visiblePanel:'workflows',syncTab:false}):GC.model(API?.crm_operacao,ctx);
       renderJornadas(modeloOp2);
     }else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
     else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
+    if(SIMPLE_READ_QUEUED){SIMPLE_READ_QUEUED=false;carregar();}
   }
 }
 async function salvarTeste(){
@@ -1098,7 +1151,7 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
   const h=(typeof location!=='undefined'&&typeof location.hash==='string')?GT.leHash(location.hash):{};
   const p={...(lePref()||{}),...(h.marca?{marca:h.marca}:{}),...(h.canal?{canal:h.canal}:{}),...(h.sec?{sec:h.sec}:{}),
     ...(h.p?{preset:h.p,ini:null,fim:null}:h.ini&&h.fim?{preset:null,ini:h.ini,fim:h.fim}:{})};
-  if(h.aba&&['history','workflows','templates','fluxos','drafts'].includes(h.aba))GC.activeTab=h.aba;
+  if(h.aba&&['history','workflows','templates','fluxos','drafts','lab'].includes(h.aba))GC.activeTab=h.aba;
   if(h.aba==='graph'&&(!h.sec||h.sec==='regua')){PENDENTE_GRAPH=true;GC.activeTab='fluxos';p.sec='regua';}
   if(h.flow)PENDENTE_FLOW=h.flow;
   if(!Object.keys(p).length)return;
@@ -1133,7 +1186,8 @@ function trocaMarca(next,afterConfirm=null){
     const campaign=GCE.contextStatus();
     try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();if(typeof GJG!=='undefined')GJG.preserve();}catch(e){notice(e.message);return false;}
     MARCA=next;AB_WRITE_EPOCH++;
-    ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
+    ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
+    if(window.ShrigmaSimpleRead){SIMPLE_READ_GENERATION++;API=null;render();carregar();}else render();gravaHash();
     // The editor may still hold a brand opened before the current header brand.
     notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[campaign.brand]||G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
     return true;
@@ -1161,7 +1215,7 @@ function abrirSecaoCRM(section,{tab}={}){
   const target=document.getElementById('sec-'+section);if(!target||!target.classList.contains('sec'))return;
   PENDENTE_GRAPH=false;SEC=section;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x===target));
   ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
-  const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows','graph'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
+  const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows','graph','lab'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
   if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
   render();gravaHash();
 }
@@ -1216,7 +1270,7 @@ setCanal(CANAL);
 const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;
 let GROWTH_LAST_AUTO_READ=null;
 function atualizarGrowthVisivel(){
-  if(document.hidden)return;
+  if(document.hidden||SEC==='regua'&&GC.activeTab==='fluxos'&&GROWTH_LAST_AUTO_READ!==null)return;
   GROWTH_LAST_AUTO_READ=Date.now();
   return carregar();
 }

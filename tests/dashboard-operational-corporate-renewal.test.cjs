@@ -1,4 +1,5 @@
 'use strict';
+const {rowBrandDependencies}=require('./helpers/dashboard-row-brand-fixture.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),{Readable}=require('node:stream'),{EventEmitter}=require('node:events');
 const {fixture,pending,hosts}=require('./corporate-writer-fixture.cjs');
 const Server=require('../services/dashboard-operational/server.cjs');
@@ -135,7 +136,7 @@ test('READ expiry during renewed WRITER FULL compensates exact lifecycle once an
 test('admin UI presents corporate expired recovery and WRITER renewal using only the closed server capabilities',()=>{
  const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),source=fs.readFileSync(path.resolve(__dirname,'../services/dashboard-operational/public/entry.js'),'utf8');
  const node=()=>({children:[],textContent:'',append(...a){this.children.push(...a);},setAttribute(){},addEventListener(){}}),text=n=>[n.textContent,...n.children.map(text)].join(' | '),context={document:{createElement:node},AREAS:{growth:{label:'CRM'}},saveAccessRequest(){},revoke(){}};
- const start=source.indexOf(' function crmAccessLabel('),end=source.indexOf(' async function saveAccessRequest(');require('node:vm').runInNewContext(source.slice(start,end)+'\nglobalThis.row=userRow;',context);
+ const start=source.indexOf(' function crmAccessLabel('),end=source.indexOf(' async function saveAccessRequest(');rowBrandDependencies(context,source);require('node:vm').runInNewContext(source.slice(start,end)+'\nglobalThis.row=userRow;',context);
  const u={id:'synthetic-id',email:'manager@oaristocrata.com',role:'manager',brand:'fish',brands:['fish'],brandAccess:'single',status:'active',areas:['growth'],permissions:{growth:{read:true,edit:true}},requestedAccess:'edit',crmAccess:{state:'ready',ready:false,canRenew:true,expired:true,renewalPhase:null,writerRevocationPending:false},crmWriter:{state:'blocked',canApprove:false,canRenew:false}};
  assert.match(text(context.row(u)),/Renovar acesso CRM/);assert.doesNotMatch(text(context.row(u)),/Aprovar edição|Renovar edição/);
  assert.match(text(context.row({...u,role:'superadmin',brand:null,brands:['fish','aristo'],brandAccess:'all'})),/Todas as marcas/);assert.doesNotMatch(text(context.row({...u,brand:null,brands:[],brandAccess:'reprovision_required'})),/Renovar acesso|Renovar edição/);

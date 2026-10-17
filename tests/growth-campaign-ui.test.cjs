@@ -112,6 +112,16 @@ test('cancel is optional and confirms saved name and date even with unsaved loca
  assert.equal(x.calls.find(c=>c.acao==='campanha_cancelar').confirm,'cancelar');assert.equal(x.q('[data-ce-cancel]').disabled,true);assert.match(x.q('[data-ce-campaigns]').textContent,/Cancelada/);
 });
 
+test('past due schedule explains cancellation boundary without issuing a cancel',async()=>{
+ const x=boot(),send_at='2020-10-12T15:00:00Z';x.setCurrent({id:100,version:'v1',status:'scheduled',sent:0,started_at:null,send_at,definition:{...definition(),send_at}});
+ x.q('[data-ce-refresh]').click();await until(()=>!!x.q('[data-ce-open]'));x.q('[data-ce-open]').click();if(x.confirmations.length)x.accept();await until(()=>/horário desta campanha já passou/.test(x.q('[data-ce-server-state]').textContent));
+ assert.equal(x.q('[data-ce-cancel]').disabled,true);assert.match(x.q('[data-ce-cancel]').title,/horário futuro/);assert.match(x.q('[data-ce-server-state]').textContent,/Carregar catálogo e campanhas/);assert.equal(x.calls.some(c=>c.acao==='campanha_cancelar'),false);
+});
+test('paused partial campaign reports that its reason is unavailable rather than inventing a cause',async()=>{
+ const x=boot();x.setCurrent({id:100,version:'v1',status:'paused',sent:8,started_at:'2020-10-12T15:00:00Z',send_at:'2020-10-12T15:00:00Z',definition:definition()});
+ x.q('[data-ce-refresh]').click();await until(()=>!!x.q('[data-ce-open]'));x.q('[data-ce-open]').click();if(x.confirmations.length)x.accept();await until(()=>/esta leitura não informa o motivo/.test(x.q('[data-ce-server-state]').textContent));
+ assert.equal(x.q('[data-ce-cancel]').disabled,true);assert.equal(x.q('[data-ce-schedule]').disabled,true);assert.match(x.q('[data-ce-server-state]').textContent,/tentativas incertas/);assert.equal(x.calls.some(c=>c.acao==='campanha_cancelar'),false);
+});
 test('campaign header context restores per-brand preparation without carrying lists or touching an uncertain journal',async()=>{
  const x=boot({timeout:true}),legacy=x.store.get('shrigma_campaign_composer_v1');
  x.q('[data-ce-save]').click();await until(()=>x.run('GCE.contextStatus().pending'));

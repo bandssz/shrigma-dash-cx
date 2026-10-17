@@ -1,0 +1,176 @@
+{
+  "schema": "shrigma-manager-access-source-v1",
+  "baseline": "55ed5bdc42d924a79da577b4b7c7b7b052dfc4c7",
+  "baselineTree": "10c7f006e9b9a25f40463aa84891180ffff0f43b",
+  "productionAdmitted": false,
+  "sqlInstallationEnabled": false,
+  "files": [
+    {
+      "path": "services/dashboard-operational/auth.cjs",
+      "bytes": 126663,
+      "sha256": "3c66eb997dd87415e325057a64fa4fb342ef1ffa2574457e287e5662f24bf776"
+    },
+    {
+      "path": "services/dashboard-operational/server.cjs",
+      "bytes": 140780,
+      "sha256": "d2d3b8677d1f3ba47e57f2f1c136522056d7d6e4dc6b501e02190435acaf2749"
+    },
+    {
+      "path": "services/dashboard-operational/proxy.cjs",
+      "bytes": 43614,
+      "sha256": "08c0beb4661bb7e292c669fee998349447c930daa0ca8e57e7f56dea425f2904"
+    },
+    {
+      "path": "services/dashboard-operational/dashboard-individual-read.cjs",
+      "bytes": 7092,
+      "sha256": "9fca3a72758c8c42469699b4342320cc98162362a0df568971536d1119e9364f"
+    },
+    {
+      "path": "services/dashboard-operational/build.cjs",
+      "bytes": 18145,
+      "sha256": "f97e47f13a210372a53b7f8a1a10cb526276a51b44e2eb5f5f94ef5067e510e1"
+    },
+    {
+      "path": "services/dashboard-operational/public/entry.js",
+      "bytes": 59694,
+      "sha256": "de2a1e888fc471eafc048e425adc7f1a92fd8826ec15dd7db9279114aaebbd70"
+    },
+    {
+      "path": "services/dashboard-operational/public/entry.compiled.js",
+      "bytes": 43900,
+      "sha256": "9163a59f0dab0b3a96c1a5e18fe3540a784b5978e73d0ebf7da518556b84a396"
+    },
+    {
+      "path": "services/dashboard-operational/campaign-ui-assets.json",
+      "bytes": 1379,
+      "sha256": "c66d321650aab163fba1c46cacb3b702eb53a4627590223c6e016e097816b5c0"
+    },
+    {
+      "path": "influs.html",
+      "bytes": 101006,
+      "sha256": "b68d949607c19004509e624254072d8e86b195b2ae1e3d79906739c26ab36b4b"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
+      "bytes": 5830,
+      "sha256": "f405eaaf2ccf979b2382adcb22486ee0fd74faa18277e441576f4f00b84c4792"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
+      "bytes": 5040,
+      "sha256": "64286ae96254edc33ff78dce9a1aabc461eb2673f4357739fab27bd48642ca03"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
+      "bytes": 5541,
+      "sha256": "fe0e2b1ea8b6132f701ecb8ff2e13c244bdaa6049d084d8e23db7c49488b0485"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
+      "bytes": 3730,
+      "sha256": "58edb3d848d35f53a6bb4db1e31be3822ed2ababfa08e02c78484f350ebb2332"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
+      "bytes": 12760,
+      "sha256": "4f430c3753a74e17ea9c0b7c2c544c7808ba36e836400135d51fecdb73283fde"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
+      "bytes": 6823,
+      "sha256": "c58f9b61539741d83e130d9eb4737a6e52906a140aecdfa92ce94eda17c4432a"
+    },
+    {
+      "path": "tests/dashboard-individual-read.test.cjs",
+      "bytes": 14781,
+      "sha256": "84178248052a8027596b8168ee38118d5fa1a6bd3546bfebccef0b826335cddf"
+    },
+    {
+      "path": "tests/dashboard-individual-read-gateway.test.cjs",
+      "bytes": 9457,
+      "sha256": "657474a47591c8bfeab25cbd9297b648ba4758d7c943fe26e32086a28ffc3662"
+    },
+    {
+      "path": "tests/product-front-split.test.cjs",
+      "bytes": 7027,
+      "sha256": "5826c43beba0eb1aac2b1fbe2d52858f4d8dc90696be00fe52b4c620a762c275"
+    },
+    {
+      "path": ".github/workflows/crm-native-connection-20261007.yml",
+      "bytes": 23779,
+      "sha256": "3a1a24d1bb3b9ca1c4b31a71805adbadb119693bda233f4ef46c19d6f0115ab7"
+    },
+    {
+      "path": "tools/crm-native-connection/verify-manager-access-source.cjs",
+      "bytes": 2293,
+      "sha256": "5206b821752cfe4b91a57b42dc5d2832e7df2cef064985617047787545abd3c7"
+    }
+  ],
+  "preserved": [
+    {
+      "path": "tools/crm-native-connection/source-custody.json",
+      "bytes": 114351,
+      "sha256": "b5d1a29e6c1286bbb993ec50e72cb17f11509b3a78cf2c07b68600d5c491892a"
+    },
+    {
+      "path": "services/dashboard-operational/native-continuity/read-only.cjs",
+      "bytes": 21979,
+      "sha256": "16ecd75d34ff90e9ecf718ef879eb51f7c22bcc2434c3a30c41b24ddd02fe7c6"
+    },
+    {
+      "path": "services/dashboard-operational/native-continuity/pins.json",
+      "bytes": 5314,
+      "sha256": "8789803c62ec8e45aea77185703d6b6e6aa74e5d7294d9bc019ae05c5a987833"
+    },
+    {
+      "path": "services/dashboard-operational/own-foundation/manifest.json",
+      "bytes": 1324,
+      "sha256": "452cdbec54d59cfb7157a7efaa0ff40fbeb210c780413c3943678ddf52ce0a51"
+    },
+    {
+      "path": "services/dashboard-operational/own-foundation/foundation.cjs",
+      "bytes": 18525,
+      "sha256": "fc1e3c12e53dc74f262eec8ecbc7d0e160b5504850eb928ea39013a051ff37b0"
+    },
+    {
+      "path": "services/dashboard-operational/own-foundation/bootstrap-v1.sql",
+      "bytes": 1052,
+      "sha256": "1fb03940600a2bed1f8835d6835d27b04ef42a487823d3a3ddff1fbe1032ca46"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/manifest.json",
+      "bytes": 6454,
+      "sha256": "d1c59de603cb00eee03b4d924e3bfcf275848b90de21b7ebb07f8534bb051df7"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/migrations/crm-manager-provision-v1.sql",
+      "bytes": 24527,
+      "sha256": "be6d670b90cd30977bc0ad2ffd8e7bd2e1d67d58727ef9fa616c2d07c2b813b4"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/migrations/crm-manager-role-install-v1.sql",
+      "bytes": 9310,
+      "sha256": "ca071c1e5c4896867aa0b0e30fd2e93be01e0420b8595cd04d4216e484266789"
+    },
+    {
+      "path": "services/dashboard-operational/native-installer/migrations/writer-provision-v1.sql",
+      "bytes": 38349,
+      "sha256": "0db3c19b63537a7fdda8987675f8fe157effe38be103681d258aa3775554ba04"
+    },
+    {
+      "path": "services/dashboard-operational/crm-individual-coexistence.cjs",
+      "bytes": 2933,
+      "sha256": "3a2e5a3a59ad9dccfefbedbdfde5069b568a0d9ca5bc59ee5c4af09a0064bd6f"
+    },
+    {
+      "path": "services/dashboard-operational/crm-manager-runtime.cjs",
+      "bytes": 12945,
+      "sha256": "e52d1bcdc0d00e553163a695d12b2225f3a1bc3b2b0f78655407e07b0599af07"
+    },
+    {
+      "path": "services/dashboard-operational/crm-campaign-delivery.cjs",
+      "bytes": 23941,
+      "sha256": "766bd28528fde80169ffb675609d5a058bcc1c4ca2e6f85525963e518701316b"
+    }
+  ]
+}

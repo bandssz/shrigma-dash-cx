@@ -95,6 +95,18 @@ test('revocation while the response is in flight discards the entire template pa
  const result=await r;assert.equal(result.status,503);assert.deepEqual(result.body,{error:'TEMPLATE_READ_NOT_READY'});
 });
 
+test('current fixture clock admits a real BFF read and credential expiry still closes it with a live session',async t=>{
+ const before=Date.now(),{f,ctx}=await ready(t),after=Date.now();assert.ok(f.config.now()>=before&&f.config.now()<=after);
+ const {POLICY}=require('../services/dashboard-operational/crm-manager-provisioning.cjs');let calls=0;
+ const a=app(t,f,async()=>{calls++;return response(page('fish'));});
+ assert.equal((await request(a,ctx,'/api/templates?acao=listar&marca=fish')).status,200);assert.equal(calls,1);
+ f.advance(POLICY.lifetimeMs-5*60*1000);
+ const login=await f.login('fish-manager@synthetic.invalid'),fresh=f.reader(login);
+ assert.equal((await request(a,fresh,'/api/templates?acao=listar&marca=fish')).status,200);assert.equal(calls,2);
+ f.advance(10*60*1000);
+ const expired=await request(a,fresh,'/api/templates?acao=listar&marca=fish');assert.equal(expired.status,503);assert.deepEqual(expired.body,{error:'TEMPLATE_READ_NOT_READY'});assert.equal(calls,2);
+});
+
 test('the global campaign selector and manager WRITE remain closed with template READ ON',async t=>{
  const {f,ctx,login}=await ready(t);const calls=[];const a=app(t,f,async(url)=>{calls.push(String(url));return response({brand:'fish',lists:[],templates:[{id:1,name:'Global campaign',type:'campaign',version:'a'.repeat(32),available:true}],initiatives:[]});});
  const catalog=await request(a,ctx,'/api/campaigns?acao=campanha_catalogo&brand=fish');assert.equal(catalog.status,503);assert.deepEqual(catalog.body,{error:'BRAND_CATALOG_SCOPE_NOT_READY'});

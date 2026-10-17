@@ -26,6 +26,16 @@ const scrypt=promisify(crypto.scrypt);
 
 const AREAS=Object.freeze(['growth','organico','influs']);
 const AREA_SET=new Set(AREAS);
+// Product delegation is narrower than the historical backend area. Preserve
+// the three installed areas; a new Afiliados delegation never inherits Influs.
+const PRODUCT_AREAS=Object.freeze({growth:'growth',organico:'organico',influs:'influs',afiliados:'influs'});
+const VIEW_BRANDS=Object.freeze(['fish','aristo','olivas']);
+function selectedBrands(brand,brands){
+ if(brands===undefined){if(!VIEW_BRANDS.includes(brand))err('BRAND_INVALID',400);return [brand];}
+ if(brand!==undefined||!Array.isArray(brands)||brands.length<1||brands.length>3||new Set(brands).size!==brands.length||Array.from(brands).some(b=>!VIEW_BRANDS.includes(b)))err('BRAND_INVALID',400);
+ return VIEW_BRANDS.filter(b=>brands.includes(b));
+}
+const SLOT_PRODUCTS=Object.freeze({'influs-read':'influs','influs-write':'influs','tts-read':'afiliados','tts-write':'afiliados'});
 // Only brands already admitted by the gateway's CRM/Influs contracts.
 // Adding another brand requires review of each area's backend contract.
 const BRANDS=Object.freeze(['fish','aristo']);
@@ -110,16 +120,27 @@ function invitePermissions(areas,permissions){
 
 function createAuth(options){
  if(!plain(options)||typeof options.dbPath!=='string'||!options.dbPath||!Array.isArray(options.allowedEmailDomains)||!options.allowedEmailDomains.length||!plain(options.areaHosts))err('CONFIG_INVALID',500);
+ if(options.simpleReadMode!==undefined&&typeof options.simpleReadMode!=='boolean')err('CONFIG_INVALID',500);
+ const simpleReadMode=options.simpleReadMode===true;
+ const sessionMs=simpleReadMode?7*24*60*60*1000:SESSION_MS,idleMs=simpleReadMode?sessionMs:IDLE_MS;
  if(options.crmManagedRead!==undefined&&(!plain(options.crmManagedRead)||Object.keys(options.crmManagedRead).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedRead).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v))))err('MANAGED_CONFIG_INVALID',500);
+ if(options.dashboardIndividualRead!==undefined&&typeof options.dashboardIndividualRead!=='boolean')err('CONFIG_INVALID',500);
+ const dashboardIndividualRead=options.dashboardIndividualRead===true;
+ if(options.dashboardAffiliateRead!==undefined&&typeof options.dashboardAffiliateRead!=='boolean')err('CONFIG_INVALID',500);
+ const dashboardAffiliateRead=options.dashboardAffiliateRead===true;
+ const coexistence=require('./crm-individual-coexistence.cjs').validate(options);
  let corporateWriter=null;
  let ownMasterWriter=null;
+ const ownMasterAudienceWrite=options.crmMasterAudienceWrite===true;
+ if(options.crmMasterAudienceWrite!==undefined&&typeof options.crmMasterAudienceWrite!=='boolean')err('MASTER_AUDIENCE_CONFIG_INVALID',500);
  if(options.crmCampaignWriterProfile!==undefined)try{ownMasterWriter=require('./crm-manager-runtime.cjs').ownMasterWriterDescriptor(options.crmCampaignWriterProfile,options.allowedEmailDomains);}catch{err('MASTER_WRITER_CONFIG_INVALID',500);}
- if(ownMasterWriter&&(options.crmManagedRead!==undefined||options.crmManagedWriter!==undefined||options.crmCampaignSubmitWrite!==true||!require('./crm-manager-runtime.cjs').corporateHostsAllowed(options.managerHost,options.areaHosts)||options.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'))err('MASTER_WRITER_CONFIG_INVALID',500);
+ if(ownMasterAudienceWrite&&!ownMasterWriter)err('MASTER_AUDIENCE_CONFIG_INVALID',500);
+ if(ownMasterWriter&&(!coexistence&&(options.crmManagedRead!==undefined||options.crmManagedWriter!==undefined)||options.crmCampaignSubmitWrite!==true||!require('./crm-manager-runtime.cjs').corporateHostsAllowed(options.managerHost,options.areaHosts)||options.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'))err('MASTER_WRITER_CONFIG_INVALID',500);
  if(options.crmManagedWriter?.mode!==undefined)try{corporateWriter=require('./crm-manager-runtime.cjs').corporateWriterDescriptor(options.crmManagedWriter,options.crmManagedRead,options.allowedEmailDomains);}catch{err('MANAGED_WRITER_CONFIG_INVALID',500);}
  if(corporateWriter&&(!require('./crm-manager-runtime.cjs').corporateHostsAllowed(options.managerHost,options.areaHosts)||options.bootstrapAdminEmail!=='felipebandeira@oaristocrata.com'))err('MANAGED_WRITER_CONFIG_INVALID',500);
  if(options.crmCampaignSubmitWrite!==undefined&&typeof options.crmCampaignSubmitWrite!=='boolean'||options.crmCampaignSubmitWrite===true&&!corporateWriter&&!ownMasterWriter&&(options.crmManagedRead!==undefined||options.allowedEmailDomains.length!==1||options.allowedEmailDomains[0]!=='synthetic.invalid'))err('CAMPAIGN_WRITE_CONFIG_INVALID',500);
  const campaignSubmit=options.crmCampaignSubmitWrite===true;
- const masterWriter=corporateWriter||ownMasterWriter;
+ const masterWriter=coexistence?ownMasterWriter:corporateWriter||ownMasterWriter;
  if(options.crmManagedWriter!==undefined&&(!campaignSubmit||!corporateWriter&&(options.crmManagedRead!==undefined||!plain(options.crmManagedWriter)||Object.keys(options.crmManagedWriter).sort().join(',')!=='issuerId,namespaceId'||Object.values(options.crmManagedWriter).some(v=>typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v)))))err('MANAGED_WRITER_CONFIG_INVALID',500);
  const {dbPath}=options,managerHost=hostname(options.managerHost);
  const areaHosts=Object.fromEntries(AREAS.map(a=>[a,hostname(options.areaHosts[a])]));
@@ -161,6 +182,10 @@ function createAuth(options){
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   requested_access TEXT NOT NULL CHECK(requested_access='edit'),
   requested_at INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS user_product_grants_v1 (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  product_front TEXT NOT NULL CHECK(product_front IN ('growth','organico','influs','afiliados')),
+  scope_mac TEXT NOT NULL,brands_json TEXT);
  CREATE TABLE IF NOT EXISTS user_profile_updates_v1 (
   user_id TEXT PRIMARY KEY REFERENCES users(id),request_json TEXT NOT NULL,request_mac TEXT NOT NULL,
   phase TEXT NOT NULL CHECK(phase IN ('revoking','completed','cancelled')),invite_ciphertext TEXT,invite_mac TEXT,
@@ -218,6 +243,7 @@ function createAuth(options){
  for(const [name,type]of [['definition_mac','TEXT'],['request_id','TEXT'],['expected_version','INTEGER']])
   if(!db.prepare('PRAGMA table_info(audience_draft_operations)').all().some(column=>column.name===name))
    db.exec(`ALTER TABLE audience_draft_operations ADD COLUMN ${name} ${type}`);
+ if(!db.prepare('PRAGMA table_info(user_product_grants_v1)').all().some(c=>c.name==='brands_json'))db.exec('ALTER TABLE user_product_grants_v1 ADD COLUMN brands_json TEXT');
  const findUser=db.prepare('SELECT * FROM users WHERE email=?');
  db.exec('BEGIN IMMEDIATE');
  try{
@@ -241,9 +267,15 @@ function createAuth(options){
   }
   db.exec('COMMIT');
  }catch(e){db.exec('ROLLBACK');db.close();throw e;}
+ const testDiagnostics=simpleReadMode?require('./private-test-diagnostics.cjs').create({db,encrypt,decrypt,now:current}):null;
+ const simpleAccounts=simpleReadMode?require('./simple-login-accounts.cjs').createSimpleAccounts({db,testDiagnostics,
+  currentUser:id=>{const row=db.prepare('SELECT * FROM users WHERE id=?').get(id);if(!row)return null;try{return {...publicUser(row),active:row.state==='active'};}catch{return null;}},
+  authorizeAdmin:context=>adminContext(context),authorizeUser:context=>authorize(context),
+  normalizeEmail:value=>emailAddress(value,domainSet),hashPassword,verifyPassword,now:current,...(options.journeyTestTransport?{journeyTestTransport:options.journeyTestTransport}:{})}):null;
  // Off by default: records local identity jobs, never starts remote transport
  // or a worker. The private gateway constructor owns this configuration.
- let managedCrm=null,managedWriter=null;
+ let managedCrm=null,managedWriter=null,nativeConnections=null,affiliateNativeConsent=null;
+ if(options.crmNativeEnabled!==undefined&&typeof options.crmNativeEnabled!=='boolean')err('NATIVE_CONFIG_INVALID',500);
  if(options.crmManagedRead!==undefined)try{
   managedCrm=require('./crm-manager-journal.cjs').createManagerJournal({db,...options.crmManagedRead,...(corporateWriter?{writerBindingReady:id=>managedWriter?.bindingForUser(id)!==null&&managedWriter!==null,writerRenewalBindingReady:id=>managedWriter?.bindingForRenewal(id)===true}:{}),encrypt,decrypt,digest:value=>crypto.createHmac('sha256',encKey).update('upstream-key:'+value).digest('hex'),now:current});
  }catch{db.close();err('MANAGED_CONFIG_INVALID',500);}
@@ -259,7 +291,13 @@ function createAuth(options){
   return db.prepare("SELECT o.phase FROM crm_manager_operations_v1 o JOIN crm_manager_current_v1 c USING(lifecycle_id) JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=? AND o.kind='renew' AND o.lifecycle_version=l.version AND l.state='ready' AND o.phase IN ('queued','prepare_uncertain','prepared','attested','commit_uncertain','committed')").get(userId)?.phase??null;
  }
  function managedAccess(user){
-  if(ownMasterWriter&&user.role==='manager'&&permissions(user.id).growth?.read===true)return {state:'unavailable',ready:false,operational:false,reason:'INDIVIDUAL_ACCESS_NOT_READY',renewalPhase:null,expired:false,canRenew:false};
+  if(dashboardIndividualRead&&!managedCrm&&user.role==='manager'&&permissions(user.id).growth?.read===true){
+   const row=db.prepare("SELECT encrypted_key,key_digest FROM upstream_credentials WHERE user_id=? AND slot='crm-panel-read'").get(user.id),scope=brandScope(db.prepare('SELECT * FROM users WHERE id=?').get(user.id));
+   const bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='crm-panel-read'").get(user.id);
+   const configured=!!(row&&bound&&scope.brandAccess==='single'&&equalHex(bound.binding_mac,upstreamBindingMac(user,'crm-panel-read',row)));
+   return {state:configured?'configured':'unavailable',ready:false,operational:false,reason:configured?'READ_VALIDATION_REQUIRED':'INDIVIDUAL_CREDENTIAL_MISSING',credentialBound:configured,readOnly:true,renewalPhase:null,expired:false,canRenew:false};
+  }
+  if(ownMasterWriter&&!coexistence&&user.role==='manager'&&permissions(user.id).growth?.read===true)return {state:'unavailable',ready:false,operational:false,reason:'INDIVIDUAL_ACCESS_NOT_READY',renewalPhase:null,expired:false,canRenew:false};
   const status=managedCrm?.status(user.id);if(!status)return null;
   const scoped=brandScope(db.prepare('SELECT * FROM users WHERE id=?').get(user.id)).brandAccess!=='reprovision_required';
   const renewalPhase=managedRenewalPhase(user.id),ready=scoped&&managedCrm.credentialReady(user.id)===true;
@@ -281,9 +319,20 @@ function createAuth(options){
    const next=waiters.shift();if(next)next();else hashing=false;
   }
  }
- async function hashPassword(password){const salt=crypto.randomBytes(16),hash=await derive(validPassword(password),salt);return `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${salt.toString('base64url')}$${hash.toString('base64url')}`;}
+ let bcryptPromise,dummyBcryptPromise;
+ const bcrypt=()=>bcryptPromise||(bcryptPromise=import('./bcrypt.mjs').then(m=>m.default));
+ async function hashPassword(password,{legacyCompatible=false}={}){
+  validPassword(password);
+  if(simpleReadMode&&!legacyCompatible){if(Buffer.byteLength(password,'utf8')>72)err('PASSWORD_INVALID',400);return (await bcrypt()).hash(password,12);}
+  const salt=crypto.randomBytes(16),hash=await derive(password,salt);return `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${salt.toString('base64url')}$${hash.toString('base64url')}`;
+ }
  async function verifyPassword(password,encoded){
   if(typeof password!=='string'||password.length>128||Buffer.byteLength(password)>256)return false;
+  if(typeof encoded==='string'&&/^\$2[aby]\$12\$[./A-Za-z0-9]{53}$/.test(encoded))return Buffer.byteLength(password,'utf8')<=72&&(await bcrypt()).compare(password,encoded);
+  if(simpleReadMode&&typeof encoded!=='string'){
+   const b=await bcrypt();dummyBcryptPromise||=(b.hash(crypto.randomBytes(32).toString('base64url'),12));
+   await b.compare(password,await dummyBcryptPromise);return false;
+  }
   let salt=DUMMY_SALT,expected=Buffer.alloc(64);
   if(typeof encoded==='string'){
    const parts=encoded.split('$');if(parts.length===6&&parts[0]==='scrypt'&&parts[1]===String(SCRYPT.N)&&parts[2]===String(SCRYPT.r)&&parts[3]===String(SCRYPT.p)){
@@ -294,11 +343,24 @@ function createAuth(options){
  }
  const brandMac=value=>crypto.createHmac('sha256',encKey).update('identity-brand-v1:'+JSON.stringify(value)).digest('hex');
  const validBrand=(area,brand)=>AREA_SET.has(area)&&AREA_BRANDS[area].includes(brand);
+ function currentBrandMac(id,email,area,brand){const product=db.prepare('SELECT product_front,brands_json FROM user_product_grants_v1 WHERE user_id=?').get(id);return brandMac([id,email,area,brand,...(product?['product-front-v1',product.product_front,...(product.brands_json!==null?['brands-v2',product.brands_json]:[])]:[])]);}
+ function selectedProductScope(user){
+  const row=db.prepare('SELECT * FROM user_product_grants_v1 WHERE user_id=?').get(user.id);
+  if(!row||row.brands_json===null)return null;
+  let brands;try{brands=JSON.parse(row.brands_json);if(JSON.stringify(selectedBrands(undefined,brands))!==row.brands_json)throw Error();}catch{err('PRODUCT_SCOPE_INVALID',403);}
+  const areas=Object.keys(permissions(user.id)),front=row.product_front;
+  if(user.role!=='manager'||areas.length!==1||PRODUCT_AREAS[front]!==areas[0]||!equalHex(row.scope_mac,brandMac(['product-brands-v2',user.id,user.email,areas[0],front,brands])))err('PRODUCT_SCOPE_INVALID',403);
+  return {front,brands};
+ }
  function brandScope(user){
-  if(user.role==='superadmin')return {brand:null,brands:[...BRANDS],brandAccess:'all'};
+  if(user.role==='superadmin')return {brand:null,brands:[...BRANDS],brandAccess:'all',viewBrands:[...VIEW_BRANDS]};
+  const simple=simpleAccounts?.profile(user.id);
+  if(simple)return {brand:simple.brands.length===1?simple.brands[0]:null,brands:[...simple.brands],viewBrands:[...simple.brands],brandAccess:simple.brands.length===1?'single':'multiple'};
+  const selected=selectedProductScope(user);
+  if(selected&&(selected.brands.length!==1||!BRANDS.includes(selected.brands[0])))return {brand:selected.brands.length===1?selected.brands[0]:null,brands:[...selected.brands],viewBrands:[...selected.brands],brandAccess:selected.brands.length===1?'single':'multiple'};
   const row=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(user.id);
   const p=permissions(user.id),areas=Object.keys(p);
-  if(!row||row.owner!==user.email||areas.length!==1||areas[0]!==row.area||!validBrand(row.area,row.brand)||!equalHex(row.scope_mac,brandMac([user.id,user.email,row.area,row.brand])))return {brand:null,brands:[],brandAccess:'reprovision_required'};
+  if(!row||row.owner!==user.email||areas.length!==1||areas[0]!==row.area||!validBrand(row.area,row.brand)||!equalHex(row.scope_mac,currentBrandMac(user.id,user.email,row.area,row.brand)))return {brand:null,brands:[],brandAccess:'reprovision_required'};
   for(const [kind,table]of [['read','crm_manager_current_v1'],['writer','crm_writer_auth_admission_v1']]){
    if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))continue;
    const life=db.prepare(`SELECT lifecycle_id FROM ${table} WHERE user_id=?`).get(user.id);
@@ -313,7 +375,7 @@ function createAuth(options){
   const row=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(userId);
   if(!row||!['read','writer'].includes(kind)||typeof lifecycleId!=='string')err('BRAND_BINDING_INVALID',500);
   const owner=db.prepare('SELECT * FROM users WHERE id=?').get(userId);
-  if(!owner||row.owner!==owner.email||!equalHex(row.scope_mac,brandMac([owner.id,owner.email,row.area,row.brand])))err('BRAND_BINDING_INVALID',500);
+  if(!owner||row.owner!==owner.email||!equalHex(row.scope_mac,currentBrandMac(owner.id,owner.email,row.area,row.brand)))err('BRAND_BINDING_INVALID',500);
   db.prepare('INSERT INTO user_brand_lifecycles_v1(user_id,kind,lifecycle_id,scope_mac) VALUES(?,?,?,?) ON CONFLICT(user_id,kind) DO UPDATE SET lifecycle_id=excluded.lifecycle_id,scope_mac=excluded.scope_mac').run(userId,kind,lifecycleId,brandMac([row.scope_mac,kind,lifecycleId]));
  }
  function bindCurrentBrandLifecycles(userId){
@@ -364,7 +426,37 @@ function createAuth(options){
  }
  function recordUpstreamBinding(user,slot,row){db.prepare('INSERT INTO upstream_brand_bindings_v1(user_id,slot,binding_mac) VALUES(?,?,?) ON CONFLICT(user_id,slot) DO UPDATE SET binding_mac=excluded.binding_mac').run(user.id,slot,upstreamBindingMac(user,slot,row));}
  function permissions(userId){const out={};for(const g of db.prepare('SELECT area,can_read,can_edit FROM grants WHERE user_id=? AND can_read=1').all(userId))out[g.area]={read:true,edit:g.can_edit===1};return out;}
- function publicUser(user){const p=permissions(user.id);return {id:user.id,email:user.email,role:user.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,...brandScope(user)};}
+ function productScope(user){
+  const p=permissions(user.id),areas=AREAS.filter(a=>p[a]?.read);
+  if(user.role==='superadmin')return {productFront:null,productFronts:Object.keys(PRODUCT_AREAS).filter(front=>areas.includes(PRODUCT_AREAS[front])),productWriteFronts:Object.keys(PRODUCT_AREAS).filter(front=>areas.includes(PRODUCT_AREAS[front]))};
+  const simple=simpleAccounts?.profile(user.id);
+  if(simple)return {productFront:simple.fronts.length===1?simple.fronts[0]:null,productFronts:[...simple.fronts],productWriteFronts:[...simple.writeFronts]};
+  const row=db.prepare('SELECT * FROM user_product_grants_v1 WHERE user_id=?').get(user.id);
+  // Existing users retain their original scope. Absence does not migrate or
+  // enlarge an existing delegation; new UI invitations always select a front.
+  if(!row){requireBrandScope(user);return {productFront:null,productFronts:Object.keys(PRODUCT_AREAS).filter(front=>areas.includes(PRODUCT_AREAS[front]))};}
+  if(row.brands_json!==null){const scope=selectedProductScope(user);requireBrandScope(user);return {productFront:scope.front,productFronts:[scope.front]};}
+  const scope=requireBrandScope(user),front=row.product_front;
+  if(!Object.hasOwn(PRODUCT_AREAS,front)||areas.length!==1||areas[0]!==PRODUCT_AREAS[front]||!equalHex(row.scope_mac,brandMac(['product-scope-v1',user.id,user.email,scope.brand,areas[0],front])))err('PRODUCT_SCOPE_INVALID',403);
+  return {productFront:front,productFronts:[front]};
+ }
+ function setProductScope(userId,front,brands){
+  if(brands!==undefined){
+   const user=db.prepare('SELECT * FROM users WHERE id=?').get(userId),areas=Object.keys(permissions(userId)),selection=selectedBrands(undefined,brands);
+   if(!user||user.role!=='manager'||areas.length!==1||!Object.hasOwn(PRODUCT_AREAS,front)||PRODUCT_AREAS[front]!==areas[0])err('PRODUCT_SCOPE_INVALID',400);
+   db.prepare('INSERT INTO user_product_grants_v1(user_id,product_front,scope_mac,brands_json) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET product_front=excluded.product_front,scope_mac=excluded.scope_mac,brands_json=excluded.brands_json').run(userId,front,brandMac(['product-brands-v2',user.id,user.email,areas[0],front,selection]),JSON.stringify(selection));
+   if(selection.length===1&&BRANDS.includes(selection[0])){db.prepare('INSERT INTO user_brand_grants_v1(user_id,owner,area,brand,scope_mac) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET owner=excluded.owner,area=excluded.area,brand=excluded.brand,scope_mac=excluded.scope_mac').run(userId,user.email,areas[0],selection[0],currentBrandMac(userId,user.email,areas[0],selection[0]));bindCurrentBrandLifecycles(userId);}
+   else db.prepare('DELETE FROM user_brand_grants_v1 WHERE user_id=?').run(userId);
+   return;
+  }
+  if(front===undefined){db.prepare('DELETE FROM user_product_grants_v1 WHERE user_id=?').run(userId);const row=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(userId);if(row){db.prepare('UPDATE user_brand_grants_v1 SET scope_mac=? WHERE user_id=?').run(brandMac([userId,row.owner,row.area,row.brand]),userId);bindCurrentBrandLifecycles(userId);}return;}
+  const user=db.prepare('SELECT * FROM users WHERE id=?').get(userId),scope=requireBrandScope(user),areas=Object.keys(permissions(userId));
+  const selection=selectedProductScope(user);if(selection){setProductScope(userId,front,selection.brands);return;}
+  if(!user||user.role!=='manager'||!Object.hasOwn(PRODUCT_AREAS,front)||areas.length!==1||areas[0]!==PRODUCT_AREAS[front])err('PRODUCT_SCOPE_INVALID',400);
+  db.prepare('INSERT INTO user_product_grants_v1(user_id,product_front,scope_mac) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET product_front=excluded.product_front,scope_mac=excluded.scope_mac').run(userId,front,brandMac(['product-scope-v1',user.id,user.email,scope.brand,areas[0],front]));
+  db.prepare('UPDATE user_brand_grants_v1 SET scope_mac=? WHERE user_id=?').run(currentBrandMac(userId,user.email,areas[0],scope.brand),userId);bindCurrentBrandLifecycles(userId);
+ }
+ function publicUser(user){const p=permissions(user.id),simple=simpleAccounts?.profile(user.id);return {id:user.id,email:user.email,role:user.role,...(simple?{jobTitle:simple.jobTitle,simpleRead:true}:{}),areas:AREAS.filter(a=>p[a]?.read),permissions:p,...brandScope(user),...productScope(user)};}
  function beginBootstrap({email,token,host,origin}){
   const h=knownHost(host);if(h!==managerHost)err('HOST_DENIED',403);checkOrigin(h,origin);
   const user=findUser.get(emailAddress(email,domainSet));
@@ -399,10 +491,20 @@ function createAuth(options){
   // Reserve the attempt before the costly hash. Concurrent guesses cannot all
   // pass a stale counter and outrun the per-account ceiling.
   recordAttempt([[globalKey,GLOBAL_LOGIN_ATTEMPTS],...keys],t);
-  const user=findUser.get(normalized),valid=await verifyPassword(password,user?.state==='active'?user.password_hash:null);
+  const candidate=findUser.get(normalized),expected=candidate?JSON.stringify(candidate):null;
+  const valid=await verifyPassword(password,candidate?.state==='active'?candidate.password_hash:null);
+  // Password checks yield. A reset or deactivation during that work must not
+  // be followed by a new session for the old snapshot. Re-read and reserve the
+  // session in one short synchronous transaction after the costly check.
+  if(db.isTransaction)err('AUTH_BUSY',503);
+  db.exec('BEGIN IMMEDIATE');
+  try{
+  const user=findUser.get(normalized);
+  if(!user||JSON.stringify(user)!==expected)err('AUTH_INVALID',401);
   const area=Object.entries(areaHosts).find(([,value])=>value===h)?.[0];
   const managerAreas=user?.role==='manager'?AREAS.filter(a=>permissions(user.id)[a]?.read):[];
-  const allowed=!!(user&&user.state==='active'&&valid&&(user.role==='superadmin'?h===managerHost||ownMasterWriter&&h===areaHosts.growth:user.role==='manager'&&area&&managerAreas.length===1&&managerAreas[0]===area));
+  const simple=user&&simpleAccounts?.profile(user.id);
+  const allowed=!!(user&&user.state==='active'&&valid&&(user.role==='superadmin'?h===managerHost||ownMasterWriter&&h===areaHosts.growth:user.role==='manager'&&(simple?(h===managerHost||area&&managerAreas.includes(area)):area&&managerAreas.length===1&&managerAreas[0]===area)));
   if(!allowed)err('AUTH_INVALID',401);
   requireBrandScope(user);
   cleanSuccess(keys);
@@ -410,20 +512,33 @@ function createAuth(options){
   // Keep it stable across sign-ins so a lost acknowledgement can be consulted
   // by the same person. Cookies and CSRF secrets still rotate on every login.
   const token=random(),uiKey=publicUiKey(user.id),sessionMarker='ui-'+crypto.randomBytes(16).toString('hex');
-  db.prepare('DELETE FROM sessions WHERE expires_at<=? OR idle_expires_at<=?').run(t,t);
-  db.prepare('INSERT INTO sessions(token_hash,user_id,host,ui_key,created_at,expires_at,idle_expires_at) VALUES(?,?,?,?,?,?,?)').run(sha(token),user.id,h,sessionMarker,t,t+SESSION_MS,t+IDLE_MS);
-  return {cookie:cookie(token,Math.floor(SESSION_MS/1000)),user:publicUser(user),csrf:crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url'),uiKey};
+  const reservedAt=current();
+  db.prepare('DELETE FROM sessions WHERE expires_at<=? OR idle_expires_at<=?').run(reservedAt,reservedAt);
+  db.prepare('INSERT INTO sessions(token_hash,user_id,host,ui_key,created_at,expires_at,idle_expires_at) VALUES(?,?,?,?,?,?,?)').run(sha(token),user.id,h,sessionMarker,reservedAt,reservedAt+sessionMs,reservedAt+idleMs);
+  const result={cookie:cookie(token,Math.floor(sessionMs/1000)),user:publicUser(user),csrf:crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url'),uiKey};
+  db.exec('COMMIT');return result;
+  }catch(e){if(db.isTransaction)db.exec('ROLLBACK');throw e;}
  }
  function lookup(ctx,refresh=true){
-  const h=knownHost(ctx?.host),token=cookieToken(ctx?.cookieHeader);if(!token)return null;
+  const h=knownHost(ctx?.host);
+  if(ctx?.nativeBearer!==undefined){
+   if(!nativeConnections)return null;
+   let proof;try{proof=nativeConnections.authenticate(ctx.nativeBearer);}catch{return null;}
+   if(proof.host!==h)return null;
+   const raw=db.prepare('SELECT * FROM users WHERE id=?').get(proof.userId);
+   if(!raw||raw.role!=='superadmin'||raw.state!=='active'||h!==managerHost)return null;
+   return {user:publicUser(raw),csrf:nativeConnections.context(ctx.nativeBearer).csrf,uiKey:publicUiKey(raw.id),tokenHash:null,host:h};
+  }
+  const token=cookieToken(ctx?.cookieHeader);if(!token)return null;
   const row=db.prepare('SELECT s.*,u.email,u.role,u.state FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.host=?').get(sha(token),h);
   const t=current();if(!row||row.state!=='active'||row.expires_at<=t||row.idle_expires_at<=t)return null;
   const area=Object.entries(areaHosts).find(([,v])=>v===h)?.[0],perms=permissions(row.user_id);
   const managerAreas=AREAS.filter(a=>perms[a]?.read);
-  if(h===managerHost&&row.role!=='superadmin'||area&&!(ownMasterWriter&&area==='growth'&&row.role==='superadmin')&&(row.role!=='manager'||managerAreas.length!==1||managerAreas[0]!==area))return null;
+  const simple=simpleAccounts?.profile(row.user_id);
+  if(h===managerHost&&row.role!=='superadmin'&&!simple||area&&!(ownMasterWriter&&area==='growth'&&row.role==='superadmin')&&(row.role!=='manager'||(simple?!managerAreas.includes(area):managerAreas.length!==1||managerAreas[0]!==area)))return null;
   const scope=brandScope({id:row.user_id,email:row.email,role:row.role});if(scope.brandAccess==='reprovision_required')return null;
-  if(refresh)db.prepare('UPDATE sessions SET idle_expires_at=? WHERE token_hash=?').run(Math.min(row.expires_at,t+IDLE_MS),row.token_hash);
-  const user={id:row.user_id,email:row.email,role:row.role,areas:AREAS.filter(a=>perms[a]?.read),permissions:perms,...scope};
+  if(refresh)db.prepare('UPDATE sessions SET idle_expires_at=? WHERE token_hash=?').run(Math.min(row.expires_at,t+idleMs),row.token_hash);
+  const user={id:row.user_id,email:row.email,role:row.role,...(simple?{jobTitle:simple.jobTitle,simpleRead:true}:{}),areas:AREAS.filter(a=>perms[a]?.read),permissions:perms,...scope,...productScope({id:row.user_id,email:row.email,role:row.role})};
   const csrf=crypto.createHmac('sha256',encKey).update('csrf:'+token).digest('base64url');
   return {user,csrf,uiKey:publicUiKey(user.id),tokenHash:row.token_hash,host:h};
  }
@@ -444,25 +559,30 @@ function createAuth(options){
    if(!AREA_SET.has(ctx.area))err('AREA_DENIED',403);
    const areaHost=areaHosts[ctx.area];if(found.host!==managerHost&&found.host!==areaHost)err('AREA_DENIED',403);
    if(!found.user.permissions[ctx.area]?.read||ctx.edit&&!found.user.permissions[ctx.area]?.edit)err('GRANT_DENIED',403);
-   if(ownMasterWriter&&ctx.area==='growth'&&ctx.edit===true&&found.user.role!=='superadmin')err('EDIT_NOT_READY',403);
+   if(ownMasterWriter&&!coexistence&&ctx.area==='growth'&&ctx.edit===true&&found.user.role!=='superadmin')err('EDIT_NOT_READY',403);
   }
   if(ctx.brand!==undefined){
-   if(!BRANDS.includes(ctx.brand))err('BRAND_INVALID',400);
-   if(found.user.role!=='superadmin'&&found.user.brand!==ctx.brand)err('BRAND_DENIED',403);
+   if(!VIEW_BRANDS.includes(ctx.brand))err('BRAND_INVALID',400);
+   if(found.user.role!=='superadmin'&&!found.user.brands.includes(ctx.brand))err('BRAND_DENIED',403);
   }
+  if(ctx.productFront!==undefined&&SLOT_PRODUCTS[ctx.slot]!==undefined&&ctx.productFront!==SLOT_PRODUCTS[ctx.slot])err('PRODUCT_DENIED',403);
+  const front=ctx.productFront??SLOT_PRODUCTS[ctx.slot];
+  if(front!==undefined&&(!Object.hasOwn(PRODUCT_AREAS,front)||ctx.area!==undefined&&ctx.area!==PRODUCT_AREAS[front]||!found.user.productFronts.includes(front)))err('PRODUCT_DENIED',403);
+  if(simpleAccounts?.profile(found.user.id)&&ctx.edit===true&&(front===undefined||!found.user.productWriteFronts.includes(front)))err('PRODUCT_WRITE_DENIED',403);
   return found.user;
  }
  function authorizeBrand(ctx,brand){if(brand===undefined)err('BRAND_REQUIRED',400);return authorize({...ctx,brand});}
  function logout(ctx){const h=requireWriteContext(ctx),found=lookup({...ctx,host:h},false);if(found){authorize({...ctx,host:h});db.prepare('DELETE FROM sessions WHERE token_hash=?').run(found.tokenHash);}return {cookie:cookie('',0)};}
  function adminContext(context){const ctx={...context,admin:true};if(ctx.method!=='POST')err('METHOD_DENIED',405);return authorize(ctx);}
- function createInvite({context,email,areas,brand,permissions:requested,requestedAccess='read',expiresMs=INVITE_MS}){
+ function createInvite({context,email,areas,brand,brands,productFront,permissions:requested,requestedAccess='read',expiresMs=INVITE_MS}){
   adminContext(context);const e=emailAddress(email,domainSet),p=invitePermissions(areas,requested);
-  if(!validBrand(areas[0],brand))err('BRAND_INVALID',400);
+  const selection=selectedBrands(brand,brands),legacySingle=selection.length===1&&BRANDS.includes(selection[0]);
+  if(productFront!==undefined&&(!Object.hasOwn(PRODUCT_AREAS,productFront)||PRODUCT_AREAS[productFront]!==areas[0]))err('PRODUCT_SCOPE_INVALID',400);
   if((managedCrm||managedWriter||ownMasterWriter)&&p.growth?.edit)err('EDIT_NOT_READY',403);
   if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
   if(!Number.isSafeInteger(expiresMs)||expiresMs<5*60*1000||expiresMs>72*60*60*1000)err('INVITE_INVALID',400);
   const existing=findUser.get(e);if(existing&&existing.state!=='disabled')err('USER_EXISTS',409);
-  if(existing){const old=db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(existing.id);if(old&&(old.owner!==e||old.area!==areas[0]||old.brand!==brand||!equalHex(old.scope_mac,brandMac([existing.id,e,old.area,old.brand]))))err('BRAND_CHANGE_REQUIRES_NEW_IDENTITY',409);}
+  if(existing){const old=brandScope(existing);if(old.brandAccess==='reprovision_required'){if(db.prepare('SELECT 1 FROM user_brand_grants_v1 WHERE user_id=?').get(existing.id)||db.prepare('SELECT 1 FROM user_product_grants_v1 WHERE user_id=?').get(existing.id))err('BRAND_REPROVISION_REQUIRED',403);}else if(JSON.stringify(old.brands)!==JSON.stringify(selection)||Object.keys(permissions(existing.id))[0]!==areas[0])err('BRAND_CHANGE_REQUIRES_NEW_IDENTITY',409);}
   const t=current(),id=existing?.id||crypto.randomUUID(),token=random(),host=areaHosts[areas[0]];
   db.exec('BEGIN IMMEDIATE');try{
    if(existing&&unresolvedAudienceDraft(existing.id))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
@@ -474,12 +594,14 @@ function createAuth(options){
    db.prepare('DELETE FROM upstream_brand_bindings_v1 WHERE user_id=?').run(id);
    db.prepare('DELETE FROM grants WHERE user_id=?').run(id);
    for(const [area,g]of Object.entries(p))db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,?)').run(id,area,g.edit?1:0);
-   db.prepare('INSERT INTO user_brand_grants_v1(user_id,owner,area,brand,scope_mac) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO NOTHING').run(id,e,areas[0],brand,brandMac([id,e,areas[0],brand]));
+   if(legacySingle)db.prepare('INSERT INTO user_brand_grants_v1(user_id,owner,area,brand,scope_mac) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO NOTHING').run(id,e,areas[0],selection[0],brandMac([id,e,areas[0],selection[0]]));
+   const front=productFront??(existing?db.prepare('SELECT product_front FROM user_product_grants_v1 WHERE user_id=?').get(id)?.product_front:undefined);
+   setProductScope(id,brands!==undefined||!legacySingle?front??areas[0]:front,brands!==undefined||!legacySingle?selection:undefined);
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(id);
    if(requestedAccess==='edit')db.prepare("INSERT INTO access_requests(user_id,requested_access,requested_at) VALUES(?,'edit',?)").run(id,t);
    db.prepare('INSERT INTO invites(token_hash,user_id,host,expires_at) VALUES(?,?,?,?)').run(sha(token),id,host,t+expiresMs);
-   if(managedCrm&&p.growth?.read)managedCall(()=>managedCrm.createLifecycle(id));
-   if(managedWriter&&p.growth?.read)writerCall(()=>managedWriter.createLifecycle(id));
+   if(managedCrm&&p.growth?.read&&legacySingle)managedCall(()=>managedCrm.createLifecycle(id));
+   if(managedWriter&&p.growth?.read&&legacySingle)writerCall(()=>managedWriter.createLifecycle(id));
    bindCurrentBrandLifecycles(id);recordWriterRequestAuthority(id);
    db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}
@@ -495,6 +617,7 @@ function createAuth(options){
    const used=db.prepare('UPDATE invites SET used_at=? WHERE token_hash=? AND used_at IS NULL AND expires_at>?').run(acceptedAt,hash,acceptedAt);
    if(used.changes!==1)err('INVITE_DENIED',403);
    const subject=db.prepare('SELECT * FROM users WHERE id=?').get(invite.user_id);requireBrandScope(subject);
+   productScope(subject);
    const activated=db.prepare("UPDATE users SET password_hash=?,state='active',updated_at=? WHERE id=? AND state='invited'").run(passwordHash,acceptedAt,invite.user_id);
    if(activated.changes!==1)err('INVITE_DENIED',403);
    if(managedCrm&&permissions(invite.user_id).growth?.read&&managedCrm.status(invite.user_id))managedCall(()=>managedCrm.activateLifecycle(invite.user_id));
@@ -512,7 +635,8 @@ function createAuth(options){
   const read=updateTable('crm_manager_current_v1')?db.prepare('SELECT l.lifecycle_id,l.owner,l.version,l.state,l.active_generation,l.active_principal FROM crm_manager_current_v1 c JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=?').get(userId):null;
   const writer=updateTable('crm_writer_auth_admission_v1')?db.prepare('SELECT lifecycle_id,version,owner,approved FROM crm_writer_auth_admission_v1 WHERE user_id=?').get(userId):null;
   const binding=updateTable('crm_writer_auth_binding_v1')?db.prepare('SELECT lifecycle_id,version,owner,generation,credential_mac FROM crm_writer_auth_binding_v1 WHERE user_id=?').get(userId):null;
-  return brandMac(['profile-revision-v1',user,permissions(userId),db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(userId)||null,db.prepare('SELECT * FROM user_brand_lifecycles_v1 WHERE user_id=? ORDER BY kind').all(userId),db.prepare('SELECT * FROM access_requests WHERE user_id=?').get(userId)||null,read||null,writer||null,binding||null,row||null]);
+  const product=db.prepare('SELECT * FROM user_product_grants_v1 WHERE user_id=?').get(userId);
+  return brandMac(['profile-revision-v1',...(product?[product]:[]),user,permissions(userId),db.prepare('SELECT * FROM user_brand_grants_v1 WHERE user_id=?').get(userId)||null,db.prepare('SELECT * FROM user_brand_lifecycles_v1 WHERE user_id=? ORDER BY kind').all(userId),db.prepare('SELECT * FROM access_requests WHERE user_id=?').get(userId)||null,read||null,writer||null,binding||null,row||null]);
  }
  function updateIntent(userId){
   const row=db.prepare('SELECT * FROM user_profile_updates_v1 WHERE user_id=?').get(userId);if(!row)return null;
@@ -523,7 +647,7 @@ function createAuth(options){
  function updateRetired(intent,confirmed=true){
   const {q}=intent,user=db.prepare('SELECT * FROM users WHERE id=?').get(q.userId);
   if(!user||user.role!=='manager'||user.state!=='disabled'||user.email!==q.oldEmail)return false;
-  try{const scope=requireBrandScope(user);if(scope.brand!==q.oldBrand||Object.keys(permissions(q.userId))[0]!==q.oldArea)return false;}catch{return false;}
+  try{const scope=requireBrandScope(user);if(scope.brand!==q.oldBrand||JSON.stringify(scope.brands)!==JSON.stringify(q.oldBrands??[q.oldBrand])||Object.keys(permissions(q.userId))[0]!==q.oldArea)return false;}catch{return false;}
   if(q.read){const read=db.prepare('SELECT l.* FROM crm_manager_current_v1 c JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=?').get(q.userId);if(!read||read.lifecycle_id!==q.read.lifecycleId||read.version!==q.read.version||read.owner!==q.oldEmail||!(confirmed?read.state==='revoked':['revoking','revoked'].includes(read.state))||confirmed&&!db.prepare("SELECT 1 FROM crm_manager_operations_v1 WHERE lifecycle_id=? AND kind='revoke' AND phase='revoked' AND revoked_proof_mac IS NOT NULL").get(read.lifecycle_id))return false;}
   if(q.writer){const a=db.prepare('SELECT * FROM crm_writer_auth_admission_v1 WHERE user_id=?').get(q.userId);if(!a||a.lifecycle_id!==q.writer.lifecycleId||a.version!==q.writer.version||a.owner!==q.oldEmail||a.approved!==0)return false;const life=db.prepare('SELECT * FROM crm_writer_bridge_life_v1 WHERE lifecycle_id=?').get(a.lifecycle_id);if(life&&(!(confirmed?life.state==='revoked':['revoking','revoked'].includes(life.state))||confirmed&&!db.prepare("SELECT 1 FROM crm_writer_bridge_op_v1 WHERE lifecycle_id=? AND kind='revoke' AND phase='revoked'").get(a.lifecycle_id)))return false;}
   return !db.prepare('SELECT 1 FROM upstream_credentials WHERE user_id=?').get(q.userId)&&(!managedWriter||!managedWriter.bindingForUser(q.userId));
@@ -533,16 +657,20 @@ function createAuth(options){
   const {row,q}=intent;
   let inviteAvailable=false;
   if(row.phase==='completed'){const i=db.prepare('SELECT * FROM invites WHERE user_id=? AND used_at IS NULL AND expires_at>?').get(userId,current());inviteAvailable=!!i&&!!row.invite_ciphertext;}
-  return {state:row.phase==='completed'?'completed':updateRetired(intent)?'ready':'revoking',email:q.email,area:q.area,brand:q.brand,access:q.access,inviteAvailable,canCorrect:row.phase==='revoking'&&updateRetired(intent,false)};
+  return {state:row.phase==='completed'?'completed':updateRetired(intent)?'ready':'revoking',email:q.email,area:q.area,...(q.brands?{brands:[...q.brands]}:{}),...(q.productFront!==undefined?{productFront:q.productFront}:{}),brand:q.brand,access:q.access,inviteAvailable,canCorrect:row.phase==='revoking'&&updateRetired(intent,false)};
  }
- function updateUserProfile({context,userId,expectedRevision,email,area,brand,access}){
+ function updateUserProfile({context,userId,expectedRevision,email,area,brand,brands,access,productFront}){
   const actor=adminContext(context);
   if(typeof userId!=='string'||typeof expectedRevision!=='string'||!/^[a-f0-9]{64}$/.test(expectedRevision))err('USER_UPDATE_INVALID',400);
-  const e=emailAddress(email,domainSet);if(!AREA_SET.has(area)||!validBrand(area,brand)||!['read','edit'].includes(access))err('USER_UPDATE_INVALID',400);
+  const selection=selectedBrands(brand,brands),targetBrand=selection.length===1?selection[0]:null;
+  const e=emailAddress(email,domainSet);if(!AREA_SET.has(area)||!['read','edit'].includes(access))err('USER_UPDATE_INVALID',400);
+  if(productFront!==undefined&&(!Object.hasOwn(PRODUCT_AREAS,productFront)||PRODUCT_AREAS[productFront]!==area))err('PRODUCT_SCOPE_INVALID',400);
   const old=db.prepare('SELECT * FROM users WHERE id=?').get(userId);if(!old||old.role!=='manager')err('USER_DENIED',404);
+  const oldProduct=productScope(old),targetProduct=productFront??(PRODUCT_AREAS[oldProduct.productFront]===area?oldProduct.productFront:undefined);
+  const useSelection=brands!==undefined||selectedProductScope(old)!==null||targetBrand===null||!BRANDS.includes(targetBrand);
   const prior=updateIntent(userId);
   if(prior&&prior.row.phase==='revoking'){
-   if(prior.q.actorId===actor.id&&prior.q.originalRevision===expectedRevision&&prior.q.email===e&&prior.q.area===area&&prior.q.brand===brand&&prior.q.access===access)return {ok:true,state:profileUpdateMetadata(userId).state}; // Same intention, no second revoke.
+   if(prior.q.actorId===actor.id&&prior.q.originalRevision===expectedRevision&&prior.q.email===e&&prior.q.area===area&&JSON.stringify(prior.q.brands??[prior.q.brand])===JSON.stringify(selection)&&prior.q.access===access&&prior.q.productFront===targetProduct)return {ok:true,state:profileUpdateMetadata(userId).state}; // Same intention, no second revoke.
    // A fresh Master-CSRF choice may correct a queued destination. The retired
    // subject, lifecycle versions and revoke operations remain unchanged.
    if(!equalHex(expectedRevision,profileRevision(userId)))err('USER_CHANGED',409);
@@ -550,7 +678,8 @@ function createAuth(options){
    const collision=findUser.get(e);if(collision&&collision.id!==userId)err('USER_EXISTS',409);
    db.exec('BEGIN IMMEDIATE');try{
     if(!equalHex(expectedRevision,profileRevision(userId))||updateIntent(userId)?.row.request_mac!==prior.row.request_mac||!updateRetired(prior,false))err('USER_CHANGED',409);
-    const q={...prior.q,actorId:actor.id,actorEmail:actor.email,originalRevision:expectedRevision,email:e,area,brand,access,requestedAt:current()};
+    const {productFront:priorFront,brands:priorBrands,...preserved}=prior.q;
+    const q={...preserved,actorId:actor.id,actorEmail:actor.email,originalRevision:expectedRevision,email:e,area,brand:targetBrand,...(useSelection?{brands:selection}:{}),access,...(targetProduct!==undefined?{productFront:targetProduct}:{}),requestedAt:current()};
     db.prepare("UPDATE user_profile_updates_v1 SET request_json=?,request_mac=?,requested_at=? WHERE user_id=? AND phase='revoking' AND request_mac=?").run(JSON.stringify(q),brandMac(['profile-update-intent-v1',q]),q.requestedAt,userId,prior.row.request_mac);
     db.exec('COMMIT');
    }catch(error){db.exec('ROLLBACK');throw error;}
@@ -559,7 +688,7 @@ function createAuth(options){
   if(!equalHex(expectedRevision,profileRevision(userId)))err('USER_CHANGED',409);
   if(!['active','invited'].includes(old.state))err('USER_DENIED',404);
   const scope=requireBrandScope(old),areas=Object.keys(permissions(userId));if(areas.length!==1)err('GRANTS_INVALID',400);
-  if(old.email===e&&areas[0]===area&&scope.brand===brand){const result=setRequestedAccess({context,userId,requestedAccess:access});return {...result,state:'configured'};}
+  if(old.email===e&&areas[0]===area&&JSON.stringify(scope.brands)===JSON.stringify(selection)&&((oldProduct.productFront??undefined)===targetProduct||oldProduct.productFront===null&&area!=='influs'&&PRODUCT_AREAS[targetProduct]===area)){const result=setRequestedAccess({context,userId,requestedAccess:access,productFront:targetProduct});return {...result,state:'configured'};}
   const collision=findUser.get(e);if(collision&&collision.id!==userId)err('USER_EXISTS',409);
   // Unmanaged native keys cannot be certified retired by this bridge.
   const slots=db.prepare('SELECT slot,key_digest FROM upstream_credentials WHERE user_id=?').all(userId);
@@ -580,7 +709,7 @@ function createAuth(options){
    db.prepare('UPDATE grants SET can_edit=0 WHERE user_id=?').run(userId);
    const read=managedCrm?db.prepare('SELECT l.lifecycle_id,l.version FROM crm_manager_current_v1 c JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=?').get(userId):null;
    const writer=managedWriter?db.prepare('SELECT lifecycle_id,version FROM crm_writer_auth_admission_v1 WHERE user_id=?').get(userId):null;
-   const q={userId,actorId:actor.id,actorEmail:actor.email,originalRevision:expectedRevision,oldEmail:old.email,oldArea:areas[0],oldBrand:scope.brand,email:e,area,brand,access,read:read?{lifecycleId:read.lifecycle_id,version:read.version}:null,writer:writer?{lifecycleId:writer.lifecycle_id,version:writer.version}:null,requestedAt:current()};
+   const q={userId,actorId:actor.id,actorEmail:actor.email,originalRevision:expectedRevision,oldEmail:old.email,oldArea:areas[0],oldBrand:scope.brand,oldBrands:[...scope.brands],email:e,area,brand:targetBrand,...(useSelection?{brands:selection}:{}),access,...(targetProduct!==undefined?{productFront:targetProduct}:{}),read:read?{lifecycleId:read.lifecycle_id,version:read.version}:null,writer:writer?{lifecycleId:writer.lifecycle_id,version:writer.version}:null,requestedAt:current()};
    db.prepare("INSERT INTO user_profile_updates_v1(user_id,request_json,request_mac,phase,requested_at) VALUES(?,?,?,'revoking',?) ON CONFLICT(user_id) DO UPDATE SET request_json=excluded.request_json,request_mac=excluded.request_mac,phase='revoking',invite_ciphertext=NULL,invite_mac=NULL,requested_at=excluded.requested_at,completed_at=NULL").run(userId,JSON.stringify(q),brandMac(['profile-update-intent-v1',q]),q.requestedAt);
    db.exec('COMMIT');
   }catch(error){db.exec('ROLLBACK');throw error;}
@@ -597,9 +726,17 @@ function createAuth(options){
    db.prepare("UPDATE users SET email=?,state='invited',password_hash=NULL,totp_secret=NULL,totp_last_step=-1,updated_at=? WHERE id=? AND state='disabled'").run(q.email,t,userId);
    db.prepare('DELETE FROM upstream_brand_bindings_v1 WHERE user_id=?').run(userId);
    db.prepare('DELETE FROM grants WHERE user_id=?').run(userId);db.prepare('INSERT INTO grants(user_id,area,can_read,can_edit) VALUES(?,?,1,0)').run(userId,q.area);
-   db.prepare('UPDATE user_brand_grants_v1 SET owner=?,area=?,brand=?,scope_mac=? WHERE user_id=?').run(q.email,q.area,q.brand,brandMac([userId,q.email,q.area,q.brand]),userId);
+   db.prepare('DELETE FROM user_product_grants_v1 WHERE user_id=?').run(userId);
+   const selection=q.brands??[q.brand],legacySingle=selection.length===1&&BRANDS.includes(selection[0]);
+   if(legacySingle)db.prepare('INSERT INTO user_brand_grants_v1(user_id,owner,area,brand,scope_mac) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET owner=excluded.owner,area=excluded.area,brand=excluded.brand,scope_mac=excluded.scope_mac').run(userId,q.email,q.area,selection[0],brandMac([userId,q.email,q.area,selection[0]]));
+   else{db.prepare('DELETE FROM user_brand_grants_v1 WHERE user_id=?').run(userId);if(managedCrm)db.prepare('DELETE FROM crm_manager_current_v1 WHERE user_id=?').run(userId);if(managedWriter)db.prepare('DELETE FROM crm_writer_auth_admission_v1 WHERE user_id=?').run(userId);}
+   // Old lifecycles are already confirmed retired. Bind their identity MAC
+   // inside this transaction before installing the new product scope; this
+   // does not reactivate a retired READ or WRITER lifecycle.
+   if(legacySingle)bindCurrentBrandLifecycles(userId);
+   setProductScope(userId,q.productFront??(q.brands?q.area:undefined),q.brands);
    if(q.access==='edit')db.prepare("INSERT INTO access_requests VALUES(?,'edit',?)").run(userId,t);
-   if(q.area==='growth'){
+   if(q.area==='growth'&&legacySingle){
     if(managedCrm)managedCall(()=>managedCrm.createLifecycle(userId));
     if(managedWriter)writerCall(()=>managedWriter.createLifecycle(userId));
    }else{
@@ -633,10 +770,11 @@ function createAuth(options){
  function users({context}){
   authorize({...context,admin:true,method:'GET'});
   return db.prepare('SELECT u.id,u.email,u.role,u.state,r.requested_access FROM users u LEFT JOIN access_requests r ON r.user_id=u.id ORDER BY u.email').all().map(u=>{
-   const p=permissions(u.id),scope=brandScope(u);
+   const p=permissions(u.id);let scope,product;
+   try{scope=brandScope(u);product=productScope(u);}catch(e){if(!['BRAND_REPROVISION_REQUIRED','PRODUCT_SCOPE_INVALID'].includes(e.code))throw e;scope={brand:null,brands:[],brandAccess:'reprovision_required'};product={productFront:null,productFronts:[]};}
    const crmAccess=managedAccess(u),rawWriterState=managedWriter?.publicState(u.id),writerState=scope.brandAccess==='reprovision_required'&&rawWriterState?{...rawWriterState,ready:false,canApprove:false,canRenew:false}:rawWriterState;
    const crmWriter=corporateWriter&&writerState?{...writerState,canRenew:writerState.canRenew===true&&managedCrm.renewalReady(u.id)===true&&Number.isSafeInteger(crmAccess?.expiresAt)&&crmAccess.expiresAt>current()&&crmAccess.renewalPhase===null}:writerState;
-   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...scope,...(u.role==='manager'?{profileRevision:profileRevision(u.id),...(profileUpdateMetadata(u.id)?{profileUpdate:profileUpdateMetadata(u.id)}:{})}:{}),...(crmAccess?{crmAccess}:{}),...(crmWriter?{crmWriter}:{})};
+   return {id:u.id,email:u.email,role:u.role,areas:AREAS.filter(a=>p[a]?.read),permissions:p,requestedAccess:u.requested_access||'read',status:u.state,...scope,...product,...(u.role==='manager'?{profileRevision:profileRevision(u.id),...(profileUpdateMetadata(u.id)?{profileUpdate:profileUpdateMetadata(u.id)}:{})}:{}),...(crmAccess?{crmAccess}:{}),...(crmWriter?{crmWriter}:{})};
   });
  }
  function renewManagedCrm({context,userId}){
@@ -682,19 +820,21 @@ function createAuth(options){
   }
   return {ok:true};
  }
- function setRequestedAccess({context,userId,requestedAccess}){
+ function setRequestedAccess({context,userId,requestedAccess,productFront}){
   adminContext(context);
   if(!['read','edit'].includes(requestedAccess))err('ACCESS_REQUEST_INVALID',400);
-  const user=db.prepare('SELECT id,role,state FROM users WHERE id=?').get(userId);
+  const user=db.prepare('SELECT id,email,role,state FROM users WHERE id=?').get(userId);
   if(!user||user.role!=='manager'||!['active','invited'].includes(user.state))err('USER_DENIED',404);
   const p=permissions(userId);
   if(Object.keys(p).length!==1)err('GRANTS_INVALID',400);
-  requireBrandScope(db.prepare('SELECT * FROM users WHERE id=?').get(userId));
+  const actualScope=requireBrandScope(db.prepare('SELECT * FROM users WHERE id=?').get(userId));
+  if(productFront!==undefined&&(!Object.hasOwn(PRODUCT_AREAS,productFront)||PRODUCT_AREAS[productFront]!==Object.keys(p)[0]||Object.keys(p)[0]==='influs'&&productScope(user).productFront!==productFront))err('PRODUCT_SCOPE_INVALID',400);
   const t=current();db.exec('BEGIN IMMEDIATE');try{
+   if(productFront!==undefined)setProductScope(userId,productFront);
    if(unresolvedAudienceDraft(userId))err('AUDIENCE_RECONCILIATION_REQUIRED',409);
    db.prepare('DELETE FROM access_requests WHERE user_id=?').run(userId);
    if(requestedAccess==='edit'){
-    if(corporateWriter&&p.growth?.read){
+    if(corporateWriter&&p.growth?.read&&actualScope.brandAccess==='single'&&BRANDS.includes(actualScope.brand)){
      if(managedWriter.hasPendingCampaigns(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
      // Existing admissions stay put; only the missing active READ pilot gets
      // a new unapproved WRITER lifecycle. Requesting edit never grants it.
@@ -755,6 +895,7 @@ function createAuth(options){
   const user=db.prepare('SELECT id,email,role,state,updated_at FROM users WHERE id=?').get(userId),grant=permissions(userId)[definition.area];
   if(!user||!['active','invited'].includes(user.state)||!grant?.read||definition.mayWrite&&!grant.edit)err('GRANT_DENIED',403);
   requireBrandScope(user);
+  const front=SLOT_PRODUCTS[slot];if(front&&!productScope(user).productFronts.includes(front))err('PRODUCT_DENIED',403);
   if(managedCrm&&user.role==='manager'&&definition.area==='growth'&&managedCrm.status(userId))err('MANAGED_CREDENTIAL_DENIED',403);
   if(slot==='growth-campaign'&&unresolvedCampaignDraft(userId))err('DRAFT_RECONCILIATION_REQUIRED',409);
   if(slot==='growth-campaign'&&unresolvedCampaignDelivery(userId))err('CAMPAIGN_RECONCILIATION_REQUIRED',409);
@@ -939,13 +1080,17 @@ function createAuth(options){
   db.exec('BEGIN IMMEDIATE');try{writerCall(()=>managedWriter.stageRenew(userId));db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}
   return {ok:true,state:'renewing'};
  }
- function writerBinding(user){
+ function intactMasterWriterBinding(user){
   if(user.role==='superadmin'){
    if(!campaignSubmit||!masterWriter||user.email!==adminEmail||user.permissions.growth?.edit!==true)return null;
    const a=db.prepare("SELECT a.*,c.key_digest,c.encrypted_key FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id),bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='growth-campaign'").get(user.id);
-   return a&&a.owner===user.email&&a.credential_mac===a.key_digest&&Number.isSafeInteger(a.attested_at)&&a.attested_at<=current()&&Number.isSafeInteger(a.expires_at)&&a.expires_at>current()&&a.expires_at<=a.attested_at+14*86400000&&equalHex(a.master_proof_mac,masterWriterMac(user,a))&&bound&&equalHex(bound.binding_mac,upstreamBindingMac(user,'growth-campaign',a))?a:null;
+   return a&&a.owner===user.email&&a.credential_mac===a.key_digest&&Number.isSafeInteger(a.attested_at)&&a.attested_at<=current()&&Number.isSafeInteger(a.expires_at)&&a.expires_at>a.attested_at&&a.expires_at<=a.attested_at+14*86400000&&equalHex(a.master_proof_mac,masterWriterMac(user,a))&&bound&&equalHex(bound.binding_mac,upstreamBindingMac(user,'growth-campaign',a))?a:null;
   }
-  if(ownMasterWriter)return null;
+  return null;
+ }
+ function writerBinding(user){
+  if(user.role==='superadmin'){const a=intactMasterWriterBinding(user);return a&&a.expires_at>current()?a:null;}
+  if(ownMasterWriter&&!coexistence)return null;
   if(managedWriter)return managedWriter.bindingForUser(user.id);
   if(!campaignSubmit||user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.edit!==true)return null;
   const a=db.prepare("SELECT a.*,c.key_digest FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id);
@@ -989,19 +1134,146 @@ function createAuth(options){
   if(['salvar','validar','agendar','cancelar'].includes(action)&&hasOpenCampaignCreate(user.id,brand))err('CAMPAIGN_CREATE_PENDING',409);
   return Object.freeze({userId:user.id,role:user.role,slot:'growth-campaign',canEdit:true,credentialMac:a.credential_mac,caps:Object.freeze(['read_content','draft','validate','submit'])});
  }
+ function individualOperationSnapshot(ctx,{brand}){
+  if(!coexistence)return null;
+  const user=authorizeBrand({...ctx,area:'growth',edit:true},brand);if(user.role==='superadmin')return null;
+  const authority=campaignWriterAuthorization(ctx,{brand,action:'guard'});
+  const writer=db.prepare('SELECT * FROM crm_writer_auth_binding_v1 WHERE user_id=?').get(user.id),admission=db.prepare('SELECT * FROM crm_writer_auth_admission_v1 WHERE user_id=?').get(user.id);
+  const read=db.prepare('SELECT c.*,l.version,l.state FROM crm_manager_current_v1 c JOIN crm_manager_lifecycles_v1 l USING(lifecycle_id) WHERE c.user_id=?').get(user.id);
+  if(!writer||!admission)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  return JSON.stringify({userId:user.id,brand,profileRevision:profileRevision(user.id),authority,writer,admission,read});
+ }
  function campaignDeliveryFor(transport){
   if(!campaignSubmit)err('EDIT_NOT_READY',403);
-  return require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:campaignWriterAuthorization,transport,now,encrypt,decrypt,hasOpenCreate:hasOpenCampaignCreate,
+  const G=require('./crm-individual-coexistence.cjs'),delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:campaignWriterAuthorization,transport:coexistence?G.guardedTransport(transport,individualOperationSnapshot):transport,now,encrypt,decrypt,hasOpenCreate:hasOpenCampaignCreate,
    prepareDefinition:(definition,{catalog,id,now:time})=>require('./campaign-write-contract.js').prepare(definition,{catalog,tracking:require('./campaign-write-tracking.js'),trackingId:id,now:time}).definition});
+  return coexistence?G.guardedOperations(delivery,individualOperationSnapshot):delivery;
  }
  function campaignCreateFor(transport){
   if(!campaignSubmit)err('EDIT_NOT_READY',403);
   const C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js');
-  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:masterWriter?masterWriter.mode:'crm-sandbox',...(masterWriter?{corporateWriter:masterWriter}:{}),allowedEmailDomains:options.allowedEmailDomains,authorize:campaignWriterAuthorization,transport,now,encrypt,decrypt,
+  const G=require('./crm-individual-coexistence.cjs');
+  const build=descriptor=>require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:descriptor?descriptor.mode:'crm-sandbox',...(descriptor?{corporateWriter:descriptor}:{}),allowedEmailDomains:options.allowedEmailDomains,authorize:campaignWriterAuthorization,transport:coexistence?G.guardedTransport(transport,individualOperationSnapshot):transport,now,encrypt,decrypt,
    hasOpenDelivery:(userId,brand)=>!!db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(userId,brand),
    preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),
    prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
-  campaignCreateInitialized=true;return creator;
+  const creator=build(masterWriter);campaignCreateInitialized=true;
+  if(!coexistence)return creator;
+  const individual=build(corporateWriter),choose=ctx=>authorize({...ctx,area:'growth',edit:ctx.method==='POST'}).role==='superadmin'?creator:individual;
+  return G.guardedOperations({submit:(ctx,q)=>choose(ctx).submit(ctx,q),reconcile:(ctx,q)=>choose(ctx).reconcile(ctx,q),describe:(ctx,q)=>choose(ctx).describe(ctx,q)},individualOperationSnapshot);
+ }
+ // Application author and existing source executor remain distinct. This
+ // private admission reads the real holder row; it never manufactures a
+ // Master cookie/context, issues a key, or changes a source grant.
+ // Use the actual administrator's existing encrypted TTS slot. The ordinary
+ // account is still the author; no key, grant or Root context is manufactured.
+ function simpleTTSAuthor(context,{brand,write=false}={}){
+  if(!simpleReadMode||!simpleAccounts||context?.nativeBearer!==undefined)err('TTS_SERVICE_UNAVAILABLE',503);
+  if(!['fish','aristo'].includes(brand))err('TTS_INPUT',400);
+  const author=authorizeBrand({...context,area:'influs',productFront:'afiliados',edit:false},brand);
+  if(author.role!=='superadmin'&&!author.simpleRead)err('TTS_SERVICE_DENIED',403);
+  if(write&&author.role!=='superadmin'&&(author.permissions.influs?.edit!==true||!author.productWriteFronts?.includes('afiliados')))err('PRODUCT_WRITE_DENIED',403);
+  return author;
+ }
+ function simpleTTSBinding(context,{brand,write=false}={}){
+  const author=simpleTTSAuthor(context,{brand,write});
+  const row=db.prepare("SELECT * FROM users WHERE email=? AND role='superadmin' AND state='active'").get(adminEmail);
+  if(!row)err('TTS_SERVICE_UNAVAILABLE',503);
+  const holder=publicUser(row),stored=db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='tts-write'").get(row.id);
+  if(!stored||holder.permissions.influs?.edit!==true||!holder.productWriteFronts?.includes('afiliados'))err('TTS_SERVICE_KEY_MISSING',503);
+  if(db.prepare("SELECT 1 FROM upstream_credentials WHERE key_digest=? AND (user_id<>? OR slot<>'tts-write')").get(stored.key_digest,row.id))err('TTS_SERVICE_KEY_REUSED',503);
+  const credential=decrypt(stored.encrypted_key);
+  if(!equalHex(stored.key_digest,crypto.createHmac('sha256',encKey).update('upstream-key:'+credential).digest('hex')))err('TTS_SERVICE_KEY_MISSING',503);
+  return {author,brand,credential,binding:brandMac(['tts-simple-source-v1',author.id,brand,holder.id,profileRevision(holder.id),stored.key_digest])};
+ }
+ function simpleTTSFactory(transport,businessAllowed){
+  if(!simpleReadMode||!simpleAccounts)return undefined;
+  return require('./simple-tts-manual.cjs').createSimpleTTS({db,binding:simpleTTSBinding,readAuthor:simpleTTSAuthor,transport,businessAllowed,now:current});
+ }
+ const simpleDraftContexts=new WeakMap();
+ function simpleDraftBinding(context,{brand,write=true}={}){
+  if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit||context?.nativeBearer!==undefined)err('CRM_SERVICE_DRAFT_UNAVAILABLE',503);
+  draftBrand(brand);
+  const author=authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},brand);
+  if(author.role!=='superadmin'&&!author.simpleRead)err('CRM_SERVICE_DRAFT_DENIED',403);
+  if(write&&author.role!=='superadmin'&&(author.permissions.growth?.edit!==true||!author.productWriteFronts?.includes('growth')))err('PRODUCT_WRITE_DENIED',403);
+  const row=db.prepare("SELECT * FROM users WHERE email=? AND role='superadmin' AND state='active'").get(adminEmail);
+  if(!row)err('CRM_SERVICE_DRAFT_UNAVAILABLE',503);
+  // Only the three-cap draft service can inspect an intact expired proof.
+  // Its fixed original identity GET is mandatory before/after each transport;
+  // the commercial writer's persistent lifetime and grants remain unchanged.
+  const holder=publicUser(row),att=intactMasterWriterBinding(holder);
+  if(!att||holder.permissions.growth?.edit!==true||!holder.productWriteFronts?.includes('growth'))err('CRM_SERVICE_DRAFT_UNAVAILABLE',503);
+  const credential=decrypt(att.encrypted_key);
+  if(!equalHex(att.credential_mac,crypto.createHmac('sha256',encKey).update('upstream-key:'+credential).digest('hex')))err('CREDENTIAL_UNAVAILABLE',503);
+  const binding=brandMac(['crm-local-account-drafts-v2',author.id,brand,holder.id,att.principal_id,att.credential_mac]);
+  const snapshot=brandMac(['crm-local-account-draft-request-v1',binding,profileRevision(author.id),profileRevision(holder.id),att.expires_at,att.attested_at,att.master_proof_mac]);
+  const marked=simpleDraftContexts.get(context);if(marked&&(marked.brand!==brand||marked.binding!==binding||marked.snapshot!==snapshot))err('CRM_SERVICE_DRAFT_ACCESS_CHANGED',403);
+  return {author,holder,credential,binding,snapshot,principal:att.principal_id,expiresAt:att.expires_at};
+ }
+ async function verifySimpleDraftBinding(context,{brand,write=true,fetchImpl=globalThis.fetch}={}){
+  const before=simpleDraftBinding(context,{brand,write});let proof;
+  try{proof=await require('./crm-campaign-writer-attestation.cjs').verifyStoredMasterCampaignWriterCredential({bearer:before.credential,owner:before.holder.email},{fetchImpl});}catch{err('CRM_SERVICE_DRAFT_SOURCE_REFUSED',503);}
+  const principal='master-'+crypto.createHmac('sha256',encKey).update('master-campaign-actor:'+proof.principalId).digest('hex'),after=simpleDraftBinding(context,{brand,write});
+  if(principal!==before.principal||proof.owner!==before.holder.email||after.binding!==before.binding||after.snapshot!==before.snapshot)err('CRM_SERVICE_DRAFT_ACCESS_CHANGED',403);
+  return {...after,sourceActor:'panel:'+proof.principalId};
+ }
+ function simpleDraftContext(context,{brand}={}){
+  const bound=simpleDraftBinding(context,{brand}),out={...context};simpleDraftContexts.set(out,{brand,binding:bound.binding,snapshot:bound.snapshot});return out;
+ }
+ function simpleDraftAuthority(context,{brand}={}){
+  const p=simpleDraftBinding(context,{brand});return Object.freeze({userId:p.author.id,role:p.author.role,slot:'growth-campaign',canEdit:true,credentialMac:p.binding,caps:Object.freeze(['read_content','draft','validate'])});
+ }
+ function audienceJournalActor(context,brand){
+  return simpleDraftContexts.has(context)?simpleDraftBinding(context,{brand}).author:authorizeBrand({...context,area:'growth',edit:true},brand);
+ }
+ function simpleAudienceRemoteKey(context,{brand,key}={}){
+  audienceKey(key);const p=simpleDraftBinding(context,{brand}),bytes=Buffer.from(brandMac(['crm-local-account-audience-attempt-v1',p.author.id,brand,key]).slice(0,32),'hex');bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;const hex=bytes.toString('hex');return hex.slice(0,8)+'-'+hex.slice(8,12)+'-'+hex.slice(12,16)+'-'+hex.slice(16,20)+'-'+hex.slice(20);
+ }
+ function simpleDraftAttemptReserved(context,{brand,key,kind}={}){
+  if(!simpleReadMode||context?.nativeBearer!==undefined)err('CRM_SERVICE_DRAFT_DENIED',403);
+  const author=authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},draftBrand(brand));
+  if(author.role!=='superadmin'&&!author.simpleRead)err('CRM_SERVICE_DRAFT_DENIED',403);
+  if(kind==='audience'){audienceKey(key);return !!db.prepare('SELECT 1 FROM audience_draft_operations WHERE user_id=? AND brand=? AND operation_key=?').get(author.id,brand,key);}
+  if(!['create','delivery'].includes(kind))err('OPERATION_INVALID',400);draftKey(key);
+  const table=kind==='create'?'crm_campaign_create_v1':'crm_campaign_delivery_v1';
+  if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))return false;
+  return !!db.prepare('SELECT 1 FROM '+table+' WHERE user_id=? AND brand=? AND client_key=?').get(author.id,brand,key);
+ }
+ function privateTestDiagnostics({context,brand,id}){
+  if(context?.nativeBearer!==undefined)err('TEST_DIAGNOSTIC_COOKIE_REQUIRED',403);
+  // POST policy enforces CSRF/Origin without invoking the legacy commercial writer.
+  const user=authorizeBrand({...context,area:'growth',productFront:'growth',edit:false,...(id?{method:'POST'}:{})},draftBrand(brand));
+  if(id&&(user.permissions.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))err('PRODUCT_WRITE_DENIED',403);
+  if(!testDiagnostics)err('TEST_DIAGNOSTIC_UNAVAILABLE',503);
+  return id?testDiagnostics.detail({userId:user.id,brand,id}):{schema:'crm-private-test-diagnostics-v1',private:true,appendOnly:true,entries:testDiagnostics.list({userId:user.id,brand})};
+ }
+ function simpleModelsFactory({fetchImpl=globalThis.fetch}={}){
+  if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
+  return require('./simple-crm-models.cjs').create({db,fetchImpl,recordDiagnostic:testDiagnostics.record,destination:require('./crm-master-template-read.cjs').DESTINATION,binding:(context,args)=>verifySimpleDraftBinding(context,{...args,fetchImpl}),remoteKey:({userId,brand,key,action})=>{draftBrand(brand);if(!/^[a-f0-9-]{36}$/i.test(key)||!['rascunho','validar','submeter','email_teste_v2'].includes(action))err('MODELS_INPUT',400);const b=Buffer.from(brandMac([action==='email_teste_v2'?'crm-local-model-internal-test-v2':'crm-local-model-attempt-v1',userId,brand,key,action]).slice(0,32),'hex');b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=b.toString('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}});
+ }
+ function simpleCampaignTestFactory({fetchImpl=globalThis.fetch}={}){
+  if(!simpleReadMode||!simpleAccounts)err('CAMPAIGN_TEST_CONFIG',503);
+  return require('./simple-crm-campaign-tests.cjs').create({db,fetchImpl,recordDiagnostic:testDiagnostics.record,binding:async(context,args)=>{const a=await verifySimpleDraftBinding(context,{...args,fetchImpl});return {...a,binding:brandMac(['crm-local-account-internal-campaign-test-v1',a.author.id,args.brand,a.holder.id,a.principal,a.binding]),snapshot:brandMac(['crm-local-account-internal-campaign-test-snapshot-v1',a.snapshot])};},remoteKey:({userId,brand,key})=>{draftBrand(brand);if(!/^[a-f0-9-]{36}$/.test(key||''))err('CAMPAIGN_TEST_INPUT',400);const b=Buffer.from(brandMac(['crm-local-account-internal-campaign-test-intent-v1',userId,brand,key]).slice(0,32),'hex');b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=b.toString('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}});
+ }
+ function simpleCampaignAudienceFactory({fetchImpl=globalThis.fetch}={}){
+  if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
+  return require('./simple-crm-campaign-audiences.cjs').create({db,fetchImpl,now:current,binding:(context,args)=>verifySimpleDraftBinding(context,{...args,fetchImpl}),remoteKey:({userId,brand,key})=>{draftBrand(brand);if(!/^[a-f0-9-]{36}$/.test(key||''))err('CAMPAIGN_AUDIENCE_INPUT',400);const b=Buffer.from(brandMac(['crm-local-account-campaign-audience-attempt-v1',userId,brand,key]).slice(0,32),'hex');b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=b.toString('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}});
+ }
+ function simpleNativeInternalFactory({fetchImpl=globalThis.fetch,enabled=false}={}){
+  if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
+  const C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js'),N=require('./simple-crm-native-internal.cjs');let adapter;
+  const authorize=(context,{brand})=>{const p=simpleDraftBinding(context,{brand});if(!enabled||p.author.email?.toLowerCase()!==N.EMAIL||p.author.permissions.growth?.edit!==true)err('NATIVE_INTERNAL_QA_ONLY',403);return Object.freeze({userId:p.author.id,role:p.author.role,slot:'growth-campaign',canEdit:true,credentialMac:p.binding,caps:Object.freeze(['read_content','draft','validate','submit'])});};
+  const delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize,transport:(...args)=>adapter.transport(...args),now:current,encrypt,decrypt,nativeInternal:true,hasOpenCreate:hasOpenCampaignCreate,prepareDefinition:(definition,{catalog,id,now:time})=>C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time}).definition});
+  adapter=N.create({enabled,binding:(context,args)=>{const p=simpleDraftBinding(context,args);if(p.author.email?.toLowerCase()!==N.EMAIL)err('NATIVE_INTERNAL_QA_ONLY',403);return verifySimpleDraftBinding(context,args);},remoteKey:simpleAudienceRemoteKey,delivery,fetchImpl});return adapter;
+ }
+ function simpleCampaignDraftFactories(transport){
+  if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
+  const G=require('./crm-manager-runtime.cjs'),descriptor=G.serviceDraftDescriptor(ownMasterWriter),C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js');
+  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:descriptor.mode,corporateWriter:descriptor,allowedEmailDomains:options.allowedEmailDomains,authorize:simpleDraftAuthority,transport,now:current,encrypt,decrypt,hasOpenDelivery:(userId,brand)=>unresolvedCampaignDelivery(userId,brand),preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
+  campaignCreateInitialized=true;
+  const delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:simpleDraftAuthority,transport,now:current,encrypt,decrypt,serviceDraftProfile:descriptor,hasOpenCreate:hasOpenCampaignCreate,prepareDefinition:(definition,{catalog,id,now:time})=>C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time}).definition});
+  return Object.freeze({creator,delivery,descriptor});
  }
  async function setSandboxCredential({context,userId,slot,bearer,fetchImpl=globalThis.fetch}){
   if(!['growth-read','growth-audience-read','growth-audience'].includes(slot))err('CREDENTIAL_INVALID',400);
@@ -1040,6 +1312,64 @@ function createAuth(options){
   if(!equalHex(row.key_digest,crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex')))err('CREDENTIAL_UNAVAILABLE',503);
   return bearer;
  }
+ // No source data or credential is returned. The version covers the SAME
+ // authenticated user's permission, brand and dedicated private tts-read slot.
+ // Native CRM scopes do not authorize Afiliados data by implication.
+ function affiliatePrivateBinding(context,brand){
+  if(!dashboardAffiliateRead)err('AFFILIATE_READ_NOT_ENABLED',503);
+  const ctx={...context,area:'influs',productFront:'afiliados',edit:false,brand,slot:'tts-read'};
+  const user=authorizeBrand(ctx,brand);
+  const credential=getUpstreamCredential(ctx);
+  if(!credential)return {user,readLinked:false,binding:null};
+  const row=db.prepare("SELECT encrypted_key,key_digest,updated_at FROM upstream_credentials WHERE user_id=? AND slot='tts-read'").get(user.id);
+  if(!row)err('CREDENTIAL_UNAVAILABLE',503);
+  return {user,readLinked:true,binding:brandMac(['affiliate-read-current-v1',user.id,user.email,user.role,user.brandAccess,user.brand,brand,permissions(user.id).influs,row.key_digest,sha(row.encrypted_key),row.updated_at])};
+ }
+ function affiliateReadContext(context,{brand}={}){
+  if(context?.nativeBearer!==undefined){
+   if(!affiliateNativeConsent)err('AFFILIATE_NATIVE_PURPOSE_REQUIRED',403);
+   const connection=nativeConnections.authenticate(context.nativeBearer,{scope:'crm.read',brand});
+   affiliateNativeConsent.verify({context,connectionId:connection.id,brand});
+  }
+  const state=affiliatePrivateBinding(context,brand);
+  return Object.freeze({readLinked:state.readLinked,binding:state.binding});
+ }
+ // The source authenticates the selected original holder before storage.
+ // Browser-only binding cannot issue a delegation or consent on its behalf.
+ async function setAffiliateReadCredential({context,userId,bearer,fetchImpl=globalThis.fetch}){
+  if(!dashboardAffiliateRead)err('AFFILIATE_READ_NOT_ENABLED',503);
+  if(context?.nativeBearer!==undefined)err('AFFILIATE_BROWSER_BINDING_REQUIRED',403);
+  const args={context,userId,slot:'tts-read',bearer};
+  const snapshot=()=>{
+   const user=credentialTarget(args),row=db.prepare('SELECT * FROM users WHERE id=?').get(user.id);
+   return {user,version:brandMac(['affiliate-source-target-v1',row,permissions(user.id),requireBrandScope(row),db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='tts-read'").get(user.id)||null])};
+  };
+  const before=snapshot();
+  let proof;try{proof=await require('./backend-credential-attestation.cjs').verifyCredential({slot:'tts-read',expectedOwner:before.user.email,bearer},{fetchImpl});}catch{err('AFFILIATE_SOURCE_IDENTITY_UNCONFIRMED',503);}
+  if(proof?.ok!==true||proof.slot!=='tts-read'||proof.area!=='influs'||proof.identityVerified!==true||proof.status!=='partial'||proof.readOnlyProven!==false)err('AFFILIATE_SOURCE_IDENTITY_UNCONFIRMED',503);
+  if(snapshot().version!==before.version)err('AFFILIATE_SOURCE_TARGET_CHANGED',409);
+  storeUpstreamCredential(args);
+  return {ok:true,userId,readLinked:true,readOnly:true};
+ }
+ function affiliateSourceStatus(context){
+  if(!dashboardAffiliateRead)err('AFFILIATE_READ_NOT_ENABLED',503);
+  if(context?.nativeBearer!==undefined)err('AFFILIATE_BROWSER_BINDING_REQUIRED',403);
+  adminContext(context);
+  const usersView=users({context}).filter(u=>['active','invited'].includes(u.status)&&u.permissions?.influs?.read===true&&u.brandAccess!=='reprovision_required').map(u=>{
+   const raw=db.prepare('SELECT * FROM users WHERE id=?').get(u.id),row=db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='tts-read'").get(u.id),bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='tts-read'").get(u.id);
+   const linked=!!row&&(u.role==='superadmin'||!!bound&&equalHex(bound.binding_mac,upstreamBindingMac(raw,'tts-read',row)));
+   return {id:u.id,email:u.email,role:u.role,brand:u.brand,brands:u.brands,status:u.status,linked};
+  });
+  const connections=affiliateNativeConsent?nativeConnections.list(context).filter(c=>!c.revoked&&c.expiresAt>current()&&c.scopes.includes('crm.read')).map(c=>({id:c.id,label:c.label,brands:c.brands,expiresAt:c.expiresAt,receipts:c.brands.map(brand=>affiliateNativeConsent.inspect({context,connectionId:c.id,brand}))})):[];
+  return {schema:'shrigma-affiliate-source-status-v1',users:usersView,connections,nativeConsentEnabled:!!affiliateNativeConsent,readOnly:true,operational:false};
+ }
+ function affiliateNativeAvailability(context,brand){
+  if(!affiliateNativeConsent||typeof context?.nativeBearer!=='string')err('AFFILIATE_NATIVE_PURPOSE_REQUIRED',403);
+  const connection=nativeConnections.authenticate(context.nativeBearer,{scope:'crm.read',brand});
+  const state=affiliatePrivateBinding(context,brand);
+  let consentCurrent=false;try{affiliateNativeConsent.verify({context,connectionId:connection.id,brand});consentCurrent=true;}catch(e){if(!['AFFILIATE_READ_BINDING_MISSING','AFFILIATE_NATIVE_CURRENT_CONSENT_REQUIRED'].includes(e.code))throw e;}
+  return {schema:'shrigma-affiliate-native-availability-v1',brand,sourceLinked:state.readLinked===true,consentCurrent,readOnly:true,operational:false};
+ }
  // PRIVATE: bridges only reviewed GETs. No slot alias or bearer is returned.
  function managedCrmReadAuthorization(ctx){
   if(!managedCrm||ctx?.method!=='GET')err('MANAGED_READ_DENIED',403);
@@ -1051,11 +1381,51 @@ function createAuth(options){
   return Object.freeze({...binding,credentialMac:row.key_digest,slot:'crm-panel-read',caps:Object.freeze(['read_content','list_history','submission'])});
  }
  function audienceWriterAuthorization(ctx,{brand}={}){
-  if(!corporateWriter)err('EDIT_NOT_READY',403);
+  if(!corporateWriter&&!ownMasterAudienceWrite)err('EDIT_NOT_READY',403);
   return campaignWriterAuthorization(ctx,{brand,action:'audience'});
  }
+ // PRIVATE original-Master read binding. The original audience service itself
+ // authenticates this same central key for read_content on every request.
+ // This snapshot selects no new actor/slot, issues no grant and admits no POST.
+ function ownMasterAudienceReadBinding(ctx,{brand}={}){
+  if(!ownMasterWriter||ctx?.method!=='GET')err('MASTER_AUDIENCE_READ_DENIED',403);
+  draftBrand(brand);const user=authorizeBrand({...ctx,area:'growth',edit:true},brand),a=writerBinding(user);
+  if(user.role!=='superadmin'||user.email!==adminEmail||!a)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  const credential=getUpstreamCredential({...ctx,area:'growth',edit:true,slot:'growth-campaign',brand});
+  if(!credential)err('CREDENTIAL_UNAVAILABLE',503);
+  return Object.freeze({userId:user.id,credential,binding:brandMac(['original-master-audience-read-v1',user.id,brand,profileRevision(user.id),a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac])});
+ }
+ // PRIVATE CURRENT Master binding for published content READ only. The
+ // original service authenticates read_content; no new actor or slot is issued.
+ function ownMasterPublishedJourneyReadBinding(ctx,{brand}={}){
+  if(!ownMasterWriter||ctx?.method!=='GET')err('PUBLISHED_JOURNEY_READ_DENIED',403);
+  draftBrand(brand);const user=authorizeBrand({...ctx,area:'growth',edit:false},brand),a=writerBinding(user);
+  if(user.role!=='superadmin'||user.email!==adminEmail||!a)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
+  // writerBinding already verified this exact current encrypted slot, owner,
+  // profile, credential MAC and original attestation. Decrypt privately for
+  // this GET; a read must never manufacture POST/CSRF context.
+  const credential=decrypt(a.encrypted_key);
+  if(!credential||!equalHex(a.credential_mac,crypto.createHmac('sha256',encKey).update('upstream-key:'+credential).digest('hex')))err('CREDENTIAL_UNAVAILABLE',503);
+  return Object.freeze({userId:user.id,credential,binding:brandMac(['original-master-published-journey-read-v1',user.id,brand,profileRevision(user.id),a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac])});
+ }
+ function ownMasterPublishedJourneyReadReady(ctx){
+  try{ownMasterPublishedJourneyReadBinding({...ctx,method:'GET'},{brand:'fish'});return true;}catch{return false;}
+ }
+ // PRIVATE write/receipt binding of the SAME original Master credential.
+ // Provenance comes from the authenticated original service, never the caller.
+ function ownMasterAudienceWriteBinding(ctx,{brand}={}){
+  if(!ownMasterAudienceWrite||!['GET','POST'].includes(ctx?.method))err('MASTER_AUDIENCE_WRITE_DENIED',403);
+  const authorized=audienceWriterAuthorization(ctx,{brand});
+  const credential=getUpstreamCredential({...ctx,area:'growth',edit:true,slot:'growth-campaign',brand});
+  if(!credential)err('CREDENTIAL_UNAVAILABLE',503);
+  return Object.freeze({userId:authorized.userId,credential,binding:brandMac(['original-master-audience-write-v1',authorized.userId,brand,authorized.credentialMac,profileRevision(authorized.userId)])});
+ }
+ function ownMasterAudienceReadReady(ctx){
+  if(!ownMasterWriter)return false;
+  try{const u=authorize({...ctx,method:'GET',area:'growth',edit:false});return u.role==='superadmin'&&!!writerBinding(u);}catch{return false;}
+ }
  function audienceDraftReady(ctx){
-  if(ownMasterWriter)return false;
+  if(ownMasterWriter)return ownMasterAudienceWrite&&campaignWriterReady(ctx);
   if(corporateWriter)return campaignWriterReady(ctx);
   const user=authorize({...ctx,method:'GET',area:'growth',edit:false});
   return user.role==='manager'&&user.permissions.growth?.edit===true&&db.prepare("SELECT COUNT(*) AS n FROM upstream_credentials WHERE user_id=? AND slot IN ('growth-read','growth-audience-read','growth-audience')").get(user.id).n===3;
@@ -1081,7 +1451,7 @@ function createAuth(options){
  const audienceActions=new Set(['segmento_criar','segmento_salvar','segmento_arquivar']);
  const audienceRejectCodes=new Set(['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_NOT_FOUND','SEGMENT_UNAVAILABLE','SEGMENT_LIST_UNAVAILABLE','SEGMENT_SHAPE','SEGMENT_FIELDS','SEGMENT_NAME','SEGMENT_RULE','SEGMENT_LIMIT','SEGMENT_VERSION','SEGMENT_BRAND_MISMATCH','SEGMENT_VERSION_REQUIRED','SEGMENT_LIST_ID']);
  function audienceDraft(context,brand){
-  const user=authorizeBrand({...context,area:'growth',edit:true},brand);
+  const user=audienceJournalActor(context,brand);
   return db.prepare('SELECT operation_key AS operationKey,payload_mac AS payloadMac,actor_mac AS actorMac,definition_mac AS definitionMac,request_id AS requestId,expected_version AS expectedVersion,action,phase,receipt_status AS receiptStatus,receipt_code AS receiptCode,segment_id AS segmentId,segment_version AS segmentVersion,updated_at AS updatedAt FROM audience_draft_operations WHERE user_id=? AND brand=?').get(user.id,draftBrand(brand))||null;
  }
  function reserveAudienceDraft(context,brand,key,action,payloadSha256,actorSha256,{id=null,expectedVersion=null,definitionSha256=null}={}){
@@ -1097,7 +1467,7 @@ function createAuth(options){
   // Serialize permission checking and reservation with admin grant/credential
   // changes, including when a future gateway runs in another process.
   db.exec('BEGIN IMMEDIATE');try{
-   const user=authorizeBrand({...context,area:'growth',edit:true},brand);
+   const user=audienceJournalActor(context,brand);
    // Reserve before any future upstream call. An unresolved operation can
    // never be overwritten or retried under another key.
    const result=db.prepare(`INSERT INTO audience_draft_operations(user_id,brand,operation_key,payload_mac,actor_mac,definition_mac,request_id,expected_version,action,phase,updated_at)
@@ -1163,6 +1533,97 @@ function createAuth(options){
   return true;
  }
  function close(){db.close();}
- return Object.freeze({beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
+ const nativeConsent=context=>{
+   if(context?.nativeBearer!==undefined)err('NATIVE_BROWSER_CONSENT_REQUIRED',403);
+   const user=adminContext(context),found=lookup(context,false);
+   if(!found?.tokenHash)err('NATIVE_BROWSER_CONSENT_REQUIRED',403);
+   return {userId:user.id,sessionHash:found.tokenHash};
+  };
+ const nativeIdentity=userId=>{
+   const user=db.prepare('SELECT * FROM users WHERE id=?').get(userId);if(!user)return null;
+   return {role:user.role,active:user.state==='active',canEditGrowth:permissions(userId).growth?.edit===true,
+    revision:crypto.createHmac('sha256',encKey).update('native-owner-v1:'+JSON.stringify([user.id,user.email,user.role,user.state,user.password_hash])).digest('hex')};
+  };
+ if(options.crmNativeEnabled===true)nativeConnections=require('./crm-native-delegation.cjs').createDelegationStore({db,managerHost,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-delegation-v1:'+value).digest('hex'),consent:nativeConsent,identity:nativeIdentity});
+ if(nativeConnections&&options.crmNativeSourceDiagnosticsEnabled===true)nativeConnections=require('./native-source-diagnostics-controller.cjs').withNativeDiagnosticsApproval({db,connections:nativeConnections,managerHost,identity:nativeIdentity,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-delegation-v1:'+value).digest('hex')});
+ if(dashboardAffiliateRead&&nativeConnections)affiliateNativeConsent=require('./afiliados-native-consent.cjs').createAffiliateNativeConsentStore({db,connections:nativeConnections,consent:nativeConsent,identity:nativeIdentity,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('affiliate-native-read-v1:'+value).digest('hex'),currentBinding:(context,brand)=>{
+  const b=affiliatePrivateBinding(context,brand);
+  if(!b.readLinked)err('AFFILIATE_READ_BINDING_MISSING',503);
+  const identity=nativeIdentity(b.user.id),{FIXED_DESTINATIONS}=require('./proxy.cjs');
+  return {ownerId:b.user.id,ownerRevision:identity.revision,credentialBindingHash:b.binding,resourceHash:sha(JSON.stringify(['original-tiktok-panel-read-v1','tts-read',FIXED_DESTINATIONS.tts,FIXED_DESTINATIONS.cx,'POST','ini','fim','project-current-brand',brand]))};
+ }});
+ const nativeDatabaseVault=options.crmNativeEnabled===true&&options.crmNativeDatabaseEnabled===true?require('./native-database-vault.cjs').createDatabaseVault({enabled:true,db,consent:nativeConsent,identity:nativeIdentity,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-database-vault-v1:'+value).digest('hex')}):undefined;
+  let nativeSchedulerBinding;
+  if(options.crmNativeSchedulerBindingEnabled===true){
+   if(options.crmNativeEnabled!==true||!nativeConnections||!ownMasterWriter)err('SCHEDULER_ORIGINAL_MASTER_CONFIGURATION_REQUIRED',500);
+   const schedulerCurrent=(context,connectionId,browser)=>{
+    if(browser)nativeConsent(context);
+    const owner=nativeConnections.schedulerDiagnosticOwner({context,connectionId}),original=BRANDS.map(brand=>{
+     const user=authorizeBrand({...context,area:'growth',edit:false},brand),a=writerBinding(user);
+     if(user.id!==owner.ownerId||user.role!=='superadmin'||user.email!==adminEmail||!a)err('SCHEDULER_ORIGINAL_MASTER_CHANGED',409);
+     return [brand,a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac];
+    });
+    return {...owner,profileRevision:profileRevision(owner.ownerId),authorityHash:crypto.createHmac('sha256',encKey).update('scheduler-original-crm-v1:'+JSON.stringify([owner.ownerId,owner.ownerRevision,original])).digest('hex')};
+   };
+   nativeSchedulerBinding=require('./native-scheduler-binding.cjs').createSchedulerBinding({enabled:true,db,current:schedulerCurrent,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-scheduler-binding-v1:'+value).digest('hex'),...(options.crmNativeSchedulerApiVerifier?{verify:options.crmNativeSchedulerApiVerifier}:{})});
+  }
+ let nativeSchedulerStateConsent,nativeSchedulerStateChatApproval;
+ if(options.crmNativeSchedulerStateEnabled===true){
+  if(options.crmNativeEnabled!==true||!nativeConnections||!nativeDatabaseVault||!ownMasterWriter)err('SCHEDULER_STATE_ORIGINAL_MASTER_CONFIGURATION_REQUIRED',500);
+  const stateCurrent=(context,connectionId,browser)=>{
+   if(browser)nativeConsent(context);
+   const owner=nativeConnections.schedulerDiagnosticOwner({context,connectionId});
+   const original=BRANDS.map(brand=>{
+    const proof=ownMasterPublishedJourneyReadBinding({...context,method:'GET'},{brand});
+    if(proof.userId!==owner.ownerId||!/^[a-f0-9]{64}$/.test(proof.binding||''))err('SCHEDULER_STATE_ORIGINAL_MASTER_CHANGED',409);
+    return [brand,proof.binding];
+   });
+   const privateBinding=nativeDatabaseVault.inspectionBinding(owner.ownerId),revision=profileRevision(owner.ownerId);
+   return {ownerId:owner.ownerId,ownerRevision:owner.ownerRevision,connectionHash:owner.connectionHash,
+    crmBindingHash:crypto.createHmac('sha256',encKey).update('scheduler-state-original-crm-v1:'+JSON.stringify([owner.ownerId,owner.ownerRevision,revision,original])).digest('hex'),
+    profileRevision:revision,credentialBindingHash:privateBinding.credentialBindingHash,resourceHash:privateBinding.resourceHash,queryHash:require('./native-scheduler-state.cjs').queryHash};
+  };
+  const chatCurrent=(context,connectionId)=>{
+   if(context?.nativeBearer===undefined||!['GET','POST'].includes(context.method))err('SCHEDULER_STATE_NATIVE_APPROVAL_REQUIRED',403);
+   const user=authorize({...context,admin:true});
+   for(const scope of ['crm.read','crm.iam'])for(const brand of BRANDS){const p=nativeConnections.authenticate(context.nativeBearer,{scope,brand});if(p.id!==connectionId||p.userId!==user.id)err('SCHEDULER_STATE_CONNECTION_REFUSED',403);}
+   return stateCurrent(context,connectionId,false);
+  };
+  const trustedApprovals=new WeakSet();
+  nativeSchedulerStateConsent=require('./native-scheduler-state-consent.cjs').createSchedulerStateConsent({db,current:stateCurrent,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-scheduler-state-v1:'+value).digest('hex'),admitNativeApproval:args=>trustedApprovals.has(args)&&require('./native-scheduler-state.cjs').canonical(chatCurrent(args.context,args.connectionId))===require('./native-scheduler-state.cjs').canonical(args.authority)});
+  nativeSchedulerStateChatApproval=require('./native-scheduler-state-chat-approval.cjs').createSchedulerStateChatApproval({db,current:chatCurrent,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-scheduler-state-chat-v1:'+value).digest('hex'),authorizeBoundApproval:args=>{trustedApprovals.add(args);try{return nativeSchedulerStateConsent.authorizeNativeBound(args);}finally{trustedApprovals.delete(args);}}});
+ }
+ let nativeSourceSync;
+ if(options.crmNativeSourceSyncEnabled===true){
+  if(options.crmNativeEnabled!==true||!nativeConnections||!ownMasterWriter||!ownMasterAudienceWrite)err('SOURCE_ORIGINAL_MASTER_CONFIGURATION_REQUIRED',500);
+  const authorizeSource=(context,{brand,write=false}={})=>{
+   if(brand!==undefined&&!BRANDS.includes(brand))err('SOURCE_BRAND_DENIED',403);
+   if(write===true&&context?.method!=='POST')err('SOURCE_EXPLICIT_WRITE_REQUIRED',403);
+   const native=context?.nativeBearer!==undefined;
+   let proof;
+   if(native)proof=nativeConnections.authenticate(context.nativeBearer,{scope:'crm.source-sync',...(brand?{brand}:{})});
+   else if(context?.method==='POST')proof=nativeConsent(context);
+   else if(context?.method==='GET'){
+    const user=authorize({...context,admin:true}),found=lookup(context,false);
+    if(!found?.tokenHash)err('SOURCE_ORIGINAL_MASTER_REQUIRED',403);
+    proof={userId:user.id};
+   }else err('SOURCE_ORIGINAL_MASTER_REQUIRED',403);
+   const ownerId=proof.userId,owner=nativeIdentity(ownerId);
+   if(!owner||owner.role!=='superadmin'||owner.active!==true||owner.canEditGrowth!==true)err('SOURCE_ORIGINAL_MASTER_REQUIRED',403);
+   const brands=brand?[brand]:native?proof.brands:BRANDS;
+   const original=brands.map(b=>{
+    const q=context?.method==='POST'?ownMasterAudienceWriteBinding(context,{brand:b}):ownMasterAudienceReadBinding(context,{brand:b});
+    const user=authorizeBrand({...context,area:'growth',edit:true},b),a=writerBinding(user);
+    if(q.userId!==ownerId||user.id!==ownerId||!a)err('SOURCE_ORIGINAL_MASTER_CHANGED',409);
+    return [b,profileRevision(ownerId),a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac];
+   });
+   // Session/delegation is checked at every call; durable attempts belong to
+   // the same original identity/credential across browser and native access.
+   return {ownerId,ownerRevision:owner.revision,binding:crypto.createHmac('sha256',encKey).update('native-source-authority-v1:'+JSON.stringify([ownerId,owner.revision,original])).digest('hex')};
+  };
+  const transport=options.crmNativeSourceTransport||require('./native-source-transport.cjs').createOriginalSourceTransport({fetchImpl:options.crmNativeSourceFetch||fetch});
+  nativeSourceSync=require('./native-source-sync.cjs').createSourceSync({enabled:true,...(options.crmNativeSourceFreshReadRequest?{freshReadRequest:options.crmNativeSourceFreshReadRequest}:{}),db,consent:nativeConsent,identity:nativeIdentity,authorize:authorizeSource,encrypt,decrypt,now:current,mac:value=>crypto.createHmac('sha256',encKey).update('native-source-sync-v1:'+value).digest('hex'),transport,permitDelegation:(context,connectionId)=>nativeConnections.permitSourceSync({context,connectionId})});
+ }
+ return Object.freeze({...(simpleAccounts?{simpleAccounts}:{}),...(dashboardAffiliateRead?{affiliateReadContext,setAffiliateReadCredential,affiliateSourceStatus,affiliateNativeAvailability,...(affiliateNativeConsent?{affiliateNativeConsent}: {})}:{}),...(nativeSchedulerStateChatApproval?{nativeSchedulerStateChatApproval}:{}),...(nativeSchedulerStateConsent?{nativeSchedulerStateConsent}:{}),...(nativeSchedulerBinding?{nativeSchedulerBinding}:{}),...(nativeSourceSync?{nativeSourceSync}:{}),...(nativeDatabaseVault?{nativeDatabaseVault}:{}),...(nativeConnections?{nativeConnections}:{}),privateTestDiagnostics,simpleTTSBinding,simpleTTSFactory,simpleDraftBinding,verifySimpleDraftBinding,simpleDraftContext,simpleAudienceRemoteKey,simpleDraftAttemptReserved,simpleNativeInternalFactory,simpleCampaignDraftFactories,simpleModelsFactory,simpleCampaignTestFactory,simpleCampaignAudienceFactory,beginBootstrap,completeBootstrap,login,session,authorize,authorizeBrand,logout,createInvite,acceptInvite,users,updateUserProfile,finishUserProfileUpdate,reconcileUserProfileUpdates,renewManagedCrm,setGrants,setRequestedAccess,revokeUser,setUpstreamCredential,setSandboxCredential,setCrmPanelReadCredential,getUpstreamCredential,audienceDraftReady,campaignDraft,reserveCampaignDraft,campaignDraftOutcome,audienceDraft,reserveAudienceDraft,audienceDraftOutcome,audiencePayloadMatches,audienceActorMatches,audienceDefinitionMatches,...(campaignSubmit?{installCampaignWriter,installMasterCampaignWriter,campaignWriterReady,campaignHistoryRead,campaignWriterAuthorization,campaignDeliveryFor,campaignCreateFor}:{}),...(campaignSubmit&&masterWriter?{activateOwnMasterCampaignWriter,activateNativeOwnMasterCampaignWriter}:{}),...(ownMasterWriter?{ownMasterAudienceReadBinding,ownMasterAudienceReadReady,ownMasterPublishedJourneyReadBinding,ownMasterPublishedJourneyReadReady}:{}),...(ownMasterAudienceWrite?{ownMasterAudienceWriteBinding,audienceWriterAuthorization}:{}),...(campaignSubmit&&corporateWriter?{campaignContentAdmissionSnapshot,audienceWriterAuthorization}:{}),...(managedCrm?{managedCrmJournal:managedCrm,managedCrmReadAuthorization}:{}),...(managedWriter?{fulfillManagedCampaignWriterRequests,approveManagedCampaignWriter,renewManagedCampaignWriter,managedCampaignWriterJournal:managedWriter.journal}:{}),close});
 }
-module.exports={createAuth,AuthError,AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};
+module.exports={createAuth,AuthError,AREAS,PRODUCT_AREAS,BRANDS,AREA_BRANDS,CREDENTIAL_SLOTS,COOKIE};

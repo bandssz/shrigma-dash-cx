@@ -78,9 +78,16 @@ function createManagerRuntime(config,adapters={}){
 const corporateDescriptors=new WeakSet();
 const CORPORATE_WRITER_MODE='corporate-read-writer-v1';
 const OWN_MASTER_WRITER_MODE='own-master-production-v1',ownMasterDescriptors=new WeakSet();
+const SERVICE_DRAFT_MODE='crm-service-draft-v1',serviceDraftDescriptors=new WeakSet();
 function ownMasterWriterDescriptor(mode,allowedEmailDomains){
  if(mode!==OWN_MASTER_WRITER_MODE||!Array.isArray(allowedEmailDomains)||allowedEmailDomains.length!==3||Object.keys(allowedEmailDomains).length!==3||new Set(allowedEmailDomains).size!==3||!['oaristocrata.com','shrigma.com.br','fishermans.com.br'].every(d=>allowedEmailDomains.includes(d)))refuse();
  const out=Object.freeze({mode});ownMasterDescriptors.add(out);return out;
+}
+// Private gateway admission; preserves the original technical WRITER profile.
+// No caller-supplied plain object or browser capability can select this mode.
+function serviceDraftDescriptor(original){
+ if(!ownMasterDescriptors.has(original))refuse();
+ const out=Object.freeze({mode:SERVICE_DRAFT_MODE,purpose:'crm.local-account.drafts',caps:Object.freeze(['read_content','draft','validate'])});serviceDraftDescriptors.add(out);return out;
 }
 const CORPORATE_HOSTS=Object.freeze([
  Object.freeze({manager:'gerencial.shrigma.com.br',growth:'crm.shrigma.com.br',organico:'organico.shrigma.com.br',influs:'influs.shrigma.com.br'}),
@@ -143,4 +150,4 @@ function createWriterManagerRuntime(config,adapters={}){
   return Object.freeze({kick,close});
  }catch{refuse();}
 }
-module.exports={createManagerRuntime,createWriterManagerRuntime,corporateWriterDescriptor,ownMasterWriterDescriptor,corporateHostsAllowed,CORPORATE_WRITER_MODE,OWN_MASTER_WRITER_MODE,WRITER_ORIGIN,isCorporateWriterDescriptor:value=>corporateDescriptors.has(value),isOwnMasterWriterDescriptor:value=>ownMasterDescriptors.has(value),isCampaignWriterDescriptor:value=>corporateDescriptors.has(value)||ownMasterDescriptors.has(value),ManagedCrmRuntimeError};
+module.exports={createManagerRuntime,createWriterManagerRuntime,corporateWriterDescriptor,ownMasterWriterDescriptor,serviceDraftDescriptor,corporateHostsAllowed,CORPORATE_WRITER_MODE,OWN_MASTER_WRITER_MODE,SERVICE_DRAFT_MODE,WRITER_ORIGIN,isCorporateWriterDescriptor:value=>corporateDescriptors.has(value),isOwnMasterWriterDescriptor:value=>ownMasterDescriptors.has(value),isServiceDraftDescriptor:value=>serviceDraftDescriptors.has(value),isCampaignWriterDescriptor:value=>corporateDescriptors.has(value)||ownMasterDescriptors.has(value),ManagedCrmRuntimeError};

@@ -26,7 +26,7 @@ test('master keeps all areas and both supported brands; manager requires explici
  const f=await fixture(t);
  assert.deepEqual(f.l.user.brands,['fish','aristo']);assert.equal(f.l.user.brand,null);assert.equal(f.l.user.brandAccess,'all');
  for(const area of ['growth','organico','influs'])for(const brand of ['fish','aristo'])assert.equal(f.auth.authorizeBrand({...f.ctx,method:'GET',area},brand).role,'superadmin');
- for(const brand of [undefined,null,'todas','olivas','Fish',''])assert.throws(()=>f.auth.createInvite({context:f.ctx,email:'bad@synthetic.invalid',areas:['growth'],brand}),denied('BRAND_INVALID',400));
+ for(const brand of [undefined,null,'todas','unknown','Fish',''])assert.throws(()=>f.auth.createInvite({context:f.ctx,email:'bad@synthetic.invalid',areas:['growth'],brand}),denied('BRAND_INVALID',400));
  assert.deepEqual(AREA_BRANDS,{growth:['fish','aristo'],organico:['fish','aristo'],influs:['fish','aristo']});
 });
 

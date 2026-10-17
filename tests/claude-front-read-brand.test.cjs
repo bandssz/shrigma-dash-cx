@@ -60,9 +60,10 @@ test('OFF: sem read_contract (ou com outro valor) as leituras saem byte a byte i
   assert.deepEqual(a.map(x=>x.url),[`${E}?acao=listar&marca=fish`,`${E}?acao=listar&marca=aristo&canal=email`,`${E}?acao=listar&marca=aristo&canal=whatsapp`,`${E}?acao=listar`,`${E}?acao=listar&marca=olivas`,`${E}?acao=listar`,`${E}?acao=historico&key=fish_paid`,`${E}?acao=historico&draft_id=d_1`,`${E}?acao=submissao&submission_id=s_1`,`${E}?acao=submissao&submission_id=s_2`]);
  }
  // O resto das capacidades e a tradução de erro não mudam.
- const api={capabilities:{templates:{read_content:true,draft:true},endpoints:{templates:E}}},{leitura_marca,...rest}=now.caps(api);
- assert.deepEqual(JSON.parse(JSON.stringify(rest)),JSON.parse(JSON.stringify(before.caps(api))));assert.equal(leitura_marca,false);
- for(const res of [{rede:true},{status:401},{status:403,body:{capability:'x'}},{status:502,body:{}},{status:500}])assert.deepEqual(JSON.parse(JSON.stringify(now.erro(res,'listar'))),JSON.parse(JSON.stringify(before.erro(res,'listar'))));
+ const api={capabilities:{templates:{read_content:true,draft:true},endpoints:{templates:E}}},{leitura_marca,server_drafts,...rest}=now.caps(api);
+ assert.deepEqual(JSON.parse(JSON.stringify(rest)),JSON.parse(JSON.stringify(before.caps(api))));assert.equal(leitura_marca,false);assert.equal(server_drafts,false);
+ for(const res of [{rede:true},{status:401},{status:403,body:{capability:'x'}},{status:500}])assert.deepEqual(JSON.parse(JSON.stringify(now.erro(res,'listar'))),JSON.parse(JSON.stringify(before.erro(res,'listar'))));
+ const uncertain=now.erro({status:502,body:{}},'listar');assert.equal(uncertain.tipo,'incerto');assert.match(uncertain.texto,/resultado permanece incerto/);assert.match(uncertain.texto,/mesma tentativa/);
 });
 
 /* ---------------- ON: marca e paginação ---------------- */

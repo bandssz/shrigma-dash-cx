@@ -496,7 +496,7 @@ const GC={
     return model;
   },
   setTab(tab){
-    if(!['history','workflows','templates','fluxos','drafts','graph'].includes(tab))return;
+    if(!['history','workflows','templates','fluxos','drafts','graph','lab'].includes(tab))return;
     if(tab==='graph'&&(typeof document==='undefined'||document.getElementById('control-tab-graph')?.hidden!==false||document.getElementById('control-tab-graph')?.disabled))return;
     GC.activeTab=tab;
     if(typeof document==='undefined')return;

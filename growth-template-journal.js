@@ -12,6 +12,31 @@
   const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const HEX=/^[a-f0-9]{64}$/;
   const unresolved=operation=>['pending','unknown'].includes(operation.phase)||operation.applied!==true;
+  function resource(operation){
+    const payload=operation.request_payload||{},draft=payload.rascunho||{},saved=operation.resource_scope||{};
+    return {local_id:operation.local_id,draft_id:payload.draft_id||operation.receipt?.body?.draft_id||null,brand:draft.marca||saved.brand||null,channel:draft.canal||saved.channel||null,name:draft.nome||saved.name||null};
+  }
+  function sameResource(operation,scope){
+    if(!scope)return false;
+    const own=resource(operation);
+    if(scope.local_id&&own.local_id===scope.local_id||scope.draft_id&&own.draft_id===scope.draft_id)return true;
+    return !!(scope.brand&&scope.channel&&scope.name&&own.brand===scope.brand&&own.channel===scope.channel&&own.name===scope.name);
+  }
+  function resourceFromHistory(operation,operations){
+    const own=resource(operation);if(own.brand&&own.channel&&own.name)return own;
+    const candidates=operations.filter(x=>x.local_id===own.local_id||own.draft_id&&resource(x).draft_id===own.draft_id).map(resource).filter(x=>x.brand&&x.channel&&x.name);
+    const keys=new Set(candidates.map(x=>canonical([x.brand,x.channel,x.name])));
+    return keys.size===1?{...own,brand:candidates[0].brand,channel:candidates[0].channel,name:candidates[0].name}:own;
+  }
+  function related(operation,scope,operations){
+    if(!scope)return false;
+    const own=resourceFromHistory(operation,operations);
+    if(sameResource({...operation,resource_scope:own},scope))return true;
+    if(own.brand&&own.channel&&own.name)return false;
+    // V1 validate/submit has no content. A different durable server ID proves
+    // independence; a new local copy needs an original content/identity anchor.
+    return !(own.draft_id&&scope.draft_id&&own.draft_id!==scope.draft_id);
+  }
   function canonical(value){
     const stable=v=>{
       if(v===null||typeof v==='string'||typeof v==='boolean'||typeof v==='number'&&Number.isFinite(v))return v;
@@ -67,6 +92,10 @@
         for(const op of j.operations){
           if(!UUID.test(op.id)||ids.has(op.id)||!['pending','unknown','confirmed','rejected'].includes(op.phase)||typeof op.actor!=='string'||!op.actor.trim()||!HEX.test(op.request_sha256)||!Number.isFinite(op.started_at)||typeof op.endpoint!=='string'||typeof op.local_id!=='string'||!op.local_id)throw Error();
           if(canonical(payloadFor(wireFor(op.request_payload)))!==canonical(op.request_payload))throw Error();
+          if(op.resource_scope!==undefined){
+            const s=op.resource_scope,p=op.request_payload,r=p.rascunho;
+            if(!s||Object.getPrototypeOf(s)!==Object.prototype||Object.keys(s).sort().join(',')!=='brand,channel,draft_id,local_id,name'||s.local_id!==op.local_id||s.draft_id!==(p.draft_id||null)||!['fish','aristo','olivas',null].includes(s.brand)||!['email','whatsapp',null].includes(s.channel)||!(s.name===null||typeof s.name==='string'&&s.name.length<=512)||r&&(s.brand!==r.marca||s.channel!==r.canal||s.name!==r.nome))throw Error();
+          }
           if(typeof op.applied!=='boolean'||['confirmed','rejected'].includes(op.phase)&&!op.receipt)throw Error();
           ids.add(op.id);
         }
@@ -78,8 +107,8 @@
       try{storage.setItem(SLOT,raw);if(storage.getItem(SLOT)!==raw)throw Error();memory=clone(next);j.revision=next.revision;}
       catch(_){throw fail('TPL_STORAGE',unavailable);}
     }
-    function inspect(){
-      try{const j=read(),legacy=legacyPending()===true;return {...clone(j),available:available(),blocked:legacy||!available()||j.operations.some(unresolved),legacy,message:legacy?'Existe uma tentativa antiga pendente. Preserve seu identificador e consulte o integrador.':!available()?unavailable:j.operations.some(x=>['pending','unknown'].includes(x.phase))?UNKNOWN:j.operations.some(unresolved)?'Um recibo confirmado aguarda atualização local. Abra o mesmo recibo para recuperar antes de outra operação.':''};}
+    function inspect(scope){
+      try{const j=read(),legacy=legacyPending(scope)===true,selected=j.operations.filter(op=>related(op,scope,j.operations));return {...clone(j),available:available(),blocked:legacy||!available()||selected.some(unresolved),legacy,otherPending:j.operations.filter(op=>unresolved(op)&&!related(op,scope,j.operations)).length,message:legacy?'Este modelo tem uma tentativa antiga pendente. O registro foi preservado; outros modelos continuam disponíveis.':!available()?unavailable:selected.some(x=>['pending','unknown'].includes(x.phase))?UNKNOWN:selected.some(unresolved)?'Um recibo deste modelo aguarda atualização local. Abra o mesmo recibo para recuperar antes de outra operação.':''};}
       catch(e){return {operations:[],available:false,blocked:true,message:e.message};}
     }
     async function exclusive(work){
@@ -115,8 +144,10 @@
       const raw=request(input?.request_payload),localId=input?.local_id;
       if(raw.idempotency_key!==undefined||typeof localId!=='string'||!localId||localId.length>256||typeof transport!=='function'||typeof lookup!=='function'||typeof persistLocal!=='function')throw fail('TPL_INPUT','A operação precisa de identidade e recibo verificáveis.');
       return exclusive(async()=>{
-        const j=read();if(legacyPending()!==false)throw fail('TPL_LEGACY','Existe uma tentativa antiga pendente. Preserve seu identificador e consulte o integrador.');
-        if(j.operations.some(unresolved))throw fail('TPL_PENDING',UNKNOWN);
+        const j=read(),scope={local_id:localId,draft_id:raw.draft_id||null,brand:raw.rascunho?.marca||input.resource_scope?.brand||null,channel:raw.rascunho?.canal||input.resource_scope?.channel||null,name:raw.rascunho?.nome||input.resource_scope?.name||null};
+        for(const op of j.operations)if(await sha256(op.request_payload,cryptoProvider)!==op.request_sha256)throw fail('TPL_JOURNAL_INVALID','A identidade de uma tentativa preservada divergiu. Nenhuma operação foi enviada.');
+        if(legacyPending(scope)!==false)throw fail('TPL_LEGACY','Este modelo tem uma tentativa antiga pendente. Outros modelos continuam disponíveis; nenhuma repetição foi enviada.');
+        if(j.operations.some(op=>unresolved(op)&&related(op,scope,j.operations)))throw fail('TPL_PENDING',UNKNOWN);
         const previous=[...j.operations].reverse().find(op=>op.phase==='confirmed'&&(op.local_id===localId||raw.draft_id&&op.receipt.body.draft_id===raw.draft_id));
         if(previous){
           const draftId=previous.receipt.body.draft_id||previous.request_payload.draft_id,version=previous.receipt.body.version||previous.request_payload.expected_version;
@@ -132,7 +163,7 @@
         if(preflight?.status!==200||preflight.body.contract!=='template_operation_v1'||remote?.state!=='missing'||remote.hash_schema!=='json-stable-sha256-v1'||remote.idempotency_key!==id||remote.acao!==raw.acao||typeof remote.actor!=='string'||!remote.actor.trim()||remote.request_payload!==null||remote.request_sha256!==null||remote.response!==null)throw fail('TPL_PREFLIGHT','O acesso ou a consulta segura de operações não foi confirmado. Nada foi enviado.');
         if(await persistLocal()!==true)throw fail('TPL_STORAGE','O rascunho não pôde ser preservado neste navegador. Nada foi enviado.');
         const payload=payloadFor(raw);
-        const op={id,local_id:localId,actor:remote.actor,request_payload:payload,request_sha256:await sha256(payload,cryptoProvider),endpoint:origin,phase:'pending',applied:false,started_at:now()};
+        const op={id,local_id:localId,resource_scope:scope,actor:remote.actor,request_payload:payload,request_sha256:await sha256(payload,cryptoProvider),endpoint:origin,phase:'pending',applied:false,started_at:now()};
         j.operations.push(op);persist(j); // Durable, verified reservation before the only POST.
         try{await transport({...clone(raw),idempotency_key:id});}catch(_){} // Timeout is reconciled only by the exact read-only lookup.
         return reconcileInside(j,op,lookup);
@@ -159,5 +190,5 @@
     }
     return Object.freeze({available,inspect,run,reconcile,markApplied});
   }
-  return Object.freeze({SLOT,canonical,sha256,request,payloadFor,create});
+  return Object.freeze({SLOT,canonical,sha256,request,payloadFor,resource,sameResource,create});
 });

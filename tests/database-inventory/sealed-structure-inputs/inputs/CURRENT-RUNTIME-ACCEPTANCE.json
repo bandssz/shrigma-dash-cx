@@ -1,0 +1,131 @@
+{
+  "schema": "shrigma-original-health-view-metadata-runtime-acceptance-v1",
+  "sourceHead": "e88330bb25d731209fe2b3dd8c96f8fc4f63663d",
+  "checkedAt": "2026-10-09T00:38:42.219Z",
+  "service": {
+    "projectName": "dashboard-image-20260930",
+    "serviceName": "portal-read-8fd9c71c9126"
+  },
+  "image": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:0ee52be74f41c479bb3ad224c272b5dba49485c96fc80a357ecc61fe4c73d1d1",
+  "nativeManifestSha256": "d045909153431ab2ef6ce66f7417c1d51e18ad2c6a0c6d701e1996bedbfb5e31",
+  "presentationManifestSha256": "2c12a4a028ccd0463a0cd766e8cadaa4a618cb86028a52464b107fc1920068bd",
+  "actualOriginalMaster": {
+    "status": 200,
+    "authenticated": true,
+    "role": "superadmin",
+    "brands": [
+      "aristo",
+      "fish"
+    ]
+  },
+  "publicAssets": [
+    {
+      "path": "growth.html",
+      "bytes": 113705,
+      "sha256": "af135d3f91d7e6b00f48444a74e3c06548ccd0d2e98cbd44f2d72eeb3965c130"
+    },
+    {
+      "path": "assets/panels/growth.js",
+      "bytes": 1000806,
+      "sha256": "7dcd45e9f3e59cec76082f4181187cbe65bd666d4113cee242e00249c4754dc2"
+    },
+    {
+      "path": "assets/panels/growth.css",
+      "bytes": 164609,
+      "sha256": "cdc4fef0ca423aae8a067ab95a7264bcf7fa903c290be12487954c1507be4ba3"
+    }
+  ],
+  "deliveryHealthReceipts": {
+    "status": 200,
+    "body": {
+      "schema": "shrigma-native-health-receipts-v1",
+      "sources": [
+        {
+          "brand": "fish",
+          "status": 503,
+          "body": {
+            "error": "HEALTH_PROTOCOL_REFUSED",
+            "diagnostic": {
+              "schema": "shrigma-email-health-protocol-refusal-v1",
+              "field": "brands",
+              "reason": "brand-set",
+              "actualType": "array"
+            }
+          },
+          "readOnly": true,
+          "operational": false
+        },
+        {
+          "brand": "aristo",
+          "status": 503,
+          "body": {
+            "error": "HEALTH_PROTOCOL_REFUSED",
+            "diagnostic": {
+              "schema": "shrigma-email-health-protocol-refusal-v1",
+              "field": "brands",
+              "reason": "brand-set",
+              "actualType": "array"
+            }
+          },
+          "readOnly": true,
+          "operational": false
+        }
+      ],
+      "automaticRetry": false,
+      "operational": false
+    }
+  },
+  "catalogRead": {
+    "status": 200,
+    "schema": "shrigma-database-inventory-v4",
+    "healthView": {
+      "fields": [
+        "oid",
+        "namespace",
+        "name",
+        "ownerRole",
+        "acl",
+        "definition_utf8_bytes",
+        "definition_sha256",
+        "fixed_fish_aristo_values_seed",
+        "empty_brands_literal",
+        "brands_jsonb_agg"
+      ],
+      "rows": [
+        [
+          "135626",
+          "public",
+          "shrigma_growth_email_ses_health_v1",
+          "postgres",
+          "{postgres=arwdDxtm/postgres,central_leitor=r/postgres}",
+          4930,
+          "781ffed2f3d8f671f6e2b179c1b451f4a4007886871fa24da83da2bc38087fd7",
+          false,
+          false,
+          true
+        ]
+      ]
+    },
+    "purpose": "read-only-migration-inventory",
+    "healthPayloadRead": false,
+    "rawViewDefinitionReturned": false
+  },
+  "interpretation": {
+    "originalViewExists": true,
+    "actualBrandsArrayExactlyTwo": false,
+    "actualBrandsCardinalityKnown": false,
+    "actualBrandValuesKnown": false,
+    "staticPatternForFixedTwoBrandSeedMatched": false,
+    "staticBrandsAggregationPatternMatched": true,
+    "staticEmptyLiteralPatternMatched": false,
+    "structuralFlagsProveSemantics": false,
+    "healthAccepted": false,
+    "scheduler174CauseProven": false
+  },
+  "nativeSourceReadRequiredOwnerAction": false,
+  "composeMetadataPreserved": true,
+  "changedComposeLeafCount": 5,
+  "sqlOrIAMOrWorkerChanged": false,
+  "originalServicesPreserved": true,
+  "operational": false
+}

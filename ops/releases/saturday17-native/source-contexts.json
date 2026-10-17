@@ -1,0 +1,621 @@
+{
+  "schema": "crm-native-internal-source-contexts-v1",
+  "audienceBase": "a31b3949a38923439fb21d0dba58bbcb69a9af84",
+  "audienceFiles": [
+    {
+      "path": "growth-ab-experiment-contract.js",
+      "sha256": "71d2f1ba0f17f9387e884df4156f9ad891cc811d736d0a65eb43161a73f25b4f",
+      "bytes": 7623
+    },
+    {
+      "path": "growth-campaign-audience-client.js",
+      "sha256": "b8759f6a0c939b6507477f38869a8252620e15287c2861038922f22fcb323017",
+      "bytes": 19051
+    },
+    {
+      "path": "growth-campaign-regular-client.js",
+      "sha256": "88ca144d92326d99edfa60901793a7377b525f7fdead182494c4b396ed2e43f8",
+      "bytes": 11450
+    },
+    {
+      "path": "growth-email-contract.js",
+      "sha256": "ce9ec117e01139b9066c207c8c97dd0e3c1c62a96fdff502d11a8c548c9f182f",
+      "bytes": 14367
+    },
+    {
+      "path": "growth-email-expressions.js",
+      "sha256": "fc5181b72b379fea287bf7cf38bb3bef19088ec11eb6a86242430428f40e5349",
+      "bytes": 20645
+    },
+    {
+      "path": "n8n/growth/ab-audience-admission-api.cjs",
+      "sha256": "4ca01e3bd30c94ce6ab3b3c66c428e81bdcdaa5d7a456d4aa3649eaaa9856c2e",
+      "bytes": 3240
+    },
+    {
+      "path": "n8n/growth/ab-audience-admission-contract.cjs",
+      "sha256": "32d4ad1c76195a15eb5fb8f0429828ba0b0627d97ab034c81d4168c3b61ce491",
+      "bytes": 5588
+    },
+    {
+      "path": "n8n/growth/ab-audience-admission-inspect.cjs",
+      "sha256": "a30f645a7b975845014aac4a1db694da131cc913aad9e4c162fead0973f2a4d0",
+      "bytes": 19439
+    },
+    {
+      "path": "n8n/growth/ab-audience-material-read.cjs",
+      "sha256": "04ed28106a318489373229454911b625e9ee23b2b8913dc6603046b8f985d7d5",
+      "bytes": 8450
+    },
+    {
+      "path": "n8n/growth/ab-audience-material.cjs",
+      "sha256": "78c0614f0366847899908c0a630d6b47fa7a02ac154906040c02da2e8c5a6b96",
+      "bytes": 12889
+    },
+    {
+      "path": "n8n/growth/ab-audience-panel-api.cjs",
+      "sha256": "efbb4b0e0b67c93180c3c1f7b242d7f70380d0db0500f1b92ed536df50fbf9b4",
+      "bytes": 12862
+    },
+    {
+      "path": "n8n/growth/ab-audience-prepare.cjs",
+      "sha256": "90f74afea117b1249b92c147ed94ae8103df5aa1a0acc266e467d31173699b6b",
+      "bytes": 15437
+    },
+    {
+      "path": "n8n/growth/ab-audience-regular-admission.cjs",
+      "sha256": "9c808de2257069441ac4fa46e8423233a650bdea9ee0fe81a2da7676c2816efb",
+      "bytes": 12113
+    },
+    {
+      "path": "n8n/growth/ab-audience-review-api.cjs",
+      "sha256": "379719aaa45bb50daa01c9bbb167d1a5022178847568b94948f390e3a2fb9065",
+      "bytes": 6580
+    },
+    {
+      "path": "n8n/growth/ab-audience-review.cjs",
+      "sha256": "016efa8a56fad2f5060d97459555cad07db4008c8f0d12ca32d1364092bc1ebe",
+      "bytes": 25254
+    },
+    {
+      "path": "n8n/growth/campaign-contract.js",
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390",
+      "bytes": 12470
+    },
+    {
+      "path": "n8n/growth/campaign-tracking.js",
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63",
+      "bytes": 4294
+    },
+    {
+      "path": "n8n/growth/journey-graph-catalog.cjs",
+      "sha256": "63354e60b61e01f41f97ffe99baca04713f7e4d7f1c0c5197371e1ac1a30673f",
+      "bytes": 3069
+    },
+    {
+      "path": "n8n/growth/journey-graph-contract.js",
+      "sha256": "5a9de6bf3b4081dbba14a39b852976e74a84dfdb8f3ecbf9abd73c3c48d0e624",
+      "bytes": 27098
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-contract.cjs",
+      "sha256": "9d1ccd21ad13e83c351752b0493aa695ae06a2647db1aa4268dcf335fba69c6c",
+      "bytes": 5783
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-panel-api.cjs",
+      "sha256": "a5d9b2271192a5f35aaa93a813b6f4ae063d1f4fcf1e3d6a1eb90b1969492d95",
+      "bytes": 5072
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-prepare.cjs",
+      "sha256": "7aa835aead40a7220c0fb5163a0cea8c88d81f814783584828a1e7290dc8ac7a",
+      "bytes": 21188
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-publication.cjs",
+      "sha256": "feca0b16c861aea3e457b55815a4538273d717a1e4934d23f665a06ae5ff6f94",
+      "bytes": 17133
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-review.cjs",
+      "sha256": "f9db842a43a7cb9aeb7a162e2085da576237c9762a87c1b763c312e59c5378d9",
+      "bytes": 10475
+    },
+    {
+      "path": "n8n/growth/journey-graph-release.cjs",
+      "sha256": "1e6f63ebd4e69750d9437d20f030b0dd333ef264b58bbef7182ea207ac1495e6",
+      "bytes": 13720
+    },
+    {
+      "path": "n8n/growth/segment-api.cjs",
+      "sha256": "18a73aaa435586a85ba09e6dcfd6e034b705333cad768edd41b95556df239856",
+      "bytes": 15425
+    },
+    {
+      "path": "n8n/growth/segment-audience-allocated.cjs",
+      "sha256": "119f7912d316ad2536d6405879ef2da10a9068b0c6f48546156bd0ed0f77e1ca",
+      "bytes": 7521
+    },
+    {
+      "path": "n8n/growth/segment-audience-api.cjs",
+      "sha256": "7a94ec878859a8ce4a8ec092da696c9dd22f9ce86174a83e830985e940a6c22e",
+      "bytes": 12362
+    },
+    {
+      "path": "n8n/growth/segment-audience-cohort.cjs",
+      "sha256": "27710e8917a35cf17f4008deae7a47bb2d8c21f89cca6bfb42b60f39041591cd",
+      "bytes": 7165
+    },
+    {
+      "path": "n8n/growth/segment-audience-context-review.cjs",
+      "sha256": "6e2be86a9907a98b23fc936955d6d83be7940f4fdb95e5ed9d424fa4429a0274",
+      "bytes": 8235
+    },
+    {
+      "path": "n8n/growth/segment-audience-contract.js",
+      "sha256": "74872d8fd63cd7a7863943e2ee499093b7aa9d1b452916783fade5a4d88befa5",
+      "bytes": 11152
+    },
+    {
+      "path": "n8n/growth/segment-audience-listmonk.cjs",
+      "sha256": "63cbaee25faed04827adbc9fcad489b99bf8e941ab43ba7b91d40866f44e7bfc",
+      "bytes": 14495
+    },
+    {
+      "path": "n8n/growth/segment-audience-native-freeze-api.cjs",
+      "sha256": "ea7183cde95b534c75f98e4039908b848979bcc3eb56f9f1157e4344db2331c5",
+      "bytes": 5185
+    },
+    {
+      "path": "n8n/growth/segment-audience-native-freeze.cjs",
+      "sha256": "155d2f4ead1ad62648b824a1990b98c6ec8cb17abd6be1f52b7c09f0edc70bd4",
+      "bytes": 7355
+    },
+    {
+      "path": "n8n/growth/segment-audience-review.cjs",
+      "sha256": "d7e848279a87a4b8a8950ee1dd0daeb8535377d831bdb661c59f35f3e48342ea",
+      "bytes": 19040
+    },
+    {
+      "path": "n8n/growth/segment-audience-store.cjs",
+      "sha256": "c4ecacdf0ce6ccd537eb22f5d37235b831fdc6a521b31ff3640d106ca8d7f6be",
+      "bytes": 33293
+    },
+    {
+      "path": "n8n/growth/segment-campaign-binding-api.cjs",
+      "sha256": "06a9327fbb9fc3c2cba9ff1cf7e89ee9428b96863ac6d7aeab3d30cbb97af0d6",
+      "bytes": 6423
+    },
+    {
+      "path": "n8n/growth/segment-campaign-binding.cjs",
+      "sha256": "94fc16d686bd33d59b37e0dba0ab9715b54ef088b4cc1e26ce36e1ccbcce8501",
+      "bytes": 25547
+    },
+    {
+      "path": "n8n/growth/segment-contract.js",
+      "sha256": "b607ab3f3b2914b443e8fa8a25fecc0386a2472e7cd66ce8fb4eb3e78f164d5c",
+      "bytes": 4638
+    },
+    {
+      "path": "n8n/growth/segment-count-diagnostics.cjs",
+      "sha256": "0902bf360a228227135268465071dcde7309ea3f5bf801665db93821a6d2a087",
+      "bytes": 2161
+    },
+    {
+      "path": "n8n/growth/segment-listmonk-selection.cjs",
+      "sha256": "92da074c7ef80aa28429dd51d6ed7adfbcba0d9b1872267cefec8688f675d942",
+      "bytes": 6276
+    },
+    {
+      "path": "n8n/growth/segment-recorded-origin.cjs",
+      "sha256": "a7bf515becdb0d69ab30266c5f4e25f885e5e8e2a06cb6a2ba8d39bb2cc85ad8",
+      "bytes": 1519
+    },
+    {
+      "path": "n8n/growth/segment-regular-admission-api.cjs",
+      "sha256": "d79276ddc546ccf493db7266bb48e7d2d82eaa94c3cac905db5bdd83135c7ccc",
+      "bytes": 3355
+    },
+    {
+      "path": "n8n/growth/segment-regular-admission.cjs",
+      "sha256": "181f5f803aea1d05f3fed1c813a1ba10c520d3fd505d40600d622ff5237de53a",
+      "bytes": 11080
+    },
+    {
+      "path": "n8n/growth/segment-regular-render.cjs",
+      "sha256": "b082e0026d0633ecc2988bd86d5cc9f5bb395310996c39b6fe08937ff05c27b3",
+      "bytes": 2092
+    },
+    {
+      "path": "n8n/growth/segment-shopify-bulk-evidence.cjs",
+      "sha256": "82fea3830d9c29acb835e982fde5c5e70f7c02bdcbf86444c648dc127ef38c11",
+      "bytes": 11543
+    },
+    {
+      "path": "n8n/growth/segment-shopify-facts.cjs",
+      "sha256": "45f2c84988513bdbd84fac1610988a3183b98d1abcbefef15ff06c39193c66d4",
+      "bytes": 4100
+    },
+    {
+      "path": "n8n/growth/segment-shopify-product-evidence.cjs",
+      "sha256": "983d734e0696bd4f9755b8991768f2ee287881f8955d0bab506fa51b66a4647a",
+      "bytes": 10755
+    },
+    {
+      "path": "n8n/growth/segment-shopify-product-sync-patch.cjs",
+      "sha256": "d19bd4487a675c712a9c66e816d402a8e622d09fc7fa9f10703d7cf61eb55ca4",
+      "bytes": 11799
+    },
+    {
+      "path": "n8n/growth/segment-shopify-service-patch.cjs",
+      "sha256": "8ca583d3f206bcdaa9e15be74d79f992329bd623911f40f7f26ebb7719ccb3f5",
+      "bytes": 7501
+    },
+    {
+      "path": "n8n/growth/segment-shopify-sync-patch.cjs",
+      "sha256": "ed4d8e84b2d3b6464e11fb6cbf16997fb247237cf777c7e5b8e2a8bc9a2f099a",
+      "bytes": 10497
+    },
+    {
+      "path": "services/crm-audience/Dockerfile",
+      "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c",
+      "bytes": 1283
+    },
+    {
+      "path": "services/crm-audience/config.cjs",
+      "sha256": "a18a20e5b54806290dad42ba332fce1bc6a755d382293e6cf0f23fcdf3c81684",
+      "bytes": 1957
+    },
+    {
+      "path": "services/crm-audience/main.cjs",
+      "sha256": "62108235124287b82efa7f772032c290fdcdb5bc186cac45a2337869b1774281",
+      "bytes": 3516
+    },
+    {
+      "path": "services/crm-audience/package-lock.json",
+      "sha256": "f5d05fa3924437eae7246cbd0a7edf1e7eda9a5dae1840fdb96d8669a47a35e2",
+      "bytes": 5309
+    },
+    {
+      "path": "services/crm-audience/package.json",
+      "sha256": "ef5796e1ee94fef2afe4a6f3de9c42da3ebfc096477647332d2aaa80db9d900c",
+      "bytes": 304
+    },
+    {
+      "path": "services/crm-audience/server.cjs",
+      "sha256": "2c86d8814c58626537286bc86829c4b93364cb0706b7b15b4725ce45614b8480",
+      "bytes": 6909
+    },
+    {
+      "path": "services/crm-audience/transaction.cjs",
+      "sha256": "f661ce5865c6960dd832cdd5c27fc115e149ce11daf9a80ad9cb7a1b4a5203ca",
+      "bytes": 2838
+    }
+  ],
+  "campaignParent": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:da9225ca0674b6f20a50f179f2501b05d73f30995fb74d95fb6368bd792d1103",
+  "campaignFiles": [
+    {
+      "path": "n8n/growth/campaign-provider.js",
+      "sha256": "d0e7cc535042073d1d3ef9e119fbdb37fcd1f5f121099d029ae5905ee2466344",
+      "bytes": 6574
+    },
+    {
+      "path": "n8n/growth/campaign-runtime.js",
+      "sha256": "2ecbd3fbe63abcce8fb5e2015801469c863094a3be7fb869953c5be93d4ac3c2",
+      "bytes": 8864
+    },
+    {
+      "path": "n8n/growth/campaign-service.js",
+      "sha256": "5eb4ededfb43f1c09046ba62ffcaffd09789546c6cfec7258387d904cb85466c",
+      "bytes": 10663
+    },
+    {
+      "path": "n8n/growth/campaign-native-internal.js",
+      "sha256": "fae5654241e1b89fe13a76e0d5c58180dc4b2d184fbdc1fe8383a0e350337af9",
+      "bytes": 2077
+    },
+    {
+      "path": "services/crm-campaign/main.cjs",
+      "sha256": "1476aea6faca405990f38b5a6a0eeb7546c97f3b883870fa3642fe6a23b07cfb",
+      "bytes": 2216
+    },
+    {
+      "path": "services/crm-campaign/server.cjs",
+      "sha256": "1c086a571c0613bacbd6b775f296339466eaaaf5c61c7765b8fd8de09bb6dea8",
+      "bytes": 11171
+    },
+    {
+      "path": "services/crm-campaign/transport.cjs",
+      "sha256": "74cdda69388779fe19a6e469018ae00d12abd1bac76736a796e0b4ed5a4348b4",
+      "bytes": 7753
+    }
+  ],
+  "preservedSenderAdmission": true,
+  "preservedMedia": true,
+  "preservedListmonkDatabase": true,
+  "installed": false,
+  "audienceReturnFiles": [
+    {
+      "path": "growth-ab-experiment-contract.js",
+      "bytes": 7623,
+      "sha256": "71d2f1ba0f17f9387e884df4156f9ad891cc811d736d0a65eb43161a73f25b4f"
+    },
+    {
+      "path": "growth-campaign-audience-client.js",
+      "bytes": 19051,
+      "sha256": "b8759f6a0c939b6507477f38869a8252620e15287c2861038922f22fcb323017"
+    },
+    {
+      "path": "growth-campaign-regular-client.js",
+      "bytes": 11450,
+      "sha256": "88ca144d92326d99edfa60901793a7377b525f7fdead182494c4b396ed2e43f8"
+    },
+    {
+      "path": "growth-email-contract.js",
+      "bytes": 14367,
+      "sha256": "ce9ec117e01139b9066c207c8c97dd0e3c1c62a96fdff502d11a8c548c9f182f"
+    },
+    {
+      "path": "growth-email-expressions.js",
+      "bytes": 20645,
+      "sha256": "fc5181b72b379fea287bf7cf38bb3bef19088ec11eb6a86242430428f40e5349"
+    },
+    {
+      "path": "n8n/growth/ab-audience-admission-api.cjs",
+      "bytes": 3240,
+      "sha256": "4ca01e3bd30c94ce6ab3b3c66c428e81bdcdaa5d7a456d4aa3649eaaa9856c2e"
+    },
+    {
+      "path": "n8n/growth/ab-audience-admission-contract.cjs",
+      "bytes": 5588,
+      "sha256": "32d4ad1c76195a15eb5fb8f0429828ba0b0627d97ab034c81d4168c3b61ce491"
+    },
+    {
+      "path": "n8n/growth/ab-audience-admission-inspect.cjs",
+      "bytes": 19439,
+      "sha256": "a30f645a7b975845014aac4a1db694da131cc913aad9e4c162fead0973f2a4d0"
+    },
+    {
+      "path": "n8n/growth/ab-audience-material-read.cjs",
+      "bytes": 8450,
+      "sha256": "04ed28106a318489373229454911b625e9ee23b2b8913dc6603046b8f985d7d5"
+    },
+    {
+      "path": "n8n/growth/ab-audience-material.cjs",
+      "bytes": 12889,
+      "sha256": "78c0614f0366847899908c0a630d6b47fa7a02ac154906040c02da2e8c5a6b96"
+    },
+    {
+      "path": "n8n/growth/ab-audience-panel-api.cjs",
+      "bytes": 12862,
+      "sha256": "efbb4b0e0b67c93180c3c1f7b242d7f70380d0db0500f1b92ed536df50fbf9b4"
+    },
+    {
+      "path": "n8n/growth/ab-audience-prepare.cjs",
+      "bytes": 15437,
+      "sha256": "90f74afea117b1249b92c147ed94ae8103df5aa1a0acc266e467d31173699b6b"
+    },
+    {
+      "path": "n8n/growth/ab-audience-regular-admission.cjs",
+      "bytes": 12113,
+      "sha256": "9c808de2257069441ac4fa46e8423233a650bdea9ee0fe81a2da7676c2816efb"
+    },
+    {
+      "path": "n8n/growth/ab-audience-review-api.cjs",
+      "bytes": 6580,
+      "sha256": "379719aaa45bb50daa01c9bbb167d1a5022178847568b94948f390e3a2fb9065"
+    },
+    {
+      "path": "n8n/growth/ab-audience-review.cjs",
+      "bytes": 25254,
+      "sha256": "016efa8a56fad2f5060d97459555cad07db4008c8f0d12ca32d1364092bc1ebe"
+    },
+    {
+      "path": "n8n/growth/campaign-contract.js",
+      "bytes": 12470,
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390"
+    },
+    {
+      "path": "n8n/growth/campaign-tracking.js",
+      "bytes": 4294,
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63"
+    },
+    {
+      "path": "n8n/growth/journey-graph-catalog.cjs",
+      "bytes": 3069,
+      "sha256": "63354e60b61e01f41f97ffe99baca04713f7e4d7f1c0c5197371e1ac1a30673f"
+    },
+    {
+      "path": "n8n/growth/journey-graph-contract.js",
+      "bytes": 27098,
+      "sha256": "5a9de6bf3b4081dbba14a39b852976e74a84dfdb8f3ecbf9abd73c3c48d0e624"
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-contract.cjs",
+      "bytes": 5783,
+      "sha256": "9d1ccd21ad13e83c351752b0493aa695ae06a2647db1aa4268dcf335fba69c6c"
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-panel-api.cjs",
+      "bytes": 5072,
+      "sha256": "a5d9b2271192a5f35aaa93a813b6f4ae063d1f4fcf1e3d6a1eb90b1969492d95"
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-prepare.cjs",
+      "bytes": 21188,
+      "sha256": "7aa835aead40a7220c0fb5163a0cea8c88d81f814783584828a1e7290dc8ac7a"
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-publication.cjs",
+      "bytes": 17133,
+      "sha256": "feca0b16c861aea3e457b55815a4538273d717a1e4934d23f665a06ae5ff6f94"
+    },
+    {
+      "path": "n8n/growth/journey-graph-lifecycle-review.cjs",
+      "bytes": 10475,
+      "sha256": "f9db842a43a7cb9aeb7a162e2085da576237c9762a87c1b763c312e59c5378d9"
+    },
+    {
+      "path": "n8n/growth/journey-graph-release.cjs",
+      "bytes": 13720,
+      "sha256": "1e6f63ebd4e69750d9437d20f030b0dd333ef264b58bbef7182ea207ac1495e6"
+    },
+    {
+      "path": "n8n/growth/segment-api.cjs",
+      "bytes": 15425,
+      "sha256": "18a73aaa435586a85ba09e6dcfd6e034b705333cad768edd41b95556df239856"
+    },
+    {
+      "path": "n8n/growth/segment-audience-allocated.cjs",
+      "bytes": 7521,
+      "sha256": "119f7912d316ad2536d6405879ef2da10a9068b0c6f48546156bd0ed0f77e1ca"
+    },
+    {
+      "path": "n8n/growth/segment-audience-api.cjs",
+      "bytes": 12362,
+      "sha256": "7a94ec878859a8ce4a8ec092da696c9dd22f9ce86174a83e830985e940a6c22e"
+    },
+    {
+      "path": "n8n/growth/segment-audience-cohort.cjs",
+      "bytes": 7165,
+      "sha256": "27710e8917a35cf17f4008deae7a47bb2d8c21f89cca6bfb42b60f39041591cd"
+    },
+    {
+      "path": "n8n/growth/segment-audience-context-review.cjs",
+      "bytes": 8235,
+      "sha256": "6e2be86a9907a98b23fc936955d6d83be7940f4fdb95e5ed9d424fa4429a0274"
+    },
+    {
+      "path": "n8n/growth/segment-audience-contract.js",
+      "bytes": 11152,
+      "sha256": "74872d8fd63cd7a7863943e2ee499093b7aa9d1b452916783fade5a4d88befa5"
+    },
+    {
+      "path": "n8n/growth/segment-audience-listmonk.cjs",
+      "bytes": 14495,
+      "sha256": "63cbaee25faed04827adbc9fcad489b99bf8e941ab43ba7b91d40866f44e7bfc"
+    },
+    {
+      "path": "n8n/growth/segment-audience-review.cjs",
+      "bytes": 19040,
+      "sha256": "d7e848279a87a4b8a8950ee1dd0daeb8535377d831bdb661c59f35f3e48342ea"
+    },
+    {
+      "path": "n8n/growth/segment-audience-store.cjs",
+      "bytes": 33293,
+      "sha256": "c4ecacdf0ce6ccd537eb22f5d37235b831fdc6a521b31ff3640d106ca8d7f6be"
+    },
+    {
+      "path": "n8n/growth/segment-campaign-binding-api.cjs",
+      "bytes": 6423,
+      "sha256": "06a9327fbb9fc3c2cba9ff1cf7e89ee9428b96863ac6d7aeab3d30cbb97af0d6"
+    },
+    {
+      "path": "n8n/growth/segment-campaign-binding.cjs",
+      "bytes": 25547,
+      "sha256": "94fc16d686bd33d59b37e0dba0ab9715b54ef088b4cc1e26ce36e1ccbcce8501"
+    },
+    {
+      "path": "n8n/growth/segment-contract.js",
+      "bytes": 4638,
+      "sha256": "b607ab3f3b2914b443e8fa8a25fecc0386a2472e7cd66ce8fb4eb3e78f164d5c"
+    },
+    {
+      "path": "n8n/growth/segment-count-diagnostics.cjs",
+      "bytes": 2161,
+      "sha256": "0902bf360a228227135268465071dcde7309ea3f5bf801665db93821a6d2a087"
+    },
+    {
+      "path": "n8n/growth/segment-listmonk-selection.cjs",
+      "bytes": 6276,
+      "sha256": "92da074c7ef80aa28429dd51d6ed7adfbcba0d9b1872267cefec8688f675d942"
+    },
+    {
+      "path": "n8n/growth/segment-recorded-origin.cjs",
+      "bytes": 1519,
+      "sha256": "a7bf515becdb0d69ab30266c5f4e25f885e5e8e2a06cb6a2ba8d39bb2cc85ad8"
+    },
+    {
+      "path": "n8n/growth/segment-regular-admission-api.cjs",
+      "bytes": 3355,
+      "sha256": "d79276ddc546ccf493db7266bb48e7d2d82eaa94c3cac905db5bdd83135c7ccc"
+    },
+    {
+      "path": "n8n/growth/segment-regular-admission.cjs",
+      "bytes": 11080,
+      "sha256": "181f5f803aea1d05f3fed1c813a1ba10c520d3fd505d40600d622ff5237de53a"
+    },
+    {
+      "path": "n8n/growth/segment-regular-render.cjs",
+      "bytes": 2092,
+      "sha256": "b082e0026d0633ecc2988bd86d5cc9f5bb395310996c39b6fe08937ff05c27b3"
+    },
+    {
+      "path": "n8n/growth/segment-shopify-bulk-evidence.cjs",
+      "bytes": 11543,
+      "sha256": "82fea3830d9c29acb835e982fde5c5e70f7c02bdcbf86444c648dc127ef38c11"
+    },
+    {
+      "path": "n8n/growth/segment-shopify-facts.cjs",
+      "bytes": 4100,
+      "sha256": "45f2c84988513bdbd84fac1610988a3183b98d1abcbefef15ff06c39193c66d4"
+    },
+    {
+      "path": "n8n/growth/segment-shopify-product-evidence.cjs",
+      "bytes": 10755,
+      "sha256": "983d734e0696bd4f9755b8991768f2ee287881f8955d0bab506fa51b66a4647a"
+    },
+    {
+      "path": "n8n/growth/segment-shopify-product-sync-patch.cjs",
+      "bytes": 11799,
+      "sha256": "d19bd4487a675c712a9c66e816d402a8e622d09fc7fa9f10703d7cf61eb55ca4"
+    },
+    {
+      "path": "n8n/growth/segment-shopify-service-patch.cjs",
+      "bytes": 7501,
+      "sha256": "8ca583d3f206bcdaa9e15be74d79f992329bd623911f40f7f26ebb7719ccb3f5"
+    },
+    {
+      "path": "n8n/growth/segment-shopify-sync-patch.cjs",
+      "bytes": 10497,
+      "sha256": "ed4d8e84b2d3b6464e11fb6cbf16997fb247237cf777c7e5b8e2a8bc9a2f099a"
+    },
+    {
+      "path": "services/crm-audience/Dockerfile",
+      "bytes": 1283,
+      "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c"
+    },
+    {
+      "path": "services/crm-audience/config.cjs",
+      "bytes": 1774,
+      "sha256": "67fa469c291c6ca5591927b7db41bf14a96bc1d378a7fcac97f987091cab9813"
+    },
+    {
+      "path": "services/crm-audience/main.cjs",
+      "bytes": 3179,
+      "sha256": "91a8cb52ae1c7c2cfda726e37f3c168a30ace27bc5de8eb4cf968239196f9166"
+    },
+    {
+      "path": "services/crm-audience/package-lock.json",
+      "bytes": 5309,
+      "sha256": "f5d05fa3924437eae7246cbd0a7edf1e7eda9a5dae1840fdb96d8669a47a35e2"
+    },
+    {
+      "path": "services/crm-audience/package.json",
+      "bytes": 304,
+      "sha256": "ef5796e1ee94fef2afe4a6f3de9c42da3ebfc096477647332d2aaa80db9d900c"
+    },
+    {
+      "path": "services/crm-audience/server.cjs",
+      "bytes": 6909,
+      "sha256": "2c86d8814c58626537286bc86829c4b93364cb0706b7b15b4725ce45614b8480"
+    },
+    {
+      "path": "services/crm-audience/transaction.cjs",
+      "bytes": 2838,
+      "sha256": "f661ce5865c6960dd832cdd5c27fc115e149ce11daf9a80ad9cb7a1b4a5203ca"
+    }
+  ],
+  "audienceReturnExactBase": true
+}

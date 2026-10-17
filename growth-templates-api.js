@@ -34,7 +34,7 @@ const GTA={
     const endpoint=url(c?.endpoints?.templates)||url(globais.TEMPLATE_API_URL)||null;
     const caps={declaradas:!!c,endpoint,api_version:typeof c?.api_version==='string'?c.api_version:null,
       write_key_required:c?c.write_key_required!==false:true,
-      read_content:b(t.read_content),draft:b(t.draft),validate:b(t.validate),submit:b(t.submit),submit_email:b(t.submit_email),list_history:b(t.list_history),
+      read_content:b(t.read_content),server_drafts:b(t.server_drafts),draft:b(t.draft),validate:b(t.validate),submit:b(t.submit),submit_email:b(t.submit_email),list_history:b(t.list_history),
       set_mode:b(w.set_mode),activate:b(w.activate),
       // Leitura por marca (§9.5 de docs/crm/PARIDADE-LEITURA-PORTAL-20261003.md): só quando o servidor anuncia exatamente o contrato.
       leitura_marca:t.read_contract===GTA.CONTRATO_LEITURA};
@@ -121,6 +121,7 @@ const GTA={
     return {
       listar:leituraMarca?porMarca.listar:(marca,canal)=>get({acao:'listar',...(marca&&marca!=='todas'?{marca}:{}),...(['email','whatsapp'].includes(canal)?{canal}:{})}),
       emailCapacidades:()=>get({acao:'email_capacidades'}),
+      rascunhos:(marca,offset=0)=>get({acao:'rascunhos_listar',marca,offset:String(offset)}),
       // Native rendering is read-only. This path never uses the write key, a
       // submission identity or a send action, and never creates a local draft.
       emailPrevia:rascunho=>chama(endpoint,{method:'POST',headers:{Authorization:'Bearer '+(chaveLeitura||''),'Content-Type':'application/json'},body:JSON.stringify({acao:'email_previa',rascunho}),redirect:'error',credentials:'omit',cache:'no-store',signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(20000):undefined}),
@@ -154,7 +155,7 @@ const GTA={
           :{texto:'Publicação não confirmada. Consulte a mesma tentativa antes de continuar.',tipo:'incerto'};
         const erros=Array.isArray(b.erros)?b.erros:(b.erro?[{mensagem:b.erro}]:[]);return {texto:erros.length?erros.map(x=>x.mensagem||x.codigo||'erro').join(' · '):'A API recusou o conteúdo.',tipo:'validacao',erros};}
       case 429:return {texto:`Muitas tentativas.${seg||' Aguarde um instante.'}`,tipo:'limite'};
-      case 502:return b.nothing_changed===true?{texto:`Meta/Listmonk indisponível; nada foi alterado.${seg}`,tipo:'indisponivel'}:{texto:'Meta/Listmonk indisponível e estado incerto. Consulte o histórico antes de repetir.',tipo:'incerto'};
+      case 502:case 503:return b.nothing_changed===true?{texto:`O serviço está indisponível; nada foi alterado.${seg}`,tipo:'indisponivel'}:{texto:'O serviço está indisponível e o resultado permanece incerto. Consulte a mesma tentativa antes de repetir.',tipo:'incerto'};
       default:return {texto:`A API respondeu ${res.status||'sem status'}. Nada foi confirmado.`,tipo:'incerto'};
     }
   },

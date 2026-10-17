@@ -6,7 +6,7 @@ const turn=()=>new Promise(resolve=>setImmediate(resolve));
 function boot({stored='',fetchImpl}={}){
  const {document,window}=parseHTML(html);let focused=null,reads=0,writes=0;window.HTMLElement.prototype.focus=function(){focused=this;};
  const requests=[],timers=new Map();let timerId=0;
- const context=vm.createContext({document,window,console,AbortController,API:null,CX_API_URL:'https://example.invalid/read',
+ const context=vm.createContext({document,window,console,AbortController,API:null,MARCA:'todas',ORGANICO_GENERATION:0,CX_API_URL:'https://example.invalid/read',
   prompt:()=>{throw Error('prompt not supported');},$:s=>document.querySelector(s),esc:s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])),
   render:()=>{},shrigmaFrescor:()=>{},shrigmaChave:()=>{reads++;return typeof stored==='function'?stored():stored;},
   shrigmaGuardaChave:()=>{writes++;throw Error('unexpected persistence');},shrigmaMarcaMestra:()=>{writes++;throw Error('unexpected persistence');},shrigmaEsqueceChave:()=>{writes++;throw Error('unexpected removal');},

@@ -1,4 +1,5 @@
 'use strict';
+const {rowBrandDependencies}=require('./helpers/dashboard-row-brand-fixture.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../services/dashboard-operational/public/entry.js'),'utf8');
 function element(){return {children:[],textContent:'',append(...children){this.children.push(...children);},setAttribute(){},addEventListener(){}};}
@@ -7,7 +8,7 @@ const manager={id:'synthetic-id',email:'manager@synthetic.invalid',role:'manager
 test('manager list displays readiness and pending revocation without exposing private fields or changing legacy rows',()=>{
  const start=source.indexOf(' function crmAccessLabel('),end=source.indexOf(' async function saveAccessRequest(');assert.ok(start>=0&&end>start);
  const context={document:{createElement:element},AREAS:{growth:{label:'CRM'},organico:{label:'Orgânico'}},saveAccessRequest(){},revoke(){}};
- vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
+ rowBrandDependencies(context,source);vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
  const render=user=>text(context.renderUser(user));
  for(const [state,ready,label] of [['awaiting_accept',false,'CRM aguarda aceite'],['provisioning',false,'CRM preparando acesso'],['ready',true,'CRM pronto'],['ready',false,'CRM acesso pendente'],['revoking',false,'CRM revogação pendente'],['revoked',false,'CRM revogado'],['failed',false,'CRM indisponível']]){
   const result=render({...manager,crmAccess:{state,ready,namespaceId:'private-namespace',principalId:'private-principal',bearer:'private-bearer',generation:3}});
@@ -22,14 +23,14 @@ test('revocation reports the backend acknowledgement and does not declare a pend
  const start=source.indexOf(' async function revoke('),end=source.indexOf(" $('admin-copy').addEventListener(");assert.ok(start>=0&&end>start);
  const refreshStart=source.indexOf(' async function loadUsers('),refreshEnd=source.indexOf(" $('admin-crm-reconcile').addEventListener(",refreshStart);assert.ok(refreshStart>=0&&refreshEnd>refreshStart);
  for(const [data,expected] of [[{crmRevocationPending:true},'A confirmação da revogação no CRM está pendente.'],[{crmRevocationPending:false},'Acesso ao portal e ao CRM revogado.'],[{},'Revogue também a chave individual no serviço de origem']]){
-  let confirmation='',calls=0,loads=0;const list={replaceChildren(){}},reconcile={hidden:false},context={busy:false,version:0,session:{user:{role:'superadmin'}},requested:'todos',$:id=>{assert.ok(['admin-users','admin-crm-reconcile'].includes(id));return id==='admin-users'?list:reconcile;},userRow:()=>({}),window:{confirm(value){confirmation=value;return true;}},post:async(url,body)=>{assert.equal(url,'/auth/users');assert.equal(body.action,'revoke');calls++;return {response:{ok:true},data};},request:async(url,options)=>{assert.equal(url,'/auth/users');assert.deepEqual(Object.keys(options),['editReceipt']);assert.equal(options.editReceipt,true);loads++;return {response:{ok:true},data:{users:[]}};},inviteResult:{hidden:false},inviteLink:{value:'synthetic-invite'},adminMessage:{textContent:''}};
+  let confirmation='',calls=0,loads=0;const list={replaceChildren(){}},reconcile={hidden:false},context={busy:false,version:0,session:{user:{role:'superadmin'}},requested:'todos',$:id=>{assert.ok(['admin-users','admin-crm-reconcile','admin-journey-reviews'].includes(id));return id==='admin-journey-reviews'?null:id==='admin-users'?list:reconcile;},userRow:()=>({}),window:{confirm(value){confirmation=value;return true;}},post:async(url,body)=>{assert.equal(url,'/auth/users');assert.equal(body.action,'revoke');calls++;return {response:{ok:true},data};},request:async(url,options)=>{assert.equal(url,'/auth/users');assert.deepEqual(Object.keys(options),['editReceipt']);assert.equal(options.editReceipt,true);loads++;return {response:{ok:true},data:{users:[]}};},inviteResult:{hidden:false},inviteLink:{value:'synthetic-invite'},adminMessage:{textContent:''}};
   vm.runInNewContext(source.slice(refreshStart,refreshEnd)+source.slice(start,end)+'\nglobalThis.revokeUser=revoke;',context);
   const button={disabled:false};await context.revokeUser({...manager,crmAccess:{state:'ready',ready:true}},button);
   assert.equal(calls,1);assert.equal(loads,1);assert.equal(context.busy,false);assert.ok(context.adminMessage.textContent.includes(expected));assert.match(confirmation,/confirmada antes de um novo convite/);assert.equal(context.inviteLink.value,'');assert.equal(context.inviteResult.hidden,true);assert.equal(button.disabled,false);
  }
 });
 test('pending-access action is restricted to the manager view and requests reconciliation without private inputs',async()=>{
- const start=source.indexOf(" $('admin-crm-reconcile').addEventListener("),end=source.indexOf(' manage.addEventListener(',start);assert.ok(start>=0&&end>start);
+ const start=source.indexOf(" $('admin-crm-reconcile').addEventListener("),end=source.indexOf(" $('admin-journey-reviews')",start);assert.ok(start>=0&&end>start);
  for(const [role,requested,ok,expectedCalls] of [['superadmin','todos',true,1],['superadmin','todos',false,1],['manager','todos',true,0],['superadmin','growth',true,0]]){
   let click,calls=0,loads=0;const button={disabled:false,addEventListener(name,handler){assert.equal(name,'click');click=handler;}},context={busy:false,session:{user:{role}},requested,$:id=>{assert.equal(id,'admin-crm-reconcile');return button;},adminMessage:{textContent:''},loadUsers:async()=>{loads++;},post:async(url,body)=>{calls++;assert.equal(url,'/auth/users');assert.deepEqual(Object.keys(body),['action']);assert.equal(body.action,'crm_reconcile');return {response:{ok},data:{privateError:'private-canary'}};}};
   vm.runInNewContext(source.slice(start,end),context);await click();assert.equal(calls,expectedCalls);assert.equal(button.disabled,false);assert.doesNotMatch(context.adminMessage.textContent,/private-canary|CRM pronto|concluíd/i);
@@ -45,7 +46,7 @@ test('pending list includes an uncertain renewal without exposing managed state 
 });
 test('manual renewal is offered only for the eligible active CRM manager and reports persisted renewal phases',()=>{
  const start=source.indexOf(' function crmAccessLabel('),end=source.indexOf(' async function saveAccessRequest(');assert.ok(start>=0&&end>start);
- const context={document:{createElement:element},AREAS:{growth:{label:'CRM'},organico:{label:'Orgânico'}},saveAccessRequest(){},revoke(){}};vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
+ const context={document:{createElement:element},AREAS:{growth:{label:'CRM'},organico:{label:'Orgânico'}},saveAccessRequest(){},revoke(){}};rowBrandDependencies(context,source);vm.runInNewContext(source.slice(start,end)+'\nglobalThis.renderUser=userRow;',context);
  const access={state:'ready',ready:true,canRenew:true,expired:false,renewalPhase:null},eligible={...manager,crmAccess:access};
  assert.match(text(context.renderUser(eligible)),/Renovar acesso CRM/);
  for(const user of [{...eligible,role:'superadmin'},{...eligible,status:'invited'},{...eligible,status:'disabled'},{...eligible,areas:['organico']},{...eligible,areas:['growth','organico']},{...eligible,permissions:{growth:{read:true,edit:true}}},...['ready','canRenew'].map(key=>({...eligible,crmAccess:{...access,[key]:false}})),{...eligible,crmAccess:{...access,expired:true}},{...eligible,crmAccess:{...access,renewalPhase:'queued'}}])assert.doesNotMatch(text(context.renderUser(user)),/Renovar acesso CRM/);

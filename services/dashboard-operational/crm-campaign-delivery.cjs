@@ -66,7 +66,10 @@ function audience(value, row, c, reviewOnly = false) {
   // Evaluate freshness at the historical atomic effect, not the poll time.
   return expires - checked === 300000 && (reviewOnly || rechecked >= checked && rechecked < expires && Date.parse(row.send_at) >= rechecked + 15 * 60000);
 }
-function createCampaignDelivery({ db, authorize, transport, now = Date.now, encrypt, decrypt, prepareDefinition, hasOpenCreate = () => false }) {
+function createCampaignDelivery({ db, authorize, transport, now = Date.now, encrypt, decrypt, prepareDefinition, hasOpenCreate = () => false, serviceDraftProfile, nativeInternal = false }) {
+  const draftOnly=serviceDraftProfile!==undefined;
+  if(draftOnly&&!require('./crm-manager-runtime.cjs').isServiceDraftDescriptor(serviceDraftProfile))fail('CAMPAIGN_DELIVERY_CONFIG');
+  const caps=draftOnly?new Set(['read_content','draft','validate']):CAPS;
   try {
     if (!db || typeof db.isTransaction !== 'boolean' || ![authorize, transport, now].every(fn => typeof fn === 'function')) fail('CAMPAIGN_DELIVERY_CONFIG');
     if (db.isTransaction) fail('CAMPAIGN_DELIVERY_TRANSACTION');
@@ -92,7 +95,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
       // Normal Promise/thenable adapters are refused and their rejection observed.
       // Private callbacks are trusted code, not an arbitrary-code sandbox.
       if (a && typeof a.then === 'function') { Promise.resolve(a).catch(() => {}); fail('CAMPAIGN_EDIT_DENIED'); }
-      if (!exact(a, ['userId', 'role', 'slot', 'canEdit', 'credentialMac', 'caps']) || !UUID.test(a.userId || '') || !['manager', 'superadmin'].includes(a.role) || a.slot !== 'growth-campaign' || a.canEdit !== true || !MAC.test(a.credentialMac || '') || !Array.isArray(a.caps) || a.caps.length !== CAPS.size || new Set(a.caps).size !== a.caps.length || !a.caps.every(cap => CAPS.has(cap))) fail('CAMPAIGN_EDIT_DENIED');
+      if (!exact(a, ['userId', 'role', 'slot', 'canEdit', 'credentialMac', 'caps']) || !UUID.test(a.userId || '') || !['manager', 'superadmin'].includes(a.role) || a.slot !== 'growth-campaign' || a.canEdit !== true || !MAC.test(a.credentialMac || '') || !Array.isArray(a.caps) || a.caps.length !== caps.size || new Set(a.caps).size !== a.caps.length || !a.caps.every(cap => caps.has(cap))) fail('CAMPAIGN_EDIT_DENIED');
     } catch { fail('CAMPAIGN_EDIT_DENIED'); }
     return a;
   };
@@ -100,7 +103,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
   const same = (context, row) => { const a = identity(context, row); if (a.userId !== row.user_id || a.credentialMac !== row.credential_mac) fail('CAMPAIGN_EDIT_DENIED'); return a; };
   const select = (context, input) => {
     outside(); selector(input); const a = identity(context, { brand: input.brand, action: 'operacao' });
-    const row = get(a.userId, input.idempotency_key); if (!row || row.brand !== input.brand) fail('CAMPAIGN_DELIVERY_UNKNOWN'); same(context, row); return row;
+    const row = get(a.userId, input.idempotency_key); if (!row || row.brand !== input.brand) fail('CAMPAIGN_DELIVERY_UNKNOWN');if(draftOnly&&!['salvar','validar'].includes(row.action))fail('CAMPAIGN_EDIT_DENIED');same(context, row); return row;
   };
   const definition = row => {
     if(typeof decrypt!=='function')fail('CAMPAIGN_DELIVERY_CONFIG');
@@ -126,11 +129,12 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
     if (!envelope(value.response)) return null;
     const body = value.response.body;
     if (value.state === 'succeeded') {
-      const fields = row.action === 'validar' ? ['campaign', 'validation', 'tracking'] : ['campaign', 'operation_id', ...(row.action === 'agendar' ? ['audience'] : row.action === 'salvar' ? ['tracking'] : [])];
+      const fields = row.action === 'validar' ? ['campaign', 'validation', 'tracking'] : ['campaign', 'operation_id', ...(row.action === 'agendar' ? ['audience'] : row.action === 'salvar' ? ['tracking'] : []),...(nativeInternal&&['agendar','cancelar'].includes(row.action)?['native_internal']:[])];
       if (value.providerId !== row.campaign_id || value.response.status !== 200 || !exact(body, fields) || row.action !== 'validar' && body.operation_id !== value.id) return null;
+      if(nativeInternal&&['agendar','cancelar'].includes(row.action)&&body.native_internal!==true)return null;
       const c = campaign(body.campaign, row);
       // These gates describe the historical effect, not today's worker state.
-      if (!c || c.status !== ({salvar:'draft',validar:'draft',agendar:'scheduled',cancelar:'cancelled'}[row.action]) || c.sent !== 0 || c.startedAt !== null || c.sendAt !== row.send_at || (row.action === 'validar' ? c.version !== row.expected_version : c.version === row.expected_version)) return null;
+      if (!c || c.status !== ({salvar:'draft',validar:'draft',agendar:'scheduled',cancelar:nativeInternal?'draft':'cancelled'}[row.action]) || c.sent !== 0 || c.startedAt !== null || c.sendAt !== (nativeInternal&&row.action==='cancelar'?null:row.send_at) || (row.action === 'validar' ? c.version !== row.expected_version : c.version === row.expected_version)) return null;
       if(row.action==='salvar'&&(row.definition_sha256!==sha(body.campaign.definition)||!exact(body.tracking,['policy','term','list_ids','changed_links'])||body.tracking.policy!=='crm-campaign-v1'||typeof body.tracking.term!=='string'||body.tracking.term.length<1||body.tracking.term.length>200||!Number.isSafeInteger(body.tracking.changed_links)||body.tracking.changed_links<0||JSON.stringify(body.tracking.list_ids)!==JSON.stringify(body.campaign.definition.list_ids)))return null;
       if (row.action === 'agendar' && !audience(body.audience, row, body.campaign)) return null;
       if (row.action === 'validar' && (!exact(body.validation, ['policy','version','ok','validated_at','audience']) || body.validation.policy !== 'crm-campaign-v1' || body.validation.version !== row.expected_version || body.validation.ok !== true || !date(body.validation.validated_at) || body.validation.validated_at !== body.validation.audience?.checked_at || !audience(body.validation.audience, row, body.campaign, true) || !exact(body.tracking, ['policy','term','list_ids','changed_links']) || body.tracking.policy !== 'crm-campaign-v1' || typeof body.tracking.term !== 'string' || body.tracking.term.length > 200 || body.tracking.term.length < 1 || !Number.isSafeInteger(body.tracking.changed_links) || body.tracking.changed_links < 0 || JSON.stringify(body.tracking.list_ids) !== JSON.stringify(body.campaign.definition.list_ids))) return null;
@@ -176,7 +180,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
       if(typeof prepareDefinition!=='function')fail('CAMPAIGN_DELIVERY_CONFIG');
       try{savedDefinition=prepareDefinition(definition(row),{catalog:catalog.body,id:row.campaign_id,now:t});if(savedDefinition&&typeof savedDefinition.then==='function'){Promise.resolve(savedDefinition).catch(()=>{});savedDefinition=null;}if(!plain(savedDefinition)||savedDefinition.brand!==row.brand||savedDefinition.send_at!==null&&!date(savedDefinition.send_at))savedDefinition=null;}catch{savedDefinition=null;}
     }
-    const acceptable = c.version === row.expected_version && c.sent === 0 && c.startedAt === null && (['salvar','validar'].includes(row.action) ? c.status === 'draft'&&(row.action!=='salvar'||savedDefinition!==null) : c.sendAt !== null && (row.action === 'agendar' ? c.status === 'draft' && Date.parse(c.sendAt) >= t + 15 * 60000 : c.status === 'scheduled' && Date.parse(c.sendAt) > t));
+    const acceptable = c.version === row.expected_version && c.sent === 0 && c.startedAt === null && (!draftOnly||c.sendAt===null&&(savedDefinition===null||savedDefinition.send_at===null)) && (['salvar','validar'].includes(row.action) ? c.status === 'draft'&&(row.action!=='salvar'||savedDefinition!==null) : c.sendAt !== null && (row.action === 'agendar' ? c.status === 'draft' && Date.parse(c.sendAt) >= t + 15 * 60000 : c.status === 'scheduled' && Date.parse(c.sendAt) > t));
     if (!acceptable) {
       // No POST was attempted: an authoritative preflight can close only queued.
       const closed = atomic(() => { same(context, row); return db.prepare("UPDATE crm_campaign_delivery_v1 SET phase='rejected',updated_at=? WHERE user_id=? AND client_key=? AND phase='queued'").run(t, row.user_id, row.client_key).changes === 1; });
@@ -199,13 +203,26 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
     if (active.has(key)) return active.get(key);
     const promise = (readOnly ? row.phase === 'rejected' && row.remote_operation_id === null ? Promise.resolve(result('rejected')) : reconcileRow(context, row) : run(context, row)).finally(() => active.delete(key)); active.set(key, promise); return promise;
   }
+  const submissionCommand = input => {
+    const q = command(input);
+    if(draftOnly&&(!['campanha_salvar','campanha_validar'].includes(q.acao)||q.acao==='campanha_salvar'&&q.definition.send_at!==null))fail('CAMPAIGN_EDIT_DENIED');
+    return q;
+  };
+  async function recoverSubmission(context, input) {
+    outside(); const q = submissionCommand(input), a = identity(context, q), row = get(a.userId, q.idempotency_key);
+    if (!row) return null;
+    if (row.payload_sha256 !== sha(q) || row.credential_mac !== a.credentialMac) fail('CAMPAIGN_DELIVERY_CONFLICT');
+    // A replay is a read, even when a crash left the intention queued.
+    return coalesce(context, row, true);
+  }
   async function submit(context, input) {
-    outside(); const q = command(input), a = identity(context, q), fingerprint = sha(q), t = clock();
+    outside(); const q = submissionCommand(input), a = identity(context, q), fingerprint = sha(q), t = clock();
     let cipher=null;
     if(q.acao==='campanha_salvar'){
       if(![encrypt,decrypt,prepareDefinition].every(f=>typeof f==='function'))fail('CAMPAIGN_DELIVERY_CONFIG');
       cipher=encrypt(JSON.stringify(q.definition));if(typeof cipher!=='string'||!/^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(cipher))fail('CAMPAIGN_DELIVERY_CONFIG');
     }
+    let isNew = false;
     const row = atomic(() => {
       const prior = get(a.userId, q.idempotency_key);
       if (prior) {
@@ -215,13 +232,15 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
       if (db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(a.userId, q.brand)) fail('CAMPAIGN_DELIVERY_PENDING');
       db.prepare("INSERT INTO crm_campaign_delivery_v1(user_id,client_key,remote_key,brand,action,campaign_id,expected_version,audience_review_id,payload_sha256,credential_mac,phase,created_at,updated_at,definition_ciphertext) VALUES(?,?,?,?,?,?,?,?,?,?,'queued',?,?,?)")
         .run(a.userId, q.idempotency_key, 'bff-' + crypto.randomBytes(32).toString('hex'), q.brand, q.acao.replace('campanha_', ''), q.id, q.expected_version, q.audience_review_id ?? null, fingerprint, a.credentialMac, t, t,cipher);
+      isNew = true;
       return get(a.userId, q.idempotency_key);
     });
-    return coalesce(context, row);
+    return coalesce(context, row, !isNew);
   }
   async function reconcile(context, input) { return coalesce(context, select(context, input), true); }
   return Object.freeze({
     submit: async (context, input) => { try { return await submit(context, input); } catch (error) { closedError(error); } },
+    recoverSubmission: async (context, input) => { try { return await recoverSubmission(context, input); } catch (error) { closedError(error); } },
     reconcile: async (context, input) => { try { return await reconcile(context, input); } catch (error) { closedError(error); } },
     describe: (context,input) => {try{const row=select(context,input);return Object.freeze({action:'campanha_'+row.action});}catch(error){closedError(error);}}
   });

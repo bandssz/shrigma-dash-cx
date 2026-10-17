@@ -1,0 +1,9 @@
+{
+  "name": "shrigma-native-pg-dependency",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pinned PostgreSQL client for the existing Shrigma gateway; no lifecycle scripts",
+  "dependencies": {
+    "pg": "8.23.1"
+  }
+}

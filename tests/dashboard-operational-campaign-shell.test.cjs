@@ -49,9 +49,10 @@ function shell({requested='growth',role='manager',areas=['growth'],feature=true,
     receipts.set(command.idempotency_key,dto);return response(200,dto);
   };
   const scripts=[...document.querySelectorAll('script[src]')].map(n=>n.getAttribute('src'));
-  assert.deepEqual(scripts,['/campaign-bff-client.js','/campaign-edit.js','/entry.js']);
+  assert.deepEqual(scripts,['/campaign-bff-client.js','/campaign-edit.js','/entry.js?v=crm-seguro-20261015']);
+  const scriptPaths=scripts.map(src=>{const url=new URL(src,originUrl);assert.equal(url.origin,originUrl);assert.equal(url.search,url.pathname==='/entry.js'?'?v=crm-seguro-20261015':'');return url.pathname;});
   const publicNames={'/campaign-bff-client.js':'campaign-bff-client.js','/campaign-edit.js':'campaign-edit.compiled.js','/entry.js':'entry.compiled.js'};
-  for(const script of scripts)vm.runInContext(fs.readFileSync(path.join(PUB,publicNames[script]),'utf8'),sandbox,{filename:publicNames[script],timeout:1000});
+  for(const script of scriptPaths)vm.runInContext(fs.readFileSync(path.join(PUB,publicNames[script]),'utf8'),sandbox,{filename:publicNames[script],timeout:1000});
   assert.equal(typeof sandbox.ShrigmaCampaignBffClient.createCampaignBffClient,'function');assert.equal(typeof sandbox.ShrigmaCampaignEdit.createCampaignEditor,'function');
   for(const name of ['KEY','VERSION','ACTIONS','createCampaignEditor','inviteUrlForArea','readOnlyStyles'])assert.equal(Object.hasOwn(sandbox,name),false,'IIFE must keep helper bindings private');
   return {document,window:domWindow,dialog,origin,calls,values,locks,state,element:id=>document.getElementById(id),input(id,value){const el=document.getElementById(id);el.value=value;el.dispatchEvent(new domWindow.Event('input',{bubbles:true}));},confirm(){const el=document.getElementById('campaign-confirm');el.checked=true;el.dispatchEvent(new domWindow.Event('change',{bubbles:true}));}};

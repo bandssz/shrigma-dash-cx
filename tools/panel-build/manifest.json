@@ -34,12 +34,15 @@
       "growth-page.css",
       "growth-manager.css",
       "panel-ui.css",
+      "panel-product-ui.css",
       "growth-audience.css",
       "growth-segment.css",
       "growth-journey-graph-editor.css",
       "growth-journey-graph-ui.css",
       "growth-workspace.css",
-      "growth-ab-experiment.css"
+      "growth-ab-experiment.css",
+      "growth-published-flows.css",
+      "growth-journey-lab.css"
     ],
     "scripts": [
       "frescor.js",
@@ -98,6 +101,7 @@
       "growth-drafts-ui.js",
       "growth-email-replication-ui.js",
       "growth-canvas.js",
+      "growth-published-flows.js",
       "growth-flow-journal.js",
       "growth-builder.js",
       "growth-flows.js",
@@ -106,7 +110,9 @@
       "growth-journey-graph-editor.js",
       "growth-journey-graph-api.js",
       "growth-journey-graph-ui.js",
-      "panel-bridge.js"
+      "panel-bridge.js",
+      "growth-journey-lab.js",
+      "growth-journey-lab-ui.js"
     ]
   },
   "organico": {
@@ -114,6 +120,7 @@
       "styles.css",
       "organico-page.css",
       "panel-ui.css",
+      "panel-product-ui.css",
       "area-brand.css",
       "organico-mobile.css",
       "ui/organic-v2/organic-v2.css",
@@ -142,6 +149,7 @@
       "styles.css",
       "influs-page.css",
       "panel-ui.css",
+      "panel-product-ui.css",
       "creators-pilot.css",
       "area-brand.css",
       "tts-visual.css",
@@ -167,6 +175,7 @@
       "painel-tabelas.js",
       "panel-bridge.js",
       "ui/affiliates-v2/affiliates-v2.js",
+      "afiliados-proprios.js",
       "influs-affiliates-mount.js"
     ]
   }

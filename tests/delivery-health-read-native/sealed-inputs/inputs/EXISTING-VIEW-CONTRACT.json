@@ -1,0 +1,54 @@
+{
+  "schema": "shrigma-existing-email-health-read-contract-v1",
+  "at": "2026-10-08T20:16:50.027Z",
+  "sourceHead": "d25acb25b8d0011d4ca39f81663ddfec105caf3c",
+  "resource": {
+    "project": "comunicacao",
+    "service": "postgres",
+    "host": "comunicacao_postgres",
+    "port": 5432,
+    "database": "listmonk",
+    "network": "easypanel"
+  },
+  "catalogScope": "current database catalogs; cluster roles/memberships; current database session counts",
+  "catalogSnapshot": "repeatable-read catalogs; session counts are observational",
+  "relation": {
+    "oid": "135626",
+    "schema_oid": "2200",
+    "name": "shrigma_growth_email_ses_health_v1",
+    "kind": "v",
+    "ownerRole": "postgres",
+    "acl": "{postgres=arwdDxtm/postgres,central_leitor=r/postgres}",
+    "estimated_rows": -1,
+    "row_security": false,
+    "force_row_security": false,
+    "persistence": "p",
+    "schema": "public",
+    "columns": [
+      {
+        "name": "payload",
+        "type_oid": "3802",
+        "not_null": false
+      }
+    ]
+  },
+  "sourceSql": {
+    "path": "n8n/growth/ses-health.sql",
+    "githubBlobSha1": "4e956c045c6a4fd839fa146f508e5f8a2f92ef6f",
+    "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94"
+  },
+  "readOnlyQuery": "SELECT payload FROM public.shrigma_growth_email_ses_health_v1 WHERE pg_catalog.current_database()='listmonk'",
+  "originalViewDefinitionRead": false,
+  "viewPresenceAndPayloadColumnRead": true,
+  "scope": "crm.delivery-health",
+  "purpose": "read-only-original-email-health",
+  "freshnessMustBeReported": true,
+  "zeroCountsProveHealth": false,
+  "perWorkflowMappingAccepted": false,
+  "whatsappDeliveryAccepted": false,
+  "actualHealthPayloadRead": false,
+  "existingConsentReused": false,
+  "originalPostgresDdlAllowed": false,
+  "originalWorkersChanged": false,
+  "operational": false
+}

@@ -23,6 +23,6 @@ for(const brand of ['fish','aristo'])test(brand+': analyst creates/reopens/count
  const id=(await x.db.query('SELECT id FROM crm_audience_v2.audience WHERE brand=$1',[brand])).rows[0].id;
  await x.click('new');x.q('[data-gs="open"][data-id="'+id+'"]').click();await x.settle();assert.equal(x.q('[data-gs-value]').value,'0');await x.click('count');assert.match(x.q('[data-gs-count]').textContent,/1 pessoas/);
  await x.db.query("UPDATE crm_audience_v2.shopify_batch SET started_at=clock_timestamp()-interval '27 hours' WHERE brand=$1",[brand]);await x.click('refresh');
- assert.match(x.q('[data-gs-shopify-snapshot]').textContent,/venceu/);assert.equal(x.q('[data-gs="count"]').disabled,true);assert.equal(x.q('[data-gs="save"]').disabled,true);assert.equal(x.q('[data-gs-value]').value,'0');
+ assert.match(x.q('[data-gs-shopify-snapshot]').textContent,/Os dados venceram em/);assert.equal(x.q('[data-gs="count"]').disabled,true);assert.equal(x.q('[data-gs="save"]').disabled,true);assert.equal(x.q('[data-gs-value]').value,'0');
  assert.doesNotMatch(x.q('[data-gs-count]').textContent,/0 pessoas/);assert.equal(x.calls.filter(c=>c.action==='segmento_criar').length,1);assert.ok(x.calls.every(c=>/^segment/.test(c.action)));
 });

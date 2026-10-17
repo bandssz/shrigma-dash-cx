@@ -1,0 +1,56 @@
+'use strict';
+// One brand, civil-day coverage and one attribution grain per metric.
+const CrmHome=(()=>{
+ const day=v=>typeof v==='string'?v.slice(0,10):'';
+ const moneyValue=v=>(typeof v==='number'||typeof v==='string'&&/^-?[0-9]{1,16}(?:\.[0-9]{1,6})?$/.test(v))&&Number.isFinite(Number(v))?Number(v):null;
+ const number=v=>{const n=moneyValue(v);return n!==null&&Number.isSafeInteger(n)&&n>=0?n:null;};
+ const brandOf=r=>{const values=['marca','brand'].filter(k=>Object.hasOwn(r||{},k)).map(k=>({fishermans:'fish',aristocrata:'aristo'}[r[k]]||r[k]));return values.length&&values.every(v=>['fish','aristo'].includes(v)&&v===values[0])?values[0]:null;};
+ const latest=values=>values.filter(v=>typeof v==='string'&&Number.isFinite(Date.parse(v))).sort((a,b)=>Date.parse(b)-Date.parse(a))[0]||null;
+ function dates(start,end){if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||! /^\d{4}-\d{2}-\d{2}$/.test(end)||start>end)return[];for(const d of [start,end]){const t=Date.parse(d+'T12:00:00Z');if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==d)return[];}const days=[];for(let d=start;d<=end&&days.length<=366;d=new Date(Date.parse(d+'T12:00:00Z')+86400000).toISOString().slice(0,10))days.push(d);return days.length<=366?days:[];}
+ function validAttributionRow(r){const sizes={total:1,channel:1,family:1,family_channel:2,campaign:1,campaign_channel:2,flow_piece:3,piece:6},nullable={campaign:[0],campaign_channel:[0],flow_piece:[1,2],piece:[1,2,3,4,5]}[r?.grain]||[];return !!r&&typeof r==='object'&&!Array.isArray(r)&&!!brandOf(r)&&typeof r.model==='string'&&r.model.length>0&&r.model.length<=128&&Object.hasOwn(sizes,r.grain)&&typeof r.dia==='string'&&dates(day(r.dia),day(r.dia)).length===1&&(r.dia===day(r.dia)||Number.isFinite(Date.parse(r.dia)))&&Array.isArray(r.dimension)&&r.dimension.length===sizes[r.grain]&&r.dimension.every((v,i)=>typeof v==='string'||v===null&&nullable.includes(i));}
+ function group(rows,key){const result=new Map();for(const r of rows){const k=key(r),values=result.get(k)||[];values.push(r);result.set(k,values);}return result;}
+ function summarize(data,brand,start,end,{now=Date.now()}={}){
+  const days=dates(start,end),a=data?.crm_attribution,relation=Array.isArray(a?.daily)&&a.schema_version===2&&a.daily.every(validAttributionRow);
+  const covered=new Set((Array.isArray(a?.coverage)?a.coverage:[]).filter(r=>brandOf(r)===brand&&typeof r.checked_at==='string'&&Number.isFinite(Date.parse(r.checked_at))).map(r=>day(r.day)));
+  const complete=relation&&days.length>0&&days.every(d=>covered.has(d));
+  const relevant=(relation?a.daily:[]).filter(r=>brandOf(r)===brand&&days.includes(day(r.dia))&&r.model==='last_click'&&r.grain==='channel'&&Array.isArray(r.dimension)&&r.dimension.length===1&&r.dimension[0]==='email');
+  const byDay=group(relevant,r=>day(r.dia)),duplicateDays=[...byDay].filter(([,rows])=>rows.length!==1).map(([d])=>d),confirmed=relation?days.filter(d=>covered.has(d)&&!duplicateDays.includes(d)):[];
+  function attributionMetric(key){
+   // Absence means zero only for a covered day and a returned relation.
+   // Null, a missing day or a duplicated grain never means zero.
+   const metric=key==='receita'?moneyValue:number,knownDays=confirmed.filter(d=>!byDay.has(d)||metric(byDay.get(d)[0][key])!==null),known=knownDays.length?knownDays.reduce((n,d)=>n+(byDay.has(d)?metric(byDay.get(d)[0][key]):0),0):null;
+   return {total:complete&&knownDays.length===days.length?known:null,known,days:knownDays.length};
+  }
+  const money=attributionMetric('receita'),purchases=attributionMetric('pedidos');
+  const scopedDaily=(Array.isArray(data?.crm_diario)?data.crm_diario:[]).filter(r=>brandOf(r)===brand&&r.canal==='email'),hasWindow=scopedDaily.some(r=>r.janela!==undefined);
+  const daily=scopedDaily.filter(r=>(!hasWindow||r.janela==='1d')&&days.includes(day(r.dia))),mailByDay=group(daily,r=>day(r.dia)),engagementComplete=days.length>0&&days.every(d=>mailByDay.get(d)?.length===1);
+  function mailMetric(key,{dailyWindow=false}={}){const knownDays=days.filter(d=>mailByDay.get(d)?.length===1&&(!dailyWindow||mailByDay.get(d)[0].janela==='1d')&&number(mailByDay.get(d)[0][key])!==null),known=knownDays.length?knownDays.reduce((n,d)=>n+number(mailByDay.get(d)[0][key]),0):null;return {total:engagementComplete&&knownDays.length===days.length?known:null,known,days:knownDays.length};}
+  const mail=Object.fromEntries(Object.entries({sent:'enviados',delivered:'entregues',opened:'abriram',clicked:'clicaram',clicks:'cliques',unsubscribed:'descadastros',bounces:'hard',complaints:'complaints'}).map(([key,field])=>[key,mailMetric(field,{dailyWindow:key==='clicks'})]));
+  const scheduled=(Array.isArray(data?.crm_campanha)?data.crm_campanha:[]).filter(r=>brandOf(r)===brand&&r.status==='scheduled'&&Number.isFinite(Date.parse(r.agendado_em))),agenda=scheduled.filter(r=>Date.parse(r.agendado_em)>=now).sort((a,b)=>Date.parse(a.agendado_em)-Date.parse(b.agendado_em)),late=scheduled.filter(r=>Date.parse(r.agendado_em)<now).sort((a,b)=>Date.parse(a.agendado_em)-Date.parse(b.agendado_em));
+  const qrows=(Array.isArray(a?.quality)?a.quality:[]).filter(r=>brandOf(r)===brand&&days.includes(day(r.dia))&&(r.model===undefined||r.model==='last_click')),qdays=group(qrows,r=>day(r.dia));
+  const qualityMetric=key=>{const known=[...qdays.values()].filter(rows=>rows.length===1&&number(rows[0][key])!==null);return known.length?known.reduce((n,rows)=>n+number(rows[0][key]),0):null;};
+  const quality=qrows.length?{days:[...qdays.values()].filter(rows=>rows.length===1).length,expected:days.length,paidEligible:qualityMetric('pagos_elegiveis'),withoutSession:qualityMetric('pagos_sem_ultima_sessao'),pendingJourney:qualityMetric('jornada_pendente'),partialJourney:qualityMetric('jornada_parcial')}:null;
+  const flowSource=Array.isArray(data?.flow_attribution)?data.flow_attribution:relation?a.daily:null,flowRows=(flowSource||[]).filter(r=>brandOf(r)===brand&&days.includes(day(r.dia))&&covered.has(day(r.dia))&&r.model==='last_click'&&r.grain==='flow_piece'&&Array.isArray(r.dimension)&&r.dimension.length===3&&r.dimension[0]==='email'&&typeof r.dimension[1]==='string'&&r.dimension[1]);
+  const flowGrain=group(flowRows,r=>JSON.stringify([day(r.dia),...r.dimension])),flows=group([...flowGrain.values()].filter(rows=>rows.length===1).map(rows=>rows[0]),r=>r.dimension[1]);
+  const flowDuplicates=[...flowGrain.values()].some(rows=>rows.length!==1);
+  const flowResults=flowDuplicates?[]:[...flows].map(([flow,rows])=>{const known=field=>{const metric=field==='receita'?moneyValue:number,values=rows.map(r=>metric(r[field])).filter(v=>v!==null);return values.length?values.reduce((n,v)=>n+v,0):null;};return {flow,knownRevenue:known('receita'),knownOrders:known('pedidos'),partial:!complete||rows.some(r=>moneyValue(r.receita)===null||number(r.pedidos)===null),pieces:new Set(rows.map(r=>r.dimension[2])).size};}).sort((a,b)=>(b.knownRevenue??-Infinity)-(a.knownRevenue??-Infinity)).slice(0,7);
+  const sources=Array.isArray(data?.crm_fontes)?data.crm_fontes.filter(r=>!Object.hasOwn(r,'brand')&&!Object.hasOwn(r,'marca')||brandOf(r)===brand):[],receipts=(Array.isArray(data?.crm_collection_receipt)?data.crm_collection_receipt:[]).filter(r=>brandOf(r)===brand);
+  const sourceTimes={cache:latest([data?._cache_gerado_em,data?.gerado_em]),attribution:latest([a?.generated_at]),attributionChecked:latest((Array.isArray(a?.coverage)?a.coverage:[]).filter(r=>brandOf(r)===brand).map(r=>r.checked_at)),mail:latest([...scopedDaily.map(r=>r.coletado_em),...sources.filter(r=>r.fonte==='listmonk_snapshot'||r.source==='listmonk_snapshot').map(r=>r.coletado_em)]),shopify:latest([...sources.filter(r=>r.fonte==='shopify_conversao'||r.source==='shopify_conversao').map(r=>r.coletado_em),...receipts.filter(r=>r.source==='legacy_conversion').map(r=>r.observed_at)])};
+  return {attributionAvailable:relation,revenue:money.total,knownRevenue:money.known,attributionPartial:money.total===null&&money.known!==null,orders:purchases.total,knownOrders:purchases.known,ordersPartial:purchases.total===null&&purchases.known!==null,...Object.fromEntries(Object.entries(mail).flatMap(([key,m])=>[[key,m.total],['known'+key[0].toUpperCase()+key.slice(1),m.known]])),volumePartial:mail.sent.total===null&&mail.sent.known!==null,openRate:mail.delivered.total>0&&mail.opened.total!==null?mail.opened.total/mail.delivered.total:null,clickRate:mail.delivered.total>0&&mail.clicked.total!==null?mail.clicked.total/mail.delivered.total:null,coverage:{covered:days.filter(d=>covered.has(d)).length,expected:days.length,complete,revenueKnownDays:money.days,ordersKnownDays:purchases.days,duplicateDays:duplicateDays.length},mailKnownDays:Object.fromEntries(Object.entries(mail).map(([key,m])=>[key,m.days])),engagementComplete,next:agenda.slice(0,5),overdue:late.slice(0,5),overdueCount:late.length,scheduleAvailable:Array.isArray(data?.crm_campanha),quality,flowResults,flowResultsAvailable:Array.isArray(flowSource)&&!flowDuplicates,sourceTime:sourceTimes.cache,sourceTimes};
+ }
+ function availableWindow(data,brand,start,end){
+  const requested=dates(start,end);if(!requested.length)return null;
+  const rows=[...(Array.isArray(data?.crm_diario)?data.crm_diario:[]).filter(r=>r.canal==='email'&&(r.janela===undefined||r.janela==='1d')),...(Array.isArray(data?.crm_attribution?.daily)?data.crm_attribution.daily:[]).filter(r=>r.model==='last_click'&&r.grain==='channel'&&r.dimension?.[0]==='email')];
+  const available=rows.filter(r=>brandOf(r)===brand&&dates(day(r.dia),day(r.dia)).length&&(['enviados','pedidos','receita'].some(k=>(k==='receita'?moneyValue:number)(r[k])!==null)||r.janela==='1d'&&number(r.cliques)!==null)).map(r=>day(r.dia));
+  if(!available.length||available.some(d=>requested.includes(d)))return null;
+  const last=available.sort().at(-1);return {start:new Date(Date.parse(last+'T12:00:00Z')-(requested.length-1)*86400000).toISOString().slice(0,10),end:last};
+ }
+ return Object.freeze({summarize,dates,availableWindow,validAttributionRow});
+})();
+if(typeof module==='object'&&module.exports)module.exports=CrmHome;else {
+ window.ShrigmaCrmHome=CrmHome;
+ let assetsPromise,analyticsPromise;
+ const loadScript=(source,ready)=>ready()?Promise.resolve():new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=source;script.async=true;script.onload=()=>{script.remove();ready()?resolve():reject(Error('CRM_ASSET_UNAVAILABLE'));};script.onerror=()=>{script.remove();reject(Error('CRM_ASSET_UNAVAILABLE'));};document.head.appendChild(script);});
+ window.ShrigmaCrmAnalyticsReady=()=>analyticsPromise||(analyticsPromise=loadScript('analytics.compiled.js',()=>!!window.ShrigmaCrmAnalytics&&!!window.ShrigmaCrmModels).catch(error=>{analyticsPromise=null;throw error;}));
+ window.ShrigmaCrmAssetsReady=()=>assetsPromise||(assetsPromise=loadScript('vendor/chart.umd.js',()=>typeof window.Chart==='function').then(()=>window.ShrigmaCrmAnalyticsReady()).catch(error=>{assetsPromise=null;throw error;}));
+}

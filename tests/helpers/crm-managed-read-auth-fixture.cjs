@@ -9,7 +9,7 @@ const hosts={manager:'gerencial.synthetic.invalid',growth:'crm.synthetic.invalid
 const sha=v=>crypto.createHash('sha256').update(v).digest('hex');
 const canonical=v=>Array.isArray(v)?'['+v.map(canonical).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}':JSON.stringify(v);
 async function fixture(managed=true){
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'managed-crm-auth-')),dbPath=path.join(dir,'identity.sqlite'),issuerId=crypto.randomUUID(),namespaceId=crypto.randomUUID();let time=1790980000000;
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'managed-crm-auth-')),dbPath=path.join(dir,'identity.sqlite'),issuerId=crypto.randomUUID(),namespaceId=crypto.randomUUID();let time=Date.now();
  const config={dbPath,managerHost:hosts.manager,areaHosts:{growth:hosts.growth,organico:hosts.organico,influs:hosts.influs},allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'owner@synthetic.invalid',bootstrapTokenSha256:sha('bootstrap-synthetic'),encryptionKey:crypto.randomBytes(32),now:()=>time,...(managed?{crmManagedRead:{issuerId,namespaceId}}:{})};
  let auth=createAuth(config);
  await auth.completeBootstrap({email:config.bootstrapAdminEmail,token:'bootstrap-synthetic',password:'synthetic-owner-password-2026',host:hosts.manager,origin:'https://'+hosts.manager});

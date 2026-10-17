@@ -57,10 +57,11 @@ function resumo(p,marca){
 function saude(p,agora=Date.now()){
  if(!Array.isArray(p?.saude))return null;
  const idx=new Map(p.saude.map(s=>[s.lane+'|'+s.marca,s]));
- return LANES.flatMap(l=>['aristo','fish'].map(m=>{const s=idx.get(l.lane+'|'+m);
+ const marcas=p.brandAccess==='single'&&['aristo','fish'].includes(p.brand)?[p.brand]:['aristo','fish'];
+ return LANES.flatMap(l=>marcas.map(m=>{const s=idx.get(l.lane+'|'+m);
   if(!s)return {...l,marca:m,estado:'sem_registro'};
   const ok=s.ok===true,ult=s.ultimo_ok_em||(ok?s.em:null),idade=ult?(agora-new Date(ult))/36e5:null;
-  return {...l,marca:m,estado:!ok?'falha':idade!==null&&idade>26?'desatualizada':'ok',em:s.em,ultimo_ok_em:ult,detalhe:s.detalhe,itens:s.itens};}));
+  return {...l,marca:m,estado:!ok?'falha':idade===null||!Number.isFinite(idade)?'sem_registro':idade>26?'desatualizada':'ok',em:s.em,ultimo_ok_em:ult,detalhe:s.detalhe,itens:s.itens};}));
 }
 function csvCel(v){if(v===null||v===undefined)return '';const s=typeof v==='number'?String(v).replace('.',','):String(v);return /[;"\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function csv(cab,rows){return '\ufeff'+[cab.map(c=>c[1]),...rows.map(r=>cab.map(([k])=>r[k]))].map(l=>l.map(csvCel).join(';')).join('\r\n');}
