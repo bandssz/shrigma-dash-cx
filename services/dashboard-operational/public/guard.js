@@ -4,7 +4,7 @@
  const nativeFetch=window.fetch.bind(window);
  // A release flag is independent from WRITE permission or source capability.
  // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
- const crmRelease=Object.freeze({modelPieces:true,internalTest:false,internalCampaignTest:true,recipientValidation:false,audienceCatalog:true,audienceCount:true,audienceProducts:false,audienceProductPositive:true,audienceUpdates:true,legacyAudienceOperations:false,internalJourneyTest:true,journeyActivationReview:true,journeyActivation:false,scheduling:false});
+ const crmRelease=Object.freeze({modelPieces:true,internalTest:false,internalCampaignTest:true,recipientValidation:false,audienceCatalog:true,audienceCount:true,audienceProducts:true,audienceProductPositive:true,audienceUpdates:true,legacyAudienceOperations:false,internalJourneyTest:true,journeyActivationReview:true,journeyActivation:false,scheduling:false});
  window.ShrigmaCrmRelease=crmRelease;
  const crmDocument=/^\/(?:app\/crm\/|previas\/crm\/|growth\.html(?:$|\/)|crm\/)/.test(location.pathname||'')||['crm.shrigma.com.br','gerencial.shrigma.com.br'].includes(location.hostname);
  const crmHeldControls=[
