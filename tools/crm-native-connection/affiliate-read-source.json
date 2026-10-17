@@ -1000,8 +1000,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 43397,
-      "sha256": "203d919f3d92d3f8ffbbffd5fc072fe8ceaa35b0c928f0e5c53570b2fbc3f41c"
+      "bytes": 43712,
+      "sha256": "e110fbcb8c0e21deae3a354e822b5b323addb8905cabac5f2a3a1d1651026373"
     },
     {
       "path": "tests/production-envelope.test.cjs",

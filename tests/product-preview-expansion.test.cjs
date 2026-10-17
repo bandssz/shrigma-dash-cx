@@ -76,10 +76,10 @@ function serverLab(db,{values=new Map(),losePost=false,refuseRead=false,reader=f
     postStarted=true;const b=JSON.parse(options.body);
     a.equal(b.brand,'fish');a.equal(options.credentials,'same-origin');
     if(b.expected_revision!==db.revision)return {ok:false,status:409,json:async()=>({error:'LAB_VERSION_CHANGED'})};
-    db.revision++;db.store=structuredClone(b.store);
+    db.revision++;db.store=structuredClone(b.store);db.modelRefs=structuredClone(b.modelRefs||[]);db.sendWindows=structuredClone(b.sendWindows||[]);
     if(holdPost)await postHeld;if(hangPost)await new Promise(()=>{});if(accountChanged)account='other-account';if(losePost)throw Error('lost response');
    }else if(postStarted&&refuse)throw Error('read unavailable');
-   return {ok:true,status:200,json:async()=>({persistence:'server',userId:'synthetic-account',brand:'fish',revision:db.revision,store:structuredClone(db.store),executes:false})};
+   return {ok:true,status:200,json:async()=>({persistence:'server',userId:'synthetic-account',brand:'fish',revision:db.revision,store:structuredClone(db.store),modelRefs:structuredClone(db.modelRefs||[]),sendWindows:structuredClone(db.sendWindows||[]),executes:false})};
   }
   if(url.startsWith('/api/segments'))return {ok:true,status:200,json:async()=>({segments:publicRows})};
   return {ok:true,status:200,json:async()=>url.includes('capacidade')?{contract:'crm-published-journey-read-v1',brand:'fish',read:true,readOnly:true,write:false}:{checked_at:'2026-10-13T20:00:00Z',flows:[{brand:'fish',key:'fish:carrinho',name:'Carrinho',version:1,published_version:1,published:{steps:[{channel:'email',wait_min:60,enabled:true,template_name:'First'},{channel:'email',wait_min:1440,enabled:true,template_name:'Second'}]}}]}};
@@ -91,7 +91,7 @@ const emptyServer=()=>({revision:0,store:engine.readStore(null)});
 test('server draft survives a new browser and recovered POST response never repeats the write',async()=>{
  const db=emptyServer(),f=serverLab(db,{losePost:true});await f.app.read();
  f.q('[data-lab-copy]').click();f.q('[data-lab-copy]').click();await tick();await tick();
- a.equal(f.calls.filter(x=>x.method==='POST').length,1);a.equal(db.revision,1);a.equal(f.app.state().serverSaved,true);
+ a.equal(f.calls.filter(x=>x.method==='POST').length,1);a.equal(db.revision,1);a.equal(f.app.state().serverSaved,true);a.equal(db.sendWindows.length,1);a.equal(db.sendWindows[0].window.start,'09:00');a.equal(db.sendWindows[0].window.end,'19:00');
  const g=serverLab(db);await g.app.read();a(g.q('[data-lab-name]'));a.match(g.host.textContent,/salvo no servidor/);a.equal(g.calls.filter(x=>x.method==='POST').length,0);
  g.q('[data-lab-name]').value='Cópia do segundo computador';g.q('[data-lab-name]').dispatchEvent(new g.window.Event('input'));a.match(g.host.querySelector('.editor-mode').textContent,/não salvo no servidor/);
  g.q('[data-lab-save]').click();await tick();await tick();a.equal(db.revision,2);
