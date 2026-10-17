@@ -975,8 +975,8 @@
     },
     {
       "path": "services/dashboard-operational/native-internal-release.json",
-      "bytes": 92,
-      "sha256": "df5e49ed87349c9ce7699b407509da232d66b28f19881c99b70105dbb736b71e"
+      "bytes": 91,
+      "sha256": "3a7aec85fb3cdea869c51c0fab12e2281a0b18f961d8156d1c2af52223abac5a"
     },
     {
       "path": "services/dashboard-operational/native-source-diagnostics-controller.cjs",
