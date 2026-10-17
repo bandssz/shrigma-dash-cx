@@ -212,10 +212,10 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
  }
  const modelPieces=require('./simple-crm-model-pieces.cjs').create({db,authorize:authorizeUser,now});
  const internalBinding=journeyTestTransport||require('./journey-internal-test-binding.cjs').createBindingReader();
- const internalSend=journeyTestTransport?.send||require('./journey-internal-test-transport.cjs').createTransport({privateApi:internalBinding.privateApi,confirmedSenders:journeyTestTransport?.confirmedSenders,recordDiagnostic:testDiagnostics?.record});
+ const internalSend=journeyTestTransport?.send||require('./journey-internal-test-transport.cjs').createTransport({privateApi:internalBinding.privateApi,confirmedSenders:journeyTestTransport?.confirmedSenders??require('./campaign-write-contract.js').OWNER_CONFIRMED_SENDERS,recordDiagnostic:testDiagnostics?.record});
  const htmlBinding=journeyTestTransport?.html||(typeof internalBinding.privateApi==='function'?require('./journey-internal-html-binding.cjs').createHtmlBindingReader({baseBinding:internalBinding}):null);
- const htmlSend=journeyTestTransport?.html?.send||(htmlBinding?require('./journey-internal-test-transport.cjs').createHtmlTransport({privateApi:htmlBinding.privateApi,confirmedSenders:journeyTestTransport?.confirmedSenders,recordDiagnostic:testDiagnostics?.record}):undefined);
- const journeyTest=require('./journey-internal-test-runtime.cjs').createRunner({db,now,confirmedSenders:journeyTestTransport?.confirmedSenders,engine:require('./public/crm-preview/journey-engine.js'),
+ const htmlSend=journeyTestTransport?.html?.send||(htmlBinding?require('./journey-internal-test-transport.cjs').createHtmlTransport({privateApi:htmlBinding.privateApi,confirmedSenders:journeyTestTransport?.confirmedSenders??require('./campaign-write-contract.js').OWNER_CONFIRMED_SENDERS,recordDiagnostic:testDiagnostics?.record}):undefined);
+ const journeyTest=require('./journey-internal-test-runtime.cjs').createRunner({db,now,confirmedSenders:journeyTestTransport?.confirmedSenders??require('./campaign-write-contract.js').OWNER_CONFIRMED_SENDERS,engine:require('./public/crm-preview/journey-engine.js'),
   authorize:(context,brand)=>labOwner(context,brand,true),
   authorizeRead:(context,brand)=>labOwner(context,brand),
   currentIdentity:currentUser,
