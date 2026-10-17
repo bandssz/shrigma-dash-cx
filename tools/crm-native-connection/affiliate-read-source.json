@@ -675,8 +675,8 @@
     },
     {
       "path": "tests/campaign-create-native/gateway.test.cjs",
-      "bytes": 18749,
-      "sha256": "7387f47794abbebb3befd1462f766b45575f793c749353059f95e969fa26e607"
+      "bytes": 18750,
+      "sha256": "7fc5925304f2aa62b562a660538ef62c2b21a87872c2b9e7da2373f376d62504"
     },
     {
       "path": "tests/campaign-delivery-replay-http.test.cjs",
