@@ -79,7 +79,7 @@ function sourceKeysFromEnv(env){
  const out={};for(const [front,name]of Object.entries(names)){const value=env[name];if(value!==undefined){if(typeof value!=='string'||!/^[A-Za-z0-9_.:-]{8,256}$/.test(value))fail('SERVICE_READ_CONFIG_INVALID',500);out[front]=value;}}
  if(out.audiences===undefined){const privateKey=readPublicReadKey();if(privateKey)out.audiences=privateKey;}return Object.freeze(out);
 }
-function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth,growthDiagnostics,onReadFailure}={}){
+function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,projectGrowth,growthDiagnostics,onReadFailure,timings=false}={}){
  if(!auth?.authorizeBrand||!auth?.authorize||typeof fetchImpl!=='function'||typeof projectGrowth!=='function'||Object.keys(keys).some(k=>!Object.hasOwn(AREA,k)&&k!=='audiences'))fail('SERVICE_READ_CONFIG_INVALID',500);
  const credentials={...keys},versions=Object.fromEntries(Object.keys(credentials).map(front=>[front,crypto.randomBytes(32).toString('hex')]));
  const noSecrets=value=>{const serialized=JSON.stringify(value);for(const secret of Object.values(credentials))if(serialized.includes(secret))fail('BRAND_RESPONSE_UNSCOPED',502);};
@@ -195,23 +195,23 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
   const started=Date.now(),homeVariant=homeOnly===true&&front==='growth'&&targetRoute==='crm-read'&&method==='GET'&&d.action==='cache_growth';
   try{
-   const sourceCall=()=>forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,crmHomeRead:homeVariant,captureReadDiagnostic:front==='growth',fetchImpl});
+   const sourceCall=()=>forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,crmHomeRead:homeVariant,crmHomeBrand:homeVariant?brand:undefined,captureReadDiagnostic:front==='growth',captureReadTiming:timings===true,fetchImpl});
    const call=()=>method==='GET'?readDnsOnce(sourceCall,()=>same(context,front,brand,before),{front,brand}):sourceCall();
    let result;
    if(front==='growth'){
-    const key=JSON.stringify([targetRoute,query.toString(),origin,homeVariant?'home':'full']);let inFlight=growthReads.get(key);
+    const key=JSON.stringify([targetRoute,query.toString(),origin,homeVariant?'home':'full',homeVariant?brand:null]);let inFlight=growthReads.get(key);
     if(!inFlight){inFlight=call();growthReads.set(key,inFlight);inFlight.then(()=>{if(growthReads.get(key)===inFlight)growthReads.delete(key);},()=>{if(growthReads.get(key)===inFlight)growthReads.delete(key);});}
     result=await inFlight;
    }else result=await call();
    same(context,front,brand,before);if(result.status!==200)throw Object.assign(Error('SERVICE_READ_SOURCE_REFUSED'),{code:'SERVICE_READ_SOURCE_REFUSED',status:503,sourceDiagnostic:result.sourceDiagnostic});
    noSecrets(result.body);
-   let payload=front==='growth'?projectGrowth(result.body,brand,'growth',origin):front==='afiliados'?AffiliateProjection.project(result.body,{brand,ini:body.ini,fim:body.fim,credential}):Individual.project(result.body,{area:front,brand,query:body||Object.fromEntries(query),credential});
+   const projectionStarted=Date.now();let payload=front==='growth'?projectGrowth(result.body,brand,'growth',origin):front==='afiliados'?AffiliateProjection.project(result.body,{brand,ini:body.ini,fim:body.fim,credential}):Individual.project(result.body,{area:front,brand,query:body||Object.fromEntries(query),credential});
    if(front==='growth'){
     payload=Journeys.capabilities(payload,origin,true);
     if(upstreams?.segments?.href===require('./proxy.cjs').REVIEWED_DYNAMIC.routes.segments)payload.capabilities={...(payload.capabilities||{}),segments:{read:!!credentials.audiences,save:false,count:false,operation:false,send:false,brands:[brand],contract_version:'crm-audience-v2'},endpoints:{...(payload.capabilities?.endpoints||{}),segments:origin+'/api/segments'}};
     if(typeof growthDiagnostics==='function')payload.cart_contract=growthDiagnostics(result.body,brand);
    }
-   same(context,front,brand,before);return {status:200,body:payload};
+   same(context,front,brand,before);return {status:200,body:payload,...(timings===true?{readTiming:{...(result.readTiming||{}),projection:Date.now()-projectionStarted}}:{})};
   }catch(error){recordFailure(error,{front,brand,started});throw error;}finally{pending--;}
  }
  async function summary(context,brands,origin,now=Date.now()){

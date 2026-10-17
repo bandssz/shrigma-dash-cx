@@ -27,7 +27,9 @@ test('Tabler assets use each real front grant; shared kit aliases and health has
 test('the original read contracts keep brand, window, real fields and nulls on reload',async t=>{
  const f=await fixture(t);for(const brand of ['aristo','fish'])for(let n=0;n<2;n++){
  const r=await f.request('/api/influ',{body:{acao:'listar',marca:brand,ini:'2026-10-01',fim:'2026-10-14',pilot:false}});a.equal(r.status,200,JSON.stringify(r.body));a.equal(r.body.brand,brand);a.equal(r.body.roi[0].receita,null);a.equal(r.body.custos[0].fixo,25);a.equal(r.body.termos[0].comissao_pct,5);a.equal(r.body.coleta[brand],STAMP);a(!JSON.stringify(r.body).includes('private_customer'));
+ a.match(r.headers['server-timing'],/^sourceHeaders;dur=\d+\.\d{2}, sourceBody;dur=\d+\.\d{2}, jsonParse;dur=\d+\.\d{2}, projection;dur=\d+\.\d{2}$/);a.doesNotMatch(r.headers['server-timing'],/synthetic|Bearer|private_customer/);
  const org=await f.request('/api/cache?painel=organico',{brand});a.equal(org.status,200);a.equal(org.body.cx_post.length,1);a.equal(org.body.cx_post[0].marca,brand);a.equal(org.body.cx_post[0].compartilhamentos,3);
+ a.match(org.headers['server-timing'],/sourceHeaders;dur=\d+\.\d{2}/);a.match(org.headers['server-timing'],/projection;dur=\d+\.\d{2}/);
  }
  const denied=await f.request('/api/influ',{brand:'aristo',body:{acao:'listar',marca:'aristo',ini:'2026-10-01',fim:'2026-10-14',pilot:false}});a.equal(denied.status,400);
 });

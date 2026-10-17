@@ -408,7 +408,7 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
-async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,simpleAudienceRead=false,simpleAudienceCount=false,simpleCampaignDraft=false,simpleAudienceDraft=false,crmHomeRead=false,captureReadDiagnostic=false,fetchImpl=fetch}){
+async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,simpleAudienceRead=false,simpleAudienceCount=false,simpleCampaignDraft=false,simpleAudienceDraft=false,crmHomeRead=false,crmHomeBrand,captureReadDiagnostic=false,captureReadTiming=false,fetchImpl=fetch}){
   if(require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)&&route==='campaigns'&&user?.role!=='superadmin')throw new ProxyError(403,'EDIT_NOT_READY');
   const d=decide(route,method,query,body,{crmCampaignSubmitWrite,crmCampaignDraftService:simpleCampaignDraft}),target=upstreams[route];
   const serviceProfile=require('./crm-manager-runtime.cjs').isServiceDraftDescriptor(crmCorporateWriter);
@@ -446,7 +446,8 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   // through the same idempotency key, never by minting a new request.
   const options={method,redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(route==='campaigns'&&d.action==='campanha_salvar'?93000:method==='GET'?25000:45000),headers:{Accept:'application/json'}};
   if(header)options.headers[header]=header==='Authorization'?'Bearer '+credential:credential;
-  if(crmHomeRead===true&&route==='crm-read'&&method==='GET'&&d.action==='cache_growth')options.headers['X-Shrigma-Crm-View']='home';
+  if(crmHomeBrand!==undefined&&!(crmHomeRead===true&&route==='crm-read'&&method==='GET'&&d.action==='cache_growth'&&['fish','aristo'].includes(crmHomeBrand)))throw new ProxyError(403,'CRM_HOME_SCOPE_DENIED');
+  if(crmHomeRead===true&&route==='crm-read'&&method==='GET'&&d.action==='cache_growth'){options.headers['X-Shrigma-Crm-View']='home';if(crmHomeBrand!==undefined)options.headers['X-Shrigma-Crm-Home-Brand']=crmHomeBrand;}
   if(header==='X-Template-Key')options.headers.Authorization='Bearer '+credential;
   if(method==='POST'){
     const payload={...body};delete payload.k;
@@ -456,13 +457,13 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   const capture=captureReadDiagnostic===true&&route==='crm-read'&&method==='GET'&&d.action==='cache_growth';
   const diagnostic=(stage,status,error)=>({stage,httpStatus:Number.isInteger(status)?status:null,...(typeof error?.name==='string'&&/^[A-Za-z]{1,40}$/.test(error.name)?{errorType:error.name}:{}),...(typeof error?.cause?.code==='string'&&/^[A-Z0-9_]{1,64}$/.test(error.cause.code)?{transportCode:error.cause.code}:{})});
   const refused=(code,meta)=>{const e=new ProxyError(502,code);if(capture)e.sourceDiagnostic=meta;return e;};
-  let result;try{result=await fetchImpl(url,options);}catch(e){const meta=diagnostic('transport',null,e),error=refused('UPSTREAM_UNAVAILABLE',meta);if(method==='GET'&&meta.transportCode==='EAI_AGAIN')error.readDnsTemporary=true;throw error;}
+  const timingStart=Date.now();let result;try{result=await fetchImpl(url,options);}catch(e){const meta=diagnostic('transport',null,e),error=refused('UPSTREAM_UNAVAILABLE',meta);if(method==='GET'&&meta.transportCode==='EAI_AGAIN')error.readDnsTemporary=true;throw error;}const headersAt=Date.now();
   // A remote credential rejection must not invalidate the browser's local session.
   if(result.status===401){try{await result.body?.cancel();}catch{}return {status:503,body:{error:'UPSTREAM_CREDENTIAL_REJECTED'},...(capture?{sourceDiagnostic:diagnostic('credential',401)}:{})};}
   if(result.status>=300&&result.status<400){try{await result.body?.cancel();}catch{}throw refused('UPSTREAM_REDIRECT_DENIED',diagnostic('redirect',result.status));}
   if(!/^application\/json(?:;|$)/i.test(result.headers.get('content-type')||'')){try{await result.body?.cancel();}catch{}throw refused('UPSTREAM_CONTENT_TYPE_DENIED',diagnostic('content-type',result.status));}
   let bytes;try{bytes=await readResponse(result,route==='crm-read'&&d.action==='cache_growth'?MAX_CRM_CACHE_RESPONSE:route==='candidaturas'&&d.action==='print'?MAX_PRINT_RESPONSE:route==='campaigns_media'?MAX_MEDIA_RESPONSE:MAX_RESPONSE);}catch(e){if(capture)e.sourceDiagnostic=diagnostic('response-body',result.status,e);throw e;}
-  let parsed;try{parsed=JSON.parse(bytes.toString('utf8'));}catch(e){throw refused('UPSTREAM_INVALID_JSON',diagnostic('json',result.status,e));}
+  const bodyAt=Date.now();let parsed;try{parsed=JSON.parse(bytes.toString('utf8'));}catch(e){throw refused('UPSTREAM_INVALID_JSON',diagnostic('json',result.status,e));}const parsedAt=Date.now();
   if(route==='campaigns'&&d.action==='campanha_salvar'&&result.status>=200&&result.status<300&&
     (!plain(parsed?.campaign)||parsed.campaign.status!=='draft'||parsed.campaign.sent!==0||parsed.campaign.started_at||(campaignSubmit?parsed.campaign.send_at!==(body.definition.send_at??null):parsed.campaign.send_at!==null)||parsed.campaign.definition?.brand!==body.brand))
     throw new ProxyError(502,'UPSTREAM_DRAFT_UNCONFIRMED');
@@ -476,6 +477,7 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   const safeCodes=new Set(['CACHE_READ_REFUSED','SERVICE_DISABLED','SERVICE_STOPPING','ADMISSION_FULL','QUERY_DEADLINE','SQL_FAILED','DRIVER_FAILED','RESULT_SHAPE_INVALID','RESPONSE_FAILED','HANDLER_FAILED','CACHE_UNAVAILABLE','SQL_503_UNCLASSIFIED']);
   const sourceCode=safeCodes.has(parsed?.error)?parsed.error:safeCodes.has(headerCode)?headerCode:legacyCode;
   const sourceDiagnostic=capture&&result.status!==200?{...diagnostic('source-response',result.status),...(sourceCode?{sourceCode}:{}),...(typeof sqlState==='string'&&/^[A-Z0-9]{5}$/.test(sqlState)?{sqlState}:{}),...(/^[a-f0-9-]{36}$/.test(requestId||'')?{requestId}:{})}:undefined;
-  return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite||ownMasterAudienceCount||ownMasterAudienceContextReview||serviceAudienceRead||serviceAudienceCount||campaignDraftService||audienceDraftService?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route}),...(sourceDiagnostic?{sourceDiagnostic}:{})};
+  let readTiming;if(captureReadTiming===true){readTiming={sourceHeaders:headersAt-timingStart,sourceBody:bodyAt-headersAt,jsonParse:parsedAt-bodyAt};if(crmHomeRead===true&&result.headers.get('x-shrigma-home-projection')==='validated-brand-v1'){for(const part of (result.headers.get('server-timing')||'').split(',')){const m=part.trim().match(/^(dbQuery|projection|serialize|gzip);dur=(\d{1,8}(?:\.\d{1,4})?)$/);if(m&&Number(m[2])<=120000)readTiming['home_'+m[1]]=Number(m[2]);}}}
+  return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite||ownMasterAudienceCount||ownMasterAudienceContextReview||serviceAudienceRead||serviceAudienceCount||campaignDraftService||audienceDraftService?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route}),...(sourceDiagnostic?{sourceDiagnostic}:{}),...(readTiming?{readTiming}:{})};
 }
 module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,SANDBOX_CAMPAIGN_DESTINATION,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};
