@@ -1,0 +1,100 @@
+name: CRM · cinco imagens da fonte exata
+
+'on':
+  push:
+    branches: ['codex/crm-stack-images-710ffb4-20261005']
+permissions:
+  contents: read
+
+jobs:
+  image-oci-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [portal, campaign, read, writer, template]
+    steps:
+      - name: Obter a fonte literal aprovada
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: '710ffb49f6c065072c8c073ef8269f8c33b589b7'
+          path: source
+          persist-credentials: false
+      - name: Obter somente o código público do carrier
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          path: carrier
+          persist-credentials: false
+      - name: Exigir CI terminal da fonte e os dezessete resultados exatos
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py gate '${{ matrix.kind }}'
+      - name: Construir contexto fechado e conferir OCI sem rede ou credenciais
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py build '${{ matrix.kind }}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-stack-preflight-${{ matrix.kind }}-710ffb49f6c065072c8c073ef8269f8c33b589b7-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-stack-${{ matrix.kind }}-proof/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-images:
+    needs: [image-oci-preflight]
+    # Only an explicitly reviewed carrier changes this one literal false -> true.
+    # Image source stays the literal source revision, never github.sha/carrier.
+    if: >-
+      true &&
+      success() &&
+      github.event_name == 'push' &&
+      github.repository == 'bandssz/shrigma-dash-cx' &&
+      github.ref == 'refs/heads/codex/crm-stack-images-710ffb4-20261005' &&
+      contains(github.event.head_commit.message, '[publish-crm-stack-710ffb49f6c065072c8c073ef8269f8c33b589b7]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [portal, campaign, read, writer, template]
+    concurrency:
+      group: crm-stack-image-${{ matrix.kind }}-710ffb49f6c065072c8c073ef8269f8c33b589b7
+      cancel-in-progress: false
+    steps:
+      - name: Obter a fonte literal aprovada
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: '710ffb49f6c065072c8c073ef8269f8c33b589b7'
+          path: source
+          persist-credentials: false
+      - name: Obter somente o código público do carrier
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          path: carrier
+          persist-credentials: false
+      - name: Reconfirmar CI terminal da mesma fonte
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py gate '${{ matrix.kind }}'
+      - name: Construir e conferir o objeto exato que será publicado
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py build '${{ matrix.kind }}'
+      - name: Publicar somente a tag própria cuja ausência foi confirmada
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py publish '${{ matrix.kind }}'
+      - name: Pull anônimo por digest e mesma prova OCI
+        run: python3 carrier/tools/crm-stack-image-publication/image-job.py anonymous '${{ matrix.kind }}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-stack-published-${{ matrix.kind }}-710ffb49f6c065072c8c073ef8269f8c33b589b7-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/crm-stack-${{ matrix.kind }}-proof/
+          if-no-files-found: error
+          retention-days: 7
