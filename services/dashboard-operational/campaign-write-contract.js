@@ -9,16 +9,6 @@ const CampaignContract=(()=>{
  const array=v=>Array.isArray(v)?v:[];
  const positive=v=>Number.isSafeInteger(v)&&v>0;
  const utc=v=>{if(typeof v!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(v)||!Number.isFinite(Date.parse(v)))error('SCHEDULE_TIMEZONE','Informe data e hora com fuso horário.','send_at');const clock=v.slice(11,19).split(':').map(Number);if(clock[0]>23||clock[1]>59||(clock.length>2&&clock[2]>59))error('SCHEDULE_TIMEZONE','Informe uma hora válida com fuso horário.','send_at');const [y,m,d]=v.slice(0,10).split('-').map(Number),day=new Date(Date.UTC(y,m-1,d));if(day.getUTCFullYear()!==y||day.getUTCMonth()!==m-1||day.getUTCDate()!==d)error('SCHEDULE_TIMEZONE','Informe uma data válida com fuso horário.','send_at');return new Date(v).toISOString();};
- // Admission for NEW sends only. Historical normalization/receipts stay intact.
- function senderProfile(brand,confirmed={}){
-  const domain=['fish','aristo'].includes(brand)?BRANDS[brand]:null,allowed=domain?['avisos@'+domain,'avisos@marketing.'+domain]:[];
-  return {brand,from:allowed.filter(v=>Array.isArray(confirmed?.[brand])&&confirmed[brand].includes(v)),reply_to:domain?'contato@'+domain:null};
- }
- function senderIdentityAllowed(brand,from,reply,confirmed={}){
-  if(typeof from!=='string'||from.length>254||/[\u0000-\u001f\u007f]/.test(from)||typeof reply!=='string'||/[\u0000-\u001f\u007f]/.test(reply))return false;
-  const address=from.match(/^([^\s<>@]+@[^\s<>@]+)$/)?.[1]||from.match(/^[^<>\r\n]+<([^\s<>@]+@[^\s<>@]+)>$/)?.[1],profile=senderProfile(brand,confirmed);
-  return !!address&&profile.from.includes(address.toLowerCase())&&reply.toLowerCase()===profile.reply_to;
- }
  function normalize(input){
   if(!input||typeof input!=='object'||Array.isArray(input))error('DEFINITION_INVALID','Informe a campanha em JSON.');
   if(input.schema_version!==VERSION)error('CONTRACT_VERSION','Versão do contrato de campanha incompatível.','schema_version');
@@ -113,6 +103,6 @@ const CampaignContract=(()=>{
   const d=current?.definition||current;
   return current?.id===185&&d?.brand==='aristo'||/^\s*\[TESTE\]/i.test(d?.name||'')||/^\s*\[TESTE\]/i.test(d?.subject||'')||array(d?.tags).includes('crm-internal-test');
  }
- return {senderProfile,senderIdentityAllowed,VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,preflight,prepare,schedule,cancel,request,isInternalTest};
+ return {VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,preflight,prepare,schedule,cancel,request,isInternalTest};
 })();
 if(typeof module!=='undefined')module.exports=CampaignContract;
