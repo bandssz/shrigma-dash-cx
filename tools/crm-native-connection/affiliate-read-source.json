@@ -480,8 +480,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 32986,
-      "sha256": "8ed3cd1575cbfb554a6a533c00e51b6ef10cd2689b469462570e6a016eb0949f"
+      "bytes": 33050,
+      "sha256": "f0c5d39c4e34ca130658dde6e8e075d16b6579231682daf5fed08fc9bdb17d6a"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
