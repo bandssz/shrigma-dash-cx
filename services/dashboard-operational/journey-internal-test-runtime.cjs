@@ -4,8 +4,9 @@
 const {createHash}=require('node:crypto'),UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
 const hash=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+const Identity=require('./campaign-write-contract.js');
 const Window=require('./journey-send-window.cjs'),WINDOW_CONTRACT='journey-send-window-v1';
-function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,getSendWindow,currentIdentity,getBinding,send,getModelPiece,getHtmlBinding,sendHtml,now=Date.now,timeoutMs=15000}={}){
+function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,getSendWindow,currentIdentity,getBinding,send,getModelPiece,getHtmlBinding,sendHtml,now=Date.now,timeoutMs=15000,confirmedSenders={}}={}){
  if(!db?.exec||!db.prepare||[authorize,authorizeRead,getDraft,currentIdentity,getBinding,send,now].some(v=>typeof v!=='function')||!engine?.validateDraft||!Number.isInteger(timeoutMs)||timeoutMs<5||timeoutMs>30000)fail('TEST_CONFIG_INVALID',503);
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_test_v1(request_id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL,draft_json TEXT NOT NULL,identity_hash TEXT NOT NULL,binding_hash TEXT NOT NULL,started_at INTEGER NOT NULL,status TEXT NOT NULL,cursor INTEGER NOT NULL DEFAULT 0,paused INTEGER NOT NULL DEFAULT 0,purchase INTEGER NOT NULL DEFAULT 0,opt_out INTEGER NOT NULL DEFAULT 0);CREATE TABLE IF NOT EXISTS journey_internal_attempt_v1(attempt_key TEXT PRIMARY KEY,request_id TEXT NOT NULL REFERENCES journey_internal_test_v1(request_id),step_id TEXT NOT NULL,state TEXT NOT NULL,code TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)");
  // Compatibility release only: there is deliberately no adoption writer yet.
@@ -14,6 +15,7 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,getS
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_revision_v2(request_id TEXT NOT NULL REFERENCES journey_internal_test_v1(request_id),revision INTEGER NOT NULL,expected_revision INTEGER NOT NULL,frozen_cursor INTEGER NOT NULL,baseline_sha256 TEXT NOT NULL,draft_json TEXT NOT NULL,adopted_at INTEGER NOT NULL,PRIMARY KEY(request_id,revision))");
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_contract_v2(request_id TEXT NOT NULL REFERENCES journey_internal_test_v1(request_id),contract TEXT NOT NULL,minimum_runner INTEGER NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(request_id,contract))");
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_send_window_v1(request_id TEXT PRIMARY KEY REFERENCES journey_internal_test_v1(request_id),draft_sha256 TEXT NOT NULL,policy_json TEXT NOT NULL,policy_sha256 TEXT NOT NULL)");
+ const senders=Object.freeze(Object.fromEntries(['fish','aristo'].map(b=>[b,Object.freeze(Identity.senderProfile(b,confirmedSenders).from)]))),senderReady=brand=>Identity.senderProfile(brand,senders).from.length>0;
  const HTML_CONTRACT='journey-html-test-v1',htmlConfigured=[getModelPiece,getHtmlBinding,sendHtml].every(f=>typeof f==='function');
  const snapshots=require('./journey-internal-html-snapshot.cjs').createSnapshots({db,getModelPiece:typeof getModelPiece==='function'?getModelPiece:()=>fail('TEST_HTML_BINDING_REQUIRED',503)});
  db.exec("CREATE TABLE IF NOT EXISTS journey_internal_html_job_v1(request_id TEXT PRIMARY KEY REFERENCES journey_internal_test_v1(request_id),binding_hash TEXT NOT NULL)");
@@ -61,6 +63,7 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,getS
   const who=identity(u.id,brand),b=binding(brand),d=getDraft(context,brand,draftId);engine.validateDraft(d);if(d.id!==draftId||d.brand!==brand||d.revision!==version)fail('TEST_DRAFT_CHANGED',409);
   const isHtml=models!==undefined;if(isHtml){htmlIdentity(u.id,brand);if(!htmlConfigured)fail('TEST_HTML_BINDING_REQUIRED',503);htmlBinding(brand);}
   return transaction(()=>{const fresh=getDraft(context,brand,draftId);engine.validateDraft(fresh);if(hash(fresh)!==hash(d))fail('TEST_DRAFT_CHANGED',409);const selectedWindow=typeof getSendWindow==='function'?getSendWindow(context,brand,draftId,version):null,window=typeof getSendWindow==='function'?Window.normalize(selectedWindow??Window.DEFAULT):null,frozen=isHtml?snapshots.prepare(context,{brand,draft:d,models}):null;const old=find(requestId);if(old){const prior=JSON.parse(old.draft_json);if(old.user_id!==u.id||old.brand!==brand||prior.id!==draftId||prior.revision!==version||isHtml!==htmlMarker(requestId)||hash(window)!==hash(frozenWindow(old)))fail('TEST_REQUEST_CHANGED',409);if(isHtml&&hash(snapshots.references(frozenHtml(old).snapshots))!==hash(snapshots.references(frozen)))fail('TEST_REQUEST_CHANGED',409);return summary(old);}
+   if(!senderReady(brand))fail('TEST_SENDER_UNVERIFIED',409);
    const sameVersion=db.prepare("SELECT 1 FROM journey_internal_test_v1 t WHERE t.user_id=? AND t.brand=? AND json_extract(t.draft_json,'$.id')=? AND (json_extract(t.draft_json,'$.revision')=? OR EXISTS(SELECT 1 FROM journey_internal_revision_v2 p WHERE p.request_id=t.request_id AND p.revision=?))").get(u.id,brand,draftId,version,version);
    if(sameVersion)fail('TEST_VERSION_ALREADY_RUN',409);
    // UI already prevents overlapping revisions. Enforce it here too, across
@@ -76,8 +79,8 @@ function createRunner({db,engine,authorize,authorizeRead=authorize,getDraft,getS
  const startHtml=(context,args)=>{if(!Array.isArray(args?.models))fail('TEST_HTML_MODELS_REQUIRED',400);return startPlan(context,args,args.models);};
  const inspect=(context,{brand,requestId})=>summary(owner(context,brand,requestId));
  function availability(context,brand){
-  try{const u=authorize(context,brand);identity(u.id,brand);binding(brand);let htmlAvailable=false;try{htmlAvailable=htmlConfigured&&!!htmlIdentity(u.id,brand)&&!!htmlBinding(brand);}catch{}return {available:true,htmlAvailable,mode:'internal',recipient:'current-corporate-account',productionAudienceSelected:false};}
-  catch(e){return {available:false,mode:'internal',error:['TEST_TX_BINDING_REQUIRED','TEST_INTERNAL_IDENTITY_REQUIRED'].includes(e?.code)?e.code:'TEST_WRITE_REQUIRED',productionAudienceSelected:false};}
+  try{const u=authorize(context,brand);identity(u.id,brand);binding(brand);if(!senderReady(brand))fail('TEST_SENDER_UNVERIFIED',503);let htmlAvailable=false;try{htmlAvailable=htmlConfigured&&!!htmlIdentity(u.id,brand)&&!!htmlBinding(brand);}catch{}return {available:true,htmlAvailable,mode:'internal',recipient:'current-corporate-account',productionAudienceSelected:false};}
+  catch(e){return {available:false,mode:'internal',error:['TEST_TX_BINDING_REQUIRED','TEST_INTERNAL_IDENTITY_REQUIRED','TEST_SENDER_UNVERIFIED'].includes(e?.code)?e.code:'TEST_WRITE_REQUIRED',productionAudienceSelected:false};}
  }
  function list(context,brand){const u=authorizeRead(context,brand);return db.prepare('SELECT * FROM journey_internal_test_v1 WHERE user_id=? AND brand=? ORDER BY started_at DESC,request_id LIMIT 50').all(u.id,brand).map(summary);}
  function control(context,{brand,requestId,paused,purchase,optOut}){
