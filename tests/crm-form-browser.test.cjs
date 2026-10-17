@@ -4,10 +4,11 @@ const {test,before,after}=require('node:test'),assert=require('node:assert/stric
 const root=path.resolve(__dirname,'../services/dashboard-operational/public/crm-preview'),delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 let server,chrome,profile,client,origin,chromeError='',browserVersion;
 class CDP{
- constructor(socket){this.socket=socket;this.next=0;this.pending=new Map();this.events=[];socket.addEventListener('message',event=>{const data=JSON.parse(String(event.data));if(data.id){const call=this.pending.get(data.id);if(!call)return;this.pending.delete(data.id);data.error?call.reject(Error(data.error.message)):call.resolve(data.result);}else for(const listener of this.events)listener(data);});}
- call(method,params={},sessionId){return new Promise((resolve,reject)=>{const id=++this.next;this.pending.set(id,{resolve,reject});this.socket.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));});}
+ constructor(socket){this.socket=socket;this.next=0;this.pending=new Map();this.events=[];socket.addEventListener('message',event=>{const data=JSON.parse(String(event.data));if(data.id){const call=this.pending.get(data.id);if(!call)return;this.pending.delete(data.id);clearTimeout(call.timer);data.error?call.reject(Error(data.error.message)):call.resolve(data.result);}else for(const listener of this.events)listener(data);});socket.addEventListener('close',()=>this.fail(Error('CDP_CLOSED')));socket.addEventListener('error',()=>this.fail(Error('CDP_SOCKET_ERROR')));}
+ fail(error){for(const call of this.pending.values()){clearTimeout(call.timer);call.reject(error);}this.pending.clear();}
+ call(method,params={},sessionId,timeout=8000){return new Promise((resolve,reject)=>{if(this.socket.readyState!==WebSocket.OPEN){reject(Error('CDP_NOT_OPEN'));return;}const id=++this.next,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('CDP_TIMEOUT '+method));},timeout);this.pending.set(id,{resolve,reject,timer});try{this.socket.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));}catch(error){clearTimeout(timer);this.pending.delete(id);reject(error);}});}
  async evaluate(sessionId,expression){const data=await this.call('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},sessionId);if(data.exceptionDetails)throw Error(data.exceptionDetails.exception?.description||data.exceptionDetails.text);return data.result.value;}
- close(){this.socket.close();for(const call of this.pending.values())call.reject(Error('CDP_CLOSED'));this.pending.clear();}
+ close(){this.fail(Error('CDP_CLOSED'));this.socket.close();}
 }
 function fixtureHtml(brand){
  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/tabler.min.css"></head><body><main class="container-xl py-3"><button id="new-campaign" type="button" class="btn btn-outline-primary">Nova campanha</button><button id="new-audience" type="button" hidden>Novo público</button>'+['crm-pending','campaign-editor','audience-editor','campaign-drafts','audience-draft-status','campaign-draft-status'].map(id=>'<div id="'+id+'"></div>').join('')+'</main><script src="/model-library.js"></script><script src="/model-import.js"></script><script src="/drafts.js"></script><script>('+browserFixture.toString()+')('+JSON.stringify(brand)+');</script></body></html>';
@@ -40,24 +41,30 @@ before(async()=>{
   const url=new URL(request.url,'http://synthetic.invalid');
   if(request.method!=='GET'){response.writeHead(405).end();return;}
   if(url.pathname==='/case.html'&&['fish','aristo'].includes(url.searchParams.get('brand'))){response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'}).end(fixtureHtml(url.searchParams.get('brand')));return;}
-  const allowed={'/drafts.js':'drafts.js','/model-library.js':'model-library.js','/model-import.js':'model-import.js','/tabler.min.css':'vendor/tabler.min.css'},file=allowed[url.pathname];
+  const allowed={'/drafts.js':'drafts.js','/model-library.js':'model-library.js','/model-import.js':'model-import.js','/tabler.min.css':'../afiliados-preview/vendor/tabler.min.css'},file=allowed[url.pathname];
   if(!file){response.writeHead(404).end();return;}
-  response.writeHead(200,{'Content-Type':file.endsWith('.css')?'text/css':'text/javascript'}).end(fs.readFileSync(path.join(root,file)));
+  try{const body=fs.readFileSync(path.join(root,file));response.writeHead(200,{'Content-Type':file.endsWith('.css')?'text/css':'text/javascript'}).end(body);}catch{response.writeHead(500).end('FIXTURE_ASSET_UNAVAILABLE');}
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));origin='http://127.0.0.1:'+server.address().port;
  profile=fs.mkdtempSync(path.join(os.tmpdir(),'crm-form-browser-'));
  chrome=spawn(process.env.CHROME_BIN||'google-chrome',['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update','--disable-sync','--disable-extensions','--disable-gpu','about:blank'],{stdio:['ignore','ignore','pipe']});
  chrome.stderr.on('data',data=>{chromeError=(chromeError+data.toString()).slice(-4000);});
  let startupError;chrome.on('error',error=>startupError=error);
- const file=path.join(profile,'DevToolsActivePort');for(let i=0;i<300&&!fs.existsSync(file);i++){if(startupError)throw startupError;if(chrome.exitCode!==null)throw Error('CHROME_EXIT '+chrome.exitCode+' '+chromeError);await delay(100);}
+ const file=path.join(profile,'DevToolsActivePort');for(let i=0;i<300&&!fs.existsSync(file);i++){if(startupError)throw startupError;if(chrome.exitCode!==null||chrome.signalCode!==null)throw Error('CHROME_EXIT '+chrome.exitCode+' '+chromeError);await delay(100);}
  assert.ok(fs.existsSync(file),'Chrome debugging endpoint was not ready');
  const [port,endpoint]=fs.readFileSync(file,'utf8').trim().split('\n'),socket=new WebSocket('ws://127.0.0.1:'+port+endpoint);
  await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',reject,{once:true});});client=new CDP(socket);
  browserVersion=await client.call('Browser.getVersion');console.log(JSON.stringify({proof:'synthetic-form-browser',node:process.version,chrome:browserVersion.product,source:'branch-workspace',production:false}));
 }, {timeout:45000});
 after(async()=>{
- try{if(client)await client.call('Browser.close');}catch{}client?.close();if(chrome&&chrome.exitCode===null){chrome.kill('SIGTERM');for(let i=0;i<50&&chrome.exitCode===null;i++)await delay(100);if(chrome.exitCode===null)chrome.kill('SIGKILL');}
- if(server)await new Promise(resolve=>server.close(resolve));if(profile)fs.rmSync(profile,{recursive:true,force:true});
-});
+ try{if(client)await client.call('Browser.close',{},undefined,2000);}catch{}
+ finally{
+  client?.close();const running=()=>chrome&&chrome.exitCode===null&&chrome.signalCode===null;
+  if(running()){chrome.kill('SIGTERM');for(let i=0;i<50&&running();i++)await delay(100);if(running()){chrome.kill('SIGKILL');for(let i=0;i<30&&running();i++)await delay(100);}}
+  if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+  if(profile&&!running())fs.rmSync(profile,{recursive:true,force:true,maxRetries:3,retryDelay:100});
+  assert.equal(Boolean(running()),false,'Chrome must exit before removing the temporary profile');
+ }
+}, {timeout:15000});
 for(const brand of ['fish','aristo'])for(const width of [1440,390])test('native browser retains campaign form semantics '+brand+' '+width,{timeout:45000},async()=>{
  const target=await client.call('Target.createTarget',{url:'about:blank'}),attached=await client.call('Target.attachToTarget',{targetId:target.targetId,flatten:true}),session=attached.sessionId,external=[];
  const requestListener=event=>{if(event.sessionId!==session||event.method!=='Fetch.requestPaused')return;const p=event.params,url=p.request.url;const local=url.startsWith(origin+'/');if(!local)external.push(new URL(url).origin);client.call(local?'Fetch.continueRequest':'Fetch.failRequest',local?{requestId:p.requestId}:{requestId:p.requestId,errorReason:'BlockedByClient'},session).catch(()=>{});};
@@ -66,7 +73,7 @@ for(const brand of ['fish','aristo'])for(const width of [1440,390])test('native 
   await client.call('Page.enable',{},session);await client.call('Runtime.enable',{},session);await client.call('Fetch.enable',{patterns:[{urlPattern:'*'}]},session);
   await client.call('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width===390},session);
   await client.call('Page.navigate',{url:origin+'/case.html?brand='+brand},session);
-  let ready=false;for(let i=0;i<150;i++){ready=await client.evaluate(session,"Boolean(document.querySelector('#campaign-draft-form')&&window.fixtureCommands?.some(p=>p.acao==='campanha_teste_historico'))");if(ready)break;await delay(40);}assert.equal(ready,true,'real editor did not render');
+  let ready=false;for(let i=0;i<150;i++){ready=await client.evaluate(session,"Boolean(document.querySelector('#campaign-draft-form')&&window.fixtureCommands?.some(p=>p.acao==='campanha_teste_historico')&&[...document.styleSheets].some(sheet=>sheet.cssRules.length>0))");if(ready)break;await delay(40);}assert.equal(ready,true,'real editor did not render');
   const before=await client.evaluate(session,"(()=>{const f=document.getElementById('campaign-draft-form');return {steps:[...f.querySelectorAll('[data-campaign-step]')].map(x=>({n:x.dataset.campaignStep,y:x.getBoundingClientRect().top})),forms:document.querySelectorAll('#campaign-draft-form').length,saves:f.querySelectorAll('button[type=submit]').length,from:document.getElementById('draft-from_email').value,reply:document.getElementById('draft-reply_to').value,lists:[...f.querySelectorAll('[name=draft-list]:checked')].map(x=>Number(x.value)),native:!!document.getElementById('campaign-native'),overflow:document.documentElement.scrollWidth>innerWidth};})()");
   assert.deepEqual(before.steps.map(x=>x.n),['1','2','3','4']);assert.ok(before.steps.every((step,index)=>index===0||step.y>before.steps[index-1].y));assert.equal(before.forms,1);assert.equal(before.saves,1);assert.equal(before.native,false);assert.equal(before.overflow,false);
   const domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com';assert.equal(before.from,'marca@'+domain);assert.equal(before.reply,'respostas@'+domain);assert.deepEqual(before.lists,[7]);
