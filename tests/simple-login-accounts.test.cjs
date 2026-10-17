@@ -18,6 +18,32 @@ async function fixture({legacy=false,adminWrite=false}={}){
  const login=await auth.login({email:options.bootstrapAdminEmail,password:PASSWORD,host:HOST,origin:ORIGIN,ip:'synthetic'});
  return {options,get auth(){return auth;},dbPath,admin:context(login),adminLogin:login,setTime:t=>{time=t;},reopen(simpleReadMode){auth.close();auth=createAuth({...options,simpleReadMode});},close(){auth.close();fs.rmSync(directory,{recursive:true,force:true});}};
 }
+test('journey model selections append atomically with draft revision and survive restart without changing legacy payload',async()=>{
+ const f=await fixture({adminWrite:true}),engine=require(runtime+'/public/crm-preview/journey-engine.js'),Input=require(runtime+'/model-piece-input.cjs');
+ try{
+  const db=new DatabaseSync(f.dbPath),before={};
+  for(const brand of ['aristo','fish']){
+   const draft=engine.createDraft({brand,id:'persisted-model-'+brand}),store={schema:engine.SCHEMA,drafts:[draft],runs:[]};
+   const initial=f.auth.simpleAccounts.labSave({context:f.admin,brand,expected_revision:0,store});assert.deepEqual(initial.modelRefs,[]);
+   const old=JSON.stringify(db.prepare('SELECT * FROM simple_journey_lab_revision_v1 WHERE brand=?').all(brand));before[brand]=old;
+   const piece=f.auth.simpleAccounts.modelPieces.append({context:f.admin,brand,body:{acao:'rascunho',idempotency_key:crypto.randomUUID(),rascunho:Input.prepare({name:'Peça '+brand,subject:'Assunto',format:'html',content:'<h1>'+brand+'</h1>'},brand)}}).operation.response.body.draft_id;
+   const refs=[{draftId:draft.id,stepId:draft.steps[0].id,pieceId:piece,version:1}];
+   const saved=f.auth.simpleAccounts.labSave({context:f.admin,brand,expected_revision:1,store,modelRefs:refs});assert.equal(saved.revision,2);assert.deepEqual(saved.store,store);assert.deepEqual(saved.modelRefs,refs);
+   assert.deepEqual(engine.readStore(db.prepare('SELECT payload_json FROM simple_journey_lab_revision_v1 WHERE brand=? AND revision=2').get(brand).payload_json),store);
+   assert.equal(JSON.stringify(db.prepare('SELECT * FROM simple_journey_lab_revision_v1 WHERE brand=? AND revision=1').all(brand)),old);
+   for(const bad of [[refs[0],refs[0]],[{...refs[0],version:2}],[{...refs[0],stepId:'wrong'}],[{...refs[0],recipient:'client@external.invalid'}]])assert.throws(()=>f.auth.simpleAccounts.labSave({context:f.admin,brand,expected_revision:2,store,modelRefs:bad}));
+   assert.equal(db.prepare('SELECT count(*) n FROM simple_journey_lab_revision_v1 WHERE brand=?').get(brand).n,2);assert.equal(db.prepare('SELECT count(*) n FROM simple_journey_lab_models_v1 WHERE brand=?').get(brand).n,2);
+   assert.throws(()=>f.auth.simpleAccounts.labSave({context:f.admin,brand,expected_revision:1,store,modelRefs:refs}),e=>e.code==='LAB_VERSION_CHANGED');
+  }
+  db.close();f.reopen(true);
+  for(const brand of ['aristo','fish']){const saved=f.auth.simpleAccounts.labRead({context:f.admin,brand});assert.equal(saved.modelRefs.length,1);assert.equal(saved.revision,2);assert.equal(saved.store.drafts[0].brand,brand);}
+  const aristo=f.auth.simpleAccounts.labRead({context:f.admin,brand:'aristo'}),fish=f.auth.simpleAccounts.labRead({context:f.admin,brand:'fish'});
+  assert.throws(()=>f.auth.simpleAccounts.labSave({context:f.admin,brand:'aristo',expected_revision:2,store:aristo.store,modelRefs:[{...aristo.modelRefs[0],pieceId:fish.modelRefs[0].pieceId}]}),e=>e.code==='PIECE_NOT_FOUND');
+  // A previous client saves the unchanged, backwards-compatible payload. Its
+  // absent selection metadata is not inferred from an older revision.
+  const legacy=f.auth.simpleAccounts.labSave({context:f.admin,brand:'aristo',expected_revision:2,store:aristo.store});assert.deepEqual(legacy.modelRefs,[]);assert.deepEqual(legacy.store,aristo.store);
+ }finally{f.close();}
+});
 test('writing is an explicit subset of fronts and never expands the sibling Influs front',async()=>{
  const f=await fixture();try{
   const created=await f.auth.simpleAccounts.create({context:f.admin,email:'writer@synthetic.invalid',password:PASSWORD,jobTitle:'analista de Afiliados',fronts:['influs','afiliados'],brands:['fish'],writeFronts:['afiliados']});

@@ -480,8 +480,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 49335,
-      "sha256": "d31eb502ec360e46723cedec709c7536c954cd8257f03a3152c1df69b9630ec8"
+      "bytes": 53400,
+      "sha256": "fd50e325b69c44d482c64c9a04e26c817cbd3749d2f92636f27d5cc10cebbcf5"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-import.js",
@@ -570,8 +570,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 213112,
-      "sha256": "8f294872e06be31a468253dc3914d9152eaa75553a950ae686d656c151d6b91a"
+      "bytes": 213165,
+      "sha256": "9fbd12d4e53013dc2f558904014140f9640ef9e208f3ba76b7f0fbaadd0afac5"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -605,8 +605,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
-      "bytes": 21246,
-      "sha256": "3c676a25f67ac9eb50df4417c239234e19816df68416f764d4b9c71d9f455836"
+      "bytes": 23191,
+      "sha256": "0e3d0162ae77519f88e907c8a737f53d5d5c11dac1982b9be78328a0ff85087b"
     },
     {
       "path": "services/dashboard-operational/simple-tts-manual.cjs",
@@ -905,8 +905,8 @@
     },
     {
       "path": "tests/journey-html-ui.test.cjs",
-      "bytes": 8043,
-      "sha256": "f38be80e69e7e80602d80457555ab18d1488f4c7e4bdc2a39e220422a56b29bd"
+      "bytes": 11982,
+      "sha256": "b3d64d9f68bc741648d2e7a6705f8e9ad8de8807590b9542a8acecdc152821f7"
     },
     {
       "path": "tests/journey-internal-test.test.cjs",
@@ -1040,8 +1040,8 @@
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
-      "bytes": 22610,
-      "sha256": "a4c01f1c527f2ef38b8e9b7479c40609d5012d41abd3388d8e6584101ab8a288"
+      "bytes": 25931,
+      "sha256": "63cfa6650aa1426c6170d019e1ffecb23b85ee8e68d5cf543df72a46b5ceb0d1"
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",

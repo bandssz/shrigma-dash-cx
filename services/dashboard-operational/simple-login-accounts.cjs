@@ -73,7 +73,8 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
  CREATE UNIQUE INDEX IF NOT EXISTS simple_affiliate_edits_pending_v1 ON simple_affiliate_edits_v1(brand,candidate_id) WHERE state IN ('reserved','uncertain');`);
  // Test drafts only. Reuses the login database; never enrolls or sends.
  db.exec(`CREATE TABLE IF NOT EXISTS simple_journey_lab_v1(user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),revision INTEGER NOT NULL CHECK(revision>0),payload_json TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,brand));
- CREATE TABLE IF NOT EXISTS simple_journey_lab_revision_v1(user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),revision INTEGER NOT NULL CHECK(revision>0),payload_json TEXT NOT NULL,baseline_sha256 TEXT NOT NULL CHECK(length(baseline_sha256)=64),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,brand,revision));`);
+ CREATE TABLE IF NOT EXISTS simple_journey_lab_revision_v1(user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),revision INTEGER NOT NULL CHECK(revision>0),payload_json TEXT NOT NULL,baseline_sha256 TEXT NOT NULL CHECK(length(baseline_sha256)=64),created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(user_id,brand,revision));
+ CREATE TABLE IF NOT EXISTS simple_journey_lab_models_v1(user_id TEXT NOT NULL,brand TEXT NOT NULL,revision INTEGER NOT NULL,refs_json TEXT NOT NULL,PRIMARY KEY(user_id,brand,revision),FOREIGN KEY(user_id,brand,revision) REFERENCES simple_journey_lab_revision_v1(user_id,brand,revision));`);
  const find=id=>db.prepare('SELECT * FROM users WHERE id=?').get(id);
  const stamp=()=>{const t=now();if(!Number.isSafeInteger(t)||t<0)fail('CLOCK_INVALID',500);return t;};
  const snapshot=row=>JSON.stringify([row?.id,row?.role,row?.state,row?.password_hash,row?.updated_at,row?.job_title,row?.simple_fronts_json,row?.simple_brands_json,row?.simple_write_fronts_json]);
@@ -168,13 +169,26 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   if(revision&&(revision.baseline_sha256!==baselineHash||baseline&&baseline.revision>=revision.revision))fail('LAB_BASELINE_CHANGED',409);
   return {row:revision||baseline,baselineHash};
  }
+ // Model references accompany a saved revision without changing the historical
+ // draft/run format. Previous releases can still read every saved draft.
+ function labModelRefs(context,brand,store,refs,checkPieces=false){
+  if(!Array.isArray(refs)||refs.length>100)fail('LAB_MODELS_INVALID');const seen=new Set();
+  const result=refs.map(ref=>{
+   if(!ref||Object.getPrototypeOf(ref)!==Object.prototype||Object.keys(ref).sort().join(',')!=='draftId,pieceId,stepId,version'||typeof ref.draftId!=='string'||typeof ref.stepId!=='string'||!/^d_piece_[a-f0-9]{32}$/.test(ref.pieceId||'')||ref.version!==1)fail('LAB_MODELS_INVALID');
+   const draft=store.drafts.find(d=>d.id===ref.draftId),key=JSON.stringify([ref.draftId,ref.stepId]);if(!draft?.steps.some(s=>s.id===ref.stepId)||seen.has(key))fail('LAB_MODELS_INVALID');seen.add(key);
+   if(checkPieces)modelPieces.internalTestSnapshot(context,brand,ref.pieceId,ref.version);
+   return {draftId:ref.draftId,stepId:ref.stepId,pieceId:ref.pieceId,version:ref.version};
+  });return result.sort((a,b)=>a.draftId<b.draftId?-1:a.draftId>b.draftId?1:a.stepId<b.stepId?-1:a.stepId>b.stepId?1:0);
+ }
  function labRead({context,brand}){
   const user=labOwner(context,brand),row=labHead(user.id,brand).row;
   const engine=require('./public/crm-preview/journey-engine.js'),store=engine.readStore(row?.payload_json??null);
   if(store.drafts.some(d=>d.brand!==brand)||store.runs.some(r=>r.draft.brand!==brand))fail('LAB_STORAGE_INVALID',503);
-  return {persistence:'server',userId:user.id,brand,revision:row?.revision||0,store,savedAt:row?new Date(row.updated_at).toISOString():null,executes:false};
+  const savedRefs=row&&db.prepare('SELECT refs_json FROM simple_journey_lab_models_v1 WHERE user_id=? AND brand=? AND revision=?').get(user.id,brand,row.revision);
+  const modelRefs=labModelRefs(context,brand,store,savedRefs?JSON.parse(savedRefs.refs_json):[]);
+  return {persistence:'server',userId:user.id,brand,revision:row?.revision||0,store,modelRefs,savedAt:row?new Date(row.updated_at).toISOString():null,executes:false};
  }
- function labSave({context,brand,expected_revision,store}){
+ function labSave({context,brand,expected_revision,store,modelRefs=[]}){
   const user=labOwner(context,brand,true);
   if(!Number.isSafeInteger(expected_revision)||expected_revision<0||expected_revision>=2147483647)fail('LAB_REVISION_INVALID');
   const serialized=JSON.stringify(store),checked=require('./public/crm-preview/journey-engine.js').readStore(serialized);
@@ -183,7 +197,9 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
    if(labOwner(context,brand,true).id!==user.id)fail('LAB_ACCESS_CHANGED',403);
    const head=labHead(user.id,brand),row=head.row;
    if((row?.revision||0)!==expected_revision)fail('LAB_VERSION_CHANGED',409);
+   const refs=labModelRefs(context,brand,checked,modelRefs,true);
    const t=stamp();db.prepare('INSERT INTO simple_journey_lab_revision_v1(user_id,brand,revision,payload_json,baseline_sha256,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(user.id,brand,expected_revision+1,serialized,head.baselineHash,t,t);
+   db.prepare('INSERT INTO simple_journey_lab_models_v1(user_id,brand,revision,refs_json) VALUES(?,?,?,?)').run(user.id,brand,expected_revision+1,JSON.stringify(refs));
    return labRead({context,brand});
   });
  }
