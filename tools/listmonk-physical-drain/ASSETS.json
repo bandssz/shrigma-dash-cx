@@ -1,0 +1,30 @@
+{
+  "files": {
+    "cmd/main.go": {
+      "bytes": 12469,
+      "sha256": "b4fd82023c14910efbdc832a9d022c80551c8c72f5ae7346034e2afb245655b3"
+    },
+    "internal/manager/manager.go": {
+      "bytes": 19330,
+      "sha256": "820b1cca6753ac57c89a54b0e7fcbbb207d91aa3c1d845ffffe8663b87f4dcbf"
+    },
+    "internal/manager/physical_drain.go": {
+      "bytes": 3911,
+      "sha256": "1a93abf28983b23ba1d68b33cd700286c3b27c0e061b16ae3db7a2fe4cadc9f4"
+    },
+    "internal/manager/pipe.go": {
+      "bytes": 10573,
+      "sha256": "6709971248d526063c80b206ad1ff91f75f9d620b6c938cea685353fe83d921c"
+    },
+    "internal/messenger/email/email.go": {
+      "bytes": 4978,
+      "sha256": "2ae0e26e9a0dc986b5a34c1374e13c83e7f73415b5cdcb7191b733bcd0043ec6"
+    },
+    "internal/messenger/email/physical_drain.go": {
+      "bytes": 1049,
+      "sha256": "593602afc6dbbb42acd672b5ee86178492d74fe842f9dedc0b02e3c72fd1bd68"
+    }
+  },
+  "schema": "physical-drain-full-transform-assets-v1",
+  "sourceOnly": true
+}

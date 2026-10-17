@@ -1,12 +1,16 @@
 package smtppool
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/smtp"
+	"net/textproto"
+	"syscall"
 	"time"
 )
 
@@ -22,8 +26,72 @@ const (
 
 // GuardedSendResult is intentionally small. Callers must use Outcome, rather
 // than error text, to decide whether reconciliation is required.
+// GuardedPhase and GuardedErrorClass are closed diagnostic labels. They do not
+// authorize delivery or refine/reclassify GuardedOutcome.
+type GuardedPhase string
+
+type GuardedReplyCode int
+
+type GuardedErrorClass string
+
+const (
+	GuardedPhaseUnknown GuardedPhase = "unknown"
+	GuardedPhasePreflight GuardedPhase = "preflight"
+	GuardedPhaseBuild GuardedPhase = "message_build"
+	GuardedPhasePool GuardedPhase = "pool_acquire"
+	GuardedPhaseAuthorize GuardedPhase = "authorize"
+	GuardedPhaseDeadline GuardedPhase = "socket_deadline"
+	GuardedPhaseMail GuardedPhase = "mail"
+	GuardedPhaseRcpt GuardedPhase = "rcpt"
+	GuardedPhaseData GuardedPhase = "data_open"
+	GuardedPhaseWrite GuardedPhase = "data_write"
+	GuardedPhaseAck GuardedPhase = "data_final_reply"
+	GuardedPhaseComplete GuardedPhase = "complete"
+
+	GuardedErrorNone GuardedErrorClass = "none"
+	GuardedErrorSMTPTransient GuardedErrorClass = "smtp_transient"
+	GuardedErrorSMTPPermanent GuardedErrorClass = "smtp_permanent"
+	GuardedErrorSMTPUnexpected GuardedErrorClass = "smtp_unexpected_reply"
+	GuardedErrorTimeout GuardedErrorClass = "timeout"
+	GuardedErrorCanceled GuardedErrorClass = "canceled"
+	GuardedErrorEOF GuardedErrorClass = "eof"
+	GuardedErrorReset GuardedErrorClass = "connection_reset"
+	GuardedErrorBrokenPipe GuardedErrorClass = "broken_pipe"
+	GuardedErrorOther GuardedErrorClass = "other"
+)
+
 type GuardedSendResult struct {
 	Outcome GuardedOutcome
+	Phase GuardedPhase
+	ReplyCode GuardedReplyCode
+	ErrorClass GuardedErrorClass
+}
+
+// DiagnoseGuardedError reads only typed codes and predicates. Never call
+// Error(), format an error, or copy textproto.Error.Msg into a diagnostic.
+func DiagnoseGuardedError(err error) (GuardedReplyCode, GuardedErrorClass) {
+	if err == nil { return 0, GuardedErrorNone }
+	var reply *textproto.Error
+	if errors.As(err, &reply) && reply != nil && reply.Code >= 100 && reply.Code <= 599 {
+		code := GuardedReplyCode(reply.Code)
+		switch reply.Code / 100 {
+		case 4: return code, GuardedErrorSMTPTransient
+		case 5: return code, GuardedErrorSMTPPermanent
+		default: return code, GuardedErrorSMTPUnexpected
+		}
+	}
+	if errors.Is(err, context.Canceled) { return 0, GuardedErrorCanceled }
+	var network net.Error
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &network) && network.Timeout()) { return 0, GuardedErrorTimeout }
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) { return 0, GuardedErrorEOF }
+	if errors.Is(err, syscall.ECONNRESET) { return 0, GuardedErrorReset }
+	if errors.Is(err, syscall.EPIPE) { return 0, GuardedErrorBrokenPipe }
+	return 0, GuardedErrorOther
+}
+
+func guardedDiagnostic(outcome GuardedOutcome, phase GuardedPhase, err error) GuardedSendResult {
+	code, class := DiagnoseGuardedError(err)
+	return GuardedSendResult{Outcome: outcome, Phase: phase, ReplyCode: code, ErrorClass: class}
 }
 
 // GuardedEnvelope is the immutable, non-secret identity of the exact SMTP
@@ -45,35 +113,36 @@ type GuardedAuthorize func(GuardedEnvelope) error
 // invoked, every failure is conservatively outcome_unknown and the connection
 // is discarded. There is no retry and no fallback to Send.
 func (p *Pool) SendGuarded(e Email, authorize GuardedAuthorize) (GuardedSendResult, error) {
-	notStarted := GuardedSendResult{Outcome: GuardedNotStarted}
-	unknown := GuardedSendResult{Outcome: GuardedOutcomeUnknown}
 
 	if authorize == nil {
-		return notStarted, errors.New("guarded SMTP authorization callback is required")
+		err := errors.New("guarded SMTP authorization callback is required")
+		return guardedDiagnostic(GuardedNotStarted, GuardedPhasePreflight, err), err
 	}
 	if len(e.To) != 1 || len(e.Cc) != 0 || len(e.Bcc) != 0 {
-		return notStarted, errors.New("guarded SMTP requires exactly one To recipient and no Cc/Bcc")
+		err := errors.New("guarded SMTP requires exactly one To recipient and no Cc/Bcc")
+		return guardedDiagnostic(GuardedNotStarted, GuardedPhasePreflight, err), err
 	}
 
 	recipients, err := combineEmails(e.To, e.Cc, e.Bcc)
 	if err != nil {
-		return notStarted, err
+		return guardedDiagnostic(GuardedNotStarted, GuardedPhasePreflight, err), err
 	}
 	if len(recipients) != 1 {
-		return notStarted, errors.New("guarded SMTP requires exactly one envelope recipient")
+		err := errors.New("guarded SMTP requires exactly one envelope recipient")
+		return guardedDiagnostic(GuardedNotStarted, GuardedPhasePreflight, err), err
 	}
 	from, err := e.parseSender()
 	if err != nil {
-		return notStarted, err
+		return guardedDiagnostic(GuardedNotStarted, GuardedPhaseBuild, err), err
 	}
 	message, err := e.Bytes()
 	if err != nil {
-		return notStarted, err
+		return guardedDiagnostic(GuardedNotStarted, GuardedPhaseBuild, err), err
 	}
 
 	c, err := p.borrowGuardedConn()
 	if err != nil {
-		return notStarted, err
+		return guardedDiagnostic(GuardedNotStarted, GuardedPhasePool, err), err
 	}
 	digest := sha256.Sum256(message)
 	envelope := GuardedEnvelope{
@@ -83,7 +152,7 @@ func (p *Pool) SendGuarded(e Email, authorize GuardedAuthorize) (GuardedSendResu
 	}
 	if err := authorize(envelope); err != nil {
 		p.releaseGuardedUnused(c)
-		return notStarted, err
+		return guardedDiagnostic(GuardedNotStarted, GuardedPhaseAuthorize, err), err
 	}
 
 	// From this point onward, the result is phase-based and conservative. MAIL
@@ -91,36 +160,36 @@ func (p *Pool) SendGuarded(e Email, authorize GuardedAuthorize) (GuardedSendResu
 	c.lastActivity = time.Now()
 	if err := c.netConn.SetDeadline(time.Now().Add(p.opt.PoolWaitTimeout)); err != nil {
 		p.discardGuarded(c)
-		return notStarted, err
+		return guardedDiagnostic(GuardedNotStarted, GuardedPhaseDeadline, err), err
 	}
 	if err := c.conn.Mail(from); err != nil {
 		p.discardGuarded(c)
-		return unknown, err
+		return guardedDiagnostic(GuardedOutcomeUnknown, GuardedPhaseMail, err), err
 	}
 	if err := c.conn.Rcpt(recipients[0]); err != nil {
 		p.discardGuarded(c)
-		return unknown, err
+		return guardedDiagnostic(GuardedOutcomeUnknown, GuardedPhaseRcpt, err), err
 	}
 	w, err := c.conn.Data()
 	if err != nil {
 		p.discardGuarded(c)
-		return unknown, err
+		return guardedDiagnostic(GuardedOutcomeUnknown, GuardedPhaseData, err), err
 	}
 	if _, err := w.Write(message); err != nil {
 		// Do not close the DATA writer: Close would emit the terminating dot and
 		// could finalize a body that this caller considers incomplete.
 		p.discardGuarded(c)
-		return unknown, err
+		return guardedDiagnostic(GuardedOutcomeUnknown, GuardedPhaseWrite, err), err
 	}
 	if err := w.Close(); err != nil {
 		p.discardGuarded(c)
-		return unknown, err
+		return guardedDiagnostic(GuardedOutcomeUnknown, GuardedPhaseAck, err), err
 	}
 
 	// DATA Close returned the server's positive final reply. Pool cleanup can
 	// no longer make delivery uncertain.
 	p.returnGuardedAccepted(c)
-	return GuardedSendResult{Outcome: GuardedAccepted}, nil
+	return guardedDiagnostic(GuardedAccepted, GuardedPhaseComplete, nil), nil
 }
 
 // borrowGuardedConn mirrors the pool's capacity rules, but new connections use

@@ -106,7 +106,41 @@ def extract_smtp(path, out):
             target.chmod(0o644)
 
 
+def batch_build_inputs(args, worker_builder):
+    profile_path = getattr(args, 'batch_profile', None)
+    profile_sha = getattr(args, 'batch_profile_sha256', None)
+    profile = worker_builder.load_batch_profile(profile_path, profile_sha)
+    if profile is None:
+        return None, None
+    # SOURCE compilation needs exact composition, never a fabricated performance receipt.
+    lock_bytes = read(Path(profile['sourcePins']['builderLock']['path']), 1024 * 1024)
+    lock = json.loads(lock_bytes)
+    require(lock['worker']['regular_query_sha256'] == profile['querySha256']
+            and lock['worker']['batch_kernel_sha256'] == profile['kernelSha256'], 'Batch package lock drift')
+    return profile, lock_bytes
+
+
+def batch_package_receipt(profile, binary_sha):
+    return {'manifest_sha256': profile['manifestSha256'],
+            'composition_sha256': profile['compositionDeliverySha256'],
+            'query_sha256': profile['querySha256'], 'kernel_sha256': profile['kernelSha256'],
+            'composer_sha256': profile['sourcePins']['composer']['sha256'],
+            'performance_accepted': False,
+            'worker_transaction_sha256': profile['workerTransactionSha256'],
+            'composed_count_query_sha256': profile['composedCountQuerySha256'],
+            'composed_recipient_query_sha256': profile['composedRecipientQuerySha256'],
+            'build_receipt': {'binarySha256': binary_sha, 'querySha256': profile['querySha256'],
+                              'kernelSha256': profile['kernelSha256'],
+                              'composerSha256': profile['sourcePins']['composer']['sha256'],
+                              'workerTransactionSha256': profile['workerTransactionSha256']}}
+
+
 def build(args):
+    batch_profile, batch_lock_bytes = None, None
+    if getattr(args, 'batch_profile', None) or getattr(args, 'batch_profile_sha256', None):
+        overlay = REPO / 'tools/listmonk-regular-build'
+        worker_builder = module('regular_worker_builder', overlay / 'worker_patch.py')
+        batch_profile, batch_lock_bytes = batch_build_inputs(args, worker_builder)
     require(not args.out.exists(), 'Use a new output directory')
     args.out.mkdir(parents=True)
     source = args.out / 'source'
@@ -117,10 +151,13 @@ def build(args):
     require('github.com/knadh/smtppool/v2 v2.0.2 ' + SMTP_SUM in sums, 'SMTP dependency sum drift')
     overlay = REPO / 'tools/listmonk-regular-build'
     smtp_builder = module('regular_smtp_builder', overlay / 'build.py')
-    worker_builder = module('regular_worker_builder', overlay / 'worker_patch.py')
+    if batch_profile is None:
+        worker_builder = module('regular_worker_builder', overlay / 'worker_patch.py')
     smtp_receipt = smtp_builder.apply(listmonk, smtp)
-    worker_receipt = worker_builder.apply(listmonk, REPO)
-    lock = json.loads((overlay / 'upstream.lock.json').read_text())
+    worker_receipt = (worker_builder.apply(listmonk, REPO, args.batch_profile, args.batch_profile_sha256)
+                      if batch_profile else worker_builder.apply(listmonk, REPO))
+    lock_bytes = batch_lock_bytes if batch_profile else (overlay / 'upstream.lock.json').read_bytes()
+    lock = json.loads(lock_bytes)
     (source / 'go.work').write_text('go 1.26.1\n\nuse (\n ./listmonk\n ./smtppool\n)\n')
     env = dict(os.environ, GOTOOLCHAIN='local', GOWORK=str((source / 'go.work').resolve()),
                GOPROXY='off', GOSUMDB='off', CGO_ENABLED='0')
@@ -140,7 +177,7 @@ def build(args):
     goos, goarch = args.target.split('_')
     target_env = dict(env, GOOS=goos, GOARCH=goarch)
     raw = args.out / 'listmonk.unstuffed'
-    build_id = 'v6.1.0-crm-regular-' + sha((overlay / 'upstream.lock.json').read_bytes())[:12]
+    build_id = 'v6.1.0-crm-regular-' + sha(lock_bytes)[:12]
     graph_runtime_sha = worker_receipt['graph_cache_runtime_sha256']
     require(len(graph_runtime_sha) == 64, 'Graph cache runtime source identity required')
     command([args.go, 'build', '-trimpath', '-buildvcs=false', '-o', raw.resolve(),
@@ -205,14 +242,21 @@ def build(args):
     query_sources = source / 'query-composer'
     query_sources.mkdir()
     for name in ('segment-listmonk-selection.cjs', 'ab-listmonk-cohort-patch.cjs'):
-        shutil.copyfile(REPO / 'n8n/growth' / name, query_sources / name)
+        slot = 'composer' if name == 'segment-listmonk-selection.cjs' else 'ab'
+        shutil.copyfile(Path(batch_profile['sourcePins'][slot]['path']) if batch_profile
+                        else REPO / 'n8n/growth' / name, query_sources / name)
+    if batch_profile:
+        shutil.copyfile(batch_profile['sourcePins']['kernel']['path'], query_sources / 'segment-listmonk-selection.batch.sql')
+        (recipes / 'listmonk-regular-build/upstream.batch.lock.json').write_bytes(lock_bytes)
+        command(['node', overlay / 'materialize_batch_profile.cjs', '--profile', args.batch_profile,
+                 '--sha256', args.batch_profile_sha256, '--out', recipes / 'batch-profile'], REPO, env, timeout=30)
     (args.out / 'LICENSE').write_bytes(release['LICENSE'])
     (args.out / 'BUILDINFO.txt').write_text(raw_metadata)
     manifest = {
         'schema': 'listmonk-regular-package-v1', 'status': 'CANDIDATE_OFF_NOT_DEPLOYED',
         'target': args.target, 'go_version': '1.26.1', 'upstream_commit': lock['listmonk']['commit'],
         'upstream_source_sha256': SOURCE_SHA, 'smtppool_zip_sha256': SMTP_ZIP_SHA,
-        'source_lock_sha256': sha((overlay / 'upstream.lock.json').read_bytes()),
+        'source_lock_sha256': sha(lock_bytes),
         'compiled_prefix_sha256': sha(raw_bytes), 'binary_sha256': sha(read(binary)),
         'query_sha256': sha(query), 'asset_count': 130, 'changed_assets': changed,
         'graph_cache_runtime_sha256': graph_runtime_sha,
@@ -222,6 +266,8 @@ def build(args):
         'runtime_activation': False, 'listmonk_executed': False, 'registry_push': False,
         'production_changed': False,
     }
+    if batch_profile:
+        manifest['batch_profile'] = batch_package_receipt(batch_profile, manifest['binary_sha256'])
     (args.out / 'manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
     (args.out / 'SOURCE.md').write_text(
         '# Regular worker candidate — OFF\n\n'
@@ -250,4 +296,6 @@ if __name__ == '__main__':
     for option in ('source-archive', 'smtp-archive', 'release-cache', 'go', 'out'):
         parser.add_argument('--' + option, required=True, type=Path)
     parser.add_argument('--target', choices=('linux_amd64', 'darwin_arm64'), default='linux_amd64')
+    parser.add_argument('--batch-profile', type=Path)
+    parser.add_argument('--batch-profile-sha256')
     build(parser.parse_args())

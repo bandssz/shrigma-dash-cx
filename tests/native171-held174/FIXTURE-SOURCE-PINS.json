@@ -1,0 +1,8 @@
+{
+  "prepare.cjs": "65c2c962943776f5839eae0b3d3704b6f0c708fec1443b2473bfbb4c13ae270c",
+  "resume.atomic.sql.in": "ef8be44cab4a84b59c6729764ba3a51b47049afb9ca9fb88343bfdcb24c250bc",
+  "snapshot.private-read.sql": "38252a539ba38def746f0481e37395fd1357d35c6bc59065321cca91a0dad773",
+  "PUBLIC-FUNCTION-PINS.json": "fac062d80b0a252823ea8e877466fd7cad4121a28c92a2db9651a13f22226b68",
+  "pg-focal.test.cjs": "284c6d4d6e3447782a05a6e5f554761b9e59f23475b78a95bc9011a67606e663",
+  "prepare.test.cjs": "833adf714d88090e85f5d08e6f93862c8b62b1593c3142db2de606f19e3611ff"
+}

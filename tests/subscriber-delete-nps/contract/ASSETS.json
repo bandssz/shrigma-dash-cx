@@ -1,0 +1,18 @@
+{
+  "SNAPSHOT.catalog-read.sql": {
+    "sha256": "c1c22efca8f3b34caaddae3df9f441642e24583dd2e303fc4a14db893884259c",
+    "bytes": 4049
+  },
+  "APPLY.atomic.sql": {
+    "sha256": "d757af2612c0ed9917eab7c79bdb6ed393802e3516adfc781a9c16047b8e22ec",
+    "bytes": 29506
+  },
+  "RESTORE.structural.sql": {
+    "sha256": "c48b5ff67bdfa91ac6ac09247828dda37afafd9ecbb04c970140ead337ab14c8",
+    "bytes": 27960
+  },
+  "FUNCTION-PINS.json": {
+    "sha256": "be041dcd161987cc37bd41d2545b23d5e5d7cf6cf978d6be94507dc5dcfd2325",
+    "bytes": 633
+  }
+}

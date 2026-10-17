@@ -1,0 +1,115 @@
+{
+  "schema": "shrigma-root-worker-transition-contract-v1",
+  "preparedAt": "2026-10-10T01:05:16.595538+00:00",
+  "purpose": "Coherent compiled query and runtime transition after exact native performance acceptance",
+  "sourceHead": "55ed5bdc42d924a79da577b4b7c7b7b052dfc4c7",
+  "inputs": [
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/inputs/readiness-original.sql",
+      "bytes": 6875,
+      "sha256": "dd615cbab8e97f0c9fedf1fd41f61ea300cecb1717b4c2f330d566c1ac1edd79"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/inputs/delivery-original.md",
+      "bytes": 8845,
+      "sha256": "e1422e761ad43294a9fad8bd52c403c06da7f3f8994002427cdd7d0ffa94df12"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/inputs/delivery-original.sql",
+      "bytes": 17219,
+      "sha256": "765636e2c027b8c4f88dde60c26b3a9aada1a0eb775cf1601f6de150c1943cf4"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/worker-lease-original.sql",
+      "bytes": 10262,
+      "sha256": "bb015bb07fd1172c7a1594acca53e27a90b4602d8d3623c13ddd4062e6dad90d"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/manager-store-original.go",
+      "bytes": 4485,
+      "sha256": "37f4892f4beda8a3ca20bc9d5ce7c1cf9d4a5bece0ba36146a4c47afa5fe8240"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/ab-regular-original.sql",
+      "bytes": 75286,
+      "sha256": "899029d7dcb0485d7613c234a04a36ca6962067052850c260881548a067a9706"
+    },
+    {
+      "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/INSTALLED-CONTEXT-SOURCE.json",
+      "bytes": 1058,
+      "sha256": "1c5a91005f12e1b82d096011a474370f0a3df80ef56ec9c590d787c3eb60b0b4"
+    }
+  ],
+  "humanCorrectionAndCampaignProcessingAuthorized": true,
+  "productionMutationsPerformed": false,
+  "productionMigrationPrepared": false,
+  "operational": false,
+  "originalQuerySha256": "084a9493713b21b618d24daae98b38db59fb84febf0c367914bea1ed7aa84c2d",
+  "originalImage": "ghcr.io/bandssz/shrigma-crm-listmonk@sha256:6137de6f30e9ed767e71bb92988271c05e28b68efdace901b0905dc2ef415b61",
+  "identityDependencies": [
+    {
+      "object": "crm_audience_v2.selection_worker_context(integer)",
+      "currentSource": "Installed AB-extended original body c794db19bf9e8e030284651947510ae5c00a12647fed3ab81f8eeec50b4eb582 was matched against original native pre/post function fences. Preserve original ab_regular_context return.",
+      "requiredDelta": "Exact replacement of expected query hash only after frozen composed query proof; preserve OID, owner, ACL, security mode, context fields and guards."
+    },
+    {
+      "object": "crm_audience_v2.regular_worker_deployment",
+      "currentSource": "Worker-lease original schema CHECK admits only legacy query hash",
+      "requiredDelta": "Own reviewed migration for new frozen query identity, actual binary/runtime/role/topology tuple, without approving arbitrary query or inventing authorizer."
+    },
+    {
+      "object": "crm_audience_v2.regular_worker_heartbeat/require",
+      "currentSource": "Approved identity and private lease are trust boundaries; heartbeat cannot authorize itself",
+      "requiredDelta": "Retain originals. New process must acquire only its properly admitted tuple and an uncontended nonsuspended expired lease."
+    },
+    {
+      "object": "crm_audience_v2.selection_runtime",
+      "currentSource": "Heartbeat sets query identity from approved deployment and renews original semantics",
+      "requiredDelta": "No manual counterfeit heartbeat, rearming, reuse of legacy query identity for changed bytes, or source coverage promotion."
+    },
+    {
+      "object": "crm_audience_v2.regular_delivery_campaign",
+      "currentSource": "Original delivery claim and installed AB campaign guard require control worker/runtime hashes to equal actual approved deployment and live lease. Material, binding, checkpoint and historical receipts are independent preserved inputs.",
+      "requiredDelta": "An admitted worker transition must enumerate each still-active existing owned campaign control and include its frozen worker/runtime tuple; changing only deployment is insufficient. Do not change campaign status/send_at, material, binding version/hash, counter, created_at, suspension or historical controls/receipts. Current 171/174 and future172/173 are known targets; additional active controls require original read and own admission."
+    }
+  ],
+  "acceptanceSequence": [
+    "Freeze kernel, COUNT and ordered recipient composition; record exact parameters/settings/timeouts and query SHA.",
+    "Measure exact composed full COUNT for171 and174 with native unchanged context and actual worker role. READ-only recipient preview may adapt only running->scheduled and documented cursor/max/limit; record that original NextSubscribers was not executed. First failure stops.",
+    "Compile pinned Go source and original SQL foundation in isolated CI. Native COUNT+strictly pinned original READ preview may authorize isolated full worker proof, where synthetic campaigns are truly running. Prove exact scanner/recipient/claim/finish/SMTP and candidate identity. Preview never becomes fullRecipientAccepted or image proof.",
+    "Prepare separate reversible migration and admission from existing authority; pin actual binary/runtime/query/topology and original body/constraint/row snapshots privately.",
+    "Recheck native campaigns/status/checkpoint/claims, active control tuples and live services. Enumerate all admitted owned active control rows with exact material/binding/current tuple. Quiesce only the admitted original worker and confirm no running or uncertain claim requiring separate recovery.",
+    "Apply only admitted original identity transition and frozen per-campaign active control worker/runtime tuples, preserving material/binding/counters/send_at/history and unsuspended state. Publish frozen image via Easypanel native connector. No duplicate worker, manual replay or new campaign.",
+    "Observe original scheduler processing the same authorized campaign IDs, reconcile recipients, sent/checkpoint/claim/finish states and future schedule health.",
+    "Restore original image/identity/body only under own admission and confirmed rollback conditions; ambiguous delivery requires same-operation evidence and separate recovery admission."
+  ],
+  "unresolved": [
+    "Exact complete native COUNT still times out; candidate v3 optimization active.",
+    "Source-only v3 fixture initialization and transaction-local JIT option in both Go paths active in existing C2.",
+    "Actual compiled candidate query/binary/runtime identities and isolated native proof absent.",
+    "Concrete original deployment transition admission/restore receipt not yet prepared; broad human authorization does not fabricate CRM issuer, actor or topology."
+  ],
+  "prohibited": [
+    "No new production DB/helper/service per attempt",
+    "No changed campaign IDs or manually forced status/send_at",
+    "No disable/removal of consent, source, AB, claim, checkpoint, SMTP or lease safeguards",
+    "No suspended lease reset or repinning old authority",
+    "No secrets or private deployment rows in artifact"
+  ],
+  "recipientProofContract": {
+    "originalCampaignState": "scheduled",
+    "productionStateAlterationForQA": false,
+    "previewStatusAdaptation": "running->scheduled predicate only; no UPDATE CTE",
+    "requiredDistinctFields": [
+      "recipientPreviewAccepted",
+      "statusAdapted=true",
+      "originalNextSubscribersExecuted=false",
+      "composedQuerySha256",
+      "kernelSha256",
+      "parametersPinned",
+      "sqlState=00000",
+      "rollbackAndProcessEndConfirmed=true"
+    ],
+    "fullRecipientAcceptance": "Only exact compiled Linux worker isolated PostgreSQL/SMTP proof with synthetic running campaigns. Production acceptance remains original observed dispatch/reconciliation."
+  }
+}

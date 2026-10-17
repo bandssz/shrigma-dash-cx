@@ -6,11 +6,13 @@ CREATE TABLE IF NOT EXISTS public.shrigma_nps_config (
 REVOKE ALL ON public.shrigma_nps_config FROM PUBLIC;
 
 CREATE TABLE IF NOT EXISTS public.shrigma_nps_vote_sync (
- id uuid PRIMARY KEY DEFAULT gen_random_uuid(), subscriber_id integer NOT NULL REFERENCES subscribers(id),
- brand text NOT NULL CHECK(brand IN ('fish','aristo')), order_ref text NOT NULL,
- vote_date text NOT NULL, payload jsonb NOT NULL,
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(), subscriber_id integer REFERENCES public.subscribers(id) ON DELETE SET NULL,
+ brand text NOT NULL CHECK(brand IN ('fish','aristo')), order_ref text,
+ vote_date text, payload jsonb,
  state text NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','in_flight','synced','outcome_unknown','superseded')),
- task_id text, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+ task_id text, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+ CONSTRAINT shrigma_nps_vote_sync_detached_data_check CHECK ((subscriber_id IS NOT NULL AND payload IS NOT NULL AND order_ref IS NOT NULL AND vote_date IS NOT NULL)
+ OR (subscriber_id IS NULL AND payload IS NULL AND order_ref IS NULL AND vote_date IS NULL AND task_id IS NULL))
 );
 REVOKE ALL ON public.shrigma_nps_vote_sync FROM PUBLIC;
 
@@ -76,13 +78,16 @@ END $$;
 CREATE OR REPLACE FUNCTION public.shrigma_nps_claim_vote_sync(job uuid)
 RETURNS TABLE(sync_id uuid,payload jsonb)
 LANGUAGE plpgsql AS $$
-DECLARE j public.shrigma_nps_vote_sync%ROWTYPE;
+DECLARE j public.shrigma_nps_vote_sync%ROWTYPE;sid integer;
 BEGIN
  SELECT * INTO j FROM public.shrigma_nps_vote_sync WHERE id=job;
+ IF NOT FOUND OR j.subscriber_id IS NULL OR j.payload IS NULL OR j.order_ref IS NULL OR j.vote_date IS NULL THEN RETURN;END IF;
+ sid=j.subscriber_id;
+ PERFORM 1 FROM public.subscribers WHERE id=sid FOR UPDATE;
  IF NOT FOUND THEN RETURN;END IF;
- PERFORM 1 FROM subscribers WHERE id=j.subscriber_id FOR UPDATE;
  SELECT * INTO j FROM public.shrigma_nps_vote_sync WHERE id=job FOR UPDATE;
- IF NOT FOUND OR j.state<>'pending' THEN RETURN;END IF;
+ IF NOT FOUND OR j.state<>'pending' OR j.subscriber_id IS DISTINCT FROM sid
+  OR j.payload IS NULL OR j.order_ref IS NULL OR j.vote_date IS NULL THEN RETURN;END IF;
  -- Serialize side effects for the same subscriber, including concurrent revotes.
  IF EXISTS(SELECT 1 FROM public.shrigma_nps_vote_sync WHERE subscriber_id=j.subscriber_id AND id<>j.id AND state IN ('in_flight','outcome_unknown')) THEN RETURN;END IF;
  UPDATE public.shrigma_nps_vote_sync SET state='in_flight',updated_at=now() WHERE id=j.id;
@@ -95,13 +100,16 @@ END $$;
 
 CREATE OR REPLACE FUNCTION public.shrigma_nps_finish_vote_sync(job uuid,result jsonb)
 RETURNS boolean LANGUAGE plpgsql AS $$
-DECLARE j public.shrigma_nps_vote_sync%ROWTYPE;t text=nullif(result->>'task_id','');
+DECLARE j public.shrigma_nps_vote_sync%ROWTYPE;sid integer;t text=nullif(result->>'task_id','');
 BEGIN
  SELECT * INTO j FROM public.shrigma_nps_vote_sync WHERE id=job;
+ IF NOT FOUND OR j.subscriber_id IS NULL OR j.payload IS NULL OR j.order_ref IS NULL OR j.vote_date IS NULL THEN RETURN false;END IF;
+ sid=j.subscriber_id;
+ PERFORM 1 FROM public.subscribers WHERE id=sid FOR UPDATE;
  IF NOT FOUND THEN RETURN false;END IF;
- PERFORM 1 FROM subscribers WHERE id=j.subscriber_id FOR UPDATE;
  SELECT * INTO j FROM public.shrigma_nps_vote_sync WHERE id=job FOR UPDATE;
- IF NOT FOUND OR j.state<>'in_flight' THEN RETURN false;END IF;
+ IF NOT FOUND OR j.state<>'in_flight' OR j.subscriber_id IS DISTINCT FROM sid
+  OR j.payload IS NULL OR j.order_ref IS NULL OR j.vote_date IS NULL THEN RETURN false;END IF;
  UPDATE public.shrigma_nps_vote_sync SET state=CASE WHEN result->>'ok'='true' AND t IS NOT NULL THEN 'synced' ELSE 'outcome_unknown' END,
  task_id=coalesce(t,task_id),updated_at=now() WHERE id=job;
  IF t IS NOT NULL THEN
@@ -115,3 +123,20 @@ END $$;
 REVOKE ALL ON FUNCTION public.shrigma_nps_sign(text,text), public.shrigma_nps_prepare(jsonb,text),
  public.shrigma_nps_record_vote(jsonb), public.shrigma_nps_claim_vote_sync(uuid),
  public.shrigma_nps_finish_vote_sync(uuid,jsonb) FROM PUBLIC;
+
+-- Own privacy trigger only; never replace third-party subscriber triggers.
+CREATE OR REPLACE FUNCTION public.shrigma_nps_detach_deleted_subscriber()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $$
+BEGIN
+ IF TG_OP<>'DELETE' OR TG_TABLE_SCHEMA<>'public' OR TG_TABLE_NAME<>'subscribers' THEN
+  RAISE EXCEPTION 'NPS_DETACH_TRIGGER_CONTEXT_REFUSED';END IF;
+ -- DELETE already holds the subscriber row lock: same parent -> job order as vote/claim/finish.
+ UPDATE public.shrigma_nps_vote_sync
+ SET subscriber_id=NULL,payload=NULL,order_ref=NULL,vote_date=NULL,task_id=NULL,updated_at=now()
+ WHERE subscriber_id=OLD.id;
+ RETURN OLD;
+END $$;
+REVOKE ALL ON FUNCTION public.shrigma_nps_detach_deleted_subscriber() FROM PUBLIC;
+CREATE TRIGGER shrigma_nps_subscriber_delete_detach
+BEFORE DELETE ON public.subscribers FOR EACH ROW
+EXECUTE FUNCTION public.shrigma_nps_detach_deleted_subscriber();
