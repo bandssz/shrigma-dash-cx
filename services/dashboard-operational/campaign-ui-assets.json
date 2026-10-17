@@ -34,8 +34,8 @@
       "source": "public/crm-preview/analytics.js",
       "compiled": "public/crm-preview/analytics.compiled.js",
       "publicName": "crm-analytics.js",
-      "sourceSha256": "2bea79d9e3541484c57942477ed526838d936555339053cae55dd72313e4574e",
-      "compiledSha256": "26ef6a64e79fa24169f82bd43e2f0cac25cbc8b8d7991a5b49633ff6951ad626"
+      "sourceSha256": "5f21cdcc8886a637e9e2b43fc7d54555fe9739283095ae5f3b32220bd2ccfdda",
+      "compiledSha256": "c1259898c22ff96f38ee94c5516a45e9060f7c0dafa829e93df5da8e906fdd28"
     }
   ]
 }
