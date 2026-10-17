@@ -109,7 +109,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   return {schema:'shrigma-affiliate-read-availability-v1',brand,readLinked:!!credentials.afiliados,binding:versions.afiliados||null,readOnly:true};
  }
  async function readDnsOnce(invoke,stillCurrent,{front,brand}){try{return await invoke();}catch(e){if(e.readDnsTemporary!==true)throw e;stillCurrent();try{onReadFailure?.({event:'DASHBOARD_READ_DNS_RETRY',front,brand,code:'EAI_AGAIN',at:new Date().toISOString(),retry:1});}catch{}await new Promise(resolve=>setTimeout(resolve,250));stillCurrent();return invoke();}}
- async function read({context,route,method,query,body,viewBrand,homeOnly=false,origin}){
+ async function read({context,route,method,query,body,viewBrand,homeOnly=false,analyticsOnly=false,origin}){
   let front,brand,d,affiliateCommand;
   if(route==='segments'){
    if(method==='POST'&&body?.acao==='segmento_contar'){
@@ -193,13 +193,13 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
   const targetRoute=route==='affiliate-read'?'tts':route;
   if(upstreams?.[targetRoute]?.href!==FIXED_DESTINATIONS[targetRoute])fail('SERVICE_READ_DESTINATION_INVALID',503);
   if(pending>=8)fail('UPSTREAM_BUSY',429);pending++;
-  const started=Date.now(),homeVariant=homeOnly===true&&front==='growth'&&targetRoute==='crm-read'&&method==='GET'&&d.action==='cache_growth';
+  const started=Date.now(),homeVariant=homeOnly===true&&front==='growth'&&targetRoute==='crm-read'&&method==='GET'&&d.action==='cache_growth',resultsVariant=!homeVariant&&analyticsOnly===true&&front==='growth'&&targetRoute==='crm-read'&&method==='GET'&&d.action==='cache_growth';
   try{
-   const sourceCall=()=>forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,crmHomeRead:homeVariant,crmHomeBrand:homeVariant?brand:undefined,captureReadDiagnostic:front==='growth',captureReadTiming:timings===true,fetchImpl});
+   const sourceCall=()=>forward({route:targetRoute,method:route==='affiliate-read'?'POST':method,query:route==='affiliate-read'?new URLSearchParams():query,body:route==='affiliate-read'?{ini:body.ini,fim:body.fim}:body,user:before.user,credential,upstreams,origin,crmHomeRead:homeVariant,crmHomeBrand:homeVariant?brand:undefined,crmResultsRead:resultsVariant,crmResultsBrand:resultsVariant?brand:undefined,captureReadDiagnostic:front==='growth',captureReadTiming:timings===true,fetchImpl});
    const call=()=>method==='GET'?readDnsOnce(sourceCall,()=>same(context,front,brand,before),{front,brand}):sourceCall();
    let result;
    if(front==='growth'){
-    const key=JSON.stringify([targetRoute,query.toString(),origin,homeVariant?'home':'full',homeVariant?brand:null]);let inFlight=growthReads.get(key);
+    const key=JSON.stringify([targetRoute,query.toString(),origin,homeVariant?'home':resultsVariant?'results-brand':'full',homeVariant||resultsVariant?brand:null]);let inFlight=growthReads.get(key);
     if(!inFlight){inFlight=call();growthReads.set(key,inFlight);inFlight.then(()=>{if(growthReads.get(key)===inFlight)growthReads.delete(key);},()=>{if(growthReads.get(key)===inFlight)growthReads.delete(key);});}
     result=await inFlight;
    }else result=await call();

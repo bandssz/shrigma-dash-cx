@@ -141,3 +141,25 @@ test('CRM cache retries only DNS before HTTP and emits no raw error data',async(
  let calls=0;const f=diagnosticFixture(async()=>{calls++;if(calls===1)throw Object.assign(new TypeError('private@synthetic.invalid password=secret'),{cause:{code:'EAI_AGAIN'}});return new Response('{}',{headers:{'content-type':'application/json'}});});
  const r=await f.request();assert.equal(r.status,200);assert.equal(calls,2);assert.equal(f.events[0].event,'DASHBOARD_READ_DNS_RETRY');assert(!JSON.stringify(f.events).includes('secret'));assert(!JSON.stringify(f.events).includes('private@'));
 });
+
+// Results opt-in: person, brand and revocation remain checked.
+{
+'use strict';
+const test=require('node:test'),a=require('node:assert/strict'),path=require('node:path');
+const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational'),P=require(runtime+'/proxy.cjs'),{createReader}=require(runtime+'/simple-dashboard-read.cjs');
+const raw={crm_diario:['fish','aristo'].map(marca=>({marca,dia:'2026-10-17',enviados:1})),crm_attribution:{schema_version:2,daily:[]}};
+function fixture(){let active=true,release;const gate=new Promise(r=>release=r),calls=[],user={id:'synthetic-reader',role:'manager',areas:['growth'],permissions:{growth:{read:true,edit:false}},productFronts:['growth'],brands:['fish','aristo']};
+ const auth={authorize:()=>user,authorizeBrand(_c,b){if(!active||!user.brands.includes(b))throw Object.assign(Error('ACCESS_DENIED'),{code:'ACCESS_DENIED',status:403});return user;}};
+ const reader=createReader({auth,upstreams:{'crm-read':new URL(P.FIXED_DESTINATIONS['crm-read'])},keys:{growth:'synthetic-only-read-key'},projectGrowth:require(runtime+'/server.cjs').projectBrandCache,fetchImpl:async(url,o)=>{calls.push({url,headers:o.headers});await gate;return new Response(JSON.stringify(raw),{headers:{'Content-Type':'application/json'}});}});
+ const read=(brand,variant)=>reader.read({context:{},route:'crm-read',method:'GET',query:new URLSearchParams({action:'cache_growth',painel:'growth'}),viewBrand:brand,homeOnly:variant==='home',analyticsOnly:variant==='results',origin:'https://crm.synthetic.invalid'});
+ return{read,calls,release,revoke:()=>active=false};
+}
+test('results scope is derived from the admitted person and simultaneous brands/variants never share a response',async()=>{
+ const f=fixture(),jobs=[f.read('fish','results'),f.read('fish','results'),f.read('aristo','results'),f.read('fish','legacy'),f.read('fish','home')];await new Promise(setImmediate);a.equal(f.calls.length,4);
+ const h=f.calls.map(x=>x.headers);a.equal(h.filter(x=>x['X-Shrigma-Crm-Results-Brand']==='fish').length,1);a.equal(h.filter(x=>x['X-Shrigma-Crm-Results-Brand']==='aristo').length,1);a.equal(h.filter(x=>x['X-Shrigma-Crm-Home-Brand']==='fish').length,1);a.equal(h.filter(x=>!x['X-Shrigma-Crm-Home-Brand']&&!x['X-Shrigma-Crm-Results-Brand']).length,1);f.release();
+ const values=await Promise.all(jobs);for(let i=0;i<values.length;i++){const brand=i===2?'aristo':'fish';a.equal(values[i].body.brand,brand);a(values[i].body.crm_diario.every(x=>x.marca===brand));a(!JSON.stringify(values[i]).includes('synthetic-only-read-key'));}a.equal(f.calls.length,4);
+});
+test('read authority revoked while an opt-in source is pending cannot return data',async()=>{const f=fixture(),job=f.read('fish','results');await new Promise(setImmediate);f.revoke();f.release();await a.rejects(job,e=>e.status===403);a.equal(f.calls.length,1);});
+test('an incomplete or conflicting internal results variant is refused before contacting a source',async()=>{let calls=0;for(const args of [{crmResultsRead:true},{crmResultsRead:false,crmResultsBrand:'fish'},{crmResultsRead:true,crmResultsBrand:'olivas'},{crmResultsRead:true,crmResultsBrand:'fish',crmHomeRead:true},{crmResultsRead:true,crmResultsBrand:'fish',query:new URLSearchParams({action:'identity',painel:'growth'})}])await a.rejects(P.forward({route:'crm-read',method:'GET',query:new URLSearchParams({action:'cache_growth',painel:'growth'}),user:{role:'manager',areas:['growth']},credential:'synthetic-only-read-key',upstreams:{'crm-read':new URL(P.FIXED_DESTINATIONS['crm-read'])},origin:'https://crm.synthetic.invalid',fetchImpl:async()=>{calls++;throw Error('UNEXPECTED_SOURCE');},...args}),e=>e.code==='CRM_RESULTS_SCOPE_DENIED');a.equal(calls,0);});
+
+}

@@ -17,7 +17,7 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
  const upstreams=Object.fromEntries(['crm-read','cx','cache','influ','tts'].map(k=>[k,new URL(FIXED_DESTINATIONS[k])]));let reads=0;
  const writerKey='synthetic-private-affiliate-write-key',receipts=new Map();let writes=0;const candidate={marca:'fish',id:'10000000-0000-4000-8000-000000000001',name:'Synthetic affiliate',handle:'@synthetic',source:'manual',source_reference:'synthetic-reference',state:'novo',note:'synthetic note preserved',version:1};
  const fetchImpl=async(url,options)=>{
-  reads++;assert(!options.headers.Cookie);assert(!options.headers.Origin);const target=new URL(url),journeys=target.href.startsWith('https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd'),front=journeys||target.href.startsWith(FIXED_DESTINATIONS['crm-read'])?'growth':target.href.startsWith(FIXED_DESTINATIONS.influ)?'influs':target.href.startsWith(FIXED_DESTINATIONS.tts)?'afiliados':'organico';
+  reads++;await hooks.onFetch?.(url,options);assert(!options.headers.Cookie);assert(!options.headers.Origin);const target=new URL(url),journeys=target.href.startsWith('https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd'),front=journeys||target.href.startsWith(FIXED_DESTINATIONS['crm-read'])?'growth':target.href.startsWith(FIXED_DESTINATIONS.influ)?'influs':target.href.startsWith(FIXED_DESTINATIONS.tts)?'afiliados':'organico';
   const command=JSON.parse(options.body||'{}');
   if(front==='influs'&&['piloto_salvar','piloto_operacao'].includes(command.acao)){
    assert.equal(command.k,writerKey);assert(!Object.hasOwn(command,'autor'));assert(!options.headers.Authorization);
@@ -46,9 +46,9 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
  const settings={mode:'operational',simpleReadMode:true,simpleReadSources:keys,...(writer?{simpleAffiliateWriteKey:writerKey}:{}),managerHost:HOST,areaHosts,allowedEmailDomains:['synthetic.invalid'],upstreamProfile:'production',upstreams,allowedUpstreamHosts:[...new Set(Object.values(upstreams).map(u=>u.hostname))],publicDir:dir,port:0,host:'127.0.0.1'};
  const server=createServer(settings,{auth,fetchImpl});await new Promise(r=>server.listen(0,'127.0.0.1',r));
  t.after(async()=>{await new Promise(r=>server.close(r));auth.close();fs.rmSync(dir,{recursive:true,force:true});});
- const request=(url,{method='GET',body,asAdmin=false,csrf=true,brand,cookie}={})=>new Promise((resolve,reject)=>{
+ const request=(url,{method='GET',body,asAdmin=false,csrf=true,brand,cookie,extraHeaders={}}={})=>new Promise((resolve,reject)=>{
   const login=asAdmin?admin:analyst,bytes=body===undefined?null:Buffer.from(JSON.stringify(body));
-  const headers={Host:HOST,Origin:'https://'+HOST,Cookie:cookie||login.cookie.split(';')[0],...(csrf?{'X-CSRF-Token':login.csrf}:{}),...(brand?{'X-Shrigma-View-Brand':brand}:{}),...(bytes?{'content-type':'application/json','content-length':bytes.length}:{})};
+  const headers={Host:HOST,Origin:'https://'+HOST,Cookie:cookie||login.cookie.split(';')[0],...(csrf?{'X-CSRF-Token':login.csrf}:{}),...(brand?{'X-Shrigma-View-Brand':brand}:{}),...(bytes?{'content-type':'application/json','content-length':bytes.length}:{}),...extraHeaders};
   const req=http.request({host:'127.0.0.1',port:server.address().port,path:url,method,headers},res=>{let out='';res.on('data',b=>out+=b);res.on('end',()=>resolve({status:res.statusCode,body:res.headers['content-type']?.startsWith('application/json')?JSON.parse(out):out,cookie:res.headers['set-cookie']}));});req.on('error',reject);req.end(bytes);
  });
  return {request,reads:()=>reads,keys,analyst,created,auth,adminContext,fetchImpl,upstreams,writes:()=>writes,candidate,receipts,writerKey};
@@ -284,4 +284,15 @@ test('a receipt confirmed while POST is finishing cannot regress to uncertain af
 test('legacy names that the original SQL would normalize refuse before a state-only edit',async t=>{
  const f=await fixture(t,{fronts:['afiliados'],brands:['fish'],writeFronts:['afiliados'],writer:true,ownPartners:true});f.candidate.name=' Synthetic affiliate ';
  const r=await f.request('/api/affiliate-own-edit',{method:'POST',body:{action:'review',brand:'fish',candidate_id:f.candidate.id,expected_version:1,request_id:crypto.randomUUID()}});assert.equal(r.status,503);assert.equal(f.writes(),0);assert.equal(f.candidate.name,' Synthetic affiliate ');assert.equal(f.candidate.state,'novo');
+});
+
+test('actual cookie HTTP derives analytics scope from the user brand and ignores a forged source brand',async t=>{
+ const seen=[],f=await fixture(t,{fronts:['growth'],brands:['fish','aristo'],hooks:{onFetch:(_u,o)=>seen.push({...o.headers})}});
+ for(const brand of ['fish','aristo']){const r=await f.request('/api/crm-read?action=cache_growth&painel=growth',{brand,extraHeaders:{'X-Shrigma-Crm-Consumer':'results-read-v1','X-Shrigma-Crm-Results-Brand':brand==='fish'?'aristo':'fish'}});assert.equal(r.status,200);assert.equal(r.body.brand,brand);assert(r.body.crm_diario.every(x=>x.marca===brand));assert.equal(seen.at(-1)['X-Shrigma-Crm-Results-Brand'],brand);assert.equal(seen.at(-1)['X-Shrigma-Crm-View'],undefined);assert.deepEqual(r.body.capabilities,{read:true,send:false});}
+ const n=seen.length,r=await f.request('/api/crm-read?action=cache_growth&painel=growth',{brand:'olivas',extraHeaders:{'X-Shrigma-Crm-Consumer':'results-read-v1'}});assert.equal(r.status,403);assert.equal(seen.length,n);
+});
+test('Home and ordinary cache HTTP preserve their previous source variants with analytics opt-in present',async t=>{
+ const seen=[],f=await fixture(t,{fronts:['growth'],brands:['fish'],hooks:{onFetch:(_u,o)=>seen.push({...o.headers})}});
+ const legacy=await f.request('/api/crm-read?action=cache_growth&painel=growth',{brand:'fish'});assert.equal(legacy.status,200);assert.equal(seen.at(-1)['X-Shrigma-Crm-Results-Brand'],undefined);assert.equal(seen.at(-1)['X-Shrigma-Crm-View'],undefined);
+ const home=await f.request('/api/crm-read?action=cache_growth&painel=growth',{brand:'fish',extraHeaders:{'X-Shrigma-Crm-Consumer':'results-read-v1','X-Shrigma-Crm-View':'home'}});assert.equal(home.status,200);assert.equal(seen.at(-1)['X-Shrigma-Crm-Results-Brand'],undefined);assert.equal(seen.at(-1)['X-Shrigma-Crm-View'],'home');assert.equal(seen.at(-1)['X-Shrigma-Crm-Home-Brand'],'fish');
 });

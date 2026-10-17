@@ -1514,9 +1514,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           }
           return sendJson(req,res,result.status,result.body);
         }
-        if(simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],homeOnly:req.headers['x-shrigma-crm-view']==='home',origin});
+        if(simpleReader&&!nativeContext){const resultsReadOnly=route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&req.headers['x-shrigma-crm-consumer']==='results-read-v1'&&req.headers['x-shrigma-crm-view']!=='home';const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],homeOnly:req.headers['x-shrigma-crm-view']==='home',analyticsOnly:resultsReadOnly,origin});
           if(route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200&&req.headers['x-shrigma-crm-view']==='home'){const started=Date.now();result.body=require('./simple-dashboard-read.cjs').projectCrmHome(result.body);if(result.readTiming)result.readTiming.homeResponse=Date.now()-started;}
-          const resultsReadOnly=route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&req.headers['x-shrigma-crm-consumer']==='results-read-v1'&&req.headers['x-shrigma-crm-view']!=='home';
           // Analytics needs the same authenticated data, without model-write or
           // email-test capability probes. This grants no operation permission.
           if(result.status===200&&resultsReadOnly){result.body.capabilities={read:true,send:false};if(result.readTiming)result.readTiming.modelCapability=0;}
