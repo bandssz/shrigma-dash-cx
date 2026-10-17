@@ -322,13 +322,13 @@
     },
     {
       "path": "services/crm-campaign/server.cjs",
-      "sha256": "1c086a571c0613bacbd6b775f296339466eaaaf5c61c7765b8fd8de09bb6dea8",
-      "bytes": 11171
+      "sha256": "296f77561d1382c5add4f8688fad669b490e5923da1306d5bab45770a16cf542",
+      "bytes": 11207
     },
     {
       "path": "services/crm-campaign/transport.cjs",
-      "sha256": "74cdda69388779fe19a6e469018ae00d12abd1bac76736a796e0b4ed5a4348b4",
-      "bytes": 7753
+      "sha256": "ac1587dcef8dcf4d78a4828928baa23a4540e283d920bfe7f22f9ae85be1b361",
+      "bytes": 11753
     }
   ],
   "preservedSenderAdmission": true,

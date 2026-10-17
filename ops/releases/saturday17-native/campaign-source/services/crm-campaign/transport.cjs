@@ -49,6 +49,10 @@ function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=ra
   if(!auth||typeof auth.actor!=='string'||!auth.actor.trim()||!Array.isArray(auth.caps)||auth.caps.some(c=>typeof c!=='string'))return {status:401,body:{error:'UNAUTHORIZED',message:'Autenticação necessária.'}};
   if(Object.hasOwn(auth,'brand')&&(!['fish','aristo'].includes(auth.brand)||auth.brand!==command.brand))return {status:403,body:{error:'BRAND_DENIED',message:'Acesso não autorizado para esta marca.'}};
   if(interrupted())return unavailable();
+  if(command.acao==='campanha_reconciliar_cancelamento'){
+   if(!nativeInternalEnabled||!['read_content','draft','validate','submit'].every(c=>auth.caps.includes(c)))return {status:403,body:{error:'NATIVE_INTERNAL_DISABLED'}};
+   return recoverNativeCancel({pool,native,key,command,auth,interrupted,EFFECT_SQL});
+  }
   if(command.acao==='campanha_nativa_contexto'){
    if(!nativeInternalEnabled||Object.keys(command).sort().join(',')!=='acao,brand,id'||!['fish','aristo'].includes(command.brand)||!Number.isSafeInteger(command.id)||command.id<1)return {status:403,body:{error:'NATIVE_INTERNAL_DISABLED'}};
    try{const r=await pool.query(EFFECT_SQL,[key,JSON.stringify({command,actor:auth.actor,operation:null}),JSON.stringify({kind:'nativeContext',payload:{id:command.id}})]);return r.rows?.length===1?{status:200,body:r.rows[0].result}:unavailable();}catch{return {status:403,body:{error:'NATIVE_INTERNAL_REFUSED'}};}
@@ -85,3 +89,28 @@ function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=ra
  };
 }
 module.exports={AUTH_SQL,EFFECT_SQL,DB_ERRORS,safeError,nativeTransport,createExecutor,unavailable};
+
+'use strict';
+// One explicit continuation. Native status is never rewritten or scheduled.
+const a=require('node:assert/strict'),{createHash}=require('node:crypto');
+const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+const hash=v=>createHash('sha256').update(JSON.stringify(stable(v))).digest('hex');
+async function recoverNativeCancel({pool,native,key,command:input,auth,interrupted,EFFECT_SQL}){
+ const command={...input,acao:'campanha_cancelar'};let operation=null;
+ const effect=async descriptor=>{a(!interrupted());const r=await pool.query(EFFECT_SQL,[key,JSON.stringify({command,actor:auth.actor,operation}),JSON.stringify(descriptor)]);a.equal(r.rows?.length,1);return r.rows[0].result;};
+ try{
+  a.equal(Object.keys(command).sort().join(','),'acao,brand,confirm,expected_version,id,idempotency_key');a.equal(command.confirm,'cancelar');
+  const readOperation=async()=>{a(!interrupted());const envelope={command:{acao:'campanha_operacao',brand:command.brand,idempotency_key:command.idempotency_key},actor:auth.actor,operation:null};const r=await pool.query(EFFECT_SQL,[key,JSON.stringify(envelope),JSON.stringify({kind:'store',action:'get',payload:{actor:auth.actor,key:command.idempotency_key}})]);a.equal(r.rows?.length,1);return r.rows[0].result;};
+  const recorded=await readOperation(),chain=recorded?.response?.body?.reconciliation;
+  if(recorded?.state==='succeeded'&&recorded.action==='cancelar'&&recorded.brand===command.brand&&recorded.operation_key===command.idempotency_key&&recorded.providerId===command.id&&recorded.response.status===200&&recorded.response.body.native_internal===true&&chain?.contract==='crm-native-cancel-recovery-v1'&&chain.operation_id===recorded.id&&chain.request_hash===hash(command)&&chain.previous_operation?.state==='outcome_unknown'&&chain.previous_operation.id===recorded.id){return {status:200,body:{schema:'crm-native-cancel-reconciliation-v1',prior_receipt_sha256:hash(chain.previous_operation),operation:recorded}};}
+  const p=await effect({kind:'nativeCancelRecovery',payload:{id:command.id}});a.equal(p.contract,'crm-native-internal-plan-v1');a.equal(p.campaign_id,command.id);operation=p.operation;
+  async function request(kind,payload={}){const d={kind,idCampaign:p.campaign_id,payload};a.equal((await effect(d)).ok,true);a(!interrupted());return native(d);}
+  async function read(expectedDate){const r=await request('nativeRead');a.equal(r.status,200);const c=r.body?.data;a.equal(c?.id,p.campaign_id);a.equal(c.uuid,p.campaign_uuid);a.equal(c.status,'draft');a.equal(c.sent,0);a.equal(c.started_at??null,null);a.deepEqual(c.lists?.map(l=>l.id),[p.list_id]);a.equal(c.send_at===null?null:Date.parse(c.send_at),expectedDate===null?null:Date.parse(expectedDate));return c;}
+  if(!p.completed){const c=await read(p.send_at);a(c.attribs&&Object.getPrototypeOf(c.attribs)===Object.prototype);const r=await request('nativeClear',{send_at:null,lists:[p.list_id],attribs:c.attribs});a.equal(r.status,200);}
+  await read(null);
+  await effect({kind:'provider',action:'native_result',payload:{id:p.campaign_id,operationId:operation.id}});
+  const saved=await readOperation();a.equal(saved.id,operation.id);a.equal(saved.state,'succeeded');a.equal(saved.response.body.native_internal,true);a.equal(saved.response.body.campaign.send_at,null);
+  return {status:200,body:{schema:'crm-native-cancel-reconciliation-v1',prior_receipt_sha256:hash(p.previous_operation),operation:saved}};
+ }catch{return {status:503,body:{error:'NATIVE_CANCEL_RECONCILIATION_UNCONFIRMED',message:'Cancelamento ainda sem confirmação. Consulte a mesma tentativa.'}};}
+}
+

@@ -134,11 +134,6 @@
       "sha256": "afcc644baf4514ca67a765da1a540d399d3bcbd1f423a919dacca90d236142f0"
     },
     {
-      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 9151,
-      "sha256": "79845d01628bba7d1839ae43b06c605b9271280e65d14b2c86c6e4d9a7497db6"
-    },
-    {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
       "bytes": 15687,
       "sha256": "9ed04a71b4a0cce2e9e4c6b8820d7be85837c22dd7de0affbdbe48b1dee1750b"
@@ -152,6 +147,11 @@
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
       "bytes": 8091,
       "sha256": "233bb700b5a29f82a495ed6da279dcd01763f095e92e63c7526ced0e4cb6a8c9"
+    },
+    {
+      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
+      "bytes": 9151,
+      "sha256": "79845d01628bba7d1839ae43b06c605b9271280e65d14b2c86c6e4d9a7497db6"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
@@ -409,14 +409,14 @@
       "sha256": "ed4d8e84b2d3b6464e11fb6cbf16997fb247237cf777c7e5b8e2a8bc9a2f099a"
     },
     {
-      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/Dockerfile",
-      "bytes": 1283,
-      "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c"
-    },
-    {
       "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/config.cjs",
       "bytes": 1774,
       "sha256": "67fa469c291c6ca5591927b7db41bf14a96bc1d378a7fcac97f987091cab9813"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/Dockerfile",
+      "bytes": 1283,
+      "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c"
     },
     {
       "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/main.cjs",
@@ -699,14 +699,14 @@
       "sha256": "ed4d8e84b2d3b6464e11fb6cbf16997fb247237cf777c7e5b8e2a8bc9a2f099a"
     },
     {
-      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/Dockerfile",
-      "bytes": 1283,
-      "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c"
-    },
-    {
       "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/config.cjs",
       "bytes": 1957,
       "sha256": "a18a20e5b54806290dad42ba332fce1bc6a755d382293e6cf0f23fcdf3c81684"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/Dockerfile",
+      "bytes": 1283,
+      "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c"
     },
     {
       "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/main.cjs",
@@ -765,13 +765,13 @@
     },
     {
       "path": "ops/releases/saturday17-native/campaign-source/services/crm-campaign/server.cjs",
-      "bytes": 11171,
-      "sha256": "1c086a571c0613bacbd6b775f296339466eaaaf5c61c7765b8fd8de09bb6dea8"
+      "bytes": 11207,
+      "sha256": "296f77561d1382c5add4f8688fad669b490e5923da1306d5bab45770a16cf542"
     },
     {
       "path": "ops/releases/saturday17-native/campaign-source/services/crm-campaign/transport.cjs",
-      "bytes": 7753,
-      "sha256": "74cdda69388779fe19a6e469018ae00d12abd1bac76736a796e0b4ed5a4348b4"
+      "bytes": 11753,
+      "sha256": "ac1587dcef8dcf4d78a4828928baa23a4540e283d920bfe7f22f9ae85be1b361"
     },
     {
       "path": "ops/releases/saturday17-native/catalog-install.sql",
@@ -799,9 +799,29 @@
       "sha256": "3fc75e91fb87b7798b1b9e0743c890fe1738d37f4b27cafd9b8ffa31a39e2157"
     },
     {
+      "path": "ops/releases/saturday17-native/recovery-functions.json",
+      "bytes": 3946,
+      "sha256": "07f1bf0cc572c4dee202f824e058c1d943fe7896e59f77a20eb5181127e0ac32"
+    },
+    {
+      "path": "ops/releases/saturday17-native/recovery-install.sql",
+      "bytes": 45464,
+      "sha256": "78852a8e87d99b676874552ca654fe4b704cf6ad8ba03fd687a2346313941673"
+    },
+    {
+      "path": "ops/releases/saturday17-native/recovery-proof.json",
+      "bytes": 2097,
+      "sha256": "525f643c528c6969e63b4b324a4a0bf91a32614a07038976225168b318990e40"
+    },
+    {
+      "path": "ops/releases/saturday17-native/recovery-return.sql",
+      "bytes": 38162,
+      "sha256": "5f9d2f1648c88277f85e5d20c28bf79a56a1602bc3fdc45822047022039f6685"
+    },
+    {
       "path": "ops/releases/saturday17-native/source-contexts.json",
-      "bytes": 21476,
-      "sha256": "ad2a82267ce7024cc1160b68d4942a64bfa327b4e743a094b92d90dad62289ff"
+      "bytes": 21477,
+      "sha256": "36928df7897450d9d046096880ad2ab8079008f1414eca13d4736d0d4bb66247"
     },
     {
       "path": "ops/releases/saturday17-native/source-smoke.cjs",
@@ -844,11 +864,6 @@
       "sha256": "262c4841e3bb84cc0730c52dd95dd5ef1ecb37758c88e2d5a58cacf95139411f"
     },
     {
-      "path": "services/dashboard-operational/BCRYPT-LICENSE",
-      "bytes": 1530,
-      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
-    },
-    {
       "path": "services/dashboard-operational/afiliados-native-consent.cjs",
       "bytes": 12773,
       "sha256": "6501c565bab8673286a0d13fbf1ab56c60e4cb43d72ed20f5d6894bb333268fb"
@@ -872,6 +887,11 @@
       "path": "services/dashboard-operational/auth.cjs",
       "bytes": 161584,
       "sha256": "de7b6663e849b4bbad32964a1a82b0c398649058f30ddda6d2ea783b6dfecc19"
+    },
+    {
+      "path": "services/dashboard-operational/BCRYPT-LICENSE",
+      "bytes": 1530,
+      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
     },
     {
       "path": "services/dashboard-operational/bcrypt.mjs",
@@ -1064,11 +1084,6 @@
       "sha256": "5957c999cd0373c74819cb8ea56a519a6c84ec04bc1b5c487cd355b73969a4af"
     },
     {
-      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
-      "bytes": 6733,
-      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
-    },
-    {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/chart.umd.js",
       "bytes": 208518,
       "sha256": "ecc3cd1eeb8c34d2178e3f59fd63ec5a3d84358c11730af0b9958dc886d7652a"
@@ -1092,6 +1107,11 @@
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/inter-700.woff2",
       "bytes": 24356,
       "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
+    },
+    {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
+      "bytes": 6733,
+      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/tabler.min.css",

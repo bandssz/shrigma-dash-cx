@@ -7,7 +7,7 @@ const compress=promisify(gzip),ORIGIN='https://bandssz.github.io';
 const PATH='/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35';
 const MEDIA_PATH=PATH+'/media';
 const READS=new Set(['campanha_catalogo','campanha_listar','campanha_obter','campanha_operacao','campanha_nativa_contexto']);
-const WRITES=new Set(['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar','campanha_recuperar']);
+const WRITES=new Set(['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar','campanha_reconciliar_cancelamento','campanha_recuperar']);
 const FIELDS=new Set(['k','acao','brand','id','definition','expected_version','idempotency_key','confirm','audience_review_id','source_operation_id']);
 const problem=(status,error,message)=>Object.assign(Error(message),{status,body:{error,message}});
 function parse(req,url,body){
