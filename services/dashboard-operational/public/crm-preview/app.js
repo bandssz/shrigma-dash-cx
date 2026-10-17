@@ -12,15 +12,16 @@ function crmAllowed(s,brand){const allowed=s?.user?.viewBrands||s?.user?.brands|
 async function crmSession(brand=crmState.brand){const read=async()=>{if(typeof window.ShrigmaReadSession!=='function')throw Error('SESSION_UNAVAILABLE');const s=await window.ShrigmaReadSession();if(!crmAllowed(s,brand))throw Error('ACCESS_DENIED');return s;};const pending=(crmState.sessionQueue||Promise.resolve()).then(read,read);crmState.sessionQueue=pending.then(()=>undefined,()=>undefined);return pending;}
 async function crmRead(path,brand,ticket,options={}){const before=await crmSession(brand);if(ticket!==crmState.ticket||brand!==crmState.brand&&crmState.brand!=='todas')throw Error('ACCESS_CHANGED');const {expectedAttempt,expectedSessionStamp,...request}=options;if(expectedSessionStamp&&crmSessionStamp(before)!==expectedSessionStamp)throw Error('ACCESS_CHANGED');const response=await fetch(path,{...request,credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json',...(request.headers||{}),'X-Shrigma-View-Brand':brand,...(crmState.view==='home'&&crmState.channel==='email'&&crmState.brand!=='todas'?{'X-Shrigma-Crm-View':'home'}:{})},signal:crmState.controller.signal});const data=await response.json();const receipt=response.status===409&&typeof expectedAttempt==='string'&&data.attemptKey===expectedAttempt&&data.state==='rejected'&&((data.schema==='crm-campaign-bff-operation-v1'&&Object.keys(data).sort().join(',')==='action,attemptKey,campaign,schema,state,validation')||(data.schema==='crm-local-account-audience-operation-v1'&&data.brand===brand&&Object.keys(data).sort().join(',')==='attemptKey,brand,error,schema,segment,state'));if(!response.ok&&!receipt)throw Object.assign(Error('SOURCE_REFUSED'),{code:typeof data.error==='string'&&/^[A-Z_0-9]{1,80}$/.test(data.error)?data.error:'SOURCE_REFUSED',status:response.status,...(Object.keys(data).sort().join(',')==='error,reserved'&&data.reserved===false?{reserved:false}:{})});const current=await crmSession(brand);if(crmSessionStamp(current)!==crmSessionStamp(before)||ticket!==crmState.ticket||brand!==crmState.brand&&crmState.brand!=='todas')throw Error('ACCESS_CHANGED');return data;}
 
-// Display the existing collector clock only. Metric inputs, queries and formulas stay untouched.
-function crmRevenueUpdated(id,data,brand=crmState.brand,reason='Horário do último snapshot de vendas não informado nesta consulta.'){
+// Display the last committed attribution snapshot; never use GET, cache or collector-observation time.
+function crmRevenueUpdated(id,data,brand=crmState.brand,reason='Snapshot de receita não confirmado nesta consulta.'){
  const chip=crmEl(id);if(!chip)return;
- const now=Date.now(),valid=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&Date.parse(value)<=now;
- const metadata={crm_fontes:(Array.isArray(data?.crm_fontes)?data.crm_fontes:[]).filter(row=>valid(row.coletado_em)),crm_collection_receipt:(Array.isArray(data?.crm_collection_receipt)?data.crm_collection_receipt:[]).filter(row=>valid(row.observed_at))};
- // The collector clock has no period; summarize already fences both metadata lists by brand.
- const timestamp=data&&['fish','aristo'].includes(brand)&&typeof window.ShrigmaCrmHome?.summarize==='function'?window.ShrigmaCrmHome.summarize(metadata,brand,'','').sourceTimes.shopify:null;
+ const now=Date.now(),valid=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&Date.parse(value)<=now,Home=window.ShrigmaCrmHome,a=data?.crm_attribution;
+ const marked=row=>{const values=['marca','brand'].filter(key=>Object.hasOwn(row||{},key)).map(key=>({fishermans:'fish',aristocrata:'aristo'}[row[key]]||row[key]));return values.length&&values.every(value=>value===brand);};
+ const scoped=['fish','aristo'].includes(brand)&&data?.brand===brand&&JSON.stringify(data?.brands)===JSON.stringify([brand]);
+ const confirmed=scoped&&a?.schema_version===2&&typeof Home?.validAttributionRow==='function'&&Array.isArray(a.daily)&&a.daily.every(row=>marked(row)&&Home.validAttributionRow(row))&&Array.isArray(a.coverage)&&a.coverage.some(row=>marked(row)&&valid(row.checked_at)&&Home.dates(String(row.day||'').slice(0,10),String(row.day||'').slice(0,10)).length===1);
+ const timestamp=confirmed&&valid(a.generated_at)?a.generated_at:null;
  chip.textContent='Receita atualizada em '+(timestamp?crmWhen(timestamp):'—');
- chip.title=timestamp?'Último snapshot válido do coletor de vendas desta marca · '+timestamp:reason;
+ chip.title=timestamp?'Último snapshot de atribuição concluído desta marca · '+timestamp:reason+' Indisponível desde '+crmWhen(new Date(now).toISOString())+'.';
  if(timestamp)chip.dataset.updatedAt=timestamp;else delete chip.dataset.updatedAt;
 }
 
