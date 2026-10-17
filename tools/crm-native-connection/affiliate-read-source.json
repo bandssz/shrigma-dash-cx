@@ -226,7 +226,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "713ea3b5af8531aaddefd275541c6ba1335a044c547a8dceae8c96c612329bda"
+      "sha256": "fb92acdd8c29a63b3932b9de3cb5f1cdb9e448c1decc9ab52d043d471badb315"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -470,8 +470,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 65668,
-      "sha256": "83924881d74e660777a2ea09745a65a488c0d05b3f02c0b2e9ca502305aed520"
+      "bytes": 66077,
+      "sha256": "da3f1e63bc7ff32689a37b6c3e148c82f61202852b3f27c1babd1514889559f9"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -531,12 +531,12 @@
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
       "bytes": 20506,
-      "sha256": "6cbc6c8539af4632e1aa03c5750ab8a3a73fa716929e20564e3c64735c79a863"
+      "sha256": "7d2675a84182a496282f115cc5bc6fa9169474ed728179f624174d00e660be24"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 19013,
-      "sha256": "e49b15f0aee62ab6a9f1541949b5be03f06c7c83903ff80d123c355939e2ca03"
+      "bytes": 19012,
+      "sha256": "19cc1624a27bf417017e8a9a9df2265f8b21e6a7b772ba8535c8de8825a6818f"
     },
     {
       "path": "services/dashboard-operational/public/influs-workspace/app.js",
@@ -1050,8 +1050,8 @@
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
-      "bytes": 50833,
-      "sha256": "089c8aea1ee35510fce0c097b3c29af18126e1f5d9022e6bc5e87d4ec538e70d"
+      "bytes": 52525,
+      "sha256": "4d05e3f6094e6625547be2dae21e4b1e9676594cf2a93a1b8eab9781c5bbbaa5"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
