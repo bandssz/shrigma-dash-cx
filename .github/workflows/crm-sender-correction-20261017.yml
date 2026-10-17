@@ -1,0 +1,23 @@
+name: CRM original sender correction
+on:
+  push:
+    branches: [codex/crm-sender-source-20261017]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  publish-original-overlay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Registry session
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build and prove the exact original image with two corrected modules
+        run: docker build --platform linux/amd64 --build-arg PATCH_REVISION="$GITHUB_SHA" --tag "ghcr.io/bandssz/shrigma-dash-operational-canary:crm-senders-$GITHUB_SHA" ops/sender-correction17
+      - name: Publish the proved source image
+        run: |
+          IMAGE="ghcr.io/bandssz/shrigma-dash-operational-canary:crm-senders-$GITHUB_SHA"
+          docker push "$IMAGE"
+          docker image inspect "$IMAGE" --format '{{json .RepoDigests}}'
