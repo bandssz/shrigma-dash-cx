@@ -1160,8 +1160,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 63844,
-      "sha256": "a29982421c6d382346050d7044b5e8e6749c5147aef7d9ab33b37e61d1b678fd"
+      "bytes": 63869,
+      "sha256": "7e515209c826afd6493beabb33eb5b7ae9d93b2a0ad9804f634bce70d64911d2"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -1710,8 +1710,8 @@
     },
     {
       "path": "tests/product-entry-navigation.test.cjs",
-      "bytes": 2923,
-      "sha256": "70b52c869d25168a725789e72cbd85ecc83a115ace8e4319be2484b3ab7dcc10"
+      "bytes": 3056,
+      "sha256": "c2b9c6368c9818b231ce2c1e22fd2e23894ceb075a38cd1a642a6314eb930479"
     },
     {
       "path": "tests/product-front-split.test.cjs",

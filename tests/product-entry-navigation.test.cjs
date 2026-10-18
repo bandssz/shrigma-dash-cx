@@ -1,6 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {initialProductView,productViewsForAreas,crmWorkContext}=require((process.env.DASHBOARD_ACCESS_TEST_RUNTIME||require('node:path').resolve(__dirname,'../services/dashboard-operational'))+'/public/entry.js');
+const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||require('node:path').resolve(__dirname,'../services/dashboard-operational');
+const entry=runtime==='/app/native-backend/runtime'?'/app/presentation-release/public/entry.js':runtime+'/public/entry.compiled.js';
+const {initialProductView,productViewsForAreas,crmWorkContext}=require(entry);
 test('an explicit Afiliados address cannot silently open Influs',()=>{
  const views=productViewsForAreas(['influs'],['influs']);
  assert.equal(initialProductView('influs','?view=afiliados',views),null);
