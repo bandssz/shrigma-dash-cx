@@ -1,5 +1,5 @@
 'use strict';
-// Stateless admission for the single authorized internal QA account. All
+// Stateless editor admission for the fixed internal QA audience. All
 // durable intentions remain in the original audience request / BFF delivery.
 const P=require('./proxy.cjs');
 const EMAIL='felipebandeira+codex@oaristocrata.com';
@@ -10,7 +10,7 @@ const error=(status,code)=>Object.assign(Error(code),{status,code});
 const exact=(o,keys)=>o&&Object.getPrototypeOf(o)===Object.prototype&&Object.keys(o).sort().join(',')===[...keys].sort().join(',');
 function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false}){
  if(typeof binding!=='function'||typeof remoteKey!=='function'||!delivery)throw Error('NATIVE_INTERNAL_CONFIG');
- const identity=async(context,brand)=>{if(!enabled||!['fish','aristo'].includes(brand))throw error(403,'NATIVE_INTERNAL_DISABLED');const p=await binding(context,{brand,write:true,fetchImpl});if(p.author?.email?.toLowerCase()!==EMAIL||p.author.permissions?.growth?.edit!==true)throw error(403,'NATIVE_INTERNAL_QA_ONLY');return p;};
+ const identity=async(context,brand)=>{if(!enabled||!['fish','aristo'].includes(brand))throw error(403,'NATIVE_INTERNAL_DISABLED');const p=await binding(context,{brand,write:true,fetchImpl});if(p.author?.permissions?.growth?.edit!==true)throw error(403,'NATIVE_INTERNAL_EDIT_REQUIRED');return p;};
  async function transport(context,{route='campaigns',method,command}){
   const p=await identity(context,command.brand),action=command.acao;
   const allowed=route==='segments'?(method==='GET'?['segmento_contexto_revisao','segmento_congelamento_nativo_obter']:['segmento_congelar_nativo_interno']):(method==='GET'?['campanha_nativa_contexto','campanha_obter','campanha_catalogo','campanha_operacao']:['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar','campanha_reconciliar_cancelamento']);

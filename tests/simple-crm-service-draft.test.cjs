@@ -34,7 +34,9 @@ async function fixture(t,{write=true,fronts=['growth'],brands=['aristo'],holder=
  const created=await auth.simpleAccounts.create({context:adminContext,email:'synthetic-analyst@oaristocrata.com',password:PASS,jobTitle:'analista',fronts,brands,writeFronts:write?fronts:[]}),analyst=await auth.login({email:created.user.email,password:PASS,host:HOST,origin:'https://'+HOST});
  const catalog=brand=>({brand,current:true,lists:[{id:brand==='aristo'?7:17,brand,name:'Synthetic list',available:true}],templates:[{id:1,name:'Original shared layout',type:'campaign',version:'a'.repeat(32),available:true}],initiatives:[],read_at:STAMP});
  const fetchImpl=async(url,o)=>{
-  const u=new URL(url),body=o.method==='POST'?JSON.parse(o.body):null,action=body?.acao||u.searchParams.get('acao')||u.searchParams.get('action');calls.push({method:o.method,action,url:u.href,body});a.equal(o.headers.Cookie,undefined);a.equal(o.headers.Origin,undefined);
+  const u=new URL(url),body=o.method==='POST'?JSON.parse(o.body):null,action=body?.acao||u.searchParams.get('acao')||u.searchParams.get('action');calls.push({method:o.method,action,url:u.href,body});a.equal(o.headers.Cookie,undefined);
+  if(o.headers.Origin==='https://bandssz.github.io'&&hooks.native){a([P.REVIEWED_DYNAMIC.routes.campaigns,P.REVIEWED_DYNAMIC.routes.segments].includes(u.origin+u.pathname));if(o.method==='POST'&&u.pathname!=='/segments')a.equal(body.k,key);else a.equal(o.headers.Authorization,'Bearer '+key);return hooks.native({u,body,action,method:o.method});}
+  a.equal(o.headers.Origin,undefined);
   if(action==='cache_growth'){a.equal(o.headers.Authorization,'Bearer synthetic-read-crm-only');await hooks.afterCache?.();return response({crm_diario:[{marca:'aristo',dia:'2026-10-14',canal:'email',janela:'1d',enviados:12,cliques:2},{marca:'fish',dia:'2026-10-14',canal:'email',janela:'1d',enviados:24,cliques:null}]},u);}
   if(action==='identity'){a.equal(o.headers.Authorization,'Bearer '+key);await hooks.identity?.();return identity(u);}
   if(u.pathname==='/webhook/crm-modelos-20261014-14a1976f59cd'){
@@ -86,6 +88,64 @@ async function fixture(t,{write=true,fronts=['growth'],brands=['aristo'],holder=
 }
 const createCampaign=()=>({acao:'campanha_criar',brand:'aristo',definition:campaignDefinition(),idempotency_key:crypto.randomUUID()});
 const createAudience=()=>({acao:'segmento_criar',brand:'aristo',definition:audienceDefinition(),expected_catalog_hash:'a'.repeat(64),idempotency_key:crypto.randomUUID()});
+// Real cookie/server/factory/binding; only the original remote is synthetic.
+async function internalNativeFixture(t,options={}){
+ const f=await fixture(t,{brands:['aristo','fish'],...options}),N=require(runtime+'/simple-crm-native-internal.cjs');
+ const operations=new Map(),lost={value:false},eligible={value:true};
+ const nativeCampaign=brand=>({id:brand==='aristo'?901:902,version:'a'.repeat(32),status:'scheduled',sent:0,started_at:null,send_at:new Date(Date.now()+1800000).toISOString(),definition:{...campaignDefinition(brand),name:'[QA SAB17] Agenda nativa '+brand+' fixture',list_ids:[999]}});
+ for(const brand of ['aristo','fish']){const c=nativeCampaign(brand);c.definition.send_at=c.send_at;f.campaigns.set(c.id,c);}
+ f.hooks.native=async({u,body,action,method})=>{
+  const q=body||Object.fromEntries(u.searchParams),brand=q.brand,id=Number(q.id),c=f.campaigns.get(id);
+  if(action==='campanha_nativa_contexto')return response({schema:'crm-native-internal-context-v1',brand,campaign_id:id,acceptance_proved:true,eligible:eligible.value&&!!c&&c.definition.brand===brand,internal_test:true,commercial:false,list_id:999},u);
+  if(action==='segmento_congelar_nativo_interno'){
+   a.equal(method,'POST');a.equal(q.id,N.IDS[brand]);a.notEqual(q.idempotency_key,f.clientFreezeKey);return response({contract:'crm-native-frozen-internal-list-v2',brand,audience_id:q.id,eligible_count:1,internal_test:true,sends:false,schedules:false,list_id:999,list_uuid:crypto.randomUUID()},u);
+  }
+  if(action==='campanha_obter'){a.equal(method,'GET');return response({campaign:c},u);}
+  if(action==='campanha_operacao'){a.equal(method,'GET');return response(operations.has(q.idempotency_key)?{operation:operations.get(q.idempotency_key)}:{error:'OPERATION_NOT_FOUND'},u,operations.has(q.idempotency_key)?200:404);}
+  if(action==='campanha_cancelar'){
+   a.equal(method,'POST');a.equal(c.definition.brand,brand);a.equal(c.status,'scheduled');a.equal(q.expected_version,c.version);a.equal(q.confirm,'cancelar');
+   const now=new Date().toISOString(),operationId=crypto.randomUUID(),next={...c,version:'b'.repeat(32),status:'draft',send_at:null,definition:{...c.definition,send_at:null}};f.campaigns.set(id,next);
+   const receipt={status:200,body:{campaign:next,operation_id:operationId,native_internal:true}};operations.set(q.idempotency_key,{id:operationId,operation_key:q.idempotency_key,brand,action:'cancelar',state:'succeeded',providerId:id,response:receipt,created_at:now,updated_at:now});await f.hooks.afterNativePost?.();if(lost.value)throw Error('synthetic native ACK lost');return response(receipt.body,u);
+  }
+  throw Error('Unexpected synthetic native action: '+action);
+ };
+ const cancel=(brand,key=crypto.randomUUID())=>({acao:'campanha_nativa_cancelar',brand,id:brand==='aristo'?901:902,expected_version:'a'.repeat(32),idempotency_key:key,confirm:'cancelar'});
+ const freeze=brand=>({acao:'campanha_nativa_congelar',brand,id:N.IDS[brand],expected_version:1,expected_definition_hash:'1'.repeat(64),expected_context_hash:'2'.repeat(64),expected_catalog_hash:'3'.repeat(64),idempotency_key:crypto.randomUUID()});
+ return Object.assign(f,{N,cancel,freeze,nativeOperations:operations,lost,eligible});
+}
+test('ordinary editors use the real native factory in both brands with the QA audience fixed',async t=>{
+ const f=await internalNativeFixture(t);a.notEqual(f.created.user.email,f.N.EMAIL);
+ for(const brand of ['aristo','fish']){
+  const cap=await f.request('/api/campaigns?acao=campanha_nativa_capacidade&brand='+brand,{viewBrand:brand});a.equal(cap.status,200,JSON.stringify(cap.body));a.equal(cap.body.enabled,true);a.equal(cap.body.audience_id,f.N.IDS[brand]);a.equal(cap.body.internal_test,true);a.equal(cap.body.commercial,false);
+  const command=f.freeze(brand);f.clientFreezeKey=command.idempotency_key;const frozen=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,body:command});a.equal(frozen.status,200,JSON.stringify(frozen.body));a.equal(frozen.body.eligible_count,1);a.equal(frozen.body.audience_id,f.N.IDS[brand]);a.equal(frozen.body.sends,false);a.equal(frozen.body.schedules,false);
+  const cancel=f.cancel(brand),result=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,body:cancel});a.equal(result.status,200,JSON.stringify(result.body));a.equal(result.body.state,'succeeded');a.equal(result.body.campaign.status,'draft');a.equal(result.body.campaign.sendAt,null);
+  const row=f.dbQuery(db=>db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE user_id=? AND client_key=?').get(f.created.user.id,cancel.idempotency_key));a.equal(row.phase,'succeeded');a.equal(row.action,'cancelar');a.notEqual(row.remote_key,cancel.idempotency_key);
+ }
+ a.equal(f.posts(),4);a.equal(f.nativeOperations.size,2);
+});
+test('native editor role, write front, brand, Origin and CSRF are enforced before a reservation or remote POST',async t=>{
+ for(const options of [{write:false},{fronts:['afiliados']},{brands:['fish']},{holder:false}]){
+  const f=await internalNativeFixture(t,options),r=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:f.cancel('aristo')});a(r.status>=400,JSON.stringify(r.body));a.equal(f.posts(),0);a.equal(f.dbQuery(db=>db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1').get().n),0);
+ }
+ const f=await internalNativeFixture(t);for(const extra of [{csrf:false},{viewBrand:'fish'},{extraHeaders:{Origin:'https://untrusted.invalid'}}]){const r=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:f.cancel('aristo'),...extra});a(r.status>=400,JSON.stringify(r.body));}a.equal(f.posts(),0);a.equal(f.dbQuery(db=>db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1').get().n),0);
+});
+test('native editor cannot select an arbitrary audience or write an ineligible customer campaign',async t=>{
+ const f=await internalNativeFixture(t);const wrong=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:{...f.freeze('aristo'),id:crypto.randomUUID()}});a.equal(wrong.status,400);f.eligible.value=false;
+ const denied=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:f.cancel('aristo')});a.equal(denied.status,409);a.equal(f.posts(),0);a.equal(f.dbQuery(db=>db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1').get().n),0);
+});
+test('native lost ACK remains owned by the editor and only GET recovers the same intention',async t=>{
+ const f=await internalNativeFixture(t);f.lost.value=true;const command=f.cancel('aristo'),first=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:command});a.equal(first.status,202,JSON.stringify(first.body));a.equal(f.posts(),1);
+ const original=f.dbQuery(db=>db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE client_key=?').get(command.idempotency_key));
+ const other=await f.auth.simpleAccounts.create({context:f.adminContext,email:'other-native-editor@oaristocrata.com',password:PASS,jobTitle:'analista',fronts:['growth'],brands:['aristo'],writeFronts:['growth']}),login=await f.auth.login({email:other.user.email,password:PASS,host:HOST,origin:'https://'+HOST});
+ const path='/api/campaigns?acao=campanha_nativa_operacao&brand=aristo&idempotency_key='+command.idempotency_key,foreign=await f.request(path,{viewBrand:'aristo',login});a.equal(foreign.status,404,JSON.stringify(foreign.body));a.deepEqual(f.dbQuery(db=>db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE client_key=?').get(command.idempotency_key)),original);a.equal(f.posts(),1);
+ const foreignRecovery=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',login,body:{acao:'campanha_nativa_reconciliar_cancelamento',brand:'aristo',idempotency_key:command.idempotency_key}});a.equal(foreignRecovery.status,404,JSON.stringify(foreignRecovery.body));a.deepEqual(f.dbQuery(db=>db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE client_key=?').get(command.idempotency_key)),original);a.equal(f.posts(),1);
+ const recovered=await f.request(path,{viewBrand:'aristo'});a.equal(recovered.status,200,JSON.stringify(recovered.body));a.equal(recovered.body.state,'succeeded');a.equal(recovered.body.campaign.status,'draft');a.equal(f.posts(),1);
+ const changed=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:{...command,expected_version:'c'.repeat(32)}});a.equal(changed.status,409);a.equal(f.posts(),1);
+});
+test('native editor revocation during remote effect preserves uncertainty and never retries POST',async t=>{
+ const f=await internalNativeFixture(t);f.hooks.afterNativePost=()=>f.update({active:false});const command=f.cancel('aristo'),r=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:command});a(r.status>=400,JSON.stringify(r.body));a.equal(f.posts(),1);a.equal(f.dbQuery(db=>db.prepare('SELECT phase FROM crm_campaign_delivery_v1 WHERE client_key=?').get(command.idempotency_key).phase),'uncertain');
+ const retry=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:command});a(retry.status>=400);a.equal(f.posts(),1);
+});
 test('results consumer keeps brand data identical and skips only model capability probes',async t=>{
  const f=await fixture(t,{brands:['aristo','fish']}),url='/api/crm-read?action=cache_growth&painel=growth';for(const brand of ['aristo','fish']){const before=f.calls.length,lean=await f.request(url,{viewBrand:brand,extraHeaders:{'X-Shrigma-Crm-Consumer':'results-read-v1'}});a.equal(lean.status,200,JSON.stringify(lean.body));a.deepEqual(lean.body.capabilities,{read:true,send:false});a(lean.body.crm_diario.every(x=>x.marca===brand));a.equal(f.calls.slice(before).filter(x=>x.action!=='cache_growth').length,0);a.match(lean.headers['server-timing'],/modelCapability;dur=0\.00/);const full=await f.request(url,{viewBrand:brand});a.equal(full.status,200);a.equal(full.body.capabilities.templates.read_content,true);a(f.calls.slice(before).some(x=>x.action==='email_capacidades'));const withoutCaps=x=>Object.fromEntries(Object.entries(x).filter(([k])=>k!=='capabilities'));a.deepEqual(withoutCaps(lean.body),withoutCaps(full.body));a.match(full.headers['server-timing'],/modelCapability;dur=\d+\.\d{2}/);}
  const unknown=await f.request(url,{viewBrand:'aristo',extraHeaders:{'X-Shrigma-Crm-Consumer':'wrong-consumer'}});a.equal(unknown.body.capabilities.templates.read_content,true);const home=await f.request(url,{viewBrand:'aristo',extraHeaders:{'X-Shrigma-Crm-Consumer':'results-read-v1','X-Shrigma-Crm-View':'home'}});a.equal(home.body.contract,'shrigma-crm-home-read-v1');a.equal(home.headers['server-timing'].includes('modelCapability'),false);a.equal(f.posts(),0);

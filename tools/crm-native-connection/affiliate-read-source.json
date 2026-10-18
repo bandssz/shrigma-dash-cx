@@ -895,8 +895,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 161584,
-      "sha256": "de7b6663e849b4bbad32964a1a82b0c398649058f30ddda6d2ea783b6dfecc19"
+      "bytes": 161463,
+      "sha256": "0a6b35441b947f85a71f90a57b78d560ed1453ae550b6e7d968fc9174a00c628"
     },
     {
       "path": "services/dashboard-operational/bcrypt.mjs",
@@ -1160,8 +1160,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 77768,
-      "sha256": "b7c6c09ad995057623e627395cd894f95c87659a41c7eca4fc553b22ec24dfe9"
+      "bytes": 78100,
+      "sha256": "a9a41f736255b71fcb5c519d693b1cd0467f8c0198b4e9a0ca28eacf3f97e800"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1300,8 +1300,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 8136,
-      "sha256": "8360f55c5a1d535112c16c6710fa8da58c330886aa542e1fbef2f41ebad1d8cb"
+      "bytes": 8099,
+      "sha256": "01f1326def4ab86071b60e4165b25c6b66f2f69cff9f60c4f9f23438a6fa18d5"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -1425,8 +1425,8 @@
     },
     {
       "path": "tests/crm-native-night18.test.cjs",
-      "bytes": 7447,
-      "sha256": "90e4900c61aa3596841139b455dd731fed752d2dcd85cef0f0b51f02d2031be7"
+      "bytes": 8289,
+      "sha256": "6d99451b861c96459da45038a5b77f402d9aabc4d4adc1c7505acd717329c738"
     },
     {
       "path": "tests/crm-product-positive-ui.test.cjs",
@@ -1760,8 +1760,8 @@
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
-      "bytes": 58981,
-      "sha256": "4a5998a71d311dc1aed5e10b9cbf64776848c1d4b2cf39f33a11072817ede8da"
+      "bytes": 68333,
+      "sha256": "b86ef39010ce7f7e6fcd5c878668799a2a97e78d6c8950e55b6e2ec18f852c9f"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
@@ -1878,5 +1878,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Native QA schedule reconstruction over attested 4d58, same backend and original API16/frozen-list path. QA-only homologation, current campaign state after receipt reconciliation, no stale recovery CTA. Separate immutable UI hold is required before morning owner release. Serial CI/proofs; no production or source/SQL mutation by the validation workflow."
+  "candidatePurpose": "Allow editing accounts to operate only fixed QA internal native scheduling after owner acceptance; keep commercial selection blocked and original individual binding"
 }
