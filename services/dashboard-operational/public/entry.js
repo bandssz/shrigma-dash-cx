@@ -103,7 +103,14 @@ function installUnavailableCampaignControls(document,Observer){
  document.addEventListener('click',event=>{const button=event.target?.closest?.(selector);if(button){event.preventDefault();event.stopImmediatePropagation();hold(button);}},true);
  refresh();if(typeof Observer==='function'&&document.documentElement)new Observer(refresh).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled']});
 }
-if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation,sessionBrandScope,productViewsForAreas,initialProductView,installUnavailableCampaignControls};
+function crmWorkContext(search,user){
+ const q=new URLSearchParams(search),scope=sessionBrandScope(user),brands=scope?.brands||[],brand=q.get('crmBrand'),view=q.get('crmView');
+ const allowed=brands.includes(brand)||brand==='todas'&&brands.length>1;
+ if(!allowed||!['home','journeys','lab','templates','campaigns','audiences','results'].includes(view)||user?.permissions?.growth?.read!==true)return null;
+ const result={brand,view};const id=q.get('crmCampaign');if(view==='campaigns'&&/^[1-9]\d{0,8}$/.test(id||''))result.campaign_id=id;
+ return result;
+}
+if(typeof module==='object'&&module.exports)module.exports={inviteUrlForArea,readOnlyStyles,audienceDraftOperation,sessionBrandScope,productViewsForAreas,initialProductView,installUnavailableCampaignControls,crmWorkContext};
 else (function(){'use strict';
  installUnavailableCampaignControls(document,typeof MutationObserver==='function'?MutationObserver:null);
  const AREAS={growth:{label:'CRM',page:'/growth.html'},organico:{label:'Orgânico',page:'/organico.html'},influs:{label:'Influs',page:'/influs.html'}};
@@ -117,7 +124,7 @@ else (function(){'use strict';
  let bootstrapToken=requested==='todos'?fragment.get('bootstrap')||'':'';
  let inviteToken=bootstrapToken?'':fragment.get('invite')||'';
  if(location.hash)history.replaceState(null,'',location.pathname+location.search);
- let session=null,frame=null,selected='',selectedView='',busy=false,version=0;
+ let session=null,frame=null,selected='',selectedView='',busy=false,version=0,crmContextTicket=0;
  let adminUserNames=new Map();
  const campaignButton=$('entry-campaign-open');
  $('login-password-toggle')?.addEventListener('click',()=>{const input=$('login-password'),button=$('login-password-toggle'),visible=input.type==='password';input.type=visible?'text':'password';button.textContent=visible?'Ocultar':'Mostrar';button.setAttribute('aria-pressed',String(visible));input.focus();});
@@ -258,7 +265,7 @@ else (function(){'use strict';
   note.hidden=!waiting;note.textContent=!waiting?'':preserved?'Edição de campanhas aguardando validação · tentativa sem confirmação preservada, não será repetida':'Edição de campanhas aguardando validação · CRM em leitura';
   note.title=!waiting?'':preserved?'Uma tentativa de campanha ficou sem confirmação neste navegador. Ela está guardada e não será enviada de novo. Quando a edição voltar a valer, abra Campanhas para conferir o resultado antes de qualquer nova ação.':'O acesso de edição foi solicitado ou aprovado, mas a escrita individual de campanhas ainda não está pronta. Nada pode ser salvo ou agendado por aqui; a leitura do CRM continua disponível.';
  }
- function openPanel(area,view=area){
+ function openPanel(area,view=area){crmContextTicket++;
   if(!session||!session.user.areas.includes(area)||!AREAS[area])return;
   const presentation=productViewsForAreas([area],session.user.productFronts).find(v=>v.view===view);if(!presentation)return;
   admin.hidden=true;manage.setAttribute('aria-pressed','false');frameHost.hidden=false;selected=area;selectedView=view;frame?.remove();
@@ -272,7 +279,7 @@ else (function(){'use strict';
   showCampaignNote(area);
   frame=document.createElement('iframe');frame.title=presentation.label;frame.referrerPolicy='no-referrer';
   const page=session.features?.simpleLogin===true&&view==='growth'?'/app/crm/':session.features?.simpleLogin===true&&view==='afiliados'?'/app/afiliados/':session.features?.simpleLogin===true&&view==='organico'?'/app/organico/':session.features?.simpleLogin===true&&view==='influs'?'/app/influs/':AREAS[area].page;
-  const target=new URL(page,location.origin);target.searchParams.set('embed','1');if(area==='influs'&&view!=='afiliados')target.searchParams.set('view',view);frame.src=target.href;
+  const target=new URL(page,location.origin);target.searchParams.set('embed','1');if(page==='/app/crm/'){const context=crmWorkContext(location.search,session.user);if(!context&&new URLSearchParams(location.search).has('crmBrand')){const note=document.createElement('section');note.setAttribute('role','status');note.textContent='Esta marca ou tela não está disponível para seu acesso. ';const choose=document.createElement('button');choose.type='button';choose.textContent='Escolher marca disponível';choose.addEventListener('click',()=>{const url=new URL(location.href);for(const key of ['crmBrand','crmView','crmCampaign'])url.searchParams.delete(key);history.replaceState(null,'',url.pathname+url.search);openPanel('growth');});note.append(choose);frame=null;frameHost.replaceChildren(note);return;}if(context)for(const[k,v]of Object.entries(context))target.searchParams.set(k,v);}if(area==='influs'&&view!=='afiliados')target.searchParams.set('view',view);frame.src=target.href;
   frameHost.replaceChildren(frame);showAudienceNotice(audienceGate);$('entry-area').textContent=presentation.label;
   for(const button of nav.querySelectorAll('button'))button.setAttribute('aria-current',button.dataset.area===area&&button.dataset.view===view?'page':'false');
  }
@@ -296,6 +303,14 @@ else (function(){'use strict';
  }
  window.addEventListener('message',async event=>{
   if(!session||!frame||event.source!==frame.contentWindow||event.origin!==location.origin)return;
+  if(event.data?.type==='shrigma:crm-context'){
+   if(selected!=='growth'||selectedView!=='growth'||session.features?.simpleLogin!==true)return;
+   try{if(frame.contentWindow.location.pathname!=='/app/crm/')return;}catch{return;}
+   const data=event.data;if(data.schema!==1||data.userId!==session.user.id||Object.keys(data).some(k=>!['type','schema','userId','brand','view','campaign_id'].includes(k)))return;
+   const capturedFrame=frame,capturedUser=session.user.id,contextTicket=++crmContextTicket;let next;try{next=await readSession();}catch{return;}if(contextTicket!==crmContextTicket||!validSession(next)||frame!==capturedFrame||session?.user?.id!==capturedUser||next.user.id!==capturedUser||selected!=='growth'||selectedView!=='growth')return;
+   const q=new URLSearchParams({crmBrand:data.brand,crmView:data.view,...(data.campaign_id?{crmCampaign:String(data.campaign_id)}:{})}),context=crmWorkContext('?'+q,next.user);if(!context)return;
+   const url=new URL(location.href);url.searchParams.set('crmBrand',context.brand);url.searchParams.set('crmView',context.view);if(context.campaign_id)url.searchParams.set('crmCampaign',context.campaign_id);else url.searchParams.delete('crmCampaign');if(requested==='todos')url.searchParams.set('view','growth');history.replaceState(null,'',url.pathname+url.search);return;
+  }
   if(event.data?.type==='shrigma:session-expired'){showLogin('Sua sessão terminou. Entre novamente.');return;}
   if(event.data?.type==='shrigma:brand-read-unavailable'){
    const texts={BRAND_READ_CONTRACT_NOT_READY:'A leitura deste setor para a sua marca ainda aguarda validação. Nenhum dado de outra marca será apresentado.',BRAND_RESPONSE_UNSCOPED:'Esta leitura não confirmou o recorte da sua marca. Os dados novos não foram aplicados; peça uma revisão ao administrador.'};

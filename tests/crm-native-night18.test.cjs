@@ -26,8 +26,9 @@ async function fixture(brand,{email=qa,action=null,status='draft',sendAt=null,re
  await editor.load('campaigns',1);return{document,window,values,calls,editor,settle,open:async()=>{document.querySelector('[data-open-draft]').click();await settle(()=>!!document.querySelector('#campaign-editor form'));for(let i=0;i<10;i++)await new Promise(setImmediate);}};
 }
 for(const brand of ['aristo','fish']){
- test('native homologation remains exact-QA-only and immutable hold ignores browser release '+brand,async()=>{
+ test('native homologation remains QA-and-owner-only and immutable hold ignores browser release '+brand,async()=>{
   const qaUi=await fixture(brand);await qaUi.open();assert.equal(!!qaUi.document.querySelector('#campaign-native'),enabled);assert.equal(qaUi.calls.some(x=>x.action==='campanha_nativa_capacidade'),enabled);
+  const ownerUi=await fixture(brand,{email:'felipebandeira@oaristocrata.com'});await ownerUi.open();assert.equal(!!ownerUi.document.querySelector('#campaign-native'),enabled);assert(ownerUi.calls.every(x=>x.method==='GET'));
   const analyst=await fixture(brand,{email:'analista@'+(brand==='aristo'?'oaristocrata.com':'fishermans.com.br')});await analyst.open();assert.equal(analyst.document.querySelector('#campaign-native'),null);assert(!analyst.calls.some(x=>x.action?.startsWith('campanha_nativa_')));
   assert(qaUi.calls.every(x=>x.method==='GET'));assert(analyst.calls.every(x=>x.method==='GET'));
  });

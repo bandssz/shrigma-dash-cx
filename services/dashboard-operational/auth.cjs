@@ -1263,9 +1263,9 @@ function createAuth(options){
  function simpleNativeInternalFactory({fetchImpl=globalThis.fetch,enabled=false}={}){
   if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
   const C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js'),N=require('./simple-crm-native-internal.cjs');let adapter;
-  const authorize=(context,{brand})=>{const p=simpleDraftBinding(context,{brand});if(!enabled||p.author.email?.toLowerCase()!==N.EMAIL||p.author.permissions.growth?.edit!==true)err('NATIVE_INTERNAL_QA_ONLY',403);return Object.freeze({userId:p.author.id,role:p.author.role,slot:'growth-campaign',canEdit:true,credentialMac:p.binding,caps:Object.freeze(['read_content','draft','validate','submit'])});};
+  const authorize=(context,{brand})=>{const p=simpleDraftBinding(context,{brand});if(!enabled||!N.allowedOperator(p.author)||p.author.permissions.growth?.edit!==true)err('NATIVE_INTERNAL_QA_ONLY',403);return Object.freeze({userId:p.author.id,role:p.author.role,slot:'growth-campaign',canEdit:true,credentialMac:p.binding,caps:Object.freeze(['read_content','draft','validate','submit'])});};
   const delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize,transport:(...args)=>adapter.transport(...args),now:current,encrypt,decrypt,nativeInternal:true,hasOpenCreate:hasOpenCampaignCreate,prepareDefinition:(definition,{catalog,id,now:time})=>C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time}).definition});
-  adapter=N.create({enabled,binding:(context,args)=>{const p=simpleDraftBinding(context,args);if(p.author.email?.toLowerCase()!==N.EMAIL)err('NATIVE_INTERNAL_QA_ONLY',403);return verifySimpleDraftBinding(context,args);},remoteKey:simpleAudienceRemoteKey,delivery,fetchImpl});return adapter;
+  adapter=N.create({enabled,binding:(context,args)=>{const p=simpleDraftBinding(context,args);if(!N.allowedOperator(p.author))err('NATIVE_INTERNAL_QA_ONLY',403);return verifySimpleDraftBinding(context,args);},remoteKey:simpleAudienceRemoteKey,delivery,fetchImpl});return adapter;
  }
  function simpleCampaignDraftFactories(transport){
   if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
