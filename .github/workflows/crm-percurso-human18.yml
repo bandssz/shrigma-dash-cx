@@ -1,0 +1,97 @@
+name: Human18 CRM context image and contracts
+'on':
+  push:
+    branches: [codex/domingo18-percurso]
+permissions:
+  contents: read
+concurrency:
+  group: shrigma-human18-percurso-validation
+  cancel-in-progress: false
+jobs:
+  image-and-contracts:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify exact Afiliados delta over installed source
+        run: node tools/crm-native-connection/verify-affiliate-read-source.cjs
+      - name: Install existing canonical compiler and verify actual source assets
+        run: |
+          npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+          node tools/dashboard-campaign-ui-build.cjs --check
+          node tools/dashboard-model-piece-build.cjs --check
+          node tools/panel-build/build.cjs --panel=influs --check
+          node tools/panel-build/build.cjs --panel=growth --check
+          node tools/panel-build/build.cjs --panel=organico --check
+      - name: Private registry session
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          affiliate_ci_dir="$(mktemp -d "$RUNNER_TEMP/shrigma-affiliate.XXXXXX")"
+          printf 'AFFILIATE_CI_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$affiliate_ci_dir" "$affiliate_ci_dir" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$affiliate_ci_dir/docker"
+          export DOCKER_CONFIG="$affiliate_ci_dir/docker"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build over the same preserved gateway base
+        run: docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE:source-$GITHUB_SHA" --file ops/releases/crm-native-connection-20261007/Dockerfile .
+      - name: Prove original Master continuity and actual assets in UID1000
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/journey-smoke.cjs,dst=/tmp/smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" /tmp/smoke.cjs > "$AFFILIATE_CI_DIR/smoke.json"
+          node - "$AFFILIATE_CI_DIR/smoke.json" <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').trim().split(/\r?\n/).at(-1));a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.actualNativeRuntimeFiles,28+require(process.cwd()+'/ops/releases/crm-native-connection-20261007/build-release.cjs').ADDITIONS.length);a.equal(r.presentationPathsUpdated,6);for(const k of ['publicAssetsActuallyServed','originalMasterNativeRead','crossBrandDenied','nativeRevocationDenied','verifiedRuntimeAndPresentation'])a.equal(r[k],true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);a.equal(r.operational,false);a.equal(r.sourceRevision,process.env.GITHUB_SHA);console.log(JSON.stringify(r));
+          NODE
+      - name: Own Afiliados READ, reload, binding and actual compiled session guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/afiliados-native-consent.test.cjs /source/tests/afiliados-native-source.test.cjs /source/tests/afiliados-read-contract.test.cjs /source/tests/afiliados-read-gateway.test.cjs /source/tests/afiliados-session-read.test.cjs /source/tests/afiliados-panel-read.test.cjs /source/tests/afiliados-creator-share.test.cjs /source/tests/product-front-split.test.cjs
+      - name: Prove Master delegation and compiled four-front signup in Node22 UID1000
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$AFFILIATE_CI_DIR/dom" --ignore-scripts --no-audit --no-fund --package-lock=false linkedom@0.18.12
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/simple-login-accounts.test.cjs /source/tests/simple-login-gateway.test.cjs /source/tests/dashboard-operational-native-mcp.test.cjs /source/tests/simple-login-ui.test.cjs /source/tests/dashboard-central-delegation.test.cjs /source/tests/dashboard-operational-auth.test.cjs /source/tests/dashboard-operational-brand-ui.test.cjs /source/tests/dashboard-operational-user-profile-update.test.cjs /source/tests/dashboard-operational-user-profile-update-ui.test.cjs /source/tests/dashboard-operational-brand-identity.test.cjs /source/tests/dashboard-operational-brand-lifecycle.test.cjs /source/tests/claude-crm-access-states-path.test.cjs /source/tests/dashboard-individual-read-gateway.test.cjs /source/tests/growth-campaign-editor.test.cjs /source/tests/growth-campaign-ui.test.cjs /source/tests/growth-campaign-audience-feedback.test.cjs
+      - name: Prove simple fixed routes and repaired legacy read fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/dashboard-individual-read.test.cjs /source/tests/cart-contract-summary.test.cjs /source/tests/own-affiliates-read.test.cjs /source/tests/own-affiliates-workspace.test.cjs /source/tests/product-entry-navigation.test.cjs /source/tests/ab-experiment-integration.test.cjs /source/tests/creators-read-isolation.test.cjs /source/tests/frontend-read-consistency.test.cjs /source/tests/influs-active-read.test.cjs /source/tests/influs-affiliates-mount.test.cjs /source/tests/organico-access.test.cjs /source/tests/organico-render.test.cjs /source/tests/journey-lab.test.cjs /source/tests/journey-lab-ui.test.cjs /source/tests/journey-lab-panel.test.cjs /source/tests/afiliados-daily-workspace.test.cjs /source/tests/growth-brand-theme.test.cjs /source/tests/simple-audience-read.test.cjs /source/tests/affiliate-preview.test.cjs /source/tests/product-preview-expansion.test.cjs /source/tests/journey-internal-test.test.cjs /source/tests/journey-html-transport.test.cjs /source/tests/journey-html-runner.test.cjs /source/tests/journey-html-http.test.cjs /source/tests/journey-html-ui.test.cjs /source/tests/modelos-isolation.test.cjs /source/tests/crm-read-inflight.test.cjs /source/tests/crm-reader-diagnostic.test.cjs /source/tests/growth-control.test.cjs /source/tests/dashboard-operational-campaign-create-packaging.test.cjs
+      - name: Prove explicit native diagnostic approval in Node22 UID1000
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env SOURCE_DIAGNOSTICS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/source-diagnostics-native/controller.test.cjs /source/tests/source-diagnostics-native/gateway.test.cjs
+      - name: Prove individual CRM drafts, TikTok receipts and Tabler originals in Node22 UID1000
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/production-envelope.test.cjs /source/tests/crm-legacy-parity.test.cjs /source/tests/crm-legacy-library-plan.test.cjs /source/tests/simple-crm-service-draft.test.cjs /source/tests/simple-crm-models.test.cjs /source/tests/crm-model-import.test.cjs /source/tests/simple-crm-model-pieces.test.cjs /source/tests/simple-crm-model-tests.test.cjs /source/tests/simple-crm-campaign-tests.test.cjs /source/tests/crm-product-positive-ui.test.cjs /source/tests/private-test-diagnostics.test.cjs /source/tests/native-test-error-envelope.test.cjs /source/tests/simple-tts-manual.test.cjs /source/tests/simple-tabler-read.test.cjs /source/tests/shared-period.test.cjs
+      - name: Prove TEST safety and retention diagnostics in the same Node22 UID1000 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env CAMPAIGN_CREATE_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_DIAGNOSTICS_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_DIAGNOSTICS_INPUT_ROOT=/source/tests/source-commit-diagnostics-native/sealed-inputs --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/campaign-create-native/gateway.test.cjs /source/tests/source-commit-diagnostics-native/diagnostics.test.cjs /source/tests/source-diagnostics-native/operator-ui.test.cjs
+      - name: Native QA visibility and current-state receipt regressions
+        run: |
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --env NATIVE_UI_EXPECT_ENABLED=true --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-native-night18.test.cjs
+      - name: Remove temporary registry session
+        if: always()
+        run: rm -rf -- "$DOCKER_CONFIG"
