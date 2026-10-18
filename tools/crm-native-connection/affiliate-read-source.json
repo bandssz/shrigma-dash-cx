@@ -10,13 +10,13 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 43032,
-      "sha256": "8598ff5d544f530bb33a9d04bfbb6331e3c9e9c2f69e52ea9eb0a1eda01f5acc"
+      "bytes": 44330,
+      "sha256": "e15b412996b4b05ef79825b9173b163c12b947266f7fbeab243f53f22086231d"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
-      "bytes": 12033,
-      "sha256": "f71b50553808eb9d20b584ef06bd29b780ecf8f891e647aed35238eee7262644"
+      "bytes": 13372,
+      "sha256": "749f27ae3d1688856bc0a8fc4796d7300c19e2c3de8d4e898af7f3606345064e"
     },
     {
       "path": "afiliados-proprios.js",
@@ -1155,13 +1155,13 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 62965,
-      "sha256": "865834bcbb6d1f7c775af6761423a24817f0d6e1e3e4e2ef64b06614715ee8c1"
+      "bytes": 65309,
+      "sha256": "9420032ae7c315fe7e866bd1c2ef8b4e7fc5c181dba4e0d869397c2f47890f64"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 77769,
-      "sha256": "5d7cea3565bdf3f963e57132d790a0e1c55c9e750eb5df9d127d252cb992144e"
+      "bytes": 79643,
+      "sha256": "fb4d068c3a50d4ba8d4612fb9375acca4150c0b635d623ec9c88c835a80ab9b5"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1170,8 +1170,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 33050,
-      "sha256": "f0c5d39c4e34ca130658dde6e8e075d16b6579231682daf5fed08fc9bdb17d6a"
+      "bytes": 33328,
+      "sha256": "c4cdd7b8dc35e12613343badddc3089f96ce55d1dbdf3741bc3fd263e1a290bb"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
@@ -1412,6 +1412,16 @@
       "path": "tests/crm-campaigns-projection-night18.test.cjs",
       "bytes": 10496,
       "sha256": "21277a900623e61118e12eeadd0b53c2d8a813dfa4f3bcb86adeecf9a57b85b1"
+    },
+    {
+      "path": "tests/crm-form-browser.test.cjs",
+      "bytes": 15294,
+      "sha256": "c2fb8af4785e6d3d20f47eaa98ad90e4981999ba5e5fbc031700a1c19ffc40e4"
+    },
+    {
+      "path": "tests/crm-form-review.test.cjs",
+      "bytes": 11351,
+      "sha256": "ffac6fd663a613074580178a1bdc884c9a2a5c447104292b26b49cb5c6ca5ba8"
     },
     {
       "path": "tests/crm-legacy-library-plan.test.cjs",
@@ -1745,8 +1755,8 @@
     },
     {
       "path": "tests/simple-crm-campaign-tests.test.cjs",
-      "bytes": 31306,
-      "sha256": "c97d4a6291b44fc6957640688372df4f7227301aaeca40912540d7eee3e04f90"
+      "bytes": 36362,
+      "sha256": "bb97a44fe4e67e56794192b020436df21428d160217a66555350b159a423f352"
     },
     {
       "path": "tests/simple-crm-model-pieces.test.cjs",
@@ -1883,5 +1893,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Measured Campanhas payload reduction over the retained native-schedule candidate. Only an explicitly selected email campaign response is projected after the original complete auth, brand and source validation. Preserve every date/model, complete campaign membership, all other relations, NULL/duplicates and original calculations; fall back to full when validity or model availability could change. Source/SQL, other views and production are untouched. Native controls remain held for the owner."
+  "candidatePurpose": "Preserved b8d61ea four-step form and own-brand committed-attribution timestamp over the retained native scheduler and bounded campaign email payload. Original calculations, queries, source and SQL unchanged; stale receipts use current campaign state; every native write remains held. Serial actual-image and synthetic Chrome checks. Production installation is conditional on the real QA journey, serial performance gate and morning owner release."
 }

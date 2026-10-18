@@ -1,7 +1,7 @@
 name: Native scheduling night18 image and contracts
 'on':
   push:
-    branches: [codex/crm-native-night-20261018, codex/crm-campaigns-performance-20261018]
+    branches: [codex/crm-native-night-20261018, codex/crm-campaigns-performance-20261018, codex/crm-campaigns-form-night-20261018]
 permissions:
   contents: read
 concurrency:
@@ -95,6 +95,19 @@ jobs:
       - name: Prove bounded campaign payload equivalence in the actual image
         run: |
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-campaigns-projection-night18.test.cjs
+      - name: Prove the composed four-step form and snapshot chip in the actual image
+        run: |
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-form-review.test.cjs
+      - name: Prove the actual image public form in Chrome at both widths and brands
+        run: |
+          set -euo pipefail
+          RUNTIME_DIR="$AFFILIATE_CI_DIR/browser-runtime"
+          mkdir -p "$RUNTIME_DIR/public"
+          CONTAINER_ID=$(docker create "$IMAGE:source-$GITHUB_SHA")
+          trap 'docker rm -v "$CONTAINER_ID" >/dev/null' EXIT
+          docker cp "$CONTAINER_ID:/app/native-backend/runtime/public/crm-preview" "$RUNTIME_DIR/public/crm-preview"
+          docker cp "$CONTAINER_ID:/app/native-backend/runtime/public/afiliados-preview" "$RUNTIME_DIR/public/afiliados-preview"
+          DASHBOARD_ACCESS_TEST_RUNTIME="$RUNTIME_DIR" node --test --test-concurrency=1 tests/crm-form-browser.test.cjs
       - name: Remove temporary registry session
         if: always()
         run: rm -rf -- "$DOCKER_CONFIG"
