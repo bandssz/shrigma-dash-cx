@@ -10,13 +10,13 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 42559,
-      "sha256": "fb4aa39790242c6f90759c4a7192c0cde92698006dd349b31048ac50809826af"
+      "bytes": 43032,
+      "sha256": "8598ff5d544f530bb33a9d04bfbb6331e3c9e9c2f69e52ea9eb0a1eda01f5acc"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
-      "bytes": 11518,
-      "sha256": "9636e4e0759a54e23874c7b9494f04363bfbc3b4e991df2957cfde2892c46d51"
+      "bytes": 12033,
+      "sha256": "f71b50553808eb9d20b584ef06bd29b780ecf8f891e647aed35238eee7262644"
     },
     {
       "path": "afiliados-proprios.js",
@@ -1155,8 +1155,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 62889,
-      "sha256": "4d1bb946666a09533067ae4102bf17859b5d52f4041e2aca67f7240588667749"
+      "bytes": 62965,
+      "sha256": "865834bcbb6d1f7c775af6761423a24817f0d6e1e3e4e2ef64b06614715ee8c1"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -1270,8 +1270,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 218325,
-      "sha256": "dceeff5a6a646401d5ede0c93d3a6ec3f88a11d4e5322bdbc29d75c6f2a1e70f"
+      "bytes": 218471,
+      "sha256": "c855f7708e1e3e8757ce1243b3c75e9767f7fbb5302ec2520e809baf94868e86"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -1305,8 +1305,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
-      "bytes": 50028,
-      "sha256": "2a259909f7491062248061a31914174373da0607b1e237e2627623541fd67555"
+      "bytes": 51247,
+      "sha256": "f5f83ce7e8420840802a1e7da02a9606505485ffa94c66b260c8103c046593a0"
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
@@ -1407,6 +1407,11 @@
       "path": "tests/creators-read-isolation.test.cjs",
       "bytes": 6486,
       "sha256": "ea2397070cdd1f579be42cedd2537bb16060d91e15bb4d0f454162ad4daf09a1"
+    },
+    {
+      "path": "tests/crm-campaigns-projection-night18.test.cjs",
+      "bytes": 10289,
+      "sha256": "926fc1fdbbf0f181bad49aff35aa6384e9271a24721693f0b5c1708a95562ad6"
     },
     {
       "path": "tests/crm-legacy-library-plan.test.cjs",
@@ -1878,5 +1883,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Native schedule backend preserved from attested4d58 and QA reconstruction539a701; all scheduling UI retained by immutable false until morning owner release. Stale receipts show current campaign and retain same-key GET only. Serial CI, no new worker/service/source/SQL/data changes."
+  "candidatePurpose": "Measured Campanhas payload reduction over the retained native-schedule candidate. Only an explicitly selected email campaign response is projected after the original complete auth, brand and source validation. Preserve every date/model, complete campaign membership, all other relations, NULL/duplicates and original calculations; fall back to full when validity or model availability could change. Source/SQL, other views and production are untouched. Native controls remain held for the owner."
 }

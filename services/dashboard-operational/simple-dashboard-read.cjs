@@ -378,6 +378,19 @@ function createAffiliateEditor({auth,upstreams,readKey,writeKey,otherReadKeys=[]
  }
  return Object.freeze({availability,edit,operation});
 }
+function projectCrmCampaignsEmail(body){
+ // The caller has already completed the unchanged full source validation,
+ // brand projection and authentication fences. Never project before them.
+ if(!body||!['fish','aristo'].includes(body.brand)||!Array.isArray(body.brands)||body.brands.length!==1||body.brands[0]!==body.brand)fail('CRM_CAMPAIGNS_SCOPE_UNCONFIRMED',502);
+ const daily=body.crm_attribution?.daily,valid=require('./public/crm-preview/home.js').validAttributionRow;
+ if(body.crm_attribution?.schema_version!==2||!Array.isArray(daily)||!daily.every(valid))return body;
+ const selected=daily.filter(r=>r.grain==='channel'&&r.dimension[0]==='email'||r.grain==='piece'&&r.dimension[0]==='email'||r.grain==='campaign_channel'&&r.dimension[1]==='email'||r.grain==='family_channel'&&r.dimension[1]==='email');
+ // Coverage depends on whether the chosen non-default model exists anywhere
+ // in daily. Removing its only row would turn known zero into unavailable.
+ const models=new Set(selected.map(r=>r.model));
+ if(daily.some(r=>!models.has(r.model)))return body;
+ return {...body,contract:'shrigma-crm-campaigns-email-read-v1',crm_attribution:{...body.crm_attribution,daily:selected}};
+}
 function projectCrmHome(body){
  if(!body||!['fish','aristo'].includes(body.brand)||!Array.isArray(body.brands)||body.brands.length!==1||body.brands[0]!==body.brand)fail('CRM_HOME_SCOPE_UNCONFIRMED',502);
  const brand=body.brand,fields=(row,names)=>Object.fromEntries(names.filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));
@@ -398,4 +411,4 @@ function projectCrmHome(body){
   crm_fontes:sharedSources,
   crm_campanha:scoped(body.crm_campanha)?.map(r=>fields(r,['marca','nome','campanha_id','status','agendado_em','enviado_em','coletado_em']))??null,capabilities:{read:true,send:false}};
 }
-module.exports={createPublicReadKeyInstaller,readPublicReadKey,PUBLIC_READ_PURPOSE,PUBLIC_READ_LABEL,createReader,sourceKeysFromEnv,createAffiliateEditor,affiliateWriteKeyFromEnv,projectCrmHome};
+module.exports={createPublicReadKeyInstaller,readPublicReadKey,PUBLIC_READ_PURPOSE,PUBLIC_READ_LABEL,createReader,sourceKeysFromEnv,createAffiliateEditor,affiliateWriteKeyFromEnv,projectCrmHome,projectCrmCampaignsEmail};

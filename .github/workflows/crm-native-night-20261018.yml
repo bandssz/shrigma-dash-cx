@@ -1,7 +1,7 @@
 name: Native scheduling night18 image and contracts
 'on':
   push:
-    branches: [codex/crm-native-night-20261018]
+    branches: [codex/crm-native-night-20261018, codex/crm-campaigns-performance-20261018]
 permissions:
   contents: read
 concurrency:
@@ -92,6 +92,9 @@ jobs:
       - name: Native QA visibility and current-state receipt regressions
         run: |
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --env NATIVE_UI_EXPECT_ENABLED=false --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-native-night18.test.cjs
+      - name: Prove bounded campaign payload equivalence in the actual image
+        run: |
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-campaigns-projection-night18.test.cjs
       - name: Remove temporary registry session
         if: always()
         run: rm -rf -- "$DOCKER_CONFIG"
