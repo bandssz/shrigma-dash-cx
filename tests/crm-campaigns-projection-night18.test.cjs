@@ -2,7 +2,7 @@
 const test=require('node:test'),a=require('node:assert/strict'),path=require('node:path');
 const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
 const {projectCrmCampaignsEmail:project}=require(path.join(runtime,'simple-dashboard-read.cjs'));
-const A=require(path.join(runtime,'public/crm-preview/analytics.js'));
+const context={window:{},Date,Intl,URLSearchParams};require('node:vm').runInNewContext(require('node:fs').readFileSync(path.join(runtime,'public/crm-preview/analytics.compiled.js'),'utf8'),context);const A=context.window.ShrigmaCrmAnalytics;a.equal(typeof A?.build,'function');
 const start='2026-10-08',end='2026-10-09',checked='2026-10-15T10:00:00Z';
 const row=(brand,day,model,grain,dimension,extra={})=>({marca:brand,dia:day,model,grain,dimension,pedidos:2,receita:100,assistidos:1,receita_assistida:30,novos:1,recorrentes:1,...extra});
 const campaign=(brand,id,extra={})=>({marca:brand,campanha_id:id,nome:'Disparo '+id,familia:'launch',canal:'email',status:'finished',enviado_em:start+'T12:00:00Z',enviados:100,entregues:80,abriram:40,clicaram:8,utms:[{source:'listmonk',medium:'campanha',campaign:'launch',content:'message',term:''}],...extra});

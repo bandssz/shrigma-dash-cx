@@ -1410,8 +1410,8 @@
     },
     {
       "path": "tests/crm-campaigns-projection-night18.test.cjs",
-      "bytes": 10289,
-      "sha256": "926fc1fdbbf0f181bad49aff35aa6384e9271a24721693f0b5c1708a95562ad6"
+      "bytes": 10496,
+      "sha256": "21277a900623e61118e12eeadd0b53c2d8a813dfa4f3bcb86adeecf9a57b85b1"
     },
     {
       "path": "tests/crm-legacy-library-plan.test.cjs",
