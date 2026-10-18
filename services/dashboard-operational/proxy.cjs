@@ -205,16 +205,17 @@ function verifiedAudienceOperation(body,{brand,key,action,requestId,expectedVers
  return {phase:'succeeded',status:receipt.status,body:inner,receiptCode:null,segmentId:segment.id,segmentVersion:segment.version};
 }
 const CAMPAIGN_DEFINITION_FIELDS=new Set(['schema_version','brand','channel','initiative','utm_campaign','name','subject','from_email','reply_to','list_ids','template_id','html','text','tags','send_at']);
-function validCampaignDefinition(value,brand,{crmCampaignSubmitWrite=false}={}){
+function validCampaignDefinition(value,brand,{crmCampaignSubmitWrite=false,crmCampaignDraftService=false}={}){
+  const minimum=crmCampaignDraftService===true&&require('./campaign-write-contract.js').isEditorDraft(value)&&value.send_at===null;
   if(!plain(value)||Object.keys(value).some(k=>!CAMPAIGN_DEFINITION_FIELDS.has(k))||
     value.schema_version!=='crm-campaign-v1'||value.brand!==brand||value.channel!=='email'||
     !plain(value.initiative)||Object.keys(value.initiative).some(k=>!['key','name'].includes(k))||
-    !Array.isArray(value.list_ids)||value.list_ids.length<1||value.list_ids.length>30||
+    !Array.isArray(value.list_ids)||value.list_ids.length<(minimum?0:1)||value.list_ids.length>30||
     !value.list_ids.every(n=>Number.isSafeInteger(n)&&n>0)||!Number.isSafeInteger(value.template_id)||value.template_id<1||
     !Array.isArray(value.tags)||value.tags.length>20||!value.tags.every(s=>typeof s==='string'&&s.length>0&&s.length<=100)||
     value.send_at!==undefined&&value.send_at!==null&&(!crmCampaignSubmitWrite||typeof value.send_at!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value.send_at)||!Number.isSafeInteger(Date.parse(value.send_at))||new Date(value.send_at).toISOString()!==value.send_at))return false;
   for(const [name,max]of Object.entries({utm_campaign:100,name:200,subject:250,from_email:254,reply_to:254,html:220000,text:50000}))
-    if(typeof value[name]!=='string'||!value[name].trim()||value[name].length>max)return false;
+    if(typeof value[name]!=='string'||!(minimum&&['html','text'].includes(name))&&!value[name].trim()||value[name].length>max)return false;
   return typeof value.initiative.key==='string'&&value.initiative.key.length>0&&value.initiative.key.length<=100&&
     typeof value.initiative.name==='string'&&value.initiative.name.length>0&&value.initiative.name.length<=160;
 }
@@ -242,7 +243,7 @@ function decide(route,method,query,body,{crmCampaignSubmitWrite=false,crmCampaig
     if(typeof value==='string'&&value.length>256||!validField(route,name,value))throw new ProxyError(403,'FIELD_DENIED');
   }
   if(route==='campaigns'&&action==='campanha_salvar'){
-    if(!validCampaignDefinition(fields.definition,fields.brand,{crmCampaignSubmitWrite})||
+    if(!validCampaignDefinition(fields.definition,fields.brand,{crmCampaignSubmitWrite,crmCampaignDraftService})||
       Object.hasOwn(fields,'id')!==Object.hasOwn(fields,'expected_version')||
       Object.hasOwn(fields,'id')&&(!Number.isSafeInteger(fields.id)||fields.id<1||!/^[a-f0-9]{32}$/i.test(fields.expected_version)))
       throw new ProxyError(403,'FIELD_DENIED');

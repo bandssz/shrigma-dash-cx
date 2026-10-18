@@ -71,7 +71,7 @@ async function fixture(t,{email='synthetic-analyst@oaristocrata.com',write=true,
   if(action==='campanha_obter')return response({campaign:campaigns.get(Number(u.searchParams.get('id')))},u);
   if(action==='campanha_operacao'){const op=operations.get(u.searchParams.get('idempotency_key'));return response(op?{operation:op}:{error:'OPERATION_NOT_FOUND'},u,op?200:404);}
   if(action==='campanha_salvar'){
-   a.equal(body.definition.send_at,null);const id=body.id||nextId++,prepared=C.prepare(body.definition,{catalog:catalog(brand),tracking:T,trackingId:id}),at=new Date(clock).toISOString(),operationId=crypto.randomUUID(),campaign={id,version:(body.id?'c':'b').repeat(32),status:'draft',sent:0,started_at:null,send_at:null,definition:prepared.definition};campaigns.set(id,campaign);
+   a.equal(body.definition.send_at,null);const id=body.id||nextId++,prepared=C.isEditorDraft(body.definition)?C.prepareDraft(body.definition,{catalog:catalog(brand),tracking:T,trackingId:id,initial:!body.id}):C.prepare(body.definition,{catalog:catalog(brand),tracking:T,trackingId:id}),at=new Date(clock).toISOString(),operationId=crypto.randomUUID(),campaign={id,version:(body.id?'c':'b').repeat(32),status:'draft',sent:0,started_at:null,send_at:null,definition:prepared.definition};campaigns.set(id,campaign);
    const receipt={status:body.id?200:201,body:{campaign,tracking:prepared.tracking,operation_id:operationId}};operations.set(body.idempotency_key,{id:operationId,operation_key:body.idempotency_key,brand,action:'salvar',state:'succeeded',providerId:id,response:receipt,created_at:at,updated_at:at});await hooks.afterCampaignPost?.();if(hooks.lostCampaign)throw Error('synthetic ACK lost');return response(receipt.body,u,receipt.status);
   }
   if(action==='campanha_validar'){
@@ -99,6 +99,19 @@ test('owner managerial cookie shares QA native scope in both brands with the ori
 test('unaccepted ordinary editor cannot use even the QA native audience',async t=>{
  const f=await internalNativeFixture(t,{email:'ordinary-unaccepted@oaristocrata.com'});
  const r=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:f.freeze('aristo')});a.equal(r.status,403);a.equal(f.posts(),0);a.equal(f.dbQuery(db=>db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1').get().n),0);
+});
+test('minimum native draft uses the real cookie server and original CREATE/UPDATE receipts in both brands',async t=>{
+ const f=await fixture(t,{brands:['aristo','fish']});
+ for(const brand of ['aristo','fish']){
+  const definition={schema_version:C.VERSION,brand,channel:'email',name:'[TESTE] Ideia mínima '+brand,subject:'[TESTE] Assunto mínimo',tags:[C.DRAFT_EDITOR_TAG],send_at:null};
+  const preview=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,body:{acao:'campanha_previa',brand,definition}});a.equal(preview.status,200);a.equal(preview.body.ready,true);
+  f.hooks.lostCampaign=true;const key=crypto.randomUUID(),created=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,body:{acao:'campanha_criar',brand,definition,idempotency_key:key}});a.equal(created.status,202,JSON.stringify(created));
+  f.hooks.lostCampaign=false;const recovered=await f.request('/api/campaigns?'+new URLSearchParams({acao:'campanha_operacao',brand,kind:'create',idempotency_key:key}),{viewBrand:brand});a.equal(recovered.status,200,JSON.stringify(recovered));a.equal(recovered.body.state,'succeeded');const id=recovered.body.campaign.id;
+  const read=await f.request('/api/campaigns?'+new URLSearchParams({acao:'campanha_obter',brand,id:String(id)}),{viewBrand:brand});a.equal(read.status,200);const c=read.body.campaign;a.equal(c.definition.name,definition.name);a.deepEqual(c.definition.list_ids,[]);a.equal(c.definition.html,'');a.equal(c.definition.text,'');a.equal(c.definition.reply_to,'contato@'+C.BRANDS[brand]);
+  const updateKey=crypto.randomUUID(),saved=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,body:{acao:'campanha_salvar',brand,id,expected_version:c.version,definition:{...c.definition,subject:'[TESTE] Assunto atualizado'},idempotency_key:updateKey}});a.equal(saved.status,200,JSON.stringify(saved));a.equal(saved.body.state,'succeeded');a.equal(saved.body.campaign.id,id);
+  const listed=await f.request('/api/campaigns?'+new URLSearchParams({acao:'campanha_listar',brand}),{viewBrand:brand});a.equal(listed.status,200);a.equal(listed.body.campaigns.filter(c=>c.id===id).length,1);a.equal(listed.body.campaigns.find(c=>c.id===id).definition.subject,'[TESTE] Assunto atualizado');
+  a.equal(f.calls.filter(x=>x.method==='POST'&&x.body?.acao==='campanha_salvar'&&x.body?.brand===brand).length,2);
+ }
 });
 const createCampaign=()=>({acao:'campanha_criar',brand:'aristo',definition:campaignDefinition(),idempotency_key:crypto.randomUUID()});
 const createAudience=()=>({acao:'segmento_criar',brand:'aristo',definition:audienceDefinition(),expected_catalog_hash:'a'.repeat(64),idempotency_key:crypto.randomUUID()});

@@ -21,7 +21,7 @@ const CampaignContract=(()=>{
   const sender=text(input.from_email,254,'from_email'),reply=text(input.reply_to,254,'reply_to');
   const mailbox="[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+";
   const senderAddress=sender.match(new RegExp('^('+mailbox+')$','i'))?.[1]||sender.match(new RegExp('^[^<>\\r\\n]+<('+mailbox+')>$','i'))?.[1];
-  if(!senderAddress||senderAddress.split('@')[1].toLowerCase()!==BRANDS[input.brand]||/[\r\n]/.test(sender))error('SENDER_BRAND','Remetente não corresponde à marca.','from_email');
+  if(!senderAddress||(senderAddress.split('@')[1].toLowerCase()!==BRANDS[input.brand]&&!(isEditorDraft(input)&&senderAddress.toLowerCase()==='avisos@marketing.'+BRANDS[input.brand]))||/[\r\n]/.test(sender))error('SENDER_BRAND','Remetente não corresponde à marca.','from_email');
   if(!/^[^\s<>@]+@[^\s<>@]+$/.test(reply)||reply.split('@')[1].toLowerCase()!==BRANDS[input.brand])error('REPLY_BRAND','Reply-To não corresponde à marca.','reply_to');
   if(/[\r\n]/.test(input.subject||''))error('SUBJECT_INVALID','O assunto deve ter uma única linha.','subject');
   const html=text(input.html,300000,'html'),plain=text(input.text,100000,'text');
@@ -58,6 +58,50 @@ const CampaignContract=(()=>{
   if(!urls.some(m=>{try{let u=new URL(m[0].replace(/@TrackLink$/,'').replace(/&amp;/g,'&'));if(![STORES[d.brand],'www.'+STORES[d.brand]].includes(u.hostname))return false;if(u.pathname.startsWith('/discount/'))u=new URL(u.searchParams.get('redirect'),u.origin);const t=u.searchParams.get('utm_term')||'';return /^\/(products|pages|collections)\//.test(u.pathname)&&(t===p.token||t.endsWith('--'+p.token));}catch{return false;}}))error('NO_COMMERCIAL_LINK','Inclua ao menos um link comercial da loja.','html');
   return {definition:{...d,html:p.body,text:p.altbody},tracking:{policy:VERSION,term:p.token,list_ids:p.lists,changed_links:p.changes.length},payload:{name:d.name,subject:d.subject,from_email:d.from_email,headers:[{'Reply-To':d.reply_to}],type:'regular',content_type:'html',body:p.body,altbody:p.altbody,body_source:null,lists:d.list_ids,template_id:d.template_id,tags:d.tags,messenger:'email',send_at:d.send_at,attribs:{crm:{policy:VERSION,brand:d.brand,initiative_key:d.initiative.key,initiative_name:d.initiative.name,utm_campaign:d.utm_campaign,tracking_term:p.token}}}};
  }
+ // New editor drafts use an explicit save/receipt policy. Existing complete
+ // definitions and their historical tracking preparations remain byte-identical.
+ const DRAFT_WRITES_ENABLED=true,DRAFT_EDITOR_TAG='crm-draft-editor-v2',DRAFT_POLICY='crm-campaign-draft-v1';
+ const isEditorDraft=input=>Array.isArray(input?.tags)&&input.tags.includes(DRAFT_EDITOR_TAG);
+ function draftSlug(name){
+  const value=name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,90).replace(/-+$/,'');
+  if(value)return value;
+  let h=2166136261;for(const c of name)h=Math.imul(h^c.codePointAt(0),16777619)>>>0;return 'campanha-'+h.toString(16);
+ }
+ function normalizeDraft(input,{catalog}={}){
+  if(!isEditorDraft(input)||input.schema_version!==VERSION||!['fish','aristo'].includes(input.brand)||input.channel!=='email'||input.send_at!==null)error('DRAFT_INPUT','Preencha nome e assunto e salve sem horário.');
+  const name=text(input.name,200,'name'),subject=text(input.subject,250,'subject'),derived=draftSlug(name),domain=BRANDS[input.brand];
+  if(/[\r\n]/.test(subject))error('SUBJECT_INVALID','Use uma única linha no assunto.','subject');
+  const from=input.from_email||'avisos@'+domain,reply=input.reply_to||'contato@'+domain;
+  const address=typeof from==='string'?(from.match(/^([^\s<>@]+@[^\s<>@]+)$/)?.[1]||from.match(/^[^<>\r\n]+<([^\s<>@]+@[^\s<>@]+)>$/)?.[1]):null;
+  if(!address||from.length>254||/[\u0000-\u001f\u007f]/.test(from)||!['avisos@'+domain,'avisos@marketing.'+domain].includes(address.toLowerCase()))error('SENDER_BRAND','Escolha um remetente confirmado da marca.','from_email');
+  if(reply!=='contato@'+domain)error('REPLY_BRAND','O endereço de respostas é fixo para esta marca.','reply_to');
+  if(input.list_ids!==undefined&&!Array.isArray(input.list_ids))error('LISTS_INVALID','Escolha um público salvo.','list_ids');
+  const lists=[...new Set(input.list_ids||[])].sort((a,b)=>a-b);
+  if(lists.length>30||!lists.every(v=>positive(v)&&v<=2147483647))error('LISTS_INVALID','Escolha listas válidas da marca.','list_ids');
+  const template=input.template_id??catalog?.templates?.find(t=>t.available===true&&t.type==='campaign')?.id;
+  if(!positive(template)||template>2147483647)error('TEMPLATE_INVALID','O layout padrão da marca não foi confirmado.','template_id');
+  const html=input.html??'',plain=input.text??'';
+  if(typeof html!=='string'||html.length>300000||typeof plain!=='string'||plain.length>100000)error('FIELD_INVALID','Confira o tamanho do conteúdo.','html');
+  if(/<(script|iframe|object|embed|form)\b|\bon[a-z]+\s*=|javascript\s*:/i.test(html))error('HTML_ACTIVE_CONTENT','Remova conteúdo ativo da peça.','html');
+  const tags=[...new Set(array(input.tags).map(v=>slug(v,'tags')))];
+  if(/^\s*\[TESTE\]/i.test(name)||/^\s*\[TESTE\]/i.test(subject)){if(!tags.includes('crm-internal-test'))tags.push('crm-internal-test');}
+  if(tags.length>20)error('TAGS_LIMIT','Use até 20 etiquetas.','tags');
+  const d={schema_version:VERSION,brand:input.brand,channel:'email',initiative:{key:slug(input.initiative?.key||derived,'initiative.key'),name:text(input.initiative?.name||name.slice(0,160),160,'initiative.name')},utm_campaign:slug(input.utm_campaign||derived,'utm_campaign'),name,subject,from_email:address.toLowerCase(),reply_to:reply,list_ids:lists,template_id:template,html,text:plain,tags,send_at:null};
+  checkCatalog(d,catalog);return d;
+ }
+ function draftTracking(d){return{policy:DRAFT_POLICY,term:null,list_ids:[...d.list_ids],changed_links:0};}
+ function prepareDraft(input,{catalog,tracking,trackingId,now=Date.now(),initial=false}={}){
+  const d=normalizeDraft(input,{catalog});
+  if(!positive(trackingId))error('TRACKING_ID_REQUIRED','A identidade do rascunho não foi confirmada.');
+  // Initial creation can retain an idea without a recipient or dispatch token.
+  // A subsequent save of complete content reuses the original preparation.
+  if(!initial){
+   try{preflight(d,{catalog,tracking,now});return prepare(d,{catalog,tracking,trackingId,now});}
+   catch(e){if(!['LISTS_INVALID','FIELD_INVALID','UNSUBSCRIBE_MISSING','NO_COMMERCIAL_LINK','TRACKING_INVALID'].includes(e.code))throw e;}
+  }
+  return{definition:d,tracking:draftTracking(d)};
+ }
+
  const AUDIENCE_POLICY='listmonk-6.1-regular-v1',AUDIENCE_TTL_MS=300000;
  function audienceReview(a,current,{now=Date.now(),allowBlocked=false}={}){
   const counts=['eligible_count','unique_members_count','excluded_blocklisted_count','excluded_subscription_count','native_disabled_count'];
@@ -103,6 +147,6 @@ const CampaignContract=(()=>{
   const d=current?.definition||current;
   return current?.id===185&&d?.brand==='aristo'||/^\s*\[TESTE\]/i.test(d?.name||'')||/^\s*\[TESTE\]/i.test(d?.subject||'')||array(d?.tags).includes('crm-internal-test');
  }
- return {VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,preflight,prepare,schedule,cancel,request,isInternalTest};
+ return {DRAFT_WRITES_ENABLED,DRAFT_EDITOR_TAG,DRAFT_POLICY,isEditorDraft,draftSlug,normalizeDraft,draftTracking,prepareDraft,VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,preflight,prepare,schedule,cancel,request,isInternalTest};
 })();
 if(typeof module!=='undefined')module.exports=CampaignContract;

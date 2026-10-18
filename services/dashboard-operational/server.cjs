@@ -1469,6 +1469,13 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             if(!simpleCampaignTests)throw jsonError(503,'CAMPAIGN_TEST_UNAVAILABLE');
             if(req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'CAMPAIGN_TEST_BRAND_REFUSED');
             releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
+            if(['campanha_teste_previa','campanha_teste'].includes(action)){
+              const keys=action==='campanha_teste_previa'?['acao','brand','id','expected_version']:['acao','brand','id','expected_version','idempotency_key','preview_token','confirm'];if(Object.keys(fields).sort().join(',')!==keys.sort().join(',')||!Number.isSafeInteger(fields.id)||fields.id<1||fields.id>999999999||!/^[a-f0-9]{32}$/.test(fields.expected_version||''))throw jsonError(400,'CAMPAIGN_TEST_INPUT');
+              await auth.verifySimpleDraftBinding(ctx,{brand,write:true,fetchImpl});
+              const original=await simpleDraftTransport(ctx,{method:'GET',command:{acao:'campanha_obter',brand,id:fields.id}}),c=original.body?.campaign,C=require('./campaign-write-contract.js');
+              if(original.status!==200||c?.id!==fields.id||c.version!==fields.expected_version)throw jsonError(409,'CAMPAIGN_TEST_VERSION_CHANGED');
+              if(C.isEditorDraft(c.definition)){const catalog=await simpleDraftTransport(ctx,{method:'GET',command:{acao:'campanha_catalogo',brand}});try{if(c.status!=='draft'||c.sent!==0||c.started_at!==null||c.send_at!==null||catalog.status!==200)throw Error();const prepared=C.prepare(c.definition,{catalog:catalog.body,tracking:require('./campaign-write-tracking.js'),trackingId:c.id}),stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;if(JSON.stringify(stable(prepared.definition))!==JSON.stringify(stable(c.definition)))throw Error();}catch{throw jsonError(409,'DRAFT_INCOMPLETE');}}
+            }
             let result;
             if(action==='campanha_teste_capacidade'&&req.method==='GET'&&Object.keys(fields).sort().join(',')==='acao,brand')result={status:200,body:await simpleCampaignTests.capability(ctx,brand)};
             else if(action==='campanha_teste_historico'&&req.method==='GET'&&Object.keys(fields).sort().join(',')==='acao,brand,id')result={status:200,body:await simpleCampaignTests.history(ctx,brand,/^[1-9]\d{0,8}$/.test(fields.id)?Number(fields.id):null)};
@@ -1493,12 +1500,13 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             const catalog=await simpleDraftTransport(context,{method:'GET',command:{acao:'campanha_catalogo',brand}});
             if(catalog.status!==200)throw jsonError(503,'CRM_SERVICE_DRAFT_SOURCE_REFUSED');
             const hints={FIELD_INVALID:'Preencha os campos obrigatórios.',SLUG_INVALID:'Use letras minúsculas, números, hífen ou sublinhado no código e na UTM.',SENDER_BRAND:'Escolha um remetente já utilizado pela marca.',REPLY_BRAND:'Escolha um endereço de respostas da marca.',SUBJECT_INVALID:'Use uma única linha no assunto.',UNSUBSCRIBE_MISSING:'Inclua {{ UnsubscribeURL }} no HTML e no texto.',HTML_ACTIVE_CONTENT:'Remova scripts, formulários e eventos do HTML.',NO_COMMERCIAL_LINK:'Inclua um link para produto, página ou coleção da loja.',TRACKING_INVALID:'Confira os links: cupons precisam de destino explícito; UTMs existentes devem corresponder à campanha.',LIST_SCOPE:'Escolha uma lista disponível para esta marca.',TEMPLATE_SCOPE:'Escolha um layout de campanha disponível.',INITIATIVE_CONFLICT:'Esta UTM já pertence a outra iniciativa.',CATALOG_UNAVAILABLE:'Atualize o catálogo da marca.'};
-            try{require('./campaign-write-contract.js').preflight(fields.definition,{catalog:catalog.body,tracking:require('./campaign-write-tracking.js')});return sendJson(req,res,200,{schema:'crm-campaign-preflight-v1',brand,ready:true});}
+            try{const C=require('./campaign-write-contract.js');if(C.isEditorDraft(fields.definition))C.normalizeDraft(fields.definition,{catalog:catalog.body});else C.preflight(fields.definition,{catalog:catalog.body,tracking:require('./campaign-write-tracking.js')});return sendJson(req,res,200,{schema:'crm-campaign-preflight-v1',brand,ready:true});}
             catch(e){const code=Object.hasOwn(hints,e.code)?e.code:'CAMPAIGN_CONTENT_INVALID';return sendJson(req,res,200,{schema:'crm-campaign-preflight-v1',brand,ready:false,code,message:hints[code]||'Revise os campos e o conteúdo da campanha.'});}
           }
           if(req.method==='POST'){
             if(!['campanha_criar','campanha_salvar','campanha_validar'].includes(action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
             const context=auth.simpleDraftContext(ctx,{brand});await auth.verifySimpleDraftBinding(context,{brand,fetchImpl});
+            if(['campanha_criar','campanha_salvar'].includes(action)&&require('./campaign-write-contract.js').isEditorDraft(body.definition)&&require('./campaign-write-contract.js').DRAFT_WRITES_ENABLED!==true)throw jsonError(503,'DRAFT_WRITES_DISABLED');
             await requireSimpleCampaignTestSafety(context,body);
             if(action==='campanha_validar'){
               if(!simpleCampaignAudiences)throw jsonError(503,'CAMPAIGN_AUDIENCE_SOURCE_REQUIRED');
