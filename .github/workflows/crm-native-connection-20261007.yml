@@ -406,8 +406,8 @@ jobs:
           mkdir -p "$RUNTIME_DIR/public"
           CONTAINER_ID=$(docker create "$IMAGE:source-$GITHUB_SHA")
           trap 'docker rm -v "$CONTAINER_ID" >/dev/null' EXIT
-          docker cp "$CONTAINER_ID:/app/native-backend/runtime/public/crm-preview" "$RUNTIME_DIR/public/crm-preview"
-          docker cp "$CONTAINER_ID:/app/native-backend/runtime/public/afiliados-preview" "$RUNTIME_DIR/public/afiliados-preview"
+          docker cp "$CONTAINER_ID:/app/native-backend/runtime/public/crm-preview" - | tar --extract --file=- --directory="$RUNTIME_DIR/public" --no-same-owner --no-same-permissions --delay-directory-restore
+          docker cp "$CONTAINER_ID:/app/native-backend/runtime/public/afiliados-preview" - | tar --extract --file=- --directory="$RUNTIME_DIR/public" --no-same-owner --no-same-permissions --delay-directory-restore
           DASHBOARD_ACCESS_TEST_RUNTIME="$RUNTIME_DIR" node --test --test-concurrency=1 tests/crm-form-browser.test.cjs
       - name: Publish the same verified artifact
         shell: bash
