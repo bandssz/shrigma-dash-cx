@@ -1,0 +1,27 @@
+{
+  "schema": "shrigma-consent-synthetic-native-pg-v1",
+  "startedAtUtc": "2026-10-18T22:47:22.085Z",
+  "productionUsed": false,
+  "customerDataUsed": false,
+  "network": "none",
+  "postgres": "17.10",
+  "platform": "linux/amd64",
+  "files": [
+    {
+      "file": "fixture.sql",
+      "sha256": "73a7b7632a8389457c114f78bcd83e8e9926ffb740845a50764974c7576090e4"
+    },
+    {
+      "file": "kernel.sql",
+      "sha256": "949e79131e46630d37951bff6aa769e8cd17157e7a87072b77d3d2527a146b36"
+    },
+    {
+      "file": "cases.sql",
+      "sha256": "6629a7940ef9f8c8d3446cd8e0f6dd7aeb22254e13a291a170ee24d9c5e01a33"
+    }
+  ],
+  "assertions": 33,
+  "ok": true,
+  "ownedContainerStopped": true,
+  "finishedAtUtc": "2026-10-18T22:47:24.441Z"
+}

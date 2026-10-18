@@ -1,0 +1,17 @@
+'use strict';
+// Isolated synthetic test only. Original socket; no network, ports or host data.
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{spawnSync}=require('node:child_process');
+const root=path.resolve(__dirname,'../../../..'),docker='/Applications/Docker.app/Contents/Resources/bin/docker',name='shrigma-sun18-consent-synthetic';
+const prefix=['--config',path.join(root,'operacao/runtime/docker-local-config'),'--host','unix:///Users/felipebandeiragoncalves/.docker/run/docker.sock'];
+const run=(args,input)=>spawnSync(docker,[...prefix,...args],{input,encoding:'utf8',maxBuffer:4*1024*1024});
+const files=['fixture.sql','kernel.sql','cases.sql'];let created=false,phase='start';
+const report={schema:'shrigma-consent-synthetic-native-pg-v1',startedAtUtc:new Date().toISOString(),productionUsed:false,customerDataUsed:false,network:'none',postgres:'17.10',platform:'linux/amd64',files:files.map(file=>({file,sha256:crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,file))).digest('hex')}))};
+try{
+ const start=run(['run','-d','--rm','--name',name,'--label','com.shrigma.owner=sprint-curto-20261018','--platform','linux/amd64','--network','none','--read-only','--user','999:999','--memory','512m','--tmpfs','/var/lib/postgresql/data:rw,nosuid,mode=0700,uid=999,gid=999','--tmpfs','/var/run/postgresql:rw,nosuid,mode=0775,uid=999,gid=999','--env','POSTGRES_HOST_AUTH_METHOD=trust','--env','POSTGRES_DB=consent_fixture','postgres:17.10']);
+ if(start.status!==0)throw Error('SYNTHETIC_CONTAINER_NOT_CREATED');created=true;phase='readiness';
+ let ready=false;for(let i=0;i<120;i++){const main=run(['exec','--user','999:999',name,'cat','/proc/1/comm']);if(main.status===0&&main.stdout.trim()==='postgres'){const r=run(['exec','--user','999:999',name,'psql','--no-psqlrc','--no-password','-qAt','-U','postgres','-d','consent_fixture','-c','SELECT 1']);if(r.status===0&&r.stdout.trim()==='1'){ready=true;break;}}Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,100);}
+ if(!ready)throw Error('SYNTHETIC_PG_NOT_READY');phase='native_sql_cases';
+ const result=run(['exec','-i','--user','999:999',name,'psql','--no-psqlrc','--no-password','-qAt','-U','postgres','-d','consent_fixture','-v','ON_ERROR_STOP=1'],files.map(file=>fs.readFileSync(path.join(__dirname,file),'utf8')).join('\n'));
+ report.assertions=(result.stderr.match(/CONSENT_CASE_OK:/g)||[]).length;report.ok=result.status===0&&result.stdout.includes('consent-native-fixture-cases-passed');if(!report.ok){const dir=path.join(root,'.private/consent-synthetic18');fs.mkdirSync(dir,{recursive:true,mode:0o700});const filename=path.join(dir,'failure-'+crypto.randomUUID()+'.json');fs.writeFileSync(filename,JSON.stringify({phase,stdout:result.stdout,stderr:result.stderr},null,2)+'\n',{mode:0o600});report.privateDiagnostic=path.relative(root,filename);throw Error('NATIVE_SQL_CASE_FAILED');}
+}catch(e){report.ok=false;report.failure={phase,code:['SYNTHETIC_CONTAINER_NOT_CREATED','SYNTHETIC_PG_NOT_READY','NATIVE_SQL_CASE_FAILED'].includes(e.message)?e.message:'SYNTHETIC_RUN_FAILED'};process.exitCode=1;}
+finally{if(created){const stopped=run(['stop','--timeout','10',name]);report.ownedContainerStopped=stopped.status===0;}report.finishedAtUtc=new Date().toISOString();fs.writeFileSync(path.join(__dirname,'recibo.synthetic.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));}
