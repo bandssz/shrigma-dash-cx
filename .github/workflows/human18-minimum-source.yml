@@ -1,0 +1,75 @@
+name: Human18 minimum draft source and compatible return
+'on':
+  push:
+    branches: [codex/domingo18-fonte-rascunho]
+permissions:
+  contents: read
+concurrency:
+  group: shrigma-human18-minimum-source
+  cancel-in-progress: false
+jobs:
+  prepare-existing-source:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-operational-canary
+      RELEASE: ops/releases/human18-minimum
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Verify isolated source and synthetic fixture inventory
+        run: node "$RELEASE/verify-source.cjs"
+      - name: Open temporary session for the existing image package
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          registry_dir="$(mktemp -d "$RUNNER_TEMP/minimum-registry.XXXXXX")"
+          printf 'DOCKER_CONFIG=%s\n' "$registry_dir" >> "$GITHUB_ENV"
+          export DOCKER_CONFIG="$registry_dir"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build candidate and compatible return over installed source digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          suffix="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          printf 'MINIMUM_CANDIDATE_IMAGE=%s:human18-minimum-%s\nMINIMUM_RETURN_IMAGE=%s:human18-minimum-return-%s\n' "$IMAGE" "$suffix" "$IMAGE" "$suffix" >> "$GITHUB_ENV"
+          docker build --pull --platform linux/amd64 --build-arg "GIT_SHA=$GITHUB_SHA" --tag "$IMAGE:human18-minimum-$suffix" --file "$RELEASE/candidate/Dockerfile" "$RELEASE/candidate"
+          docker build --pull --platform linux/amd64 --build-arg "GIT_SHA=$GITHUB_SHA" --tag "$IMAGE:human18-minimum-return-$suffix" --file "$RELEASE/return/Dockerfile" "$RELEASE/return"
+      - name: Verify actual runtime bytes and startup in both images
+        shell: bash
+        run: |
+          set -euo pipefail
+          for mode in candidate return; do
+            if [ "$mode" = candidate ]; then image="$MINIMUM_CANDIDATE_IMAGE"; else image="$MINIMUM_RETURN_IMAGE"; fi
+            docker run --rm --network none --read-only --user 1000:1000 --memory 256m --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/proof,readonly" --env "SOURCE_IMAGE_MODE=$mode" --entrypoint node "$image" /proof/verify-image.cjs
+            docker run --rm --network none --read-only --user 1000:1000 --memory 256m --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/proof,readonly" --env SMOKE_SOURCE=campaign --env "SMOKE_REVISION=$GITHUB_SHA" --entrypoint node "$image" /proof/source-smoke.cjs
+          done
+      - name: Original operation, lost ACKs, two brands and return in isolated PG17
+        run: node "$RELEASE/run-native-ci.cjs"
+      - name: Preserve passing image candidates by digest without installing
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in "$MINIMUM_CANDIDATE_IMAGE" "$MINIMUM_RETURN_IMAGE"; do
+            docker push "$image"
+            docker image inspect "$image" --format '{{range .RepoDigests}}{{println .}}{{end}}' >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Remove temporary registry session
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi

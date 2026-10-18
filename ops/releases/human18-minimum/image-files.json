@@ -1,0 +1,138 @@
+{
+  "schema": "shrigma-human18-campaign-image-v1",
+  "baseImage": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:6cbdcdc85d2fc58c5f2336a7a9d7237f60093ba09cc7e7fa40cedcd07ba91180",
+  "files": [
+    {
+      "path": "n8n/growth/campaign-contract.js",
+      "sha256": "f1ce33d2d02f087f35d8fb3c9ab0829811e1c6b5d9f569b959f0f6708f45dc8f",
+      "bytes": 18461
+    },
+    {
+      "path": "n8n/growth/campaign-native.js",
+      "sha256": "5af820cd7e59e9a8ecb5ca647eba1ba30005c474519f480ea7cf9500d0b79f79",
+      "bytes": 1609
+    },
+    {
+      "path": "n8n/growth/campaign-provider.js",
+      "sha256": "00c35ba0332c23ca750f71484065bea8a1d6233e1426496fbf252d75b5a406c8",
+      "bytes": 7488
+    },
+    {
+      "path": "n8n/growth/campaign-runtime.js",
+      "sha256": "021438b4315d3717ee1cfb1754b2260b5efde24572f5294c6f5ed2f5071604b3",
+      "bytes": 8894
+    },
+    {
+      "path": "n8n/growth/campaign-service.js",
+      "sha256": "12e5f849bc92de242f343f2d934f06d659887406f117947d93ce21c708ec5ae4",
+      "bytes": 12337
+    },
+    {
+      "path": "n8n/growth/campaign-store.js",
+      "sha256": "eb9322d10bc3854c4e5c662dddf3cbec74a2418661a2f8efd9b4f28ec0eaaed5",
+      "bytes": 1516
+    },
+    {
+      "path": "n8n/growth/campaign-tracking.js",
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63",
+      "bytes": 4294
+    },
+    {
+      "path": "services/crm-campaign/main.cjs",
+      "sha256": "1476aea6faca405990f38b5a6a0eeb7546c97f3b883870fa3642fe6a23b07cfb",
+      "bytes": 2216
+    },
+    {
+      "path": "services/crm-campaign/media.cjs",
+      "sha256": "2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc",
+      "bytes": 11861
+    },
+    {
+      "path": "services/crm-campaign/server.cjs",
+      "sha256": "296f77561d1382c5add4f8688fad669b490e5923da1306d5bab45770a16cf542",
+      "bytes": 11207
+    },
+    {
+      "path": "services/crm-campaign/transport.cjs",
+      "sha256": "8086c56dc7102d6f51c0dc93132c047d5fea2fa23b4c5987a5a09a3d32109c5c",
+      "bytes": 11827
+    },
+    {
+      "path": "services/crm-panel-read/server.cjs",
+      "sha256": "322f707d5991deddf5de161bc0853c9fd74ea6f1306e01571f10145093a75113",
+      "bytes": 4193
+    },
+    {
+      "path": "n8n/growth/campaign-native-internal.js",
+      "sha256": "fae5654241e1b89fe13a76e0d5c58180dc4b2d184fbdc1fe8383a0e350337af9",
+      "bytes": 2077
+    }
+  ],
+  "returnFiles": [
+    {
+      "path": "n8n/growth/campaign-contract.js",
+      "sha256": "4f41f72b4f4c5c84360ee71e8d34460d739f515edd4835be8842b1152d718a18",
+      "bytes": 18462
+    },
+    {
+      "path": "n8n/growth/campaign-native.js",
+      "sha256": "5af820cd7e59e9a8ecb5ca647eba1ba30005c474519f480ea7cf9500d0b79f79",
+      "bytes": 1609
+    },
+    {
+      "path": "n8n/growth/campaign-provider.js",
+      "sha256": "00c35ba0332c23ca750f71484065bea8a1d6233e1426496fbf252d75b5a406c8",
+      "bytes": 7488
+    },
+    {
+      "path": "n8n/growth/campaign-runtime.js",
+      "sha256": "021438b4315d3717ee1cfb1754b2260b5efde24572f5294c6f5ed2f5071604b3",
+      "bytes": 8894
+    },
+    {
+      "path": "n8n/growth/campaign-service.js",
+      "sha256": "12e5f849bc92de242f343f2d934f06d659887406f117947d93ce21c708ec5ae4",
+      "bytes": 12337
+    },
+    {
+      "path": "n8n/growth/campaign-store.js",
+      "sha256": "eb9322d10bc3854c4e5c662dddf3cbec74a2418661a2f8efd9b4f28ec0eaaed5",
+      "bytes": 1516
+    },
+    {
+      "path": "n8n/growth/campaign-tracking.js",
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63",
+      "bytes": 4294
+    },
+    {
+      "path": "services/crm-campaign/main.cjs",
+      "sha256": "1476aea6faca405990f38b5a6a0eeb7546c97f3b883870fa3642fe6a23b07cfb",
+      "bytes": 2216
+    },
+    {
+      "path": "services/crm-campaign/media.cjs",
+      "sha256": "2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc",
+      "bytes": 11861
+    },
+    {
+      "path": "services/crm-campaign/server.cjs",
+      "sha256": "296f77561d1382c5add4f8688fad669b490e5923da1306d5bab45770a16cf542",
+      "bytes": 11207
+    },
+    {
+      "path": "services/crm-campaign/transport.cjs",
+      "sha256": "8086c56dc7102d6f51c0dc93132c047d5fea2fa23b4c5987a5a09a3d32109c5c",
+      "bytes": 11827
+    },
+    {
+      "path": "services/crm-panel-read/server.cjs",
+      "sha256": "322f707d5991deddf5de161bc0853c9fd74ea6f1306e01571f10145093a75113",
+      "bytes": 4193
+    },
+    {
+      "path": "n8n/growth/campaign-native-internal.js",
+      "sha256": "fae5654241e1b89fe13a76e0d5c58180dc4b2d184fbdc1fe8383a0e350337af9",
+      "bytes": 2077
+    }
+  ]
+}
