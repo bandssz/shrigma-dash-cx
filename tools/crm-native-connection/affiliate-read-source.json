@@ -10,13 +10,13 @@
   "files": [
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 42558,
-      "sha256": "f855a3011ec15ab58735312d076feb4ebaa7b7c9c70f04ab68941967b31b9122"
+      "bytes": 42559,
+      "sha256": "fb4aa39790242c6f90759c4a7192c0cde92698006dd349b31048ac50809826af"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
-      "bytes": 11517,
-      "sha256": "c566b02ebd4d9510dfbb2900e6f86c17e0405ffd804814566e7023b0c6920ed5"
+      "bytes": 11518,
+      "sha256": "9636e4e0759a54e23874c7b9494f04363bfbc3b4e991df2957cfde2892c46d51"
     },
     {
       "path": "afiliados-proprios.js",
@@ -1160,8 +1160,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 77768,
-      "sha256": "b7c6c09ad995057623e627395cd894f95c87659a41c7eca4fc553b22ec24dfe9"
+      "bytes": 77769,
+      "sha256": "5d7cea3565bdf3f963e57132d790a0e1c55c9e750eb5df9d127d252cb992144e"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1878,5 +1878,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Native QA schedule reconstruction over attested 4d58, same backend and original API16/frozen-list path. QA-only homologation, current campaign state after receipt reconciliation, no stale recovery CTA. Separate immutable UI hold is required before morning owner release. Serial CI/proofs; no production or source/SQL mutation by the validation workflow."
+  "candidatePurpose": "Native schedule backend preserved from attested4d58 and QA reconstruction539a701; all scheduling UI retained by immutable false until morning owner release. Stale receipts show current campaign and retain same-key GET only. Serial CI, no new worker/service/source/SQL/data changes."
 }
