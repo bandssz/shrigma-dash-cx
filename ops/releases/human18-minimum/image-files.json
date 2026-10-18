@@ -14,8 +14,8 @@
     },
     {
       "path": "n8n/growth/campaign-provider.js",
-      "sha256": "00c35ba0332c23ca750f71484065bea8a1d6233e1426496fbf252d75b5a406c8",
-      "bytes": 7488
+      "sha256": "a96350fe048e1d1bb1e8a054d99ec1b12bcc5b443c58a7b77ff7cd2f061f18e8",
+      "bytes": 7636
     },
     {
       "path": "n8n/growth/campaign-runtime.js",
@@ -54,8 +54,8 @@
     },
     {
       "path": "services/crm-campaign/transport.cjs",
-      "sha256": "8086c56dc7102d6f51c0dc93132c047d5fea2fa23b4c5987a5a09a3d32109c5c",
-      "bytes": 11827
+      "sha256": "8a4bac08f00d461f82121200ae7edd4ffa499e634a34aa290f83c24dc2bd9934",
+      "bytes": 11851
     },
     {
       "path": "services/crm-panel-read/server.cjs",
@@ -81,8 +81,8 @@
     },
     {
       "path": "n8n/growth/campaign-provider.js",
-      "sha256": "00c35ba0332c23ca750f71484065bea8a1d6233e1426496fbf252d75b5a406c8",
-      "bytes": 7488
+      "sha256": "a96350fe048e1d1bb1e8a054d99ec1b12bcc5b443c58a7b77ff7cd2f061f18e8",
+      "bytes": 7636
     },
     {
       "path": "n8n/growth/campaign-runtime.js",
@@ -121,8 +121,8 @@
     },
     {
       "path": "services/crm-campaign/transport.cjs",
-      "sha256": "8086c56dc7102d6f51c0dc93132c047d5fea2fa23b4c5987a5a09a3d32109c5c",
-      "bytes": 11827
+      "sha256": "8a4bac08f00d461f82121200ae7edd4ffa499e634a34aa290f83c24dc2bd9934",
+      "bytes": 11851
     },
     {
       "path": "services/crm-panel-read/server.cjs",

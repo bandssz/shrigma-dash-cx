@@ -69,6 +69,15 @@ let assertions=0;const check=(v,label)=>{a(v,label);assertions++;console.log('DR
    check(posts===2,'BFF-lost-create-and-update-ACKs-use-original-journals-'+brand);bff.push({brand,db,ctx,id,createKey,deliveryKey,creatorOptions,deliveryOptions,get posts(){return posts;}});
   }
   const beforeReturn=(await f.admin.query('SELECT id,uuid,name,subject,body,altbody,attribs FROM public.campaigns ORDER BY id')).rows;await f.admin.query(fs.readFileSync('/draft/return.synthetic.sql','utf8'));
+  // A still-running candidate can reach SQL after its write gate is closed.
+  // Only a recognized atomic P0001 is a durable refusal; lost network ACKs above stay uncertain.
+  for(const action of ['draft_create','draft_update']){
+   const current=(await run({acao:'campanha_obter',brand,id:ackCampaign.id})).body.campaign,k=crypto.randomUUID(),command={acao:'campanha_salvar',brand,definition:action==='draft_create'?definition:{...current.definition,subject:'[TESTE] Recusa após fechamento'},idempotency_key:k,...(action==='draft_update'?{id:current.id,expected_version:current.version}:{})};
+   const refused=await run(command),operation=await run({acao:'campanha_operacao',brand,idempotency_key:k});
+   check(refused.status===503&&refused.body.error==='DRAFT_WRITES_DISABLED','in-flight-candidate-SQL-closure-is-explicit-refusal-'+action);
+   check(operation.body.operation.state==='rejected'&&hash(operation.body.operation.response)===hash(refused),'closed-SQL-refusal-GET-original-intention-'+action);
+   check(hash(await run(command))===hash(refused),'closed-SQL-refusal-replay-exact-'+action);
+  }
   const returned=require('/return-source/services/crm-campaign/transport.cjs').createExecutor({pool:f.effectPool,native:f.native,nativeInternalEnabled:true}),returnRun=command=>returned({key:'synthetic-native-owner',command});
   for(const receipt of receipts){const q=await returnRun({acao:'campanha_operacao',brand:receipt.brand,idempotency_key:receipt.key});check(hash(q.body.operation)===hash(receipt.operation),'return-keeps-entire-original-receipt-'+receipt.brand);check(hash(await returnRun(receipt.command))===hash(receipt.operation.response),'return-replay-keeps-original-response-'+receipt.brand);const get=await returnRun({acao:'campanha_obter',brand:receipt.brand,id:q.body.operation.providerId});check(get.status===200,'return-reads-same-native-campaign-'+receipt.brand);}
   const blocked=await returnRun({...lostCommand,idempotency_key:crypto.randomUUID()});check(blocked.status===503&&blocked.body.error==='DRAFT_WRITES_DISABLED','return-closes-new-editor-writes-with-durable-refusal');check(hash(beforeReturn)===hash((await f.admin.query('SELECT id,uuid,name,subject,body,altbody,attribs FROM public.campaigns ORDER BY id')).rows),'return-does-not-rewrite-campaigns-or-receipts');

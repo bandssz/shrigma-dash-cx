@@ -18,8 +18,8 @@
     },
     {
       "path": "candidate/n8n/growth/campaign-provider.js",
-      "bytes": 7488,
-      "sha256": "00c35ba0332c23ca750f71484065bea8a1d6233e1426496fbf252d75b5a406c8"
+      "bytes": 7636,
+      "sha256": "a96350fe048e1d1bb1e8a054d99ec1b12bcc5b443c58a7b77ff7cd2f061f18e8"
     },
     {
       "path": "candidate/n8n/growth/campaign-runtime.js",
@@ -33,8 +33,8 @@
     },
     {
       "path": "candidate/services/crm-campaign/transport.cjs",
-      "bytes": 11827,
-      "sha256": "8086c56dc7102d6f51c0dc93132c047d5fea2fa23b4c5987a5a09a3d32109c5c"
+      "bytes": 11851,
+      "sha256": "8a4bac08f00d461f82121200ae7edd4ffa499e634a34aa290f83c24dc2bd9934"
     },
     {
       "path": "fixture-audience/n8n/growth/segment-audience-context-review.cjs",
@@ -128,8 +128,8 @@
     },
     {
       "path": "fixture-draft/cases.synthetic.cjs",
-      "bytes": 15995,
-      "sha256": "eb86664cc206fd44f308947f3249e0e4aba85a317ede3c2c0dbeafbdf2cf2821"
+      "bytes": 17102,
+      "sha256": "5d0b48ef238f4e2aaf9135cc3abb46da3851c7506af0f4a84f134a2bf59093ef"
     },
     {
       "path": "fixture-draft/install.synthetic.sql",
@@ -183,8 +183,8 @@
     },
     {
       "path": "fixture-return-source/n8n/growth/campaign-provider.js",
-      "bytes": 7488,
-      "sha256": "00c35ba0332c23ca750f71484065bea8a1d6233e1426496fbf252d75b5a406c8"
+      "bytes": 7636,
+      "sha256": "a96350fe048e1d1bb1e8a054d99ec1b12bcc5b443c58a7b77ff7cd2f061f18e8"
     },
     {
       "path": "fixture-return-source/n8n/growth/campaign-runtime.js",
@@ -223,8 +223,8 @@
     },
     {
       "path": "fixture-return-source/services/crm-campaign/transport.cjs",
-      "bytes": 11827,
-      "sha256": "8086c56dc7102d6f51c0dc93132c047d5fea2fa23b4c5987a5a09a3d32109c5c"
+      "bytes": 11851,
+      "sha256": "8a4bac08f00d461f82121200ae7edd4ffa499e634a34aa290f83c24dc2bd9934"
     },
     {
       "path": "fixture-return-source/services/crm-panel-read/server.cjs",
@@ -274,7 +274,7 @@
     {
       "path": "image-files.json",
       "bytes": 4570,
-      "sha256": "f232fbd83b878b13cdebeef854b4c1b42cc0394bb01c1a99b2b895184ffba736"
+      "sha256": "92d802e1f97f187c9fc34c446fdd8c959b03eb2fa9766768d2d611b715aa426f"
     },
     {
       "path": "return/Dockerfile",
@@ -288,8 +288,8 @@
     },
     {
       "path": "return/n8n/growth/campaign-provider.js",
-      "bytes": 7488,
-      "sha256": "00c35ba0332c23ca750f71484065bea8a1d6233e1426496fbf252d75b5a406c8"
+      "bytes": 7636,
+      "sha256": "a96350fe048e1d1bb1e8a054d99ec1b12bcc5b443c58a7b77ff7cd2f061f18e8"
     },
     {
       "path": "return/n8n/growth/campaign-runtime.js",
@@ -303,13 +303,13 @@
     },
     {
       "path": "return/services/crm-campaign/transport.cjs",
-      "bytes": 11827,
-      "sha256": "8086c56dc7102d6f51c0dc93132c047d5fea2fa23b4c5987a5a09a3d32109c5c"
+      "bytes": 11851,
+      "sha256": "8a4bac08f00d461f82121200ae7edd4ffa499e634a34aa290f83c24dc2bd9934"
     },
     {
       "path": "run-native-ci.cjs",
       "bytes": 3523,
-      "sha256": "db47b6c2b586718ac0c450691840926471f47c8b73926a896a8746c4f677a86a"
+      "sha256": "5d34f9cb3be85e88d4e3364e2270120b0a19291e88b1beea1e300fe7b51bcbbe"
     },
     {
       "path": "source-smoke.cjs",
