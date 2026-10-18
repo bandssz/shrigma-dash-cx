@@ -1870,8 +1870,8 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 71,
-      "sha256": "a1e57d39efaa7286fa8c198f3b03f0a941666b760bdcf34b861977fa19ec8933"
+      "bytes": 205,
+      "sha256": "d0b185629916b2e7e3b6db573832b97a9f13eabda1811b1279763451bf873eca"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
