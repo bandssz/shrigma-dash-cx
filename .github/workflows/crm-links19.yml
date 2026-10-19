@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 512m --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env LINKS_RUNTIME_ROOT=/app/native-backend/runtime --entrypoint node "$GATEWAY_IMAGE:links-return-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-campaign-draft-links.test.cjs /source/tests/crm-campaign-link-receipts.test.cjs
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env LINKS_RUNTIME_ROOT=/app/native-backend/runtime --entrypoint node "$GATEWAY_IMAGE:links-return-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-campaign-draft-links.test.cjs /source/tests/crm-campaign-link-receipts.test.cjs
           docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/journey-smoke.cjs,dst=/proof.cjs,readonly" --entrypoint node "$GATEWAY_IMAGE:links-return-$GITHUB_SHA" /proof.cjs
       - name: Preserve source and compatible return artifacts without installation
         run: node ops/releases/links19/preserve-artifacts.cjs
