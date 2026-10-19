@@ -40,8 +40,8 @@
     },
     {
       "path": "assets/panels/growth.js",
-      "bytes": 1059753,
-      "sha256": "372d3d49d141bc41296c68b7a0b7db9d809495f2f58c17036f9318eb9e07f956"
+      "bytes": 1060093,
+      "sha256": "fabbb75c744ca8f25f95e997b159c05e394d5c22679c332e7487e15d7a18ffd7"
     },
     {
       "path": "assets/panels/influs.css",
@@ -82,11 +82,6 @@
       "path": "growth-drafts-ui.js",
       "bytes": 85570,
       "sha256": "727eba4b0892348b247ba9a6c5faf45c019269e69ebbafb2f20a1b0595ee8be3"
-    },
-    {
-      "path": "growth-email-contract.js",
-      "bytes": 14179,
-      "sha256": "d1f64de11d0ad56006346bb4f82d8ec318db5f7313417f677926d998fad63355"
     },
     {
       "path": "growth-email-native-ui.js",
@@ -131,7 +126,7 @@
     {
       "path": "growth.html",
       "bytes": 112606,
-      "sha256": "8b7c8b6fa65b944819e76e850a6579e1a8668642b963b88e227637ed73d780ba"
+      "sha256": "291467c234f7dcacc009c53bcf17c65d4c28bbf98896a04c8730d07ded893299"
     },
     {
       "path": "influs-conferencia.js",
@@ -956,7 +951,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "400f88d030484bdc1a31e35581829210741653bd3e9aca1a674af610cb933b19"
+      "sha256": "1f7fe98c7196f8948f4a9e2172989e8ab89cd1042db6e554cb61a7a6c945756f"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1060,8 +1055,8 @@
     },
     {
       "path": "services/dashboard-operational/model-piece-input.cjs",
-      "bytes": 27872,
-      "sha256": "1ba5dca36c9cf4040b41624a308e93c3a653e7e49c04a09a29fc976a974a004f"
+      "bytes": 28218,
+      "sha256": "f76b16be3d7232748f8995b384b613a3a1853c3be35a074e94916235e0cd20ca"
     },
     {
       "path": "services/dashboard-operational/native-internal-release.json",
@@ -1200,8 +1195,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 203713,
-      "sha256": "03ba92d3d6bd479e3044fe95a8382a3d7babb2f7d433fb84941b983b7f6f93d3"
+      "bytes": 204561,
+      "sha256": "815a2873f92bf964b0770e658c281ae12e8d36164e5d7946de7286956d4f64b2"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -1250,8 +1245,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-import.js",
-      "bytes": 17424,
-      "sha256": "862167b6c814bca2dbeeb9ccab67657ee2fbc3fcb810ecbd2c7d10981fa2ede9"
+      "bytes": 18004,
+      "sha256": "55bc10b5acb5443d7f91324686a47b86abfe4051aff7a94ea310bbb735000a64"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-library.js",
@@ -1630,8 +1625,8 @@
     },
     {
       "path": "tests/crm-model-import.test.cjs",
-      "bytes": 14260,
-      "sha256": "dac578541e4139215822524d2aab8c3fdd96d82bc6d3975ffd4b3d0dc7b16f76"
+      "bytes": 12611,
+      "sha256": "25f45d084eba4199caa9bdf5cd7d440422b4b27cce99ffef3320aa3d27bc49dc"
     },
     {
       "path": "tests/crm-native-night18.test.cjs",
@@ -1975,8 +1970,8 @@
     },
     {
       "path": "tests/simple-crm-model-pieces.test.cjs",
-      "bytes": 5799,
-      "sha256": "98c8f834b54d8effaebf1f7f09e7ee6a527579c7940567c55b078baad24e755e"
+      "bytes": 4869,
+      "sha256": "355525b3e85d88976142e9cbef4df0fe85ad5cbb1dd090eba16ae54b181f656c"
     },
     {
       "path": "tests/simple-crm-model-tests.test.cjs",
@@ -2066,7 +2061,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 3028,
-      "sha256": "2024a27b29c79e4d8febfcace2f6fcdef43549f74ca4e41e0d464537656cf3b4"
+      "sha256": "ac162cdc784314b2e1fffb437c8b33db1947dde41a0e11f4a6ccfa0311b926d5"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
@@ -2086,7 +2081,7 @@
     {
       "path": "tools/crm-qa/run-ci.cjs",
       "bytes": 7377,
-      "sha256": "93c4e858bb352c2063e874576e16d80002d0272bd842ef6b4d7aedadd3cda046"
+      "sha256": "6cb973ad99b33a29b122035faa904ae477722e76afb8e5ed97ef0ced9483a686"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
