@@ -1,0 +1,15 @@
+{
+  "schema": "consent-live-selected-list-first-v1",
+  "atUtc": "2026-10-19T06:08:49.433Z",
+  "signature": "crm_audience_v2.native_internal_snapshot_v1(integer)",
+  "baselineMd5": "1b1e8f033d395937d3dcc871b8fdd83c",
+  "candidateMd5": "e2034c34dfc4832cb8ad4e2423d5f3b8",
+  "baselineSha256": "128a671f042dedad546b199f18b3871f4147dca83db4c46fffecfa546cc685e7",
+  "candidateSha256": "951bc304783b54110ab7165e0be8b76d67b6b257d2e91a6bc325534a4654ee5a",
+  "newFunctions": 0,
+  "dataWrites": 0,
+  "preservesAllConsentConditions": true,
+  "measuredBaselinePlanMs": 13152.323,
+  "baselineAggregateLoops": 152,
+  "productionApplied": false
+}
