@@ -19,3 +19,5 @@ const CampaignImport=(()=>{
 })();
 if(typeof module==='object')module.exports=CampaignImport;
 if(typeof window==='object')window.ShrigmaCrmCampaignImport=CampaignImport;
+
+if(typeof window==='object')window.ShrigmaCrmCampaignLinks=Object.freeze(T);

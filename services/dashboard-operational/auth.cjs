@@ -1147,7 +1147,7 @@ function createAuth(options){
  function campaignDeliveryFor(transport){
   if(!campaignSubmit)err('EDIT_NOT_READY',403);
   const G=require('./crm-individual-coexistence.cjs'),delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:campaignWriterAuthorization,transport:coexistence?G.guardedTransport(transport,individualOperationSnapshot):transport,now,encrypt,decrypt,hasOpenCreate:hasOpenCampaignCreate,
-   prepareDefinition:(definition,{catalog,id,now:time})=>require('./campaign-write-contract.js').prepare(definition,{catalog,tracking:require('./campaign-write-tracking.js'),trackingId:id,now:time}).definition});
+   prepareDefinition:(definition,{catalog,id,now:time})=>require('./campaign-write-contract.js').prepareDraft(definition,{catalog,tracking:require('./campaign-write-tracking.js'),trackingId:id,now:time}).definition});
   return coexistence?G.guardedOperations(delivery,individualOperationSnapshot):delivery;
  }
  function campaignCreateFor(transport){
@@ -1156,8 +1156,8 @@ function createAuth(options){
   const G=require('./crm-individual-coexistence.cjs');
   const build=descriptor=>require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:descriptor?descriptor.mode:'crm-sandbox',...(descriptor?{corporateWriter:descriptor}:{}),allowedEmailDomains:options.allowedEmailDomains,authorize:campaignWriterAuthorization,transport:coexistence?G.guardedTransport(transport,individualOperationSnapshot):transport,now,encrypt,decrypt,
    hasOpenDelivery:(userId,brand)=>!!db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(userId,brand),
-   preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),
-   prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
+   preflightDefinition:(definition,{catalog,now:time})=>C.preflightDraft(definition,{catalog,tracking:T,now:time}),
+   prepareDefinition:(definition,{catalog,id,now:time,legacyReceipt=false})=>{const p=legacyReceipt?C.prepare(definition,{catalog,tracking:{...T,prepare:T.prepareLegacyReceipt},trackingId:id,now:time}):C.prepareDraft(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
   const creator=build(masterWriter);campaignCreateInitialized=true;
   if(!coexistence)return creator;
   const individual=build(corporateWriter),choose=ctx=>authorize({...ctx,area:'growth',edit:ctx.method==='POST'}).role==='superadmin'?creator:individual;
@@ -1265,7 +1265,7 @@ function createAuth(options){
   if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
   const C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js'),N=require('./simple-crm-native-internal.cjs');let adapter;
   const authorize=(context,{brand})=>{const p=simpleDraftBinding(context,{brand});if(!enabled||!N.allowedEditor(p.author)||p.author.permissions.growth?.edit!==true)err('NATIVE_INTERNAL_QA_ONLY',403);return Object.freeze({userId:p.author.id,role:p.author.role,slot:'growth-campaign',canEdit:true,credentialMac:p.binding,caps:Object.freeze(['read_content','draft','validate','submit'])});};
-  const delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize,transport:(...args)=>adapter.transport(...args),now:current,encrypt,decrypt,nativeInternal:true,hasOpenCreate:hasOpenCampaignCreate,prepareDefinition:(definition,{catalog,id,now:time})=>C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time}).definition});
+  const delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize,transport:(...args)=>adapter.transport(...args),now:current,encrypt,decrypt,nativeInternal:true,hasOpenCreate:hasOpenCampaignCreate,prepareDefinition:(definition,{catalog,id,now:time})=>C.prepareDraft(definition,{catalog,tracking:T,trackingId:id,now:time}).definition});
   adapter=N.create({enabled,editorsEnabled,frozenAudienceV3,scheduleReady,binding:(context,args)=>{const p=simpleDraftBinding(context,args);if(!N.allowedEditor(p.author))err('NATIVE_INTERNAL_EDITOR_REQUIRED',403);return verifySimpleDraftBinding(context,args);},remoteKey:simpleAudienceRemoteKey,delivery,fetchImpl});return adapter;
  }
  function simpleConsentJobFactory({fetchImpl=globalThis.fetch,enabled=false,enabledSince}={}){
@@ -1285,9 +1285,9 @@ function createAuth(options){
  function simpleCampaignDraftFactories(transport){
   if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
   const G=require('./crm-manager-runtime.cjs'),descriptor=G.serviceDraftDescriptor(ownMasterWriter),C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js');
-  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:descriptor.mode,corporateWriter:descriptor,allowedEmailDomains:options.allowedEmailDomains,authorize:simpleDraftAuthority,transport,now:current,encrypt,decrypt,hasOpenDelivery:(userId,brand)=>unresolvedCampaignDelivery(userId,brand),preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
+  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:descriptor.mode,corporateWriter:descriptor,allowedEmailDomains:options.allowedEmailDomains,authorize:simpleDraftAuthority,transport,now:current,encrypt,decrypt,hasOpenDelivery:(userId,brand)=>unresolvedCampaignDelivery(userId,brand),preflightDefinition:(definition,{catalog,now:time})=>C.preflightDraft(definition,{catalog,tracking:T,now:time}),prepareDefinition:(definition,{catalog,id,now:time,legacyReceipt=false})=>{const p=legacyReceipt?C.prepare(definition,{catalog,tracking:{...T,prepare:T.prepareLegacyReceipt},trackingId:id,now:time}):C.prepareDraft(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
   campaignCreateInitialized=true;
-  const delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:simpleDraftAuthority,transport,now:current,encrypt,decrypt,serviceDraftProfile:descriptor,hasOpenCreate:hasOpenCampaignCreate,prepareDefinition:(definition,{catalog,id,now:time})=>C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time}).definition});
+  const delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:simpleDraftAuthority,transport,now:current,encrypt,decrypt,serviceDraftProfile:descriptor,hasOpenCreate:hasOpenCampaignCreate,prepareDefinition:(definition,{catalog,id,now:time})=>C.prepareDraft(definition,{catalog,tracking:T,trackingId:id,now:time}).definition});
   return Object.freeze({creator,delivery,descriptor});
  }
  async function setSandboxCredential({context,userId,slot,bearer,fetchImpl=globalThis.fetch}){

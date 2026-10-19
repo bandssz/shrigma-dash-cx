@@ -40,22 +40,25 @@ const CampaignContract=(()=>{
   const mapping=array(catalog.initiatives).find(i=>i.utm_campaign===d.utm_campaign);
   if(mapping&&mapping.key!==d.initiative.key)error('INITIATIVE_CONFLICT','Esta UTM já pertence a outra iniciativa.','initiative.key');
  }
- function preflight(input,{catalog,tracking,now=Date.now()}={}){
+ function preflight(input,{catalog,tracking,now=Date.now(),linkMode='strict'}={}){
   const d=normalize(input);checkCatalog(d,catalog);
   if(!tracking||typeof tracking.check!=='function')error('TRACKING_UNAVAILABLE','Conferência dos links indisponível.');
-  let check;try{check=tracking.check({status:'draft',sent:0,started_at:null,content_type:'html',body_source:null,lists:d.list_ids,body:d.html,altbody:d.text},{brand:d.brand,campaign:d.utm_campaign,now});}
+  const checkLinks=linkMode==='draft'?tracking.checkDraft:linkMode==='schedule'?tracking.checkSchedule:tracking.check;
+  let check;try{check=checkLinks({status:'draft',sent:0,started_at:null,content_type:'html',body_source:null,lists:d.list_ids,body:d.html,altbody:d.text},{brand:d.brand,campaign:d.utm_campaign,now});}
   catch{error('TRACKING_INVALID','Confira os destinos e as UTMs dos links comerciais antes de salvar.','html');}
   if(!Number.isSafeInteger(check?.commercial_links)||check.commercial_links<1)error('NO_COMMERCIAL_LINK','Inclua ao menos um link para produto, página ou coleção da loja.','html');
   return d;
  }
- function prepare(input,{catalog,tracking,trackingId,now=Date.now()}={}){
+ function prepare(input,{catalog,tracking,trackingId,now=Date.now(),linkMode='strict'}={}){
   const d=normalize(input);checkCatalog(d,catalog);
   if(!tracking||typeof tracking.prepare!=='function')error('TRACKING_UNAVAILABLE','Preparador de rastreamento indisponível.');
   if(!positive(trackingId))error('TRACKING_ID_REQUIRED','A API deve reservar a identidade do disparo.');
-  const p=tracking.prepare({id:trackingId,status:'draft',sent:0,started_at:null,content_type:'html',body_source:null,lists:d.list_ids,body:d.html,altbody:d.text},{brand:d.brand,campaign:d.utm_campaign,now});
+  const prepareLinks=linkMode==='draft'?tracking.prepareDraft:linkMode==='schedule'?tracking.prepareSchedule:tracking.prepare;
+  const p=prepareLinks({id:trackingId,status:'draft',sent:0,started_at:null,content_type:'html',body_source:null,lists:d.list_ids,body:d.html,altbody:d.text},{brand:d.brand,campaign:d.utm_campaign,now});
   // The server reserves the real Listmonk draft ID before preparing; no invented subscriber IDs.
   const urls=[...p.body.matchAll(/https?:\/\/[^\s<>"']+/g),...String(p.altbody||'').matchAll(/https?:\/\/[^\s<>"']+/g)];
-  if(!urls.some(m=>{try{let u=new URL(m[0].replace(/@TrackLink$/,'').replace(/&amp;/g,'&'));if(![STORES[d.brand],'www.'+STORES[d.brand]].includes(u.hostname))return false;if(u.pathname.startsWith('/discount/'))u=new URL(u.searchParams.get('redirect'),u.origin);const t=u.searchParams.get('utm_term')||'';return /^\/(products|pages|collections)\//.test(u.pathname)&&(t===p.token||t.endsWith('--'+p.token));}catch{return false;}}))error('NO_COMMERCIAL_LINK','Inclua ao menos um link comercial da loja.','html');
+  const unresolvedCoupon=linkMode==='draft'&&tracking.review({body:d.html,altbody:d.text},{brand:d.brand,campaign:d.utm_campaign}).issues.some(x=>x.code==='COUPON_DESTINATION_REQUIRED');
+  if(!unresolvedCoupon&&!urls.some(m=>{try{let u=new URL(m[0].replace(/@TrackLink$/,'').replace(/&amp;/g,'&'));if(![STORES[d.brand],'www.'+STORES[d.brand]].includes(u.hostname))return false;if(u.pathname.startsWith('/discount/'))u=new URL(u.searchParams.get('redirect'),u.origin);const t=u.searchParams.get('utm_term')||'';return /^\/(products|pages|collections)\//.test(u.pathname)&&(t===p.token||t.endsWith('--'+p.token));}catch{return false;}}))error('NO_COMMERCIAL_LINK','Inclua ao menos um link comercial da loja.','html');
   return {definition:{...d,html:p.body,text:p.altbody},tracking:{policy:VERSION,term:p.token,list_ids:p.lists,changed_links:p.changes.length},payload:{name:d.name,subject:d.subject,from_email:d.from_email,headers:[{'Reply-To':d.reply_to}],type:'regular',content_type:'html',body:p.body,altbody:p.altbody,body_source:null,lists:d.list_ids,template_id:d.template_id,tags:d.tags,messenger:'email',send_at:d.send_at,attribs:{crm:{policy:VERSION,brand:d.brand,initiative_key:d.initiative.key,initiative_name:d.initiative.name,utm_campaign:d.utm_campaign,tracking_term:p.token}}}};
  }
  const AUDIENCE_POLICY='listmonk-6.1-regular-v1',AUDIENCE_TTL_MS=300000;
@@ -103,6 +106,6 @@ const CampaignContract=(()=>{
   const d=current?.definition||current;
   return current?.id===185&&d?.brand==='aristo'||/^\s*\[TESTE\]/i.test(d?.name||'')||/^\s*\[TESTE\]/i.test(d?.subject||'')||array(d?.tags).includes('crm-internal-test');
  }
- return {VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,preflight,prepare,schedule,cancel,request,isInternalTest};
+ return {VERSION,BRANDS,STORES,AUDIENCE_POLICY,AUDIENCE_TTL_MS,audienceReview,normalize,checkCatalog,preflight,prepare,preflightDraft:(d,o)=>preflight(d,{...o,linkMode:'draft'}),prepareDraft:(d,o)=>prepare(d,{...o,linkMode:'draft'}),preflightSchedule:(d,o)=>preflight(d,{...o,linkMode:'schedule'}),prepareSchedule:(d,o)=>prepare(d,{...o,linkMode:'schedule'}),schedule,cancel,request,isInternalTest};
 })();
 if(typeof module!=='undefined')module.exports=CampaignContract;

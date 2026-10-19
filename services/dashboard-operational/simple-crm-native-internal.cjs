@@ -9,6 +9,10 @@ const IDS=Object.freeze({aristo:'23b3132a-a00b-41d3-ac31-0216a37f6100',fish:'6b0
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const HASH=/^[a-f0-9]{64}$/;
 const error=(status,code)=>Object.assign(Error(code),{status,code});
+function requireCouponDestinations(definition,brand){
+ const pending=require('./campaign-write-tracking.js').review({body:definition.html,altbody:definition.text},{brand,campaign:definition.utm_campaign}).issues.some(x=>x.code.startsWith('COUPON_'));
+ if(pending)throw error(409,'COUPON_DESTINATION_REQUIRED');
+}
 const exact=(o,keys)=>o&&Object.getPrototypeOf(o)===Object.prototype&&Object.keys(o).sort().join(',')===[...keys].sort().join(',');
 function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editorsEnabled=false,frozenAudienceV3=false,scheduleReady=()=>false}){
  if(typeof binding!=='function'||typeof remoteKey!=='function'||!delivery)throw Error('NATIVE_INTERNAL_CONFIG');
@@ -55,11 +59,15 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editor
   if(action==='campanha_nativa_operacao'&&method==='GET'&&exact(q,['acao','brand','idempotency_key']))return delivery.reconcile(context,{brand,idempotency_key:q.idempotency_key});
   if(method!=='POST'||!Number.isSafeInteger(q.id)||q.id<1||!UUID.test(q.idempotency_key)||!/^[a-f0-9]{32}$/.test(q.expected_version||''))throw error(400,'NATIVE_INTERNAL_INPUT');
   const nativeContext=await eligible(context,brand,q.id);
-  let command;
-  if(action==='campanha_nativa_data'&&exact(q,['acao','brand','id','expected_version','idempotency_key','send_at'])){
-   const date=Date.parse(q.send_at);if(typeof q.send_at!=='string'||!Number.isFinite(date)||date<Date.now()+20*60000||date>Date.now()+2*3600000)throw error(400,'NATIVE_INTERNAL_DATE');
+  let command,checkedCampaign;
+  if(['campanha_nativa_data','campanha_nativa_validar','campanha_nativa_agendar'].includes(action)){
    const current=await transport(context,{method:'GET',command:{acao:'campanha_obter',brand,id:q.id}}),c=current.body.campaign;
    if(current.status!==200||c?.id!==q.id||c.version!==q.expected_version||c.status!=='draft'||c.sent!==0||c.started_at!==null||c.definition?.brand!==brand)throw error(409,'NATIVE_INTERNAL_CHANGED');
+   requireCouponDestinations(c.definition,brand);checkedCampaign=c;
+  }
+  if(action==='campanha_nativa_data'&&exact(q,['acao','brand','id','expected_version','idempotency_key','send_at'])){
+   const date=Date.parse(q.send_at);if(typeof q.send_at!=='string'||!Number.isFinite(date)||date<Date.now()+20*60000||date>Date.now()+2*3600000)throw error(400,'NATIVE_INTERNAL_DATE');
+   const c=checkedCampaign;
    command={acao:'campanha_salvar',brand,id:q.id,expected_version:q.expected_version,idempotency_key:q.idempotency_key,definition:{...c.definition,send_at:q.send_at}};
   }else if(action==='campanha_nativa_validar'&&exact(q,['acao','brand','id','expected_version','idempotency_key']))command={...q,acao:'campanha_validar'};
   else if(action==='campanha_nativa_agendar'&&exact(q,['acao','brand','id','expected_version','idempotency_key','confirm','audience_review_id'])&&q.confirm==='agendar')command={...q,acao:'campanha_agendar'};
@@ -71,4 +79,4 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editor
  }
  return Object.freeze({handle,transport});
 }
-module.exports={allowedOperator,allowedEditor,create,EMAIL,IDS};
+module.exports={allowedOperator,allowedEditor,create,requireCouponDestinations,EMAIL,IDS};
