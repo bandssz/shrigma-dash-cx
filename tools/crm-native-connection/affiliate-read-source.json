@@ -1905,8 +1905,8 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 71,
-      "sha256": "a1e57d39efaa7286fa8c198f3b03f0a941666b760bdcf34b861977fa19ec8933"
+      "bytes": 205,
+      "sha256": "a5bd8cf1d1e9d5e8489c8fe617b95fabe3ab16d9660ebd62defb2f53eecd02e2"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
@@ -1918,5 +1918,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Campaign/public lists, single CRM header, committed revenue snapshot time and authorized last-count cache over installed751. Original campaign form, source SQL and native operation/consent restrictions preserved. No minimum-draft dependency."
+  "candidatePurpose": "Prepared return to exact installed751 envelope after independent CRM list/header/cache delivery. Keep and ignore the additive last-count table; preserve all business records and native consent restrictions. No source SQL return is needed for this delivery."
 }
