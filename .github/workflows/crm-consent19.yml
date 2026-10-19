@@ -34,7 +34,9 @@ jobs:
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker pull "$IMAGE"
           consent_container="$(docker create --entrypoint true "$IMAGE")"
-          docker cp "$consent_container:/app/native-backend/runtime" "$consent_dir/runtime"
+          mkdir -m 0700 "$consent_dir/runtime"
+          docker cp "$consent_container:/app/native-backend/runtime/." - | tar -xf - -C "$consent_dir/runtime" --no-same-owner --no-same-permissions
+          chmod -R u+rwX "$consent_dir/runtime"
           docker rm "$consent_container" > /dev/null
           cp -a "$RELEASE/gateway-runtime/." "$consent_dir/runtime/"
           chmod -R a+rX "$consent_dir/runtime"
