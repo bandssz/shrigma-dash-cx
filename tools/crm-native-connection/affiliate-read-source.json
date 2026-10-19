@@ -951,7 +951,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "cfb98823e17cb9f581d476139758375e8bf0ae518e055509fd56ee17579feba1"
+      "sha256": "ea3cb0181bf3fea6da4c3a1f23bdfbe0e51f5c62e250f3ef8f4c3dd537780948"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1185,23 +1185,23 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 142663,
-      "sha256": "c1259898c22ff96f38ee94c5516a45e9060f7c0dafa829e93df5da8e906fdd28"
+      "bytes": 142960,
+      "sha256": "86ff507435cda9f8b26ae5a540532626ffae244a44b7fbe302be000af6079199"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
-      "bytes": 37429,
-      "sha256": "5f21cdcc8886a637e9e2b43fc7d54555fe9739283095ae5f3b32220bd2ccfdda"
+      "bytes": 37714,
+      "sha256": "7e1594033cce29cd3cede1992196c422acdb98dc79ed4ff698236af79c5d0853"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 81917,
-      "sha256": "24e190dea1cea4a078abf378285a35c6a2bbe81e71950dcde212b5eb48c56a25"
+      "bytes": 84359,
+      "sha256": "655eaaf084b0cd88a6c150d33b6f650884e5f4f0c5c9923ae0bb78d43b5153a8"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 94581,
-      "sha256": "dc309eb7abbdcf549143988eebc303758dcab70e8e2cf92a6681220342de3cc7"
+      "bytes": 95485,
+      "sha256": "106e1d34ab493ad19784bfc6e88e40c51ac99096cffab1f76c54c2ff1329bb92"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1320,8 +1320,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-tests.cjs",
-      "bytes": 16325,
-      "sha256": "7667f1de614ab1d77ac921108b816cfa597e0753a243d3192dc959735ee0c837"
+      "bytes": 16749,
+      "sha256": "b5cd36c11882acc76b49fdb5dd2faf017f8527f25e783977668bc962522db8dd"
     },
     {
       "path": "services/dashboard-operational/simple-crm-model-pieces.cjs",
@@ -1580,8 +1580,8 @@
     },
     {
       "path": "tests/crm-client-session-lazy19.test.cjs",
-      "bytes": 7859,
-      "sha256": "4d8e979b4f0a145764043c87d43bd79bab7aaa38be90aeb11a808a2bdbf7943d"
+      "bytes": 8055,
+      "sha256": "84c145c88de8e9bf341c562b7c717eaf3cda6312f1c2f3ac40e7c7dde5e43385"
     },
     {
       "path": "tests/crm-legacy-library-plan.test.cjs",
@@ -1630,8 +1630,8 @@
     },
     {
       "path": "tests/crm-ui-independent.test.cjs",
-      "bytes": 16237,
-      "sha256": "5a83455424a6682758489f8e513dc7b40e559530f02b5f349a6ea61be74cb843"
+      "bytes": 20107,
+      "sha256": "0c95e1e249e84ea02a234b06ae269e13b019330adc27d8ee2b9299ff73492156"
     },
     {
       "path": "tests/dashboard-central-delegation.test.cjs",
@@ -1930,8 +1930,8 @@
     },
     {
       "path": "tests/simple-crm-campaign-tests.test.cjs",
-      "bytes": 31310,
-      "sha256": "52cecb10cf7b31428828eb8c8a0e4306c7e6a529f41bea023dfe34317035c312"
+      "bytes": 34201,
+      "sha256": "38f724596f1591b0bb00e1583dd0449974c4128c13b86966d616853cc25cbebe"
     },
     {
       "path": "tests/simple-crm-model-pieces.test.cjs",
