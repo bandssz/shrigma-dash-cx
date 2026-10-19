@@ -1940,8 +1940,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 47157,
-      "sha256": "b41dfa7c040b8be5f974bf45df00cae3f8bddeab47114e2a79afce5f3d5e4db3"
+      "bytes": 47520,
+      "sha256": "074b5f3bef8dcdc7edbdb41aab4831e8584f134e4ae636f998a94ce3ad0373c2"
     },
     {
       "path": "tests/production-envelope.test.cjs",
@@ -2080,8 +2080,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 4987,
-      "sha256": "b2a2da5c8473cdc5a3008df3c0a02f0cf23a5e9c4f65ece9760c5a5f611da729"
+      "bytes": 5378,
+      "sha256": "9b4874438f53302a5038790b757a3ba82201321547299066f8e4b8e2231ea0f5"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
