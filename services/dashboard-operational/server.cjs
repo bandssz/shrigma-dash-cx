@@ -1131,8 +1131,6 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const operation=auth.audienceDraft(ctx,url.searchParams.get('brand'));
         return sendJson(req,res,200,{operation:operation&&{operationKey:operation.operationKey,action:operation.action,phase:operation.phase,receiptStatus:operation.receiptStatus,receiptCode:operation.receiptCode,segmentId:operation.segmentId,segmentVersion:operation.segmentVersion,updatedAt:operation.updatedAt}});
       }
-      if(url.pathname==='/api/crm-features'&&req.method==='GET'&&auth.uiFeatures){const brand=url.searchParams.get('brand');return sendJson(req,res,200,auth.uiFeatures.read(ctx,brand));}
-      if(url.pathname==='/auth/simple/crm-features'&&auth.uiFeatures){if(host!==s.managerHost)throw jsonError(403,'ADMIN_HOST_REQUIRED');if(req.method==='GET')return sendJson(req,res,200,auth.uiFeatures.inspect(ctx));if(req.method!=='POST')throw jsonError(405,'METHOD_DENIED');if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');return sendJson(req,res,200,auth.uiFeatures.update(ctx,await readJson(req,8192)));}
       if(url.pathname==='/auth/login'&&req.method==='POST'){
         const release=reserveLogin(req.socket.remoteAddress);
         try{
@@ -1482,7 +1480,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           if(new Set(url.searchParams.keys()).size!==url.searchParams.size)throw jsonError(400,'ARGUMENTS_INVALID');
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields?.brand,action=fields?.acao;
           if(['campanha_teste_capacidade','campanha_teste_previa','campanha_teste','campanha_teste_operacao','campanha_teste_historico'].includes(action)){
-            if(!simpleCampaignTests)throw jsonError(503,'CAMPAIGN_TEST_UNAVAILABLE');if(req.method==='POST'&&Object.hasOwn(body||{},'recipient')&&auth.uiFeatures?.read(ctx,brand).flags.campaignTestRecipient!==true)throw jsonError(403,'CAMPAIGN_TEST_RECIPIENT_DISABLED');
+            if(!simpleCampaignTests)throw jsonError(503,'CAMPAIGN_TEST_UNAVAILABLE');
             if(req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'CAMPAIGN_TEST_BRAND_REFUSED');
             releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
             let result;
