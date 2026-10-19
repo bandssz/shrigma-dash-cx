@@ -60,7 +60,12 @@ BEGIN
   IF current_row->>'version' IS DISTINCT FROM p->>'expectedVersion' THEN RAISE EXCEPTION 'VERSION_CONFLICT';END IF;
  END IF;
  PERFORM id FROM public.templates WHERE id=tid FOR SHARE;
- IF public.shrigma_campaign_template_owned_v1(tid,b) IS DISTINCT FROM true THEN RAISE EXCEPTION 'TEMPLATE_SCOPE';END IF;
+ -- The installed system has the registry, but not the prepared ownership helper.
+ -- Check the same closed ownership rule here while the registry SHARE lock holds.
+ IF NOT EXISTS(SELECT 1 FROM public.templates t WHERE t.id=tid AND t.type::text='campaign')
+  OR NOT EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=tid AND r.brand=b)
+  OR EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=tid AND r.brand IS DISTINCT FROM b)
+ THEN RAISE EXCEPTION 'TEMPLATE_SCOPE';END IF;
  IF (SELECT md5(to_jsonb(t)::text) FROM public.templates t WHERE id=tid) IS DISTINCT FROM p->>'templateVersion' THEN RAISE EXCEPTION 'TEMPLATE_CHANGED';END IF;
  PERFORM id FROM public.lists WHERE id=ANY(ids) ORDER BY id FOR SHARE;
  IF (SELECT count(*) FROM public.lists l WHERE id=ANY(ids) AND l.status::text='active' AND public.shrigma_campaign_list_brand(l)=b)<>cardinality(ids) THEN RAISE EXCEPTION 'LIST_SCOPE';END IF;

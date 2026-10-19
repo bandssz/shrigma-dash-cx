@@ -3,7 +3,13 @@
 const fs=require('node:fs'),a=require('node:assert/strict'),crypto=require('node:crypto'),Module=require('node:module');
 const filename='/delta/native-correction-ui-fixture-draft.cjs',source=fs.readFileSync('/delta/native-correction-ui-fixture.cjs','utf8');
 a(source.includes('return{admin,nativePool,effectPool,run,'));const fixture=new Module(filename,module);fixture.filename=filename;fixture.paths=module.paths;
-fixture._compile(source.replace('return{admin,nativePool,effectPool,run,','return{native,admin,nativePool,effectPool,run,'),filename);
+// The real native catalog proved that the earlier ownership proposal is absent.
+// Do not inject its function/triggers into this draft proof through the fixture.
+const inlineOwnership="coalesce(t.id>0 AND b IN ('fish','aristo') AND t.type::text='campaign' AND EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=t.id AND r.brand=b) AND NOT EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=t.id AND r.brand IS DISTINCT FROM b),false)";
+let fixtureSource=source.replace('return{admin,nativePool,effectPool,run,','return{native,admin,nativePool,effectPool,run,');
+a(fixtureSource.includes("'n8n/growth/campaign-template-ownership.sql',"));fixtureSource=fixtureSource.replace("'n8n/growth/campaign-template-ownership.sql',",'');
+const originalSql="const sql=p=>fs.readFileSync('/source/'+p,'utf8');";a(fixtureSource.includes(originalSql));fixtureSource=fixtureSource.replace(originalSql,"const sql=p=>{let text=fs.readFileSync('/source/'+p,'utf8');if(p==='n8n/growth/campaign-provider.sql'){if(!text.includes('public.shrigma_campaign_template_owned_v1(t.id,b)'))throw Error('FIXTURE_CATALOG_BOUNDARY');text=text.replace('public.shrigma_campaign_template_owned_v1(t.id,b)',"+JSON.stringify(inlineOwnership)+");}if(p==='n8n/growth/campaign-write-guard.sql'){const i=text.indexOf('CREATE FUNCTION public.shrigma_campaign_template_create_guard_v1()');if(i<0)throw Error('FIXTURE_GUARD_BOUNDARY');text=text.slice(0,i);}return text;};");
+fixture._compile(fixtureSource,filename);
 const {createFixture,closeAll}=fixture.exports,C=require('/app/n8n/growth/campaign-contract.js'),T=require('/app/n8n/growth/campaign-tracking.js'),{createExecutor}=require('/app/services/crm-campaign/transport.cjs');
 const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v,hash=v=>crypto.createHash('sha256').update(JSON.stringify(stable(v))).digest('hex');
 let assertions=0;const check=(v,label)=>{a(v,label);assertions++;console.log('DRAFT_CASE_OK:'+label);};
@@ -11,6 +17,8 @@ let assertions=0;const check=(v,label)=>{a(v,label);assertions++;console.log('DR
  try{
   // Match native schema: id is serial; uuid must be supplied by the creator.
   await f.admin.query("ALTER TABLE public.campaigns ALTER COLUMN id SET DEFAULT nextval('qa_campaign_id'),ALTER COLUMN uuid DROP DEFAULT,ALTER COLUMN uuid SET NOT NULL");
+  check((await f.admin.query("SELECT to_regprocedure('public.shrigma_campaign_template_owned_v1(integer,text)') IS NULL AS absent")).rows[0].absent,'uninstalled-ownership-helper-not-in-fixture');
+  check((await f.admin.query("SELECT count(*)=0 AS absent FROM pg_trigger WHERE tgname IN('shrigma_campaign_template_registry_guard_v1','shrigma_campaign_template_registry_truncate_guard_v1','shrigma_campaign_template_create_guard_v1')")).rows[0].absent,'uninstalled-ownership-triggers-not-in-fixture');
   await f.admin.query(fs.readFileSync('/draft/install.synthetic.sql','utf8'));
   const execute=createExecutor({pool:f.effectPool,native:f.native,nativeInternalEnabled:true}),run=command=>execute({key:'synthetic-native-owner',command});
   let nativeCreates=0;const beforeNative=f.events.length,created=[],receipts=[];

@@ -1,11 +1,11 @@
 name: Human18 minimum draft source and compatible return
 'on':
   push:
-    branches: [codex/domingo18-fonte-rascunho]
+    branches: [codex/domingo18-fonte-rascunho, codex/domingo18-fonte-portavel]
 permissions:
   contents: read
 concurrency:
-  group: shrigma-human18-minimum-source
+  group: shrigma-human18-percurso-validation
   cancel-in-progress: false
 jobs:
   prepare-existing-source:
