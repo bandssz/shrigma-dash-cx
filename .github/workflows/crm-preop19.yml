@@ -1,0 +1,54 @@
+name: CRM installed analyst pre-operation19
+'on':
+  push:
+    branches: [codex/segunda19-preop-ci]
+permissions:
+  contents: read
+concurrency:
+  group: shrigma-qa-installed-serial
+  cancel-in-progress: false
+jobs:
+  qa-installed-analyst:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Require current QA secrets, never skip a missing live proof
+        env:
+          CRM_QA_EMAIL: ${{ secrets.CRM_QA_EMAIL }}
+          CRM_QA_PASSWORD: ${{ secrets.CRM_QA_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          if [[ -z "$CRM_QA_EMAIL" || -z "$CRM_QA_PASSWORD" ]]; then
+            echo 'Live QA blocked: CRM_QA_EMAIL/CRM_QA_PASSWORD unavailable to this job.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: Build isolated Linux browser runner, no production image or deployment
+        run: docker build --platform linux/amd64 --file tools/qa-preop19/Dockerfile --tag shrigma-qa-preop19:$GITHUB_SHA tools/qa-preop19
+      - name: Actual installed editor path, two serial brands, own-box tests only
+        env:
+          CRM_QA_EMAIL: ${{ secrets.CRM_QA_EMAIL }}
+          CRM_QA_PASSWORD: ${{ secrets.CRM_QA_PASSWORD }}
+          EXPECT_REVISION: 2c044ac5106047854868a011ace047608120bacf
+          EXPECT_MANIFEST: 705c0753eb5400a1056a993c6a659258572d08b0bb543b85bc4583a8074c0604
+          PROOF_NAME: preop-ci-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir qa-proof
+          docker run --rm --platform linux/amd64 --read-only --user "$(id -u):$(id -g)" --memory 2g --shm-size 1g --tmpfs /tmp:rw,nosuid,mode=1777,size=512m --env CRM_QA_EMAIL --env CRM_QA_PASSWORD --env EXPECT_REVISION --env EXPECT_MANIFEST --env PROOF_NAME --mount "type=bind,src=$GITHUB_WORKSPACE/qa-proof,dst=/proof" shrigma-qa-preop19:$GITHUB_SHA
+      - name: Preserve scoped QA intents for GET reconciliation, without captures or customer data
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: qa-preop19-scoped-proof
+          path: qa-proof/*.json
+          if-no-files-found: ignore
+          retention-days: 3
