@@ -20,8 +20,8 @@
     },
     {
       "path": ".github/workflows/crm-percurso-human18.yml",
-      "bytes": 11746,
-      "sha256": "f7b7ffe9974a063d4902c55ce37b9055f70f283c9d185cecb3d6c01a476e98c1"
+      "bytes": 13862,
+      "sha256": "4ce73fb753b66c8a0f3df1b347f2fb043d20942e8f4e6dcc62df48291411f221"
     },
     {
       "path": "afiliados-proprios.js",
@@ -1902,6 +1902,16 @@
       "path": "tools/production-release/publish-ci.cjs",
       "bytes": 10683,
       "sha256": "710ab1f6628685b20514d9d3cb96434437ee45547378b304289b8c51086fdb29"
+    },
+    {
+      "path": "tools/qa-analyst/Dockerfile",
+      "bytes": 211,
+      "sha256": "2dc1ca500d27409440e8648bf8aec95cc62543b9f7de45b9fc32db7a96c51661"
+    },
+    {
+      "path": "tools/qa-analyst/analyst.cjs",
+      "bytes": 11718,
+      "sha256": "d683dd4e210e14392da15943a64f04fdfed9975622dd1c18c4e88ac70c2417ed"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",

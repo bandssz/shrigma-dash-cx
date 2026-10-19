@@ -1,7 +1,7 @@
 name: Human18 CRM context image and contracts
 'on':
   push:
-    branches: [codex/domingo18-percurso, codex/domingo18-rascunho-minimo, codex/domingo18-telas-crm]
+    branches: [codex/domingo18-percurso, codex/domingo18-rascunho-minimo, codex/domingo18-telas-crm, codex/domingo18-qa-ci]
 permissions:
   contents: read
 concurrency:
@@ -95,3 +95,44 @@ jobs:
       - name: Remove temporary registry session
         if: always()
         run: rm -rf -- "$DOCKER_CONFIG"
+
+  qa-installed-analyst:
+    needs: image-and-contracts
+    if: github.ref_name == 'codex/domingo18-qa-ci' && needs.image-and-contracts.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check QA credential presence without reading its value into output
+        id: qa-ready
+        env:
+          CRM_QA_EMAIL: ${{ secrets.CRM_QA_EMAIL }}
+          CRM_QA_PASSWORD: ${{ secrets.CRM_QA_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$CRM_QA_EMAIL" && -n "$CRM_QA_PASSWORD" ]]; then
+            printf 'ready=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'ready=false\n' >> "$GITHUB_OUTPUT"
+            printf 'Percurso QA não executado: CRM_QA_EMAIL/CRM_QA_PASSWORD indisponíveis.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Build isolated Linux Playwright runner
+        if: steps.qa-ready.outputs.ready == 'true'
+        run: docker build --platform linux/amd64 --file tools/qa-analyst/Dockerfile --tag shrigma-qa-analyst:$GITHUB_SHA tools/qa-analyst
+      - name: Prove only the installed QA flow, serial brands, no sends or captures
+        if: steps.qa-ready.outputs.ready == 'true'
+        env:
+          CRM_QA_EMAIL: ${{ secrets.CRM_QA_EMAIL }}
+          CRM_QA_PASSWORD: ${{ secrets.CRM_QA_PASSWORD }}
+          QA_EXPECT_MANIFEST: b20c9d19e237f3f2dda0d3927cc1668bd04127e8f614d4618fa02aac0f595832
+          QA_CI_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 --read-only --user 1000:1000 --memory 2g --shm-size 1g --tmpfs /tmp:rw,nosuid,mode=1777,size=512m --env CRM_QA_EMAIL --env CRM_QA_PASSWORD --env QA_EXPECT_MANIFEST --env QA_CI_COMMIT --mount "type=bind,src=$GITHUB_WORKSPACE/tools/qa-analyst/analyst.cjs,dst=/proof/analyst.cjs,readonly" shrigma-qa-analyst:$GITHUB_SHA
