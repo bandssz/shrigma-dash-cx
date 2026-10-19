@@ -1,5 +1,5 @@
 'use strict';
-const Freeze=(()=>{const module={exports:{}};
+const FreezeDependency=(()=>{const module={exports:{}};
 'use strict';
 // Candidate boundary only. The caller must supply the current original source
 // reader and transaction. Nothing creates a connection, worker or credential.
@@ -54,7 +54,7 @@ const Source=(()=>{const module={exports:{}};
 // Runs inside the original Campaigns service, where API16 already lives.
 // All returned member data is reduced to IDs, UUIDs and membership state.
 const crypto=require('node:crypto');
-const Freeze=Freeze;
+const Freeze=FreezeDependency;
 const plain=o=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.getPrototypeOf(o)===Object.prototype;
 const canonical=o=>Array.isArray(o)?'['+o.map(canonical).join(',')+']':plain(o)?'{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+canonical(o[k])).join(',')+'}':JSON.stringify(o);
 const sha=o=>crypto.createHash('sha256').update(canonical(o)).digest('hex');
