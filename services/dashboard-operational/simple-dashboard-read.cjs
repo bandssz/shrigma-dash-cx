@@ -131,7 +131,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
     const after=await get({acao:'segmentos_listar',brand,limit:'1',offset:'0'}),latest=saved?await get({acao:'segmento_obter',brand,id:body.id}):null;
     same(context,'growth',brand,owner);
     if(after.status!==200||after.body.catalog.catalog_hash!==body.expected_catalog_hash||!after.body.catalog.current||saved&&(latest.status!==200||latest.body.segment.version!==body.expected_version||JSON.stringify(latest.body.segment.definition)!==JSON.stringify(original.body.segment.definition)))fail('SEGMENT_CATALOG_CHANGED',409);
-    noSecrets(checked.body);return checked;
+    noSecrets(checked.body);if(saved&&checked.body.source_confirmed===true&&auth.audienceCountCache)try{auth.audienceCountCache.put({context,brand,request:body,checked,sourceId:crypto.createHash('sha256').update(credential).digest('hex')});}catch{}return checked;
    }
    if(method!=='GET'||body!==undefined||!['segmentos_listar','segmento_obter'].includes(query.get('acao')))fail('READ_ONLY');
    const decision=decide(route,method,query,body);if(decision.edit)fail('READ_ONLY');
@@ -148,6 +148,7 @@ function createReader({auth,upstreams,keys={},fetchImpl=globalThis.fetch,project
     const payload=JSON.parse(JSON.stringify(checked.body));
     if(checked.status===200&&decision.action==='segmentos_listar')payload.capabilities.count=checked.sourceCapabilities.count===true;
     for(const record of payload.segments||[payload.segment].filter(Boolean))record.updated_by='Equipe CRM';
+    if(checked.status===200&&decision.action==='segmentos_listar'&&auth.audienceCountCache)try{const last=auth.audienceCountCache.read({context,brand,catalog:payload.catalog,segments:payload.segments,sourceId:crypto.createHash('sha256').update(credential).digest('hex')});if(last.rows.length)payload.last_counts=last;}catch{}
     noSecrets(payload);same(context,'growth',brand,before);return {status:checked.status,body:payload};
    }finally{pending--;}
   }
