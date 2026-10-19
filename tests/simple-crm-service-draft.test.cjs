@@ -80,7 +80,8 @@ async function fixture(t,{email='synthetic-analyst@oaristocrata.com',write=true,
   }
   throw Error('Synthetic source action not admitted: '+action);
  };
- const server=createServer(settings,{auth,fetchImpl});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ // This original fixture models ordinary drafts; the enabled job and its RPC are proved in consent19/gateway-integration and real QA.
+ const consentPolicy=auth.simpleConsentJobFactory?require(runtime+'/campaign-consent-policy.json'):null,priorConsentEnabled=consentPolicy?.enabled;let server;try{if(consentPolicy)consentPolicy.enabled=false;server=createServer(settings,{auth,fetchImpl});}finally{if(consentPolicy)consentPolicy.enabled=priorConsentEnabled;}await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  t.after(async()=>{await new Promise(resolve=>server.close(resolve));auth.close();fs.rmSync(dir,{recursive:true,force:true});});
  const request=(url,{method='GET',body,csrf=true,login=analyst,viewBrand,extraHeaders={}}={})=>new Promise((resolve,reject)=>{const bytes=body?Buffer.from(JSON.stringify(body)):null,headers={Host:HOST,Origin:'https://'+HOST,Cookie:login.cookie.split(';')[0],...(viewBrand?{'X-Shrigma-View-Brand':viewBrand}:{}),...(csrf?{'X-CSRF-Token':login.csrf}:{}),...(bytes?{'content-type':'application/json','content-length':bytes.length}:{}),...extraHeaders};const req=http.request({host:'127.0.0.1',port:server.address().port,path:url,method,headers},res=>{let raw='';res.on('data',b=>raw+=b);res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(raw),headers:res.headers}));});req.on('error',reject);req.end(bytes);});
  const dbQuery=fn=>{const db=new DatabaseSync(dbPath);try{return fn(db);}finally{db.close();}};

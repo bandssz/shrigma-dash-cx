@@ -1940,8 +1940,8 @@
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
-      "bytes": 70209,
-      "sha256": "53bc040ee6c1f3a4e45aa2548788a6171b858129cbdcd4e68ca00e18be824957"
+      "bytes": 70613,
+      "sha256": "d3eb4c604c8a457d783d7f988a53bdf4fa7724665300d11f363a70830dfc89a9"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
