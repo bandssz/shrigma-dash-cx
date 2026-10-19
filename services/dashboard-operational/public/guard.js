@@ -1,6 +1,6 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces']);
+ const ROUTES=new Set(['crm-features','cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces']);
  const nativeFetch=window.fetch.bind(window);
  // A release flag is independent from WRITE permission or source capability.
  // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
@@ -143,6 +143,7 @@
   if(!ROUTES.has(route))return reject();
   const method=String(init.method||(input instanceof Request?input.method:'GET')).toUpperCase();
   if(!['GET','HEAD','POST','PUT','PATCH','DELETE'].includes(method))return reject(405);
+  if(route==='crm-features'){if(method!=='GET')return reject(405);if(url.searchParams.size!==1||!['fish','aristo'].includes(url.searchParams.get('brand')))return reject(400);}
   if(route==='campaigns_media'&&method!=='GET')return reject(405);
   // Resolve the authenticated brand before any panel response can be applied.
   // A missing or legacy grant remains closed; hiding controls is presentation.
@@ -156,6 +157,7 @@
   }
   cleanUrl(url);
   const headers=new Headers(init.headers||(input instanceof Request?input.headers:{}));cleanHeaders(headers);
+  if(route==='crm-features'){const brand=url.searchParams.get('brand'),scope=window.ShrigmaBrandAccess;if(!scope?.brands.includes(brand)||headers.has('X-Shrigma-View-Brand')&&headers.get('X-Shrigma-View-Brand')!==brand)return reject();headers.set('X-Shrigma-View-Brand',brand);}
   if(route==='templates'&&sessionState?.features?.simpleRead===true&&window.ShrigmaBrandAccess){const scope=window.ShrigmaBrandAccess,selected=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca??scope.brand??scope.brands[0];if(!scope.brands.includes(selected)||headers.has('X-Shrigma-View-Brand')&&headers.get('X-Shrigma-View-Brand')!==selected)return reject();headers.set('X-Shrigma-View-Brand',selected);}
   if(method==='GET'&&['cx','cache','crm-read'].includes(route)&&window.ShrigmaBrandAccess){
    const scope=window.ShrigmaBrandAccess;let selected=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca??scope.brand??scope.brands[0];
