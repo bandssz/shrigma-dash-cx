@@ -1,8 +1,11 @@
 'use strict';
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational'),pins=require('./crm-ui-independent-boundaries.fixture.json');
-const read=p=>fs.readFileSync(path.join(runtime,p),'utf8'),sha=v=>crypto.createHash('sha256').update(v).digest('hex');
-for(const[p,hash]of Object.entries(pins.unchanged))test('installed751 contract remains unchanged: '+p,()=>a.equal(sha(read(p)),hash));
+const checkout=path.resolve(__dirname,'../services/dashboard-operational');
+// Entry source is compiled into /app/presentation-release/public/entry.js.
+// Image smoke verifies that served asset; the two source pins stay in checkout.
+const read=p=>fs.readFileSync(path.join(['public/entry.js','public/entry.compiled.js'].includes(p)?checkout:runtime,p),'utf8'),sha=v=>crypto.createHash('sha256').update(v).digest('hex');
+for(const[p,hash]of Object.entries(pins.unchanged))test('installed751 source contract remains unchanged: '+p,()=>a.equal(sha(read(p)),hash));
 test('the complete installed campaign form/handlers retain only list integration and notice presentation changes',()=>{
  let s=read('public/crm-preview/drafts.js');
  const undo=(after,before)=>{a(s.includes(after));s=s.replace(after,before);};

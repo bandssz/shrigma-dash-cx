@@ -1470,8 +1470,8 @@
     },
     {
       "path": "tests/crm-ui-independent-boundaries.test.cjs",
-      "bytes": 3378,
-      "sha256": "6400af55768fcb437a73eb1e2d2a6e4596aa1713fb5bc769b8144c1667a95ec4"
+      "bytes": 3686,
+      "sha256": "c8de00e065a2d4d3acbe7a6f0c4c2530511b4be692208ba5d3eebf0fbeab7d74"
     },
     {
       "path": "tests/crm-ui-independent.test.cjs",
