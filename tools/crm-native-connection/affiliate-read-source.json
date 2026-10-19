@@ -1875,8 +1875,8 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 71,
-      "sha256": "a1e57d39efaa7286fa8c198f3b03f0a941666b760bdcf34b861977fa19ec8933"
+      "bytes": 205,
+      "sha256": "41fa38b43f895bdfacc87f0ed56d38ed5ce6746914d0375694b9256db4d96383"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
@@ -1888,5 +1888,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "A3 minimum campaign draft: name and subject, optional audience/content, derived editable initiative and link campaign, confirmed brand defaults, fixed replies, explicit saving state and context persistence. Separate source/owner SQL required; schedule remains QA plus owner."
+  "candidatePurpose": "Compatible minimum-draft return through canonical CI: close new editor writes and retain v2 drafts, source receipts and guards. Image already proven separately; preparation only, no deployment."
 }
