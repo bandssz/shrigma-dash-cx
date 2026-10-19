@@ -2186,7 +2186,7 @@
     {
       "path": "tools/crm-qa/run-ci.cjs",
       "bytes": 7377,
-      "sha256": "9304141bab3ffdfe71ee68288808187ab95787c48bdb6c7618560e0814621287"
+      "sha256": "afec7256e05423ebb55d13a39802d4d0dd77f3171bc3fca7e0513a97149e9cfd"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
