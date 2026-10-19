@@ -951,7 +951,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "574aa2c27fe3d2e49c4ce68eda9a7a170c5f88e91ceba6181703f7d1bb3a09fc"
+      "sha256": "844b03afcc4b9e152571214fd314c0620b8affe474fdb46b255e76d63e0ceb7d"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1185,8 +1185,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 159058,
-      "sha256": "6cca06c3dd97a2cc002db61333ddf9e342f253a008cc0a1a7533c7daa936dfb0"
+      "bytes": 159116,
+      "sha256": "304b4ad3b5376f2bd06a41c50356ae7d1d17001bc3d57b838f67294e9692b49d"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -1200,13 +1200,13 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
-      "bytes": 2226,
-      "sha256": "0f2c8641f16baac0501df9f527e120c7a01efd1fd9c9f9a7e9dbbf852adbccbe"
+      "bytes": 2312,
+      "sha256": "ab1f6e174e8e5edfe5657c74f29dfed656424a9f9a35f77c32b50510f2b4131d"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 102344,
-      "sha256": "a164cb4f6e4a1b4957dc9be7f0eef0b9899d3158d7c26b149414f56746cc0bf8"
+      "bytes": 102381,
+      "sha256": "761a7d4c0d02e81c9b06d9e6e0082da4199a8589143f2d1cbf3e5db63c3574fa"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1480,8 +1480,8 @@
     },
     {
       "path": "tests/consent19/four-steps.test.cjs",
-      "bytes": 16659,
-      "sha256": "5483f8b39571cf7af04a3274167909add8db76fb9556522f7e2afe62f3d1708c"
+      "bytes": 17682,
+      "sha256": "7b41b896083fc07452221c7ac62a0c88a041ad910ea3281e95062ff39348248c"
     },
     {
       "path": "tests/consent19/gateway-fixture.cjs",
@@ -1585,8 +1585,8 @@
     },
     {
       "path": "tests/crm-campaign-import.test.cjs",
-      "bytes": 4016,
-      "sha256": "b4cd855232160d8234fa9dba19aac8b8f28a5820207c94b1a4c98e5adea00387"
+      "bytes": 4674,
+      "sha256": "2e859d513d3f179b6f8ae7ccb2f6e02368012c8898f11e3db45f4fce6d7b4696"
     },
     {
       "path": "tests/crm-client-session-lazy19.test.cjs",
