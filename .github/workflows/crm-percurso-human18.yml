@@ -1,7 +1,7 @@
 name: Human18 CRM context image and contracts
 'on':
   push:
-    branches: [codex/domingo18-percurso, codex/domingo18-rascunho-minimo, codex/domingo18-telas-crm]
+    branches: [codex/domingo18-telas-contagem]
 permissions:
   contents: read
 concurrency:

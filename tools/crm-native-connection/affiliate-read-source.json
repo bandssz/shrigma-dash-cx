@@ -20,8 +20,8 @@
     },
     {
       "path": ".github/workflows/crm-percurso-human18.yml",
-      "bytes": 11746,
-      "sha256": "f7b7ffe9974a063d4902c55ce37b9055f70f283c9d185cecb3d6c01a476e98c1"
+      "bytes": 11692,
+      "sha256": "38469b3a8fac92b8a12e9ef42e638fcae801c2213ea83d31bf724270e9dd0783"
     },
     {
       "path": "afiliados-proprios.js",
@@ -1165,13 +1165,13 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 78971,
-      "sha256": "28966ba25adb1b1f75e493aa5caa7d7b66b16d3777fa087f3e3bf05283ea6022"
+      "bytes": 81747,
+      "sha256": "ac8937f8eb26882fc93a9476c2f5406fb3cc59f638320a667c033e00b087e1da"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 85230,
-      "sha256": "74341cd01b6a5cd4e5ac42790e792f694e1f8c3c4d1d98a9a3ca7b8e0154c9f3"
+      "bytes": 90622,
+      "sha256": "59861133019bde7d530fbe10bf01d3d52b31ee0f2f02db935caea9bc7dfd6e87"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1180,8 +1180,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 34220,
-      "sha256": "dde57d9729404b8c626df96e3a9ad2f0afc4b384a170e1eabd24355ce868bb85"
+      "bytes": 33357,
+      "sha256": "45d743aa735a217025b139a1a911c4cbb190501e04bf7ff17b9eeee3af6bfcb3"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
@@ -1470,8 +1470,8 @@
     },
     {
       "path": "tests/crm-ui-business.test.cjs",
-      "bytes": 11399,
-      "sha256": "9811013bc660272e0ada9eac1c13580c975712bfa901042ad4095caf86e48e53"
+      "bytes": 19797,
+      "sha256": "0d37accbb1c332c89c137aec4ea5d9f6c5883884e7e764e5fb19fcaa87be8d5d"
     },
     {
       "path": "tests/dashboard-central-delegation.test.cjs",
@@ -1908,5 +1908,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Human journey A1/A2: explicit saving state, saved draft list and identifier restoration after entry reload, authenticated working-brand preference, confirmed existing sender defaults. Native homologation remains only QA plus the owner, original fixed QA audiences/count1, ordinary editor release held for human acceptance and consent. No source, SQL, customer, schedule or workflow change."
+  "candidatePurpose": "CRM business screens: four campaign steps, pre-ID saved public count, direct piece preview, integrated source drafts, test filters, last confirmed authorized public count and one page header. Presentation only for metrics; no general scheduling permission or consent installation."
 }
