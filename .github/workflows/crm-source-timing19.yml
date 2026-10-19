@@ -1,0 +1,23 @@
+name: CRM source timing synthetic image
+on:
+  push:
+    branches: ['codex/segunda19-source-timing']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build original reader Dockerfile without publishing
+        run: docker build --file services/crm-panel-read/Dockerfile --tag shrigma-source-timing:synthetic .
+      - name: Prove real image identity and unchanged source modules
+        run: |
+          docker run --rm --network none --read-only --mount type=bind,src="$GITHUB_WORKSPACE",dst=/source,readonly --entrypoint node shrigma-source-timing:synthetic -e 'const a=require("node:assert/strict"),fs=require("node:fs"),c=require("node:crypto");a.equal(process.getuid(),1000);a.match(process.version,/^v22\./);for(const f of ["server.cjs","home-projection.cjs"]){const hash=p=>c.createHash("sha256").update(fs.readFileSync(p)).digest("hex");a.equal(hash("/app/"+f),hash("/source/services/crm-panel-read/"+f));}console.log(JSON.stringify({realImage:true,node:process.version,uid:process.getuid(),productionDatabaseUsed:false,installed:false}));'
+      - name: Run original HOME and cache timing regressions with synthetic pool only
+        run: |
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,size=16m --mount type=bind,src="$GITHUB_WORKSPACE",dst=/source,readonly --env CRM_PANEL_SERVER_MODULE=/app/server.cjs --entrypoint node shrigma-source-timing:synthetic --test /source/tests/crm-panel-home-read.test.cjs /source/tests/crm-panel-read-timing.test.cjs
