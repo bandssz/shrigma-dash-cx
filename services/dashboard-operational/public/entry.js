@@ -256,7 +256,7 @@ else (function(){'use strict';
  function showCampaignNote(area){
   if(!campaignButton)return;
   let note=document.getElementById('entry-campaign-note');
-  const waiting=area==='growth'&&campaignButton.hidden&&session?.user?.role==='manager'&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true;
+  const waiting=session?.features?.simpleLogin!==true&&area==='growth'&&campaignButton.hidden&&session?.user?.role==='manager'&&session.user.permissions?.growth?.read===true&&session.user.permissions.growth.edit===true;
   if(waiting&&!note){note=document.createElement('span');note.id='entry-campaign-note';note.setAttribute('role','status');campaignButton.before(note);}
   if(!note)return;
   // Tentativa sem confirmação guardada neste navegador (diário do editor): fica preservada e não é repetida.

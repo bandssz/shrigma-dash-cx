@@ -20,8 +20,8 @@
       "source": "public/entry.js",
       "compiled": "public/entry.compiled.js",
       "publicName": "entry.js",
-      "sourceSha256": "838313bc43adca338fbfe5e160d74efb3518bb3bc2b8866babb3a39e175800fa",
-      "compiledSha256": "b8d301c87dc68255d478e83ab533e138ba10dabea2a1372a3b491ba26bf839d5"
+      "sourceSha256": "a35b0987b803c5568248879339b5079ff01f92e85d3284d09540a2a041c15196",
+      "compiledSha256": "c516ebd1f4f4c478c4029355681b85a74fe693d288f1bfd65ae7c97e985d3fe9"
     },
     {
       "source": "public/guard.js",
