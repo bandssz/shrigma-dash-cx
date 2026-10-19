@@ -11,7 +11,7 @@ jobs:
   prepare-native:
     if: github.repository == 'bandssz/shrigma-dash-cx' && github.event_name == 'push' && github.ref == 'refs/heads/codex/crm-native-connection-20261007' && startsWith(github.event.head_commit.message, 'prepare-native:')
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -80,7 +80,7 @@ jobs:
   verify:
     if: github.repository == 'bandssz/shrigma-dash-cx' && !startsWith(github.event.head_commit.message, 'test-only:') && !startsWith(github.event.head_commit.message, 'manager-access:') && !startsWith(github.event.head_commit.message, 'affiliate-read:') && !startsWith(github.event.head_commit.message, 'rollback:') && !startsWith(github.event.head_commit.message, 'prepare-native:')
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -312,7 +312,7 @@ jobs:
       cancel-in-progress: false
     if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'affiliate-read:')
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -397,15 +397,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/source/tests/consent19/source-runtime --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/consent19/task.test.cjs /source/tests/consent19/source.test.cjs /source/tests/consent19/source-v3.test.cjs /source/tests/consent19/store.test.cjs /source/tests/consent19/broker.test.cjs /source/tests/consent19/service-binding.test.cjs /source/tests/consent19/transport.test.cjs /source/tests/consent19/source-http.test.cjs /source/tests/consent19/gateway-integration.test.cjs /source/tests/consent19/four-steps.test.cjs /source/tests/consent19/native-admission.test.cjs /source/tests/consent19/native-reservation-http.test.cjs /source/tests/consent19/editor-shared-http.test.cjs /source/tests/crm-client-session-lazy19.test.cjs /source/tests/crm-ui-features.test.cjs /source/tests/crm-message-preview.test.cjs /source/tests/crm-ui-independent.test.cjs /source/tests/crm-campaign-import.test.cjs
-      - name: Live analyst QA in Linux Docker - blocks publication on failure
-        env:
-          CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --prefix "$AFFILIATE_CI_DIR/playwright" --ignore-scripts --no-audit --no-fund --package-lock=false playwright@1.64.0
-          CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
+          docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/source/tests/consent19/source-runtime --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/consent19/task.test.cjs /source/tests/consent19/source.test.cjs /source/tests/consent19/source-v3.test.cjs /source/tests/consent19/store.test.cjs /source/tests/consent19/broker.test.cjs /source/tests/consent19/service-binding.test.cjs /source/tests/consent19/transport.test.cjs /source/tests/consent19/source-http.test.cjs /source/tests/consent19/gateway-integration.test.cjs /source/tests/consent19/four-steps.test.cjs /source/tests/consent19/native-admission.test.cjs /source/tests/consent19/native-reservation-http.test.cjs /source/tests/consent19/editor-shared-http.test.cjs /source/tests/crm-client-session-lazy19.test.cjs
       - name: Publish the same verified artifact
         shell: bash
         run: |

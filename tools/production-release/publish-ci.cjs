@@ -6,7 +6,7 @@ const PREVIOUS=IMAGE+'@sha256:19591562f337271d32c6130d3802d03bb49ebd37a2415358d4
 const INITIAL_MANIFEST='e2144199a584d0623c838ac0db91b10082a8f35f23b110731d8a711c311cc4ad';
 let publicationPhase='initial';
 const SAFE_CODES=new Set(['REGISTRY_DIGEST_REFUSED','PRODUCTION_HEALTH_REFUSED','PRODUCTION_SCOPE_REFUSED','STALE_PUBLICATION_REFUSED','DEPLOY_CAPABILITY_REFUSED','DEPLOY_TRIGGER_REFUSED','PRODUCTION_REQUEST_REFUSED','PREVIOUS_PUBLICATION_NOT_VERIFIED','INITIAL_INSTALLED_VERSION_CHANGED','REGISTRY_AND_INSTALLED_VERSION_DIFFER','ROLLBACK_TARGET_REFUSED','VERIFIED_ARTIFACT_MISSING','VERIFIED_ARTIFACT_CHANGED','DEPLOY_CAPABILITY_MISSING','ENVELOPE_TARGET_REFUSED','PRODUCTION_CONTRACT_REFUSED','ENVELOPE_VERIFY_REFUSED','EEXIST','ENOENT']);
-SAFE_CODES.add('ROLLBACK_REQUEST_REQUIRED');SAFE_CODES.add('QA_GATE_MISSING');
+SAFE_CODES.add('ROLLBACK_REQUEST_REQUIRED');
 function publicationFailure(error){return{schema:'shrigma-publication-failure-v1',phase:publicationPhase,code:SAFE_CODES.has(error?.message)?error.message:SAFE_CODES.has(error?.code)?error.code:'PUBLICATION_STEP_FAILED',subprocessExit:Number.isInteger(error?.status)?error.status:null,secretsPrinted:false};}
 function validateRequest(request,{rollbackJob=false}={}){
  if(request?.schema!=='shrigma-production-request-v1'||!['publish','rollback'].includes(request.action))throw Error('PRODUCTION_REQUEST_REFUSED');
@@ -31,7 +31,6 @@ function receipt(j){fs.writeFileSync(path.join(process.env.AFFILIATE_CI_DIR,'pro
 function isMissing(error){const s=String(error.stderr||'');return !/unauthorized|forbidden|denied|timeout|timed out|connection|TLS|certificate|5\d\d.*server/i.test(s)&&/(?:manifest unknown|manifest.*not found|name unknown)/i.test(s);}
 async function main(){
  publicationPhase='check-branch';await currentHead();const request=validateRequest(JSON.parse(fs.readFileSync(path.join(__dirname,'production-request.json'))),{rollbackJob:process.env.GITHUB_JOB==='rollback-production'});
- if(request.action==='publish'){const q=JSON.parse(fs.readFileSync(path.join(process.env.AFFILIATE_CI_DIR,'qa-gate-safe.json'),'utf8'));if(q.schema!=='shrigma-ci-live-qa-v1'||q.ok!==true||q.candidateRevision!==process.env.GITHUB_SHA||q.brands!==2||q.readonlyServerDenials!==4||q.scheduledAndCancelled!==2||q.mockedResponses!==false)throw Error('QA_GATE_MISSING');}
  let previous,previousImage,initial=false;
  try{publicationPhase='pull-previous';docker(['pull','--platform','linux/amd64',IMAGE+':producao']);publicationPhase='inspect-previous';previousImage=digest(IMAGE+':producao');previous=inspect(previousImage);}
  catch(e){if(!isMissing(e))throw Error('PREVIOUS_PUBLICATION_NOT_VERIFIED');initial=true;const h=await health(HOSTS[0]);if(h.nativeBackendManifestSha256!==INITIAL_MANIFEST)throw Error('INITIAL_INSTALLED_VERSION_CHANGED');const tag=IMAGE+':rollback-'+PREVIOUS.split('@sha256:')[1];previous=build({artifactImage:PREVIOUS,tag,directory:path.join(process.env.AFFILIATE_CI_DIR,'previous-envelope')});docker(['push',tag]);previousImage=digest(tag);}

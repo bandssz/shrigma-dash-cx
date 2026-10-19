@@ -27,15 +27,15 @@
       "source": "public/guard.js",
       "compiled": "public/guard.compiled.js",
       "publicName": "guard.js",
-      "sourceSha256": "8374c4100611808f04c1308f27791e07613311e679ffcb717ae97a9d8fb56674",
-      "compiledSha256": "c35e5a27d5b93592dc0d169ffab78ff2e9e13f39b021e1a8771e27528720df9f"
+      "sourceSha256": "2fc098245adf3495e115e33c533e2499a077ecee2d0d7857923eb094199df314",
+      "compiledSha256": "2fb7b3ea6592a81dda37f0f04855376b7cd8d4a6c1fe8becf860aca58dabf2ec"
     },
     {
       "source": "public/crm-preview/analytics.js",
       "compiled": "public/crm-preview/analytics.compiled.js",
       "publicName": "crm-analytics.js",
-      "sourceSha256": "77ab1424ed29725e09e6356ef854efce91079569749d504bc5c6474ce0165d0a",
-      "compiledSha256": "f27eac73233d81d7083e933d1801530aaf88baf1dcb097617b546d6d1ed56acf"
+      "sourceSha256": "5f21cdcc8886a637e9e2b43fc7d54555fe9739283095ae5f3b32220bd2ccfdda",
+      "compiledSha256": "c1259898c22ff96f38ee94c5516a45e9060f7c0dafa829e93df5da8e906fdd28"
     }
   ]
 }
