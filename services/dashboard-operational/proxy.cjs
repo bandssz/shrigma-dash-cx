@@ -408,6 +408,16 @@ function rewriteCapabilities(value,upstreams,origin,{sandboxAudienceDraft=false,
   clone.capabilities=caps;
   return clone;
 }
+
+// Optional observations only. An invalid timing group never invalidates data.
+function sourceReadTiming(headers,receivedBytes){
+ if(headers.get('x-shrigma-read-timing')!=='source-v1')return;
+ const values={},parts=(headers.get('server-timing')||'').split(',');if(parts.length!==4)return;
+ for(const part of parts){let m=part.trim().match(/^(poolQuery|serialize|gzip);dur=(\d{1,8}(?:\.\d{1,4})?)$/);if(m){if(Object.hasOwn(values,m[1])||Number(m[2])>120000)return;values[m[1]]=Number(m[2]);continue;}m=part.trim().match(/^sourceBytes;desc="(0|[1-9]\d{0,7})"$/);if(!m||Object.hasOwn(values,'sourceBytes'))return;values.sourceBytes=Number(m[1]);}
+ if(!['poolQuery','serialize','gzip','sourceBytes'].every(k=>Object.hasOwn(values,k))||values.sourceBytes!==receivedBytes||values.sourceBytes>MAX_CRM_CACHE_RESPONSE)return;
+ return{source_poolQuery:values.poolQuery,source_serialize:values.serialize,source_gzip:values.gzip,source_bytes:values.sourceBytes};
+}
+
 async function forward({route,method,query,body,user,credential,upstreams,origin,crmDraftWrite=false,crmCampaignSubmitWrite=false,crmAudienceDraft=false,sandboxAudienceDraft=false,corporateAudienceDraft=false,ownMasterAudienceRead=false,ownMasterAudienceWrite=false,ownMasterAudienceCount=false,ownMasterAudienceContextReview=false,crmCorporateWriter,simpleAffiliateEdit=false,simpleAudienceRead=false,simpleAudienceCount=false,simpleCampaignDraft=false,simpleAudienceDraft=false,crmHomeRead=false,crmHomeBrand,captureReadDiagnostic=false,captureReadTiming=false,fetchImpl=fetch}){
   if(require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(crmCorporateWriter)&&route==='campaigns'&&user?.role!=='superadmin')throw new ProxyError(403,'EDIT_NOT_READY');
   const d=decide(route,method,query,body,{crmCampaignSubmitWrite,crmCampaignDraftService:simpleCampaignDraft}),target=upstreams[route];
@@ -478,6 +488,7 @@ async function forward({route,method,query,body,user,credential,upstreams,origin
   const sourceCode=safeCodes.has(parsed?.error)?parsed.error:safeCodes.has(headerCode)?headerCode:legacyCode;
   const sourceDiagnostic=capture&&result.status!==200?{...diagnostic('source-response',result.status),...(sourceCode?{sourceCode}:{}),...(typeof sqlState==='string'&&/^[A-Z0-9]{5}$/.test(sqlState)?{sqlState}:{}),...(/^[a-f0-9-]{36}$/.test(requestId||'')?{requestId}:{})}:undefined;
   let readTiming;if(captureReadTiming===true){readTiming={sourceHeaders:headersAt-timingStart,sourceBody:bodyAt-headersAt,jsonParse:parsedAt-bodyAt};if(crmHomeRead===true&&result.headers.get('x-shrigma-home-projection')==='validated-brand-v1'){for(const part of (result.headers.get('server-timing')||'').split(',')){const m=part.trim().match(/^(dbQuery|projection|serialize|gzip);dur=(\d{1,8}(?:\.\d{1,4})?)$/);if(m&&Number(m[2])<=120000)readTiming['home_'+m[1]]=Number(m[2]);}}}
+  if(readTiming&&result.status===200&&route==='crm-read'&&method==='GET'&&d.action==='cache_growth'&&crmHomeRead!==true&&target?.href===FIXED_DESTINATIONS['crm-read'])Object.assign(readTiming,sourceReadTiming(result.headers,bytes.length)||{});
   return {status:result.status,body:ownMasterAudienceRead||ownMasterAudienceWrite||ownMasterAudienceCount||ownMasterAudienceContextReview||serviceAudienceRead||serviceAudienceCount||campaignDraftService||audienceDraftService?parsed:rewriteCapabilities(parsed,upstreams,origin,{sandboxAudienceDraft,corporateAudienceDraft,route}),...(sourceDiagnostic?{sourceDiagnostic}:{}),...(readTiming?{readTiming}:{})};
 }
-module.exports={READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,SANDBOX_CAMPAIGN_DESTINATION,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};
+module.exports={sourceReadTiming,READ,FIXED_DESTINATIONS,SANDBOX_HOST,SANDBOX_DESTINATIONS,SANDBOX_CAMPAIGN_DESTINATION,DYNAMIC_MANIFEST_SCHEMA,REVIEWED_DYNAMIC,ProxyError,MAX_REQUEST,MAX_CAMPAIGN_REQUEST,MAX_AUDIENCE_REQUEST,MAX_RESPONSE,MAX_CRM_CACHE_RESPONSE,MAX_PRINT_RESPONSE,MAX_MEDIA_RESPONSE,decide,validateUpstreams,readJson,rewriteCapabilities,forward,audiencePayloadHash,verifiedAudienceScope,verifiedAudienceOperation};

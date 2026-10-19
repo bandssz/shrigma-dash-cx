@@ -212,10 +212,11 @@ function sendJson(req,res,status,body){
   res.setHeader('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
   res.end(req.method==='HEAD'?undefined:JSON.stringify(body));
 }
-function readTimingHeaders(res,result){
+function readTimingHeaders(res,result,{restricted=false}={}){
  if(result.status!==200||!brandRecord(result.readTiming))return;
  const names=new Set(['sourceHeaders','sourceBody','jsonParse','projection','homeResponse','home_dbQuery','home_projection','home_serialize','home_gzip','modelCapability']);
  const values=Object.entries(result.readTiming).filter(([k,v])=>names.has(k)&&typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=120000).map(([k,v])=>k+';dur='+v.toFixed(2));
+ if(restricted){for(const key of ['source_poolQuery','source_serialize','source_gzip']){const v=result.readTiming[key];if(typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=120000)values.push(key+';dur='+v.toFixed(2));}const bytes=result.readTiming.source_bytes;if(Number.isSafeInteger(bytes)&&bytes>=0&&bytes<=8*1024*1024)values.push('source_bytes;desc="'+bytes+'"');}
  if(values.length)res.setHeader('Server-Timing',values.join(', '));
 }
 function headers(res){
@@ -1549,7 +1550,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           // email-test capability probes. This grants no operation permission.
           if(result.status===200&&resultsReadOnly){result.body.capabilities={read:true,send:false};if(result.readTiming)result.readTiming.modelCapability=0;}
           else if(simpleModels&&route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200&&req.headers['x-shrigma-crm-view']!=='home'){const capabilityStarted=Date.now(),brand=req.headers['x-shrigma-view-brand']||auth.session(ctx).user?.brand;let availability;try{availability=await simpleModels.capability(ctx,brand);}catch{availability={read:false,draft:false,validate:false,submit:false,send:false};}const cap=result.body.capabilities||{};result.body.capabilities={...cap,write_key_required:false,templates:{...(cap.templates||{}),read_content:availability.read,read_contract:'crm-template-read-v1',server_drafts:availability.read,draft:availability.draft,validate:availability.validate,submit:availability.submit,submit_email:availability.submit,list_history:false,read_submission:false,send:false,native_email_preview:availability.read,native_email_test:availability.internalTest===true,...(availability.testRecovery===true?{test_recovery:true,email_test_recipient:'crm_email_test_recipient_v2',test_internal_only:true,test_recipient:availability.recipient,test_user_id:availability.userId}:{})},endpoints:{...(cap.endpoints||{}),templates:origin+'/api/templates'}};if(result.readTiming)result.readTiming.modelCapability=Date.now()-capabilityStarted;}
-          readTimingHeaders(res,result);return sendJson(req,res,result.status,result.body);}
+          readTimingHeaders(res,result,{restricted:require('./crm-ui-features.cjs').restrictedUser(auth.session(ctx).user)});return sendJson(req,res,result.status,result.body);}
         const parityAction=req.method==='GET'&&(crmManagedAudienceRead&&Object.hasOwn(AudienceRead.ACTIONS[route]||{},url.searchParams.get('acao'))||crmManagedTemplateRead&&Object.hasOwn(TemplateRead.ACTIONS[route]||{},url.searchParams.get('acao')));
         const parityUser=parityAction?auth.authorize({...ctx,area:'growth',edit:false}):null;
         const individualParity=!(corporateWriter&&allowAudienceDraft&&route==='segments'&&audienceFeature(ctx))&&parityUser?.role==='manager'&&auth.managedCrmJournal.status(parityUser.id)!==null;
@@ -1927,4 +1928,4 @@ if(require.main===module){
     createServer(settings,{auth,managedCrmRuntime}).listen(settings.port,settings.host,()=>console.log('Dashboard operational service listening'));
   }catch{console.error('Dashboard operational startup refused: invalid configuration');process.exitCode=1;}
 }
-module.exports={cartContractSummary,environmentForSimpleDashboardRead,environmentForOriginalMasterAffiliateRead,environmentForOriginalMasterIndividualRead,projectBrandCache,environmentForOriginalMasterIndividualCoexistence,environmentForOriginalMasterTemplateRead,environmentForOriginalMasterPublishedJourneyRead,environmentForOriginalMasterCampaignCreate,environmentForOriginalMasterAudienceRead,settingsFromEnv,safeRequestPath,fileForHost,createServer,typeAndCsp,authOptionsFor,managedRuntimeFor};
+module.exports={readTimingHeaders,cartContractSummary,environmentForSimpleDashboardRead,environmentForOriginalMasterAffiliateRead,environmentForOriginalMasterIndividualRead,projectBrandCache,environmentForOriginalMasterIndividualCoexistence,environmentForOriginalMasterTemplateRead,environmentForOriginalMasterPublishedJourneyRead,environmentForOriginalMasterCampaignCreate,environmentForOriginalMasterAudienceRead,settingsFromEnv,safeRequestPath,fileForHost,createServer,typeAndCsp,authOptionsFor,managedRuntimeFor};

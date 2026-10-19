@@ -25,8 +25,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 44784,
-      "sha256": "c8602e7cd4cc7a8916f7c38643ad7295a0e9914ff5e4a1dd0ac5d1b10d691bbf"
+      "bytes": 44833,
+      "sha256": "f98321cc18f1367146bdf01a9f5fc71e33eac227f160fd0b5255595e0ebcb9ab"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1170,8 +1170,8 @@
     },
     {
       "path": "services/dashboard-operational/proxy.cjs",
-      "bytes": 50955,
-      "sha256": "9099429426944148a8105843fd81151fda3ae4eb6d710d3b5aa16ca4e48380e4"
+      "bytes": 52171,
+      "sha256": "a63800ef0d75a25e5fb0fb1603a6bdcc2901e6bb60da13b7a020e4e7da5dde59"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/app.js",
@@ -1400,8 +1400,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 221640,
-      "sha256": "b4a93b8357818190e3c7a61266cdb85030ac0666f17098887b92b7fdcfd322dd"
+      "bytes": 222134,
+      "sha256": "7c15bf37bcccb77e189ef8beafee6e64924917444a4584d02e188211ed2c1e22"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -1747,6 +1747,11 @@
       "path": "tests/crm-reader-diagnostic.test.cjs",
       "bytes": 3140,
       "sha256": "83ffd79cf02b74cae83af53b4c5740b656e639cd96da5de2e28508e8251a267a"
+    },
+    {
+      "path": "tests/crm-source-timing-gateway.test.cjs",
+      "bytes": 1956,
+      "sha256": "184fd4046dbdac32659d666733bf3522af675ecf734075ccb94bdb64df068bd5"
     },
     {
       "path": "tests/crm-ui-features.test.cjs",
@@ -2161,7 +2166,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 3028,
-      "sha256": "94e343a62b12c4c64eb750924337c93abd725f0ed61cc78e403e20a7b86c8516"
+      "sha256": "c188f22e287fc425970a18aeb52b557f125395fe1f1dba13bb3733af7c92b885"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
