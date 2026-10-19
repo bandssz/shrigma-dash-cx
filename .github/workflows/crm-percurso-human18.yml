@@ -1,7 +1,7 @@
 name: Human18 CRM context image and contracts
 'on':
   push:
-    branches: [codex/domingo18-percurso, codex/domingo18-rascunho-minimo]
+    branches: [codex/domingo18-percurso, codex/domingo18-rascunho-minimo, codex/domingo18-telas-crm]
 permissions:
   contents: read
 concurrency:
@@ -89,9 +89,9 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env CAMPAIGN_CREATE_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_DIAGNOSTICS_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_DIAGNOSTICS_INPUT_ROOT=/source/tests/source-commit-diagnostics-native/sealed-inputs --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/campaign-create-native/gateway.test.cjs /source/tests/source-commit-diagnostics-native/diagnostics.test.cjs /source/tests/source-diagnostics-native/operator-ui.test.cjs
-      - name: Native QA visibility and current-state receipt regressions
+      - name: Native QA visibility, minimum drafts and business UI regressions
         run: |
-          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --env NATIVE_UI_EXPECT_ENABLED=true --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-native-night18.test.cjs /source/tests/crm-minimum-draft-ui.test.cjs
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --env NATIVE_UI_EXPECT_ENABLED=true --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-native-night18.test.cjs /source/tests/crm-minimum-draft-ui.test.cjs /source/tests/crm-ui-business.test.cjs /source/tests/audience-last-count.test.cjs /source/tests/audience-last-count-read.test.cjs
       - name: Remove temporary registry session
         if: always()
         run: rm -rf -- "$DOCKER_CONFIG"
