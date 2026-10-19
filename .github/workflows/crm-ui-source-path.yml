@@ -1,0 +1,55 @@
+name: CRM UI source path and installed image
+'on':
+  push:
+    branches: [codex/domingo18-ci-ui-path]
+permissions:
+  contents: read
+jobs:
+  checkout-and-installed-runtime:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection@sha256:e3f2631670269ea8c5dd42ff4b5dbbf8693ad37f0fb4bf4366ed9baac712f1a9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Prepare private registry and existing DOM test dependency
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          ui_test_dir="$(mktemp -d "$RUNNER_TEMP/shrigma-ui-path.XXXXXX")"
+          printf 'UI_TEST_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$ui_test_dir" "$ui_test_dir" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$ui_test_dir/docker"
+          export DOCKER_CONFIG="$ui_test_dir/docker"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          npm install --prefix "$ui_test_dir/dom" --ignore-scripts --no-audit --no-fund --package-lock=false linkedom@0.18.12
+          chmod o+x "$ui_test_dir"
+          chmod -R a+rX "$ui_test_dir/dom"
+          docker pull "$IMAGE"
+      - name: Same tests in checkout and actual installed Node22 UID1000 runtime serially
+        shell: bash
+        run: |
+          set -euo pipefail
+          for mode in checkout installed; do
+            ui_runtime=()
+            if [ "$mode" = installed ]; then ui_runtime=(--env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime); fi
+            printf 'UI_SOURCE_MODE=%s\n' "$mode"
+            docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$UI_TEST_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps "${ui_runtime[@]}" --entrypoint node "$IMAGE" --test --test-concurrency=1 /source/tests/crm-ui-independent.test.cjs /source/tests/crm-ui-independent-boundaries.test.cjs
+          done
+      - name: Remove temporary registry session
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi

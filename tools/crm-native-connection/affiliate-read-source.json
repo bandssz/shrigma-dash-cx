@@ -24,6 +24,11 @@
       "sha256": "2514532442fc838f2802e66288f15f826920eac1e08cc77277227e5c3017b182"
     },
     {
+      "path": ".github/workflows/crm-ui-source-path.yml",
+      "bytes": 2748,
+      "sha256": "30ce1d611227585ff83294b290edfcfc1c86f7cd0310f2d931c789b294d0a8b0"
+    },
+    {
       "path": "afiliados-proprios.js",
       "bytes": 11367,
       "sha256": "4291a5aeff75bee53e9dfa42726eb587285c67ce5b334263e84c41273cd2441b"
@@ -1475,8 +1480,8 @@
     },
     {
       "path": "tests/crm-ui-independent.test.cjs",
-      "bytes": 16237,
-      "sha256": "5a83455424a6682758489f8e513dc7b40e559530f02b5f349a6ea61be74cb843"
+      "bytes": 16229,
+      "sha256": "f4a6c73306faf72f7303bd8ff1b1ebad4e1b64a2ae2e753a3d0c4df53fbb56ac"
     },
     {
       "path": "tests/dashboard-central-delegation.test.cjs",
