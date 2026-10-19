@@ -57,16 +57,13 @@ const GEC={
  },
  passiveMeta(tag){
   if(!tag||tag.name!=='meta'||tag.closing)return false;
-  const a=tag.attrs,keys=Object.keys(a).sort().join(',');
-  if(keys==='charset')return /^utf-8$/i.test(a.charset||'');
-  if(keys==='content,http-equiv')return /^content-type$/i.test(a['http-equiv']||'')&&/^text\/html;\s*charset=utf-8$/i.test(a.content||'');
-  if(keys!=='content,name')return false;
-  const name=String(a.name||'').toLowerCase(),content=String(a.content||'').trim().toLowerCase().replace(/[ \t\n\f\r]+/g,' ');
-  if(name==='color-scheme')return ['light dark','light only'].includes(content);
-  if(name==='supported-color-schemes')return ['light dark','light'].includes(content);
-  if(name!=='viewport')return false;
-  const parts=String(a.content||'').toLowerCase().split(',').map(p=>p.trim());
-  return parts.length===2&&parts.some(p=>/^width\s*=\s*device-width$/.test(p))&&parts.some(p=>/^initial-scale\s*=\s*1(?:\.0+)?$/.test(p));
+  // Email clients add passive metadata with different values and optional
+  // content attributes. Preserve it verbatim; only navigation is forbidden.
+  const directive=String(tag.attrs['http-equiv']||'')
+   .replace(/&#(x[0-9a-f]+|[0-9]+);?/gi,(_,n)=>{const hex=n[0].toLowerCase()==='x',cp=parseInt(hex?n.slice(1):n,hex?16:10);return cp<=0x10ffff?String.fromCodePoint(cp):'';})
+   .replace(/&(tab|newline);?/gi,(_,n)=>n.toLowerCase()==='tab'?'\t':'\n')
+   .replace(/[\u0000-\u0020\u007f]/g,'').toLowerCase();
+  return directive!=='refresh';
  },
  passiveFontLink(tag){
   if(!tag||tag.name!=='link'||tag.closing||Object.keys(tag.attrs).sort().join(',')!=='href,rel')return false;
@@ -110,7 +107,10 @@ const GEC={
   if(/(?:javascript|vbscript|data):|expression\(|-moz-binding:/i.test(normalized))return 'EMAIL_ACTIVE_CONTENT';
   for(const token of parsed.tokens){
    if(token.type==='tag'&&token.name==='meta'&&!GEC.passiveMeta(token))return 'EMAIL_META_UNSUPPORTED';
-   if(token.type==='comment'&&/<\s*meta\b/i.test(source.slice(token.start,token.end)))return 'EMAIL_META_UNSUPPORTED';
+   if(token.type==='comment'){
+    const comment=source.slice(token.start,token.end),meta=/<\s*meta\b/gi;let match;
+    while((match=meta.exec(comment))){const tag=GEC.htmlTag(comment,match.index);if(!tag||!GEC.passiveMeta(tag))return 'EMAIL_META_UNSUPPORTED';meta.lastIndex=tag.end;}
+   }
    if(token.type==='tag'&&token.name==='link'&&!GEC.passiveFontLink(token))return 'EMAIL_LINK_UNSUPPORTED';
    if(token.type==='comment'&&/<\s*link\b/i.test(source.slice(token.start,token.end)))return 'EMAIL_LINK_UNSUPPORTED';
   }
@@ -174,7 +174,7 @@ const GEC={
    if(/<!--|<!doctype\b|<\/?[a-z]|<\s*\/?\s*\{\{/i.test(raw)){const rawUnsafe=GEC.htmlSafety(raw);if(rawUnsafe)throw Error(rawUnsafe);}
    const html=GEC.html(r),unsafe=GEC.htmlSafety(html);if(unsafe)throw Error(unsafe);return [];
   }catch(e){
-   const messages={EMAIL_EXPRESSION_UNSUPPORTED:'Confira os campos, condições e repetições do e-mail. A expressão não é compatível com a prévia segura.',EMAIL_DOCUMENT_EXTRAS:'O HTML completo deve incluir seus próprios botões e rodapé. Remova os campos extras ou use um fragmento.',EMAIL_BODY_REQUIRED:'O HTML completo precisa de uma seção body.',EMAIL_HTML_MALFORMED:'Confira o HTML: há uma tag, aspas ou comentário sem fechamento válido.',EMAIL_ACTIVE_CONTENT:'Remova scripts, formulários e conteúdo interativo do e-mail.',EMAIL_META_UNSUPPORTED:'Use apenas metadados UTF-8, viewport padrão e esquemas de cores permitidos. Redirecionamentos e outras instruções meta não são permitidos.',EMAIL_LINK_UNSUPPORTED:'Use apenas a folha de fontes Google Fonts permitida. Outros recursos externos via link não são aceitos.'};
+   const messages={EMAIL_EXPRESSION_UNSUPPORTED:'Confira os campos, condições e repetições do e-mail. A expressão não é compatível com a prévia segura.',EMAIL_DOCUMENT_EXTRAS:'O HTML completo deve incluir seus próprios botões e rodapé. Remova os campos extras ou use um fragmento.',EMAIL_BODY_REQUIRED:'O HTML completo precisa de uma seção body.',EMAIL_HTML_MALFORMED:'Confira o HTML: há uma tag, aspas ou comentário sem fechamento válido.',EMAIL_ACTIVE_CONTENT:'Remova scripts, formulários e conteúdo interativo do e-mail.',EMAIL_META_UNSUPPORTED:'Confira os metadados: tags inválidas e redirecionamento por refresh não são permitidos.',EMAIL_LINK_UNSUPPORTED:'Use apenas a folha de fontes Google Fonts permitida. Outros recursos externos via link não são aceitos.'};
    return [{codigo:'EMAIL_CONTENT',campo:'corpo',mensagem:messages[e.message]||'Escolha a marca do e-mail.'}];
   }
  },
