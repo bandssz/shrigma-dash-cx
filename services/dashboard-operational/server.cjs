@@ -214,7 +214,7 @@ function sendJson(req,res,status,body){
 }
 function readTimingHeaders(res,result){
  if(result.status!==200||!brandRecord(result.readTiming))return;
- const names=new Set(['sourceHeaders','sourceBody','jsonParse','projection','homeResponse','home_dbQuery','home_projection','home_serialize','home_gzip','modelCapability']);
+ const names=new Set(['sourceHeaders','sourceBody','jsonParse','projection','homeResponse','campaignResponse','home_dbQuery','home_projection','home_serialize','home_gzip','modelCapability']);
  const values=Object.entries(result.readTiming).filter(([k,v])=>names.has(k)&&typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=120000).map(([k,v])=>k+';dur='+v.toFixed(2));
  if(values.length)res.setHeader('Server-Timing',values.join(', '));
 }
@@ -1538,11 +1538,13 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             if(action==='campanha_obter'&&data.campaign?.definition?.brand!==brand)throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');
             if(action==='campanha_listar'&&(!Array.isArray(data.campaigns)||data.campaigns.some(c=>c.definition?.brand!==brand)))throw jsonError(502,'CRM_SERVICE_DRAFT_RESPONSE_DENIED');
           }
+          if(action==='campanha_listar'&&req.headers['x-shrigma-campaign-summary']==='list-v1'&&result.status===200)result.body=require('./campaign-window.cjs').campaignListSummary(result.body);
           return sendJson(req,res,result.status,result.body);
         }
-        if(simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],homeOnly:req.headers['x-shrigma-crm-view']==='home',origin});
+        if(simpleReader&&!nativeContext){const campaignListRead=route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&req.headers['x-shrigma-crm-consumer']==='campaign-list-read-v1'&&req.headers['x-shrigma-crm-view']!=='home',campaignWindow=campaignListRead?require('./campaign-window.cjs').requestWindow(req.headers,req.headers['x-shrigma-view-brand']||auth.session(ctx).user?.brand):null;const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],homeOnly:req.headers['x-shrigma-crm-view']==='home',origin});
           if(route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200&&req.headers['x-shrigma-crm-view']==='home'){const started=Date.now();result.body=require('./simple-dashboard-read.cjs').projectCrmHome(result.body);if(result.readTiming)result.readTiming.homeResponse=Date.now()-started;}
-          const resultsReadOnly=route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&req.headers['x-shrigma-crm-consumer']==='results-read-v1'&&req.headers['x-shrigma-crm-view']!=='home';
+          if(campaignWindow&&result.status===200){const started=Date.now();result.body=require('./campaign-window.cjs').projectCampaignWindow(result.body,campaignWindow);if(result.readTiming)result.readTiming.campaignResponse=Date.now()-started;}
+          const resultsReadOnly=route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&['results-read-v1','campaign-list-read-v1'].includes(req.headers['x-shrigma-crm-consumer'])&&req.headers['x-shrigma-crm-view']!=='home';
           // Analytics needs the same authenticated data, without model-write or
           // email-test capability probes. This grants no operation permission.
           if(result.status===200&&resultsReadOnly){result.body.capabilities={read:true,send:false};if(result.readTiming)result.readTiming.modelCapability=0;}
