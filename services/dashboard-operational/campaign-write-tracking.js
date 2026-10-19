@@ -83,6 +83,6 @@ const CampaignTracking=(()=>{
  const draft={allowConflictingUtms:true,allowMissingCoupon:true},schedule={allowConflictingUtms:true,allowMissingCoupon:false};
  // Admission uses checkDraft before any save. Receipt recomposition must retain
  // the old deterministic serialization, including already committed snapshots.
- return {prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,{...draft,legacyReceipt:true}),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
+ return {prepareLegacyReceipt:(c,o)=>inspect(c,o,true,{legacyReceipt:true}),prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,{...draft,legacyReceipt:true}),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
 })();
 if(typeof module!=='undefined')module.exports=CampaignTracking;
