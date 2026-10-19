@@ -5,7 +5,7 @@ const filename='/delta/native-correction-ui-fixture-draft.cjs',source=fs.readFil
 a(source.includes('return{admin,nativePool,effectPool,run,'));const fixture=new Module(filename,module);fixture.filename=filename;fixture.paths=module.paths;
 // The real native catalog proved that the earlier ownership proposal is absent.
 // Do not inject its function/triggers into this draft proof through the fixture.
-const inlineOwnership="coalesce(t.id>0 AND b IN ('fish','aristo') AND t.type::text='campaign' AND EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=t.id AND r.brand=b) AND NOT EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=t.id AND r.brand IS DISTINCT FROM b),false)";
+const inlineOwnership="t.type::text='campaign'";
 let fixtureSource=source.replace('return{admin,nativePool,effectPool,run,','return{native,admin,nativePool,effectPool,run,');
 a(fixtureSource.includes("'n8n/growth/campaign-template-ownership.sql',"));fixtureSource=fixtureSource.replace("'n8n/growth/campaign-template-ownership.sql',",'');
 const originalSql="const sql=p=>fs.readFileSync('/source/'+p,'utf8');";a(fixtureSource.includes(originalSql));fixtureSource=fixtureSource.replace(originalSql,"const sql=p=>{let text=fs.readFileSync('/source/'+p,'utf8');if(p==='n8n/growth/campaign-provider.sql'){if(!text.includes('public.shrigma_campaign_template_owned_v1(t.id,b)'))throw Error('FIXTURE_CATALOG_BOUNDARY');text=text.replace('public.shrigma_campaign_template_owned_v1(t.id,b)',"+JSON.stringify(inlineOwnership)+");}if(p==='n8n/growth/campaign-write-guard.sql'){const i=text.indexOf('CREATE FUNCTION public.shrigma_campaign_template_create_guard_v1()');if(i<0)throw Error('FIXTURE_GUARD_BOUNDARY');text=text.slice(0,i);}return text;};");
@@ -21,11 +21,22 @@ let assertions=0;const check=(v,label)=>{a(v,label);assertions++;console.log('DR
   check((await f.admin.query("SELECT count(*)=0 AS absent FROM pg_trigger WHERE tgname IN('shrigma_campaign_template_registry_guard_v1','shrigma_campaign_template_registry_truncate_guard_v1','shrigma_campaign_template_create_guard_v1')")).rows[0].absent,'uninstalled-ownership-triggers-not-in-fixture');
   await f.admin.query(fs.readFileSync('/draft/install.synthetic.sql','utf8'));
   const execute=createExecutor({pool:f.effectPool,native:f.native,nativeInternalEnabled:true}),run=command=>execute({key:'synthetic-native-owner',command});
-  let nativeCreates=0;const beforeNative=f.events.length,created=[],receipts=[];
+  let nativeCreates=0,sharedTemplateId=null;const beforeNative=f.events.length,created=[],receipts=[];
   await a.rejects(f.effectPool.query("SELECT public.shrigma_campaign_draft_save_v1('draft_create','{}')"),e=>e.code==='42501');check(true,'role-cannot-call-private-draft-function');
   for(const brand of ['aristo','fish']){
    const catalog=(await f.admin.query('SELECT public.shrigma_campaign_catalog($1) AS c',[brand])).rows[0].c;
    const definition=C.normalizeDraft({schema_version:C.VERSION,brand,channel:'email',name:'[TESTE] Ideia mínima '+brand,subject:'[TESTE] Conferência interna',tags:[C.DRAFT_EDITOR_TAG],send_at:null},{catalog});
+   if(sharedTemplateId===null)sharedTemplateId=definition.template_id;check(definition.template_id===sharedTemplateId,'same-catalog-layout-is-valid-in-both-brands-'+brand);
+   const originalCatalog=(await f.admin.query("SELECT pg_get_functiondef('public.shrigma_campaign_catalog(text)'::regprocedure) AS definition")).rows[0].definition;
+   for(const variant of ['cross-brand','not-current','unavailable','wrong-type','wrong-version','duplicate']){
+    const changedCatalog=JSON.parse(JSON.stringify(catalog)),entry=changedCatalog.templates.find(t=>t.id===definition.template_id);
+    if(variant==='cross-brand')changedCatalog.brand=brand==='aristo'?'fish':'aristo';if(variant==='not-current')changedCatalog.current=false;if(variant==='unavailable')entry.available=false;if(variant==='wrong-type')entry.type='transactional';if(variant==='wrong-version')entry.version='0'.repeat(32);if(variant==='duplicate')changedCatalog.templates.push({...entry});
+    const value=JSON.stringify(changedCatalog).replaceAll("'","''");a(!value.includes('$draft_catalog_case$'));
+    try{await f.admin.query("CREATE OR REPLACE FUNCTION public.shrigma_campaign_catalog(b text) RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $draft_catalog_case$ SELECT '"+value+"'::jsonb $draft_catalog_case$");
+     const claim=(await f.admin.query("SELECT public.shrigma_campaign_store('claim',$1) AS op",[JSON.stringify({actor:'synthetic-catalog-guard',key:crypto.randomUUID(),hash:'a'.repeat(64),brand,action:'salvar'})])).rows[0].op,payload={operationId:claim.id,definition,tracking:{policy:C.DRAFT_POLICY,term:null,list_ids:[],changed_links:0},templateVersion:catalog.templates.find(t=>t.id===definition.template_id).version,contentValidated:false};
+     await a.rejects(f.admin.query("SELECT public.shrigma_campaign_draft_save_v1('draft_create',$1)",[payload]),e=>e.code==='P0001'&&e.message===(variant==='wrong-version'?'TEMPLATE_CHANGED':'TEMPLATE_SCOPE'));check(true,'SQL-original-catalog-fails-closed-'+variant+'-'+brand);
+    }finally{await f.admin.query(originalCatalog);}
+   }
    check(definition.list_ids.length===0&&definition.html===''&&definition.text==='','minimum-does-not-invent-audience-or-content-'+brand);
    check(definition.reply_to==='contato@'+C.BRANDS[brand]&&definition.from_email==='avisos@'+C.BRANDS[brand],'confirmed-defaults-'+brand);
    const key=crypto.randomUUID(),command={acao:'campanha_salvar',brand,definition,idempotency_key:key},r=await run(command);

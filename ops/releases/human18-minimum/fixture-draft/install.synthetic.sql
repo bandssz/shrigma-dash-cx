@@ -7,7 +7,7 @@ CREATE FUNCTION public.shrigma_campaign_draft_save_v1(a text,p jsonb) RETURNS js
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog SET lock_timeout='500ms'
 AS $draft$
 DECLARE d jsonb:=p->'definition';op public.shrigma_campaign_operation%ROWTYPE;c public.campaigns%ROWTYPE;
- b text;dom text;tid integer;ids integer[];current_row jsonb;tracking jsonb;result jsonb;previous_writer text;fam text;new_headers jsonb;
+ b text;dom text;tid integer;ids integer[];current_row jsonb;tracking jsonb;result jsonb;previous_writer text;fam text;new_headers jsonb;template_catalog jsonb;template_entry jsonb;
 BEGIN
  IF a NOT IN('draft_create','draft_update') OR jsonb_typeof(d) IS DISTINCT FROM 'object'
   OR (SELECT count(*) FROM jsonb_object_keys(d))<>15
@@ -41,8 +41,6 @@ BEGIN
  IF cardinality(ids)<>(SELECT count(DISTINCT x) FROM unnest(ids)x)
   OR jsonb_array_length(d->'tags')<>(SELECT count(DISTINCT x) FROM jsonb_array_elements_text(d->'tags') x) THEN RAISE EXCEPTION 'DRAFT_INPUT';END IF;
  tid:=(d->>'template_id')::integer;
- -- The registry retains its existing table-before-campaign lock protocol.
- LOCK TABLE public.shrigma_template_email_registry IN SHARE MODE;
  SELECT * INTO op FROM public.shrigma_campaign_operation WHERE id=(p->>'operationId')::uuid FOR UPDATE;
  IF NOT FOUND OR op.action<>'salvar' OR op.state<>'pending' OR op.brand IS DISTINCT FROM b
   OR a='draft_create' AND op.provider_id IS NOT NULL THEN RAISE EXCEPTION 'CAMPAIGN_OPERATION_INVALID';END IF;
@@ -60,13 +58,22 @@ BEGIN
   IF current_row->>'version' IS DISTINCT FROM p->>'expectedVersion' THEN RAISE EXCEPTION 'VERSION_CONFLICT';END IF;
  END IF;
  PERFORM id FROM public.templates WHERE id=tid FOR SHARE;
- -- The installed system has the registry, but not the prepared ownership helper.
- -- Check the same closed ownership rule here while the registry SHARE lock holds.
- IF NOT EXISTS(SELECT 1 FROM public.templates t WHERE t.id=tid AND t.type::text='campaign')
-  OR NOT EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=tid AND r.brand=b)
-  OR EXISTS(SELECT 1 FROM public.shrigma_template_email_registry r WHERE r.template_id=tid AND r.brand IS DISTINCT FROM b)
+ -- Use the installed catalog contract, including valid shared layouts.
+ -- No prepared ownership function or new registry policy is assumed.
+ template_catalog:=public.shrigma_campaign_catalog(b);
+ IF template_catalog->>'brand' IS DISTINCT FROM b OR template_catalog->'current' IS DISTINCT FROM 'true'::jsonb
+  OR jsonb_typeof(template_catalog->'templates') IS DISTINCT FROM 'array'
  THEN RAISE EXCEPTION 'TEMPLATE_SCOPE';END IF;
- IF (SELECT md5(to_jsonb(t)::text) FROM public.templates t WHERE id=tid) IS DISTINCT FROM p->>'templateVersion' THEN RAISE EXCEPTION 'TEMPLATE_CHANGED';END IF;
+ IF (SELECT count(*) FROM jsonb_array_elements(template_catalog->'templates') x WHERE x->'id'=to_jsonb(tid))<>1
+ THEN RAISE EXCEPTION 'TEMPLATE_SCOPE';END IF;
+ SELECT x INTO template_entry FROM jsonb_array_elements(template_catalog->'templates') x WHERE x->'id'=to_jsonb(tid);
+ IF template_entry->>'type' IS DISTINCT FROM 'campaign' OR template_entry->'available' IS DISTINCT FROM 'true'::jsonb
+  OR (template_entry ? 'brand' AND template_entry->>'brand' IS DISTINCT FROM b)
+  OR NOT EXISTS(SELECT 1 FROM public.templates t WHERE t.id=tid AND t.type::text='campaign')
+ THEN RAISE EXCEPTION 'TEMPLATE_SCOPE';END IF;
+ IF template_entry->>'version' IS DISTINCT FROM p->>'templateVersion'
+  OR (SELECT md5(to_jsonb(t)::text) FROM public.templates t WHERE id=tid) IS DISTINCT FROM p->>'templateVersion'
+ THEN RAISE EXCEPTION 'TEMPLATE_CHANGED';END IF;
  PERFORM id FROM public.lists WHERE id=ANY(ids) ORDER BY id FOR SHARE;
  IF (SELECT count(*) FROM public.lists l WHERE id=ANY(ids) AND l.status::text='active' AND public.shrigma_campaign_list_brand(l)=b)<>cardinality(ids) THEN RAISE EXCEPTION 'LIST_SCOPE';END IF;
  IF a='draft_update' AND public.shrigma_campaign_current(c.id)->>'version' IS DISTINCT FROM p->>'expectedVersion' THEN RAISE EXCEPTION 'VERSION_CONFLICT';END IF;

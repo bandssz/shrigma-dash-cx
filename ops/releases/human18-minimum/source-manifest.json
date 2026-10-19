@@ -128,13 +128,13 @@
     },
     {
       "path": "fixture-draft/cases.synthetic.cjs",
-      "bytes": 19001,
-      "sha256": "625ac5f87acfe3173134228cceb0861cd7606c2918ddedd2970d46268dd36909"
+      "bytes": 20825,
+      "sha256": "2ffc62d9f105fca3a9260650ef291a49ce1dc08f3cdee45b7c8d46442a568de1"
     },
     {
       "path": "fixture-draft/install.synthetic.sql",
-      "bytes": 41634,
-      "sha256": "6e534f5253b26c175e67f5e1a119f17328f55cdc333e8ec45e49327202348684"
+      "bytes": 42117,
+      "sha256": "e52f6c11bfcf6e8080fd1b9c85a68331616ee12ae52c23f7499220fb73dcebef"
     },
     {
       "path": "fixture-draft/return.synthetic.sql",
@@ -309,7 +309,7 @@
     {
       "path": "run-native-ci.cjs",
       "bytes": 3523,
-      "sha256": "c691b6c6e1c9e2e0391df00eae374c046aea424ac19dd09735cff116bbb94e32"
+      "sha256": "55a020325216be7f25bf30c4e2744d0b8719218fcf7ba41537efff8f1196d728"
     },
     {
       "path": "source-smoke.cjs",

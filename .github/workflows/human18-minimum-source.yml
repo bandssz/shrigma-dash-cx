@@ -1,7 +1,7 @@
 name: Human18 minimum draft source and compatible return
 'on':
   push:
-    branches: [codex/domingo18-fonte-rascunho, codex/domingo18-fonte-portavel]
+    branches: [codex/domingo18-fonte-rascunho, codex/domingo18-fonte-portavel, codex/domingo18-fonte-catalogo]
 permissions:
   contents: read
 concurrency:
