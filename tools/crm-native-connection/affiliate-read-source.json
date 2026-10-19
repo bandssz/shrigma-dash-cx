@@ -1675,13 +1675,13 @@
     },
     {
       "path": "tests/crm-campaign-piece-picker.test.cjs",
-      "bytes": 7457,
-      "sha256": "b318563ed2b6eecb6644fee3024ad4e4cce99ee20d4a1c1b12ce5291fff19814"
+      "bytes": 7612,
+      "sha256": "2e574ac301a8331990fa9c6865c2e0492161d0782bdc7702c2a5c15177c14d43"
     },
     {
       "path": "tests/crm-client-session-lazy19.test.cjs",
-      "bytes": 8135,
-      "sha256": "82b73dbb1de0e9c87e9b94e9bd0f786cfe1fcc0586afd06c271060d869e21686"
+      "bytes": 8197,
+      "sha256": "1a5127a236d577878f8321530cb537b023eb5a1641474b2b10a612329703f48e"
     },
     {
       "path": "tests/crm-legacy-library-plan.test.cjs",

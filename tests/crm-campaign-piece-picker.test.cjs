@@ -1,6 +1,8 @@
 'use strict';
 const test=require('node:test'),a=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path'),{parseHTML}=require('linkedom');
-const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational'),source=fs.readFileSync(runtime+'/public/crm-preview/drafts.js','utf8'),Import=require(runtime+'/public/crm-preview/model-import.js');
+const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational'),source=fs.readFileSync(runtime+'/public/crm-preview/drafts.js','utf8');
+const bundle={window:{},URL,TextEncoder,TextDecoder};vm.runInNewContext(fs.readFileSync(runtime+'/public/crm-preview/analytics.compiled.js','utf8'),bundle);const Import=bundle.window.ShrigmaCrmModelImport;a(Import);
+
 function section(name,next){const p=source.indexOf(' function '+name+'('),end=source.indexOf(next,p);a(p>0&&end>p);return source.slice(p,end);}
 const font='<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&amp;display=swap" rel="stylesheet">',html='<!doctype html><html><head>'+font+'<style>p{color:#123456}</style></head><body><p>Peça exata de exemplo</p><a href="https://oaristocrata.com">Loja</a></body></html>';
 function environment(brand='aristo'){
