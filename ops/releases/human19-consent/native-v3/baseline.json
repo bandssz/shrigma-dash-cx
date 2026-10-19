@@ -1,0 +1,72 @@
+{
+  "schema": "native-v3-five-current-bodies-v1",
+  "admissionQuerySha256": "82ba3682054e8d9a635dcd6d63ab28c5db6148fb0ec26d6559c2cd769b5c8351",
+  "admissionAtUtc": "2026-10-19T03:54:57.287Z",
+  "functions": [
+    {
+      "name": "freeze_native_internal_saved_audience_20261017",
+      "source": "freeze-dependencies-install.prepared.sql",
+      "originalBodyMd5": "bd6a5bf2891da92212422a54ee12b6f9",
+      "originalDefinitionSha256": "10c9633d66e3ad9b7bf5b0e16651a3176d333a690d79545d370815fd31c24c8e",
+      "originalStatementSha256": "87f6edf786d6cbd7231983f58dd63f81205a8b00b67cb1a11a0a0d1c8f37b64e",
+      "candidateBodyMd5": "cc208e098c39d5094314231a64f55ac5",
+      "candidateBodySha256": "8b6f29459f8959df08bcc45a3360897cd02cfda004a6b0f43ffb02ece1e5f1b8",
+      "owner": "postgres",
+      "aclSha256": "de3acaefa2fbe5de94c089ceb592fd3853ce48678aefba3c52365414d1aa1720",
+      "configSha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491"
+    },
+    {
+      "name": "native_internal_snapshot_history_v1",
+      "source": "native-internal-transition.sql",
+      "originalBodyMd5": "f8d86671ff00768d413c69539ccc0f9e",
+      "originalDefinitionSha256": "8dd03d3cb98ba0a81fc73ea123d7ed763ba14c4aaa87c77dd73b78de4bfe27c9",
+      "originalStatementSha256": "4b7dd76c7256da6107bf319b2ce14df95927c2d77edc0837c094e6472dc67e66",
+      "candidateBodyMd5": "53d65cc4e58a24e4f7eda18e1c7b7bfc",
+      "candidateBodySha256": "e4a49a8162c3bf2360b93419074b836e425d5301ca71ce7ef9650f8530e54ea8",
+      "owner": "postgres",
+      "aclSha256": "c027e95beca64045f15d2075c66162eeeeb192e6756be61c73f91c7ce14dd4f3",
+      "configSha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491"
+    },
+    {
+      "name": "native_internal_snapshot_v1",
+      "source": "native-internal-transition.sql",
+      "originalBodyMd5": "3773ee797b16c4990a3dbf3e70edf52d",
+      "originalDefinitionSha256": "d9b7b829a1f383a411f7d89b0d8c208bd7fed0a72f8815862cfa81ffa8ea48a1",
+      "originalStatementSha256": "6223c3328cdc0cd7cdf33220c33711eb1ff5bf17c3d543a51f347d459b503d7c",
+      "candidateBodyMd5": "1b1e8f033d395937d3dcc871b8fdd83c",
+      "candidateBodySha256": "128a671f042dedad546b199f18b3871f4147dca83db4c46fffecfa546cc685e7",
+      "owner": "postgres",
+      "aclSha256": "c027e95beca64045f15d2075c66162eeeeb192e6756be61c73f91c7ce14dd4f3",
+      "configSha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491"
+    },
+    {
+      "name": "native_internal_effect_v1",
+      "source": "native-recovery-install.prepared.sql",
+      "originalBodyMd5": "ec6870b3b1004528fc0c1406157d0a83",
+      "originalDefinitionSha256": "bb7f1a98121837cd610207b0f725c83d7eb50ae3724d2250ae581da559de2869",
+      "originalStatementSha256": "165b27fc61b3d08e584cb172896e87e773a6cb5fbf9f084e4446854b885cdfcb",
+      "candidateBodyMd5": "b2aeda8243901ff6de5be2d152a3ce10",
+      "candidateBodySha256": "017cfd0fe525650a06a11ec375bb3b2bc25d0f7d07c9ad0a760bf0da47b5ae36",
+      "owner": "postgres",
+      "aclSha256": "c027e95beca64045f15d2075c66162eeeeb192e6756be61c73f91c7ce14dd4f3",
+      "configSha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491"
+    },
+    {
+      "name": "catalog_lists",
+      "source": "catalog-snapshot-fix.prepared.sql",
+      "originalBodyMd5": "6fe4bb26f69541310f986f2a7fb459bd",
+      "originalDefinitionSha256": "0c6da254da28c9c7db5cb045dcf5f9eb5a9a58e1c653dfb8ccde1997ad3309d0",
+      "originalStatementSha256": "fe113a4dd033f3956b04b20e00dd8f57b47d3aceea07d0f64343dd7e8f00fbef",
+      "candidateBodyMd5": "98ca7d3d8fa47e1df9d9cc733c929c29",
+      "candidateBodySha256": "a9a0d1714da224f39e803ac5067f31514f6ed36b574564eebda212a006572018",
+      "owner": "postgres",
+      "aclSha256": "de3acaefa2fbe5de94c089ceb592fd3853ce48678aefba3c52365414d1aa1720",
+      "configSha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491"
+    }
+  ],
+  "newFunctions": 0,
+  "newTables": 0,
+  "executed": false,
+  "installSha256": "dac36cfbed5212532d72986c8b079ddfec730c5076fc767a84af7dd7b42365f8",
+  "compatibleReturnSha256": "98b1f08defbbde6394fca9cd11b8b88a36876dd9593ae54298c2069d72bbc7b1"
+}

@@ -1,0 +1,53 @@
+{
+  "schema": "native-v3-five-function-preparation-v1",
+  "preparedAtUtc": "2026-10-19T04:10:10.774Z",
+  "productionExecuted": false,
+  "functionsReplaced": 5,
+  "newFunctions": 0,
+  "newTables": 0,
+  "newWorkers": 0,
+  "newTimers": 0,
+  "qaDataOnly": true,
+  "baselineMatchedAgainstOriginalRead5": true,
+  "installSha256": "dac36cfbed5212532d72986c8b079ddfec730c5076fc767a84af7dd7b42365f8",
+  "returnSha256": "98b1f08defbbde6394fca9cd11b8b88a36876dd9593ae54298c2069d72bbc7b1",
+  "proofs": {
+    "bootstrap": {
+      "path": ".private/provas-sprint-curto-20261018/native-v3-bootstrap-0121.tap",
+      "passed": 1,
+      "failed": 0
+    },
+    "functional": {
+      "path": ".private/provas-sprint-curto-20261018/native-v3-functional-real-enums.tap",
+      "passed": 8,
+      "failed": 0,
+      "pg": "17.10",
+      "actualEnumTypes": true,
+      "node": "22.23.3",
+      "uid": 1000,
+      "brands": [
+        "aristo",
+        "fish"
+      ],
+      "semantics": [
+        "legacy-v2-identical-live-and-history",
+        "original-optin-state-nested-meta-preserved",
+        "numeric-compact-hashes",
+        "native-schedule-cancel-same-list",
+        "create-receipt-born-with-list",
+        "lost-clear-ack-same-operation",
+        "consent-change-history-cancel",
+        "compatible-return-closes-new-v3-keeps-cancel-replay"
+      ]
+    }
+  },
+  "notProved": [
+    "production owner application",
+    "generic job integration and QA optout",
+    "full deployed Playwright"
+  ],
+  "edges": [
+    "Additional origin membership can change concurrently; base consent is locked and rechecked.",
+    "Synthetic native HTTP executes v6.1-shaped SQL, not the Listmonk binary."
+  ]
+}
