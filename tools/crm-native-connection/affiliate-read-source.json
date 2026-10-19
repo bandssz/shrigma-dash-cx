@@ -951,7 +951,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "7888cc5411c2540c9f3e53e66850f518feae42ad8fc10db260b37b92337d892f"
+      "sha256": "96fdb284c1699f0f6a30bb986d6f618134a345501a47b2130748d645cd321e94"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1215,8 +1215,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 120967,
-      "sha256": "ae4bf535e4c14e8993e703c50bae30c775f330ba6f1c3a1fd98949521ff716e5"
+      "bytes": 121297,
+      "sha256": "ee27ddbac9a0465c9c0ca15159f5999fe82425fe0fd4c89874f8f27b26244b84"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1280,13 +1280,13 @@
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 20506,
-      "sha256": "2fb7b3ea6592a81dda37f0f04855376b7cd8d4a6c1fe8becf860aca58dabf2ec"
+      "bytes": 20902,
+      "sha256": "c35e5a27d5b93592dc0d169ffab78ff2e9e13f39b021e1a8771e27528720df9f"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 19011,
-      "sha256": "2fc098245adf3495e115e33c533e2499a077ecee2d0d7857923eb094199df314"
+      "bytes": 19481,
+      "sha256": "8374c4100611808f04c1308f27791e07613311e679ffcb717ae97a9d8fb56674"
     },
     {
       "path": "services/dashboard-operational/public/influs-workspace/app.js",
@@ -1615,8 +1615,8 @@
     },
     {
       "path": "tests/crm-legacy-parity.test.cjs",
-      "bytes": 27968,
-      "sha256": "e3161408e36fca4f5a6d479dbb40b53b1e00d7f782d7e87e52c21add42e5271e"
+      "bytes": 28060,
+      "sha256": "1570325a943e0adfa0db18f64af685d59ec1f1a7dc1cdbc45485e65539aa7d1a"
     },
     {
       "path": "tests/crm-message-preview.test.cjs",
@@ -1650,8 +1650,8 @@
     },
     {
       "path": "tests/crm-ui-features.test.cjs",
-      "bytes": 4982,
-      "sha256": "40037784561a52431bf7e50b164189e005a559bab20f40373e99c47f452f3a2a"
+      "bytes": 9217,
+      "sha256": "dba532948ece56a8e78c5c310aa96c05e3d9d131be20aa1f02627b8ca9c44169"
     },
     {
       "path": "tests/crm-ui-independent-boundaries.fixture.json",
@@ -1695,8 +1695,8 @@
     },
     {
       "path": "tests/dashboard-operational-brand-ui.test.cjs",
-      "bytes": 18697,
-      "sha256": "1c6913087732ce8db19c15634fb9f1a8165a1c62c6994ac94cb4a8853f030aad"
+      "bytes": 19831,
+      "sha256": "a984e348296fa46b445f9111b8a34426697ddc77d8db598778ce0e3d4e7a45f4"
     },
     {
       "path": "tests/dashboard-operational-campaign-create-http.test.cjs",
@@ -2080,8 +2080,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 5378,
-      "sha256": "9b4874438f53302a5038790b757a3ba82201321547299066f8e4b8e2231ea0f5"
+      "bytes": 6554,
+      "sha256": "73c119dc6905614ee261238c0cb9895b31d0ffcebf99f220c8d9bec4ab544fdf"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",

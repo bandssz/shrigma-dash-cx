@@ -55,6 +55,10 @@ test('guard applies own-brand UI before API response, master retains Consolidada
  const old=guardFixture({...manager('fish'),brand:null,brands:[],brandAccess:'reprovision_required'});assert.equal((await old.window.fetch('/api/cx?painel=growth')).status,401);assert.deepEqual(old.calls,['/auth/session']);
 });
 
+test('compiled guard admits only scoped GET release settings and never forwards mutation or foreign brand',async()=>{
+ for(const brand of ['fish','aristo']){const f=guardFixture(manager(brand),{simpleRead:true});const r=await f.window.fetch('/api/crm-features?brand='+brand);assert.equal(r.status,200);const forwarded=f.requests.filter(x=>new URL(x.url,'https://crm.synthetic.invalid').pathname==='/api/crm-features');assert.equal(forwarded.length,1);assert.equal(new Headers(forwarded[0].options.headers).get('X-Shrigma-View-Brand'),brand);assert.equal(new Headers(forwarded[0].options.headers).has('authorization'),false);
+ for(const [url,init,status]of [['/api/crm-features?brand='+brand,{method:'POST',body:'{}'},405],['/api/crm-features?brand='+brand,{method:'HEAD'},405],['/api/crm-features?brand='+brand+'&brand='+brand,{},400],['/api/crm-features?brand=all',{},400],['/api/crm-features?brand='+(brand==='fish'?'aristo':'fish'),{},403]])assert.equal((await f.window.fetch(url,init)).status,status);assert.equal(f.requests.filter(x=>new URL(x.url,'https://crm.synthetic.invalid').pathname==='/api/crm-features').length,1);}
+});
 test('brand contract failures emit closed human-readable notice metadata without echoing backend body',async()=>{
  for(const code of ['BRAND_READ_CONTRACT_NOT_READY','BRAND_RESPONSE_UNSCOPED']){const f=guardFixture(manager('fish'),{status:code==='BRAND_RESPONSE_UNSCOPED'?502:503,body:{error:code,private:'private-canary'}});const response=await f.window.fetch('/api/cx?painel=growth');assert.equal(response.status,code==='BRAND_RESPONSE_UNSCOPED'?502:503);assert.deepEqual(JSON.parse(JSON.stringify(f.messages[0][0])),{type:'shrigma:brand-read-unavailable',code});assert.doesNotMatch(JSON.stringify(f.messages),/private-canary/);}
 });
