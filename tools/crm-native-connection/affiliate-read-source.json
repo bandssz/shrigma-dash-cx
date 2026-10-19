@@ -15,8 +15,8 @@
     },
     {
       "path": ".github/workflows/crm-links19.yml",
-      "bytes": 4912,
-      "sha256": "69294d241fbe74dd930522ac2d2e75ccc05fc5e19a218ee56b9b7870a7b2bfee"
+      "bytes": 4937,
+      "sha256": "2f50e161ed1369d19b0b242c8320cd5d6203988a6e9147113e48ca549389cbf8"
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
@@ -220,8 +220,8 @@
     },
     {
       "path": "ops/releases/links19/source/campaign-tracking.js",
-      "bytes": 8560,
-      "sha256": "8b8c550b6677fec0c7a2607f7451149e9e77e74337b554c4d00db72adcb57e48"
+      "bytes": 8836,
+      "sha256": "edb18d48c4b3f1e0a0217fa46a3d8cdb22b3b251cb9bd39793954b4db1de6e3a"
     },
     {
       "path": "ops/releases/saturday17-native/audience-return/growth-ab-experiment-contract.js",
@@ -996,7 +996,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "39397dc36b43fd1fe606d63ec27ff0c8711a8411ef48d0aafd40f2bca108f15a"
+      "sha256": "f7aba91cf79d4b9912d661cc4d9cf0889f7851d5bb737b8d649c6a05956d122a"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1005,8 +1005,8 @@
     },
     {
       "path": "services/dashboard-operational/campaign-write-tracking.js",
-      "bytes": 8560,
-      "sha256": "8b8c550b6677fec0c7a2607f7451149e9e77e74337b554c4d00db72adcb57e48"
+      "bytes": 8836,
+      "sha256": "edb18d48c4b3f1e0a0217fa46a3d8cdb22b3b251cb9bd39793954b4db1de6e3a"
     },
     {
       "path": "services/dashboard-operational/crm-campaign-create.cjs",
@@ -1245,8 +1245,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 207773,
-      "sha256": "b333cdab37de71fddb8b13686bf489fb54dbe8527f9dd4a75877e14c2af127b0"
+      "bytes": 207867,
+      "sha256": "5d0ec4710c660c7213907a98bf78f65b93472ef115f62dc140de5d9db8a02f90"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -1650,13 +1650,13 @@
     },
     {
       "path": "tests/crm-campaign-draft-links-source.test.cjs",
-      "bytes": 5582,
-      "sha256": "f8241f886c2e7e6f15b68c14a6a51fd84c35316228601690ba125039887b0192"
+      "bytes": 6021,
+      "sha256": "3c8089f4cb17ce8c4355b28c0c72ff23ee307d1b8784823ff82dcc3cfc0b8ae4"
     },
     {
       "path": "tests/crm-campaign-draft-links.test.cjs",
-      "bytes": 6154,
-      "sha256": "c8eacd01cf8c1b1e2436804fcabc1eced42b1baab8ab2f840b46b2d833a7e83e"
+      "bytes": 7430,
+      "sha256": "eba4add11a4f6bb66dc15883f6d31d696a3893505674f98eb9c2846993aa697b"
     },
     {
       "path": "tests/crm-campaign-import.test.cjs",

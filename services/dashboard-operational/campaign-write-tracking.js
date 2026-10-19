@@ -32,7 +32,7 @@ const CampaignTracking=(()=>{
   if(target.origin!==selected.u.origin||target.username||target.password||target.port||!/^\/(products|pages|collections)\//.test(target.pathname))throw issue('COUPON_DESTINATION_INVALID','Coupon destination is outside the store');let changes=0;
   const rewrite=value=>String(value||'').replace(urlPattern,raw=>{const p=link(raw,brand);if(!p?.coupon||p.u.href!==selected.u.href)return raw;p.u.searchParams.set('redirect',target.pathname+target.search+target.hash);const out=serialize(p,p.u);if(out!==raw)changes++;return out;});return{body:rewrite(c.body),altbody:c.altbody==null?c.altbody:rewrite(c.altbody),changes};
  }
- function inspect(c,{brand,campaign,now=Date.now()}={},assignIdentity=true,{allowConflictingUtms=false,allowMissingCoupon=false}={}){
+ function inspect(c,{brand,campaign,now=Date.now()}={},assignIdentity=true,{allowConflictingUtms=false,allowMissingCoupon=false,legacyReceipt=false}={}){
   if(!config[brand]||!campaign||!/^[a-z0-9_-]+$/.test(campaign))throw Error('Brand and campaign are required');
   if((assignIdentity&&!id(c.id))||!['draft','scheduled'].includes(c.status)||Number(c.sent)!==0||c.started_at)throw Error('Only unsent draft/scheduled campaigns can be prepared');
   if(c.status==='scheduled'&&!(Date.parse(c.send_at)>now+15*60e3))throw Error('Campaign is too close to sending');
@@ -51,12 +51,12 @@ const CampaignTracking=(()=>{
    if(u.pathname.startsWith('/discount/')){
     const redirect=u.searchParams.get('redirect');if(!redirect){if(allowMissingCoupon){commercialLinks++;return raw;}throw issue('COUPON_DESTINATION_REQUIRED','Coupon has no explicit destination');}
     target=new URL(redirect,u.origin);
-    if(target.origin!==u.origin||target.username||target.password||target.port||!/^\/(products|pages|collections)\//.test(target.pathname))throw issue('COUPON_DESTINATION_INVALID','Coupon destination is outside the store');
+    if(target.origin!==u.origin||!legacyReceipt&&(target.username||target.password||target.port)||!/^\/(products|pages|collections)\//.test(target.pathname))throw issue('COUPON_DESTINATION_INVALID','Coupon destination is outside the store');
     coupon=true;
    }
    if(/^\/(products|pages|collections)\//.test(target.pathname))commercialLinks++;
    for(const [k,v] of [['utm_source','listmonk'],['utm_medium','campanha'],['utm_campaign',campaign]]){
-    const old=target.searchParams.get(k);if(old&&old!==v){if(allowConflictingUtms)continue;throw Error('Conflicting existing '+k);}
+    if(allowConflictingUtms&&target.searchParams.getAll(k).some(old=>old&&old!==v))continue;const old=target.searchParams.get(k);if(old&&old!==v)throw Error('Conflicting existing '+k);
     target.searchParams.set(k,v);
    }
    const content=target.searchParams.get('utm_content')||(coupon?'cupom-auto':field==='altbody'?'alt-link':'link');
@@ -81,6 +81,8 @@ const CampaignTracking=(()=>{
   return assignIdentity?{id:c.id,token,lists,body,altbody,changes}:{commercial_links:commercialLinks};
  }
  const draft={allowConflictingUtms:true,allowMissingCoupon:true},schedule={allowConflictingUtms:true,allowMissingCoupon:false};
- return {prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,draft),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
+ // Admission uses checkDraft before any save. Receipt recomposition must retain
+ // the old deterministic serialization, including already committed snapshots.
+ return {prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,{...draft,legacyReceipt:true}),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
 })();
 if(typeof module!=='undefined')module.exports=CampaignTracking;
