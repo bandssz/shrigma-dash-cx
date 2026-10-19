@@ -1,0 +1,22 @@
+{
+  "schema": "product-original-owner-v3-prepared-v1",
+  "mode": "return",
+  "preparedAtUtc": "2026-10-19T04:16:29.801Z",
+  "project": "dashboard-image-20260930",
+  "service": "crm-database-task-20261014",
+  "existingDisabledTask": true,
+  "sourceSha256": "0080b8ac15e5bc5c1c7a0bf4e03e27f16d3d6010abf7593414a7ade27f1ae6be",
+  "sqlSha256": "e328e783b3ce35004cba3ac1b4c21e602af189e9f5585d81eec4abb56acdf97a",
+  "fullSqlSha256": "98b1f08defbbde6394fca9cd11b8b88a36876dd9593ae54298c2069d72bbc7b1",
+  "functions": 5,
+  "newFunctions": 0,
+  "newTables": 0,
+  "newServices": 0,
+  "newCredentials": 0,
+  "newWorkers": 0,
+  "newJournals": 0,
+  "envUntouched": true,
+  "originalDefinitionsEncryptedInOriginalEnvelope": true,
+  "returnCompatible": true,
+  "executed": false
+}

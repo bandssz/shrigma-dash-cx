@@ -1,0 +1,91 @@
+name: CRM native v3 consent fidelity and compatible return
+'on':
+  push:
+    branches: [codex/segunda19-freeze-v3]
+permissions:
+  contents: read
+jobs:
+  frozen-consent-and-source:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection@sha256:e3f2631670269ea8c5dd42ff4b5dbbf8693ad37f0fb4bf4366ed9baac712f1a9
+      RELEASE: ops/releases/human19-consent/native-v3
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Prepare immutable runtimes and isolated PostgreSQL
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          owner_dir="$(mktemp -d "$RUNNER_TEMP/shrigma-owner.XXXXXX")"
+          printf 'OWNER_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$owner_dir" "$owner_dir" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$owner_dir/docker"
+          export DOCKER_CONFIG="$owner_dir/docker"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker pull "$IMAGE"
+          docker pull ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:6cbdcdc85d2fc58c5f2336a7a9d7237f60093ba09cc7e7fa40cedcd07ba91180
+          docker pull ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:696f615f25acbc1c8a8398771e2f86654951092fe9f8c383341fc6d7fcf9905e
+          docker pull postgres:17.10
+      - name: Original v2 and new v3 source contracts, serially
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --memory 512m --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/v3,readonly" --entrypoint node "$IMAGE" --test --test-concurrency=1 /v3/source.test.cjs /v3/source-v3.test.cjs
+      - name: Five original definitions and both native lifecycles on empty PG17.10
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner_pg="shrigma-owner-$GITHUB_RUN_ID"
+          printf 'OWNER_PG=%s\n' "$owner_pg" >> "$GITHUB_ENV"
+          docker run --detach --name "$owner_pg" --network none --tmpfs /var/lib/postgresql/data:rw,size=256m --tmpfs /var/run/postgresql:rw,size=4m --env POSTGRES_HOST_AUTH_METHOD=trust postgres:17.10 > /dev/null
+          owner_ready=false
+          for owner_try in {1..30}; do
+            if docker exec "$owner_pg" pg_isready -U postgres > /dev/null; then owner_ready=true; break; fi
+            sleep 1
+          done
+          [ "$owner_ready" = true ]
+          owner_number=19011
+          for owner_suite in pg-owner-bootstrap.test.cjs pg-functional.test.cjs; do
+            owner_db="native17_test$owner_number"
+            docker exec "$owner_pg" createdb -U postgres "$owner_db"
+            docker run --rm --platform linux/amd64 --network "container:$owner_pg" --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/v3,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/consent,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/delta,dst=/delta,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/freeze,dst=/freeze,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/current-source,dst=/current-source,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/source,dst=/source,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/custody,dst=/custody,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/campaign-source,dst=/delta/campaign-candidate,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/pg-driver.cjs,dst=/delta/pg-driver.cjs,readonly" --env "SHRIGMA_LOCAL_TEST_DB=$owner_db" --env CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS=v2 --entrypoint node "$IMAGE" --test --test-concurrency=1 "/v3/$owner_suite"
+            owner_number=$((owner_number+1))
+          done
+      - name: Build actual Campaigns and Audience images on installed artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 --network none --build-arg GIT_SHA="$GITHUB_SHA" -t shrigma-consent-v3-campaign:test -f "$RELEASE/campaign-source/Dockerfile" "$RELEASE/campaign-source"
+          docker build --platform linux/amd64 --network none --build-arg GIT_SHA="$GITHUB_SHA" -t shrigma-consent-v3-audience:test -f "$RELEASE/Audience.Dockerfile" "$RELEASE"
+      - name: Actual Campaigns source HTTP and startup; Audience receipt module
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/human19-consent/preparation,dst=/consent,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/app/services/crm-campaign --entrypoint node shrigma-consent-v3-campaign:test --test --test-concurrency=1 /consent/source-http.test.cjs
+          docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/human19-consent/preparation,dst=/consent,readonly" --entrypoint node shrigma-consent-v3-campaign:test /consent/image-start-smoke.cjs "$GITHUB_SHA"
+          docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --entrypoint node shrigma-consent-v3-audience:test -e "const a=require('node:assert/strict'),f=require('/app/n8n/growth/segment-audience-native-freeze.cjs');a.equal(process.getuid(),1000);a.equal(typeof f.receipt,'function');a.equal(typeof f.createInternalFreeze,'function');console.log('Audience actual image receipt module loaded; zero DB/API calls');"
+      - name: Preserve verified source images without installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          for owner_source in campaign audience; do
+            owner_tag="ghcr.io/bandssz/shrigma-dash-operational-canary:human19-native-v3-$owner_source-$GITHUB_SHA-$GITHUB_RUN_ID"
+            docker tag "shrigma-consent-v3-$owner_source:test" "$owner_tag"
+            docker push "$owner_tag"
+          done
+      - name: Remove only owned empty fixtures and registry session
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${OWNER_PG:-}" ]; then docker rm --force "$OWNER_PG" > /dev/null; fi
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi

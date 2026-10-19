@@ -1,0 +1,174 @@
+{
+  "schema": "product-native-v3-admission-actual-v1",
+  "ok": true,
+  "queryId": "product-native-freeze-v3-admission",
+  "sqlSha256": "82ba3682054e8d9a635dcd6d63ab28c5db6148fb0ec26d6559c2cd769b5c8351",
+  "startedAtUtc": "2026-10-19T03:54:57.062Z",
+  "finishedAtUtc": "2026-10-19T03:54:57.287Z",
+  "rowCount": 1,
+  "admission": {
+    "schema": "shrigma-native-freeze-v3-admission-read-v1",
+    "functions": [
+      {
+        "oid": "1484297",
+        "owner": "postgres",
+        "body_md5": "6fe4bb26f69541310f986f2a7fb459bd",
+        "signature": "crm_audience_v2.catalog_lists(text)",
+        "acl_sha256": "de3acaefa2fbe5de94c089ceb592fd3853ce48678aefba3c52365414d1aa1720",
+        "provolatile": "v",
+        "config_sha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491",
+        "security_definer": true,
+        "definition_sha256": "0c6da254da28c9c7db5cb045dcf5f9eb5a9a58e1c653dfb8ccde1997ad3309d0"
+      },
+      {
+        "oid": "3098402",
+        "owner": "postgres",
+        "body_md5": "bd6a5bf2891da92212422a54ee12b6f9",
+        "signature": "crm_audience_v2.freeze_native_internal_saved_audience_20261017(text,text,uuid,integer,text,text,text,jsonb,jsonb,text,text)",
+        "acl_sha256": "de3acaefa2fbe5de94c089ceb592fd3853ce48678aefba3c52365414d1aa1720",
+        "provolatile": "v",
+        "config_sha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491",
+        "security_definer": true,
+        "definition_sha256": "10c9633d66e3ad9b7bf5b0e16651a3176d333a690d79545d370815fd31c24c8e"
+      },
+      {
+        "oid": "3098409",
+        "owner": "postgres",
+        "body_md5": "ec6870b3b1004528fc0c1406157d0a83",
+        "signature": "crm_audience_v2.native_internal_effect_v1(text,jsonb,jsonb)",
+        "acl_sha256": "c027e95beca64045f15d2075c66162eeeeb192e6756be61c73f91c7ce14dd4f3",
+        "provolatile": "v",
+        "config_sha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491",
+        "security_definer": true,
+        "definition_sha256": "bb7f1a98121837cd610207b0f725c83d7eb50ae3724d2250ae581da559de2869"
+      },
+      {
+        "oid": "3098407",
+        "owner": "postgres",
+        "body_md5": "f8d86671ff00768d413c69539ccc0f9e",
+        "signature": "crm_audience_v2.native_internal_snapshot_history_v1(integer)",
+        "acl_sha256": "c027e95beca64045f15d2075c66162eeeeb192e6756be61c73f91c7ce14dd4f3",
+        "provolatile": "v",
+        "config_sha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491",
+        "security_definer": true,
+        "definition_sha256": "8dd03d3cb98ba0a81fc73ea123d7ed763ba14c4aaa87c77dd73b78de4bfe27c9"
+      },
+      {
+        "oid": "3098406",
+        "owner": "postgres",
+        "body_md5": "3773ee797b16c4990a3dbf3e70edf52d",
+        "signature": "crm_audience_v2.native_internal_snapshot_v1(integer)",
+        "acl_sha256": "c027e95beca64045f15d2075c66162eeeeb192e6756be61c73f91c7ce14dd4f3",
+        "provolatile": "v",
+        "config_sha256": "0e5c5deb67bdf8a0f1c087edd287aeab8d3ca04e5548a7679dd526aad7d8d491",
+        "security_definer": true,
+        "definition_sha256": "d9b7b829a1f383a411f7d89b0d8c208bd7fed0a72f8815862cfa81ffa8ea48a1"
+      }
+    ],
+    "ddl_executed": false,
+    "business_rows": false,
+    "correct_database": true,
+    "membership_shape": [
+      {
+        "type": "timestamp with time zone",
+        "relation": "public.lists",
+        "attnotnull": false,
+        "column_name": "created_at"
+      },
+      {
+        "type": "text",
+        "relation": "public.lists",
+        "attnotnull": true,
+        "column_name": "description"
+      },
+      {
+        "type": "integer",
+        "relation": "public.lists",
+        "attnotnull": true,
+        "column_name": "id"
+      },
+      {
+        "type": "text",
+        "relation": "public.lists",
+        "attnotnull": true,
+        "column_name": "name"
+      },
+      {
+        "type": "public.list_optin",
+        "relation": "public.lists",
+        "attnotnull": true,
+        "column_name": "optin"
+      },
+      {
+        "type": "public.list_status",
+        "relation": "public.lists",
+        "attnotnull": true,
+        "column_name": "status"
+      },
+      {
+        "type": "character varying(100)[]",
+        "relation": "public.lists",
+        "attnotnull": false,
+        "column_name": "tags"
+      },
+      {
+        "type": "public.list_type",
+        "relation": "public.lists",
+        "attnotnull": true,
+        "column_name": "type"
+      },
+      {
+        "type": "timestamp with time zone",
+        "relation": "public.lists",
+        "attnotnull": false,
+        "column_name": "updated_at"
+      },
+      {
+        "type": "uuid",
+        "relation": "public.lists",
+        "attnotnull": true,
+        "column_name": "uuid"
+      },
+      {
+        "type": "timestamp with time zone",
+        "relation": "public.subscriber_lists",
+        "attnotnull": false,
+        "column_name": "created_at"
+      },
+      {
+        "type": "integer",
+        "relation": "public.subscriber_lists",
+        "attnotnull": true,
+        "column_name": "list_id"
+      },
+      {
+        "type": "jsonb",
+        "relation": "public.subscriber_lists",
+        "attnotnull": true,
+        "column_name": "meta"
+      },
+      {
+        "type": "public.subscription_status",
+        "relation": "public.subscriber_lists",
+        "attnotnull": true,
+        "column_name": "status"
+      },
+      {
+        "type": "integer",
+        "relation": "public.subscriber_lists",
+        "attnotnull": true,
+        "column_name": "subscriber_id"
+      },
+      {
+        "type": "timestamp with time zone",
+        "relation": "public.subscriber_lists",
+        "attnotnull": false,
+        "column_name": "updated_at"
+      }
+    ],
+    "function_bodies_returned": false
+  },
+  "businessMutations": 0,
+  "ddlExecuted": false,
+  "automaticRetry": false
+}

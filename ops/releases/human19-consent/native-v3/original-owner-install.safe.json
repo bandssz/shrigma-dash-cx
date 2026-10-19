@@ -1,0 +1,22 @@
+{
+  "schema": "product-original-owner-v3-prepared-v1",
+  "mode": "install",
+  "preparedAtUtc": "2026-10-19T04:16:29.794Z",
+  "project": "dashboard-image-20260930",
+  "service": "crm-database-task-20261014",
+  "existingDisabledTask": true,
+  "sourceSha256": "2ed92b4619a9f2d445ee8de677edfaf1c6ab39db0c8638d01d332246de52f32c",
+  "sqlSha256": "1665756223043e2a4b3114f94e4ddca5624498042156531ee99d113f210e8183",
+  "fullSqlSha256": "dac36cfbed5212532d72986c8b079ddfec730c5076fc767a84af7dd7b42365f8",
+  "functions": 5,
+  "newFunctions": 0,
+  "newTables": 0,
+  "newServices": 0,
+  "newCredentials": 0,
+  "newWorkers": 0,
+  "newJournals": 0,
+  "envUntouched": true,
+  "originalDefinitionsEncryptedInOriginalEnvelope": true,
+  "returnCompatible": true,
+  "executed": false
+}
