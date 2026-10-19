@@ -1,0 +1,65 @@
+name: CRM consent job original runtime and source image
+'on':
+  push:
+    branches: [codex/segunda19-descadastro-job]
+permissions:
+  contents: read
+jobs:
+  original-runtime-and-source:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection@sha256:e3f2631670269ea8c5dd42ff4b5dbbf8693ad37f0fb4bf4366ed9baac712f1a9
+      RELEASE: ops/releases/human19-consent
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Original pinned image and isolated runtime overlay
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          consent_dir="$(mktemp -d "$RUNNER_TEMP/shrigma-consent.XXXXXX")"
+          printf 'CONSENT_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$consent_dir" "$consent_dir" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$consent_dir/docker"
+          export DOCKER_CONFIG="$consent_dir/docker"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker pull "$IMAGE"
+          consent_container="$(docker create --entrypoint true "$IMAGE")"
+          docker cp "$consent_container:/app/native-backend/runtime" "$consent_dir/runtime"
+          docker rm "$consent_container" > /dev/null
+          cp -a "$RELEASE/gateway-runtime/." "$consent_dir/runtime/"
+          chmod -R a+rX "$consent_dir/runtime"
+          chmod o+x "$consent_dir"
+      - name: Original cookie SQLite custody and single existing timer, serially
+        shell: bash
+        run: |
+          set -euo pipefail
+          tests=()
+          for name in task store source broker service-binding transport source-http gateway-integration; do tests+=("/source/$RELEASE/preparation/$name.test.cjs"); done
+          docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$CONSENT_DIR/runtime,dst=/candidate-runtime,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/candidate-runtime --env CONSENT_SOURCE_TEST_RUNTIME="/source/$RELEASE/source/services/crm-campaign" --entrypoint node "$IMAGE" --test --test-concurrency=1 "${tests[@]}"
+      - name: Build actual source image on its exact installed artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 --network none --build-arg GIT_SHA="$GITHUB_SHA" -t shrigma-consent-source:test -f "$RELEASE/source/Dockerfile" "$RELEASE/source"
+          docker image inspect --format '{{.Id}}' shrigma-consent-source:test
+      - name: Actual source HTTP and startup Node22 UID1000, serially
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/preparation,dst=/consent,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/app/services/crm-campaign --entrypoint node shrigma-consent-source:test --test --test-concurrency=1 /consent/source-http.test.cjs
+          docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/preparation,dst=/consent,readonly" --entrypoint node shrigma-consent-source:test /consent/image-start-smoke.cjs "$GITHUB_SHA"
+      - name: Remove temporary registry session
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi

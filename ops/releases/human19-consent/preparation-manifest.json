@@ -1,0 +1,242 @@
+{
+  "schema": "shrigma-consent19-preparation-v1",
+  "baseGateway": "2f61336dbf012467607d1a9810b7397aefa70b78",
+  "baseGatewayArtifact": "sha256:e3f2631670269ea8c5dd42ff4b5dbbf8693ad37f0fb4bf4366ed9baac712f1a9",
+  "baseSource": "4f7500ab1a2c083a4eb194301592257e3763053e",
+  "baseSourceArtifact": "sha256:6cbdcdc85d2fc58c5f2336a7a9d7237f60093ba09cc7e7fa40cedcd07ba91180",
+  "productionUsed": false,
+  "enabled": false,
+  "existingTimerReused": true,
+  "newWorkers": 0,
+  "newJournals": 0,
+  "newSqlFunctions": 0,
+  "localCases": 78,
+  "localFailures": 0,
+  "files": [
+    {
+      "path": "ops/releases/human19-consent/preparation/task.cjs",
+      "bytes": 6949,
+      "sha256": "0bc8bd8444e711c865be9c2e190a756bb754923b7ce6d859b002bd35e0c6e056"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/store.cjs",
+      "bytes": 7074,
+      "sha256": "e3d785e90512072fafda34b7b8aca60c64d2fd96a8b5c1db87e2168860b23f09"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/source.cjs",
+      "bytes": 10701,
+      "sha256": "8b3f2b49485dcfaa4003e9014c61e8566a278c3472f32c06c4fe8f31ccf0bb14"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/transport.cjs",
+      "bytes": 6432,
+      "sha256": "da05ba0af18b2dae18816685eb88ce8d49d45c4636c1c7a15f5afad3427c04ea"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/broker.cjs",
+      "bytes": 5499,
+      "sha256": "6a0f495d4e050289404e69bf094091cfe0747970ed3f4bbaa1bfd92e7cb88d47"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/service-binding.cjs",
+      "bytes": 1008,
+      "sha256": "a7455c7fb3b1cff04cd07f3ae4709a29cde2e630a1a4f78f8c0849d3cc6a6355"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/task.test.cjs",
+      "bytes": 5868,
+      "sha256": "dea5d4747e5856e9cab5253a654cf3867f54bed836a82965b31dd578fc49bc75"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/store.test.cjs",
+      "bytes": 6808,
+      "sha256": "67e2e5e98cfb941afa01e3d767dc74abf7b1a778c2f4769342216342e44bb967"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/source.test.cjs",
+      "bytes": 7824,
+      "sha256": "92283afa9180860f42a2c440e71e3b3644dafd144b0d5324b0313572df1b718c"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/transport.test.cjs",
+      "bytes": 2313,
+      "sha256": "9085cbcff059e265e189537c6419fc810bee9a95a33966a6041cda3bfe0515b4"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/broker.test.cjs",
+      "bytes": 3162,
+      "sha256": "14cab21661e4809215aedf122a6022624a25313e9a2fa977aa5db0a96f492176"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/service-binding.test.cjs",
+      "bytes": 1679,
+      "sha256": "6a8b7fc540b568df091eac8b08625d1716b8a965e3bfdcbe2573bbf72ee54c8e"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/source-http.test.cjs",
+      "bytes": 2806,
+      "sha256": "039fd1e8c0dcab6bed3de87c659de34e484d927de56814a38118f9f932479bbb"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/gateway-integration.test.cjs",
+      "bytes": 4467,
+      "sha256": "b2bf2877ffbffc863596a6c0af3ecd5a48cdc7105e768fa808245cec8507124b"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/store-fixture.cjs",
+      "bytes": 3375,
+      "sha256": "a753eaff289fe9a15111b37c30a8b4e9d59a9b430f7eabd239515ac3777cb55f"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/source-fixture.cjs",
+      "bytes": 3360,
+      "sha256": "ee88097ee6a7271a54ea7525614e1bd8c2a452d1f7e4b3eeb12249074adc9902"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/gateway-fixture.cjs",
+      "bytes": 20749,
+      "sha256": "7a02eecd2dcb6fc90d460ae89579bcf5ec07326281d7b0db6e7078bd26d9e178"
+    },
+    {
+      "path": "ops/releases/human19-consent/preparation/image-start-smoke.cjs",
+      "bytes": 1261,
+      "sha256": "2b79c3e76375673f377c8e0b686c5a63a1b3850f51a64678978c7f6c50a74604"
+    },
+    {
+      "path": "ops/releases/human19-consent/gateway-runtime/auth.cjs",
+      "bytes": 163683,
+      "sha256": "68927e8bfb2419fe6b22e43dc0b35aa2edb5ab60cae337255f3578c343905128"
+    },
+    {
+      "path": "ops/releases/human19-consent/gateway-runtime/server.cjs",
+      "bytes": 219640,
+      "sha256": "7b43e9b48932c0a3f77eb8a92e30f554dcf432e2a1370d82b3a889ccaea26c26"
+    },
+    {
+      "path": "ops/releases/human19-consent/gateway-runtime/campaign-consent-task.cjs",
+      "bytes": 6949,
+      "sha256": "0bc8bd8444e711c865be9c2e190a756bb754923b7ce6d859b002bd35e0c6e056"
+    },
+    {
+      "path": "ops/releases/human19-consent/gateway-runtime/campaign-consent-store.cjs",
+      "bytes": 7074,
+      "sha256": "e3d785e90512072fafda34b7b8aca60c64d2fd96a8b5c1db87e2168860b23f09"
+    },
+    {
+      "path": "ops/releases/human19-consent/gateway-runtime/campaign-consent-broker.cjs",
+      "bytes": 5533,
+      "sha256": "df02857f042497def7c06b433283b425eb98762efed15a5b0a67aa77a416f7aa"
+    },
+    {
+      "path": "ops/releases/human19-consent/gateway-runtime/campaign-consent-service-binding.cjs",
+      "bytes": 1008,
+      "sha256": "a7455c7fb3b1cff04cd07f3ae4709a29cde2e630a1a4f78f8c0849d3cc6a6355"
+    },
+    {
+      "path": "ops/releases/human19-consent/gateway-runtime/campaign-consent-policy.json",
+      "bytes": 97,
+      "sha256": "22d84584c7587c30f33b44845077d6c91174b5630cb6cca849f5887589e0efa7"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/Dockerfile",
+      "bytes": 571,
+      "sha256": "0bc39721124c588fcd89be39f6d73aaab359168de20f3f4c6e636efa09cfceca"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/n8n/growth/campaign-contract.js",
+      "bytes": 14080,
+      "sha256": "d272b66eeb684850a25fb12680cd2fa146054d21170c8c9b665e2983add5f02d"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/n8n/growth/campaign-native-internal.js",
+      "bytes": 2077,
+      "sha256": "fae5654241e1b89fe13a76e0d5c58180dc4b2d184fbdc1fe8383a0e350337af9"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/n8n/growth/campaign-native.js",
+      "bytes": 1609,
+      "sha256": "5af820cd7e59e9a8ecb5ca647eba1ba30005c474519f480ea7cf9500d0b79f79"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/n8n/growth/campaign-provider.js",
+      "bytes": 6574,
+      "sha256": "d0e7cc535042073d1d3ef9e119fbdb37fcd1f5f121099d029ae5905ee2466344"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/n8n/growth/campaign-runtime.js",
+      "bytes": 8864,
+      "sha256": "2ecbd3fbe63abcce8fb5e2015801469c863094a3be7fb869953c5be93d4ac3c2"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/n8n/growth/campaign-service.js",
+      "bytes": 10663,
+      "sha256": "5eb4ededfb43f1c09046ba62ffcaffd09789546c6cfec7258387d904cb85466c"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/n8n/growth/campaign-store.js",
+      "bytes": 1516,
+      "sha256": "eb9322d10bc3854c4e5c662dddf3cbec74a2418661a2f8efd9b4f28ec0eaaed5"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/n8n/growth/campaign-tracking.js",
+      "bytes": 4294,
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-campaign/Dockerfile",
+      "bytes": 1026,
+      "sha256": "1b7ad8d58420d2bf4a4236b0bb32ba5967db323fccec3e14706b317960fcd653"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-campaign/abandon.cjs",
+      "bytes": 4497,
+      "sha256": "833fdcb5978539e1d7db460a1e42c0c019260c2527b8860e8da12255a94dddf2"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-campaign/consent-source.cjs",
+      "bytes": 17309,
+      "sha256": "7fc7798091a723c6643ee231a20913b8d730c0ebd82ea7a93c7068149e226fd3"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-campaign/main.cjs",
+      "bytes": 2639,
+      "sha256": "4d91007195211df873e945e0072041ccccb9367833c47b77201af0d13ffcee59"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-campaign/media.cjs",
+      "bytes": 11861,
+      "sha256": "2f288ef9d38160fe5363c478eb43ea84886a84367deaf991bdc56a32034b8ffc"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-campaign/package-lock.json",
+      "bytes": 5309,
+      "sha256": "9839eb52dddddefbae3cdc743cd0295cdd837ce4fb8c3f23d793f55f07797b23"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-campaign/package.json",
+      "bytes": 323,
+      "sha256": "d48c89bc2456b74235506e10e2174f2a3659e082f7cbcf0271b1f4daf2943131"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-campaign/server.cjs",
+      "bytes": 11795,
+      "sha256": "5ed7b49b3b4fed3cbca58dd3a774f08058856b9526fd7d8bda01ab385dede306"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-campaign/transport.cjs",
+      "bytes": 11753,
+      "sha256": "ac1587dcef8dcf4d78a4828928baa23a4540e283d920bfe7f22f9ae85be1b361"
+    },
+    {
+      "path": "ops/releases/human19-consent/source/services/crm-panel-read/server.cjs",
+      "bytes": 4193,
+      "sha256": "322f707d5991deddf5de161bc0853c9fd74ea6f1306e01571f10145093a75113"
+    },
+    {
+      "path": "ops/releases/human19-consent/admission/native-v3-admission-read.sql",
+      "bytes": 1793,
+      "sha256": "82ba3682054e8d9a635dcd6d63ab28c5db6148fb0ec26d6559c2cd769b5c8351"
+    }
+  ]
+}
