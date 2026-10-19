@@ -1,1 +1,8 @@
-{"schema":"crm-native-internal-release-v1","enabled":true,"commercial":false,"proof":null}
+{
+  "schema": "crm-native-internal-release-v1",
+  "enabled": true,
+  "commercial": false,
+  "proof": null,
+  "editorsEnabled": false,
+  "frozenAudienceV3": true
+}

@@ -16,7 +16,7 @@ async function fixture(brand,{email=qa,action=null,status='draft',sendAt=null,re
   case'campanha_obter':return {brand,campaign};
   case'campanha_teste_historico':return {schema:'crm-campaign-test-history-v1',contract:'crm-campaign-internal-test-v1',user_id:userId,brand,campaign_id:campaign.id,attempts:[]};
   case'campanha_nativa_capacidade':return {schema:'crm-native-internal-capability-v1',brand,enabled:true,homologation_available:true,internal_test:true,commercial:false,audience_id:'a'.repeat(36)};
-  case'campanha_nativa_contexto':return {schema:'crm-native-internal-context-v1',brand,campaign_id:campaign.id,eligible:true,internal_test:true,commercial:false,list_id:999};
+  case'campanha_nativa_contexto':return {schema:'crm-native-internal-context-v1',brand,campaign_id:campaign.id,eligible:[qa,'felipebandeira@oaristocrata.com'].includes(email),internal_test:true,commercial:false,list_id:999,can_schedule:true,can_cancel:true};
   case'campanha_nativa_operacao':assert.equal(q.idempotency_key,key);return {attemptKey:key,state:receipt,campaign};
   default:throw Error('UNEXPECTED:'+q.acao);
  }};
@@ -27,9 +27,9 @@ async function fixture(brand,{email=qa,action=null,status='draft',sendAt=null,re
 }
 for(const brand of ['aristo','fish']){
  test('native homologation remains QA-and-owner-only and immutable hold ignores browser release '+brand,async()=>{
-  const qaUi=await fixture(brand);await qaUi.open();assert.equal(!!qaUi.document.querySelector('#campaign-native'),enabled);assert.equal(qaUi.calls.some(x=>x.action==='campanha_nativa_capacidade'),enabled);
+  const qaUi=await fixture(brand);await qaUi.open();assert.equal(!!qaUi.document.querySelector('#campaign-native'),enabled);assert.equal(qaUi.calls.some(x=>x.action==='campanha_nativa_contexto'),enabled);
   const ownerUi=await fixture(brand,{email:'felipebandeira@oaristocrata.com'});await ownerUi.open();assert.equal(!!ownerUi.document.querySelector('#campaign-native'),enabled);assert(ownerUi.calls.every(x=>x.method==='GET'));
-  const analyst=await fixture(brand,{email:'analista@'+(brand==='aristo'?'oaristocrata.com':'fishermans.com.br')});await analyst.open();assert.equal(analyst.document.querySelector('#campaign-native'),null);assert(!analyst.calls.some(x=>x.action?.startsWith('campanha_nativa_')));
+  const analyst=await fixture(brand,{email:'analista@'+(brand==='aristo'?'oaristocrata.com':'fishermans.com.br')});await analyst.open();assert.equal(analyst.document.querySelector('#campaign-native'),null);assert(analyst.calls.some(x=>x.action==='campanha_nativa_contexto'));assert(analyst.calls.every(x=>x.method==='GET'));
   assert(qaUi.calls.every(x=>x.method==='GET'));assert(analyst.calls.every(x=>x.method==='GET'));
  });
  for(const action of ['campanha_nativa_agendar','campanha_nativa_cancelar'])test('stale '+action+' keeps only same-key GET consultation '+brand,async()=>{

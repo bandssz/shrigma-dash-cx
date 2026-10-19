@@ -1,0 +1,15 @@
+'use strict';
+const test=require('node:test'),a=require('node:assert/strict'),{fixture,uid}=require('./store-fixture.cjs'),{createBroker,SOURCE}=require('./broker.cjs');
+function broker(t,options={}){
+ const f=fixture(t),calls=[];f.p.freezeKey=uid(50);
+ const serviceBinding=options.serviceBinding||(async()=>({snapshot:'fixed-snapshot',credential:'private-synthetic-key'}));
+ const fetchImpl=options.fetchImpl||(async(url,opt)=>{a.equal(url,SOURCE);calls.push(JSON.parse(opt.body));return new Response(JSON.stringify({schema:'crm-campaign-consent-private-result-v1',brand:'aristo',kind:'register',result:f.p}),{status:200,headers:{'Content-Type':'application/json'}});});
+ const b=createBroker({db:f.db,encrypt:f.encrypt,decrypt:f.decrypt,enabledSince:1000,now:()=>2000,enabled:true,sourceUrl:SOURCE,serviceBinding,fetchImpl});
+ return{...f,b,calls,args:{userId:f.record.userId,clientKey:f.record.clientKey,brand:'aristo',freezeKey:f.p.freezeKey}};
+}
+test('register pins original CREATE and same freeze; repeated registration performs no network',async t=>{const f=broker(t);a(await f.b.register(f.args));a(f.b.ready(f.record));a(await f.b.register(f.args));a.equal(f.calls.length,1);a.equal(f.calls[0].createKey,f.p.createKey);await a.rejects(f.b.register({...f.args,freezeKey:uid(51)}),e=>e.code==='CONSENT_REGISTRATION_CHANGED');a.equal(f.calls.length,1);await f.b.close();a.equal(f.b.ready(f.record),false);});
+test('closed broker cannot register another campaign',async t=>{const f=broker(t);await f.b.close();await a.rejects(f.b.register(f.args),e=>e.code==='CONSENT_TASK_DISABLED');a.equal(f.calls.length,0);});
+test('closing in flight drains registration and does not persist a late result',async t=>{let finish,started;const begun=new Promise(r=>started=r),f=broker(t,{fetchImpl:async()=>{started();return new Promise(r=>finish=r);}}),pending=f.b.register(f.args);await begun;const closing=f.b.close();finish(new Response(JSON.stringify({schema:'crm-campaign-consent-private-result-v1',brand:'aristo',kind:'register',result:f.p}),{status:200,headers:{'Content-Type':'application/json'}}));await a.rejects(pending,e=>e.code==='CONSENT_TASK_DISABLED');await closing;a.equal(f.db.prepare('SELECT consent_job_ciphertext FROM crm_campaign_create_v1').get().consent_job_ciphertext,null);});
+test('changed custody after response cannot register work',async t=>{let n=0;const f=broker(t,{serviceBinding:async()=>({snapshot:++n===3?'changed':'fixed-snapshot',credential:'private-synthetic-key'})});await a.rejects(f.b.register(f.args),e=>e.code==='CONSENT_ACCESS_CHANGED');a.equal(f.b.ready(f.record),false);});
+test('private source URL cannot be changed',t=>{const f=fixture(t);a.throws(()=>createBroker({db:f.db,encrypt:f.encrypt,decrypt:f.decrypt,enabledSince:1000,enabled:true,sourceUrl:'https://synthetic.invalid/consent-reconciliation',serviceBinding:async()=>{}}),/CONSENT_BROKER_SOURCE/);});
+test('historical CREATE is never adopted for a new job',async t=>{const f=broker(t);f.db.exec('UPDATE crm_campaign_create_v1 SET created_at=500');await a.rejects(f.b.register(f.args),e=>e.code==='CONSENT_REGISTRATION_UNCONFIRMED');a.equal(f.calls.length,0);});

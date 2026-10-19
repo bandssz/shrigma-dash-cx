@@ -1,0 +1,8 @@
+'use strict';
+const test=require('node:test'),a=require('node:assert/strict'),{createServiceBinding}=require('./service-binding.cjs');
+const local=()=>({owner:'owner@synthetic.invalid',credential:'private-synthetic-key',principal:'bound-actor',snapshot:'unchanged'});
+const verify=async()=>({owner:'owner@synthetic.invalid',principalId:'source-actor'}),principal=id=>id==='source-actor'?'bound-actor':'other';
+test('service binding verifies original custody before and after identity without a session',async()=>{let reads=0;const b=createServiceBinding({local:()=>{reads++;return local();},verify,principal});a.deepEqual(await b('aristo'),{credential:'private-synthetic-key',snapshot:'unchanged'});a.equal(reads,2);});
+for(const change of ['credential','owner','snapshot','principal'])test('service binding refuses a changed '+change,async()=>{let n=0;const b=createServiceBinding({local:()=>({...local(),...((++n===2&&change!=='principal')?{[change]:'changed'}:{})}),verify:async()=>({...await verify(),...(change==='principal'?{principalId:'changed'}:{})}),principal});await a.rejects(b('fish'),e=>e.code==='CONSENT_ACCESS_CHANGED');});
+test('source rejection remains closed and never produces a binding',async()=>{const b=createServiceBinding({local,verify:async()=>{throw Error('private source detail');},principal});await a.rejects(b('aristo'),e=>e.code==='CONSENT_IDENTITY_UNCONFIRMED'&&!e.message.includes('private source detail'));});
+test('service cannot widen brand scope',async()=>{let called=0;const b=createServiceBinding({local:()=>{called++;return local();},verify,principal});await a.rejects(b('other'),e=>e.code==='CONSENT_BINDING_SCOPE');a.equal(called,0);});

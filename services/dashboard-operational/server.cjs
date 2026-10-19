@@ -811,7 +811,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const campaignCreator=allowCampaignSubmit?auth.campaignCreateFor(campaignTransport):null;
   const campaignDto=(action,key,value)=>({schema:'crm-campaign-bff-operation-v1',action,attemptKey:key,state:value.state,campaign:value.campaign,validation:value.validation??null});
   const campaignStatus=value=>value.state==='pending'?202:value.state==='rejected'?409:200;
-  let simpleCampaignDrafts;
+  let simpleCampaignDrafts,simpleConsentJob;
   const requireSimpleCampaignTestSafety=async(context,command)=>{
     if(command.acao!=='campanha_salvar'||!Number.isSafeInteger(command.id))return;
     const before=await auth.verifySimpleDraftBinding(context,{brand:command.brand,write:true,fetchImpl});
@@ -841,7 +841,20 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     return result;
   };
   simpleCampaignDrafts=s.simpleReadMode===true&&auth.simpleCampaignDraftFactories?auth.simpleCampaignDraftFactories(simpleDraftTransport):undefined;
-  const nativeInternal=s.simpleReadMode===true&&auth.simpleNativeInternalFactory?auth.simpleNativeInternalFactory({fetchImpl,enabled:require('./native-internal-release.json').enabled===true}):undefined;
+  const consentPolicy=require('./campaign-consent-policy.json');
+  if(consentPolicy.enabled===true&&s.simpleReadMode===true&&simpleCampaignDrafts&&auth.simpleAccounts?.journeyTest){
+    if(!Number.isSafeInteger(consentPolicy.enabledSince)||consentPolicy.enabledSince<0)throw Error('CONSENT_ORIGINAL_RUNTIME_REQUIRED');
+    simpleConsentJob=auth.simpleConsentJobFactory?.({fetchImpl,enabled:true,enabledSince:consentPolicy.enabledSince});
+    // Missing original custody closes new v3 scheduling; existing reads and cancellation remain.
+  }
+  async function registerConsent(context,brand,key,value){
+    if(!simpleConsentJob||value?.state!=='succeeded')return;
+    // A successful CREATE remains successful if its private registration is
+    // pending. Schedule admission requires ready(); no new intent is opened.
+    try{const binding=auth.simpleDraftBinding(context,{brand}),freezeKey=auth.simpleAudienceRemoteKey(context,{brand,key});await simpleConsentJob.register({userId:binding.author.id,clientKey:key,brand,freezeKey});}catch{}
+  }
+
+  const nativeInternal=s.simpleReadMode===true&&auth.simpleNativeInternalFactory?auth.simpleNativeInternalFactory({fetchImpl,enabled:require('./native-internal-release.json').enabled===true,editorsEnabled:require('./native-internal-release.json').editorsEnabled===true,frozenAudienceV3:require('./native-internal-release.json').frozenAudienceV3===true,scheduleReady:args=>simpleConsentJob?.ready(args)===true}):undefined;
   const audienceFeature=ctx=>{
     if(coexistence&&auth.session(ctx).user?.role==='manager'&&s.crmAudienceDraft!==true)return false;
     if(!allowAudienceDraft||!sandbox&&!corporateWriter&&!crmMasterAudienceWrite)return false;
@@ -1507,12 +1520,13 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
               if(liveBinding.body.binding!==null)throw jsonError(409,'CAMPAIGN_SAVED_AUDIENCE_VALIDATION_REQUIRED');
             }
             const value=await (action==='campanha_criar'?simpleCampaignDrafts.creator:simpleCampaignDrafts.delivery).submit(context,body);
+            if(action==='campanha_criar')await registerConsent(context,brand,body.idempotency_key,value);
             return sendJson(req,res,campaignStatus(value),campaignDto(action,body.idempotency_key,value));
           }
           if(action==='campanha_operacao'){
             if(Object.keys(fields).sort().join(',')!=='acao,brand,idempotency_key,kind'||!['create','delivery'].includes(fields.kind))throw jsonError(400,'ARGUMENTS_INVALID');
             const context=auth.simpleDraftContext(ctx,{brand}),q={brand,idempotency_key:fields.idempotency_key},adapter=fields.kind==='create'?simpleCampaignDrafts.creator:simpleCampaignDrafts.delivery;
-            const descriptor=adapter.describe(context,q),value=await adapter.reconcile(context,q);return sendJson(req,res,campaignStatus(value),campaignDto(descriptor.action,q.idempotency_key,value));
+            const descriptor=adapter.describe(context,q),value=await adapter.reconcile(context,q);if(fields.kind==='create')await registerConsent(context,brand,q.idempotency_key,value);return sendJson(req,res,campaignStatus(value),campaignDto(descriptor.action,q.idempotency_key,value));
           }
           if(!['campanha_catalogo','campanha_listar','campanha_obter'].includes(action))throw jsonError(403,'CRM_SERVICE_DRAFT_SCOPE_DENIED');
           const result=await simpleDraftTransport(ctx,{method:'GET',command:fields});
@@ -1828,7 +1842,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const status=error instanceof AuthError||error instanceof ProxyError||Number.isInteger(error.status)?error.status:500;
       const code=status===500?'INTERNAL_ERROR':error.code||'REQUEST_DENIED';
       if(status===503&&code==='CRM_CACHE_BUSY')res.setHeader('Retry-After','2');
-      let notReserved=false;
+      let notReserved=error.nativeNotReserved===true;
       if(req.crmDraftAttempt&&req.crmDraftPostOwner&&!simpleDraftPostsInFlight.has(req.crmDraftPostOwner)&&auth.simpleDraftAttemptReserved)try{const {context,...query}=req.crmDraftAttempt;notReserved=auth.simpleDraftAttemptReserved(context,query)===false;}catch{}
       sendJson(req,res,status,{error:code,...(notReserved?{reserved:false}:{})});
     });
@@ -1840,8 +1854,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const server=http.createServer({maxHeaderSize:8192},(req,res)=>dispatch(req,res));
   server.headersTimeout=10000;server.requestTimeout=100000;server.keepAliveTimeout=5000;server.maxRequestsPerSocket=200;
   if(s.simpleReadMode===true&&auth.simpleAccounts?.journeyTest){
-    let timer;server.once('listening',()=>{timer=setInterval(()=>{Promise.resolve().then(()=>auth.simpleAccounts.journeyTest.tick()).catch(()=>{});},5000);timer.unref();});
-    server.once('close',()=>clearInterval(timer));
+    let timer;server.once('listening',()=>{timer=setInterval(()=>{Promise.resolve().then(()=>auth.simpleAccounts.journeyTest.tick()).catch(()=>{}).then(()=>simpleConsentJob?.tick()).catch(()=>{});},5000);timer.unref();});
+    server.once('close',()=>{clearInterval(timer);Promise.resolve(simpleConsentJob?.close()).catch(()=>{});});
   }
   if(managedCrmRuntime){if(!coexistence)server.once('listening',kickManagedCrm);server.once('close',()=>{Promise.resolve().then(()=>managedCrmRuntime.close()).catch(()=>{});});}
   return server;

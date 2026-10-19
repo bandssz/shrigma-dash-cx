@@ -104,7 +104,7 @@ const createCampaign=()=>({acao:'campanha_criar',brand:'aristo',definition:campa
 const createAudience=()=>({acao:'segmento_criar',brand:'aristo',definition:audienceDefinition(),expected_catalog_hash:'a'.repeat(64),idempotency_key:crypto.randomUUID()});
 // Real cookie/server/factory/binding; only the original remote is synthetic.
 async function internalNativeFixture(t,options={}){
- const f=await fixture(t,{email:'felipebandeira+codex@oaristocrata.com',brands:['aristo','fish'],...options}),N=require(runtime+'/simple-crm-native-internal.cjs');
+ const policy=require(runtime+'/native-internal-release.json'),previous={...policy};Object.assign(policy,{frozenAudienceV3:false,editorsEnabled:false});let f;try{f=await fixture(t,{email:'felipebandeira+codex@oaristocrata.com',brands:['aristo','fish'],...options});}finally{Object.assign(policy,previous);}const N=require(runtime+'/simple-crm-native-internal.cjs');
  const operations=new Map(),lost={value:false},eligible={value:true};
  const nativeCampaign=brand=>({id:brand==='aristo'?901:902,version:'a'.repeat(32),status:'scheduled',sent:0,started_at:null,send_at:new Date(Date.now()+1800000).toISOString(),definition:{...campaignDefinition(brand),name:'[QA SAB17] Agenda nativa '+brand+' fixture',list_ids:[999]}});
  for(const brand of ['aristo','fish']){const c=nativeCampaign(brand);c.definition.send_at=c.send_at;f.campaigns.set(c.id,c);}
@@ -144,7 +144,7 @@ test('native editor role, write front, brand, Origin and CSRF are enforced befor
  const f=await internalNativeFixture(t);for(const extra of [{csrf:false},{viewBrand:'fish'},{extraHeaders:{Origin:'https://untrusted.invalid'}}]){const r=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:f.cancel('aristo'),...extra});a(r.status>=400,JSON.stringify(r.body));}a.equal(f.posts(),0);a.equal(f.dbQuery(db=>db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1').get().n),0);
 });
 test('native editor cannot select an arbitrary audience or write an ineligible customer campaign',async t=>{
- const f=await internalNativeFixture(t);const wrong=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:{...f.freeze('aristo'),id:crypto.randomUUID()}});a.equal(wrong.status,400);f.eligible.value=false;
+ const f=await internalNativeFixture(t);const wrong=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:{...f.freeze('aristo'),id:crypto.randomUUID()}});a.equal(wrong.status,403);f.eligible.value=false;
  const denied=await f.request('/api/campaigns',{method:'POST',viewBrand:'aristo',body:f.cancel('aristo')});a.equal(denied.status,409);a.equal(f.posts(),0);a.equal(f.dbQuery(db=>db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1').get().n),0);
 });
 test('native lost ACK remains owned by the editor and only GET recovers the same intention',async t=>{
