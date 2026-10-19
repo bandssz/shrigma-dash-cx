@@ -2075,8 +2075,8 @@
     },
     {
       "path": "tools/crm-qa/journey.cjs",
-      "bytes": 26607,
-      "sha256": "59d66df501329d31a96206171991a66b76f12b8c22b639ece5d385543113faf5"
+      "bytes": 26637,
+      "sha256": "090fa8ec2e3ea047ff12d9700fa97fc02fc5e583a24538cae7cd5b36f6797415"
     },
     {
       "path": "tools/crm-qa/permissions.cjs",
