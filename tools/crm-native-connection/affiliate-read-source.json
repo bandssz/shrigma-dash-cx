@@ -84,6 +84,11 @@
       "sha256": "727eba4b0892348b247ba9a6c5faf45c019269e69ebbafb2f20a1b0595ee8be3"
     },
     {
+      "path": "growth-email-contract.js",
+      "bytes": 14179,
+      "sha256": "d1f64de11d0ad56006346bb4f82d8ec318db5f7313417f677926d998fad63355"
+    },
+    {
       "path": "growth-email-native-ui.js",
       "bytes": 12797,
       "sha256": "55b1f6ea7ee0bd613e1cdddeb17a70d72028cc440d1a41fdb73839d87d9b5727"
@@ -2061,7 +2066,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 3028,
-      "sha256": "ac162cdc784314b2e1fffb437c8b33db1947dde41a0e11f4a6ccfa0311b926d5"
+      "sha256": "2024a27b29c79e4d8febfcace2f6fcdef43549f74ca4e41e0d464537656cf3b4"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
