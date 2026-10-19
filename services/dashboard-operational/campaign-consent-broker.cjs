@@ -15,7 +15,7 @@ function createBroker({db,encrypt,decrypt,serviceBinding,fetchImpl=fetch,sourceU
   if(before.snapshot!==binding.snapshot||before.credential!==binding.credential)fail('CONSENT_ACCESS_CHANGED');
   const response=await fetchImpl(url.href,{method:'POST',redirect:'error',cache:'no-store',headers:{Accept:'application/json',Authorization:'Bearer '+binding.credential,'Content-Type':'application/json'},body:JSON.stringify(command),signal:AbortSignal.timeout(85000)});
   if(response.redirected||!/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type')||'')||!response.body)fail('CONSENT_RESPONSE_UNCONFIRMED');
-  let size=0;const chunks=[];for await(const chunk of response.body){size+=chunk.length;if(size>2*1024*1024)fail('CONSENT_RESPONSE_UNCONFIRMED');chunks.push(Buffer.from(chunk));}
+  let size=0;const chunks=[];for await(const chunk of response.body){size+=chunk.length;if(size>32*1024*1024)fail('CONSENT_RESPONSE_UNCONFIRMED');chunks.push(Buffer.from(chunk));}
   let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{fail('CONSENT_RESPONSE_UNCONFIRMED');}
   const after=await serviceBinding(command.brand);if(after.snapshot!==binding.snapshot||after.credential!==binding.credential)fail('CONSENT_ACCESS_CHANGED');
   if(response.status!==200){if(/^CONSENT_[A-Z_]{1,70}$/.test(body?.code||''))fail(body.code);fail('CONSENT_SOURCE_PENDING');}

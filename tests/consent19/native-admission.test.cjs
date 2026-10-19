@@ -4,7 +4,7 @@ const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,
 function fixture(brand,{editor=true,email='analista@oaristocrata.com',editorsEnabled=true,frozenAudienceV3=true,ready=true,legacy=false,deliveryError=false}={}){
  const base={status:'active',id:brand==='fish'?17:16,optin:'double',uuid:crypto.randomUUID()},origin={uuid:base.uuid,optin:base.optin,id:base.id,status:base.status},aid=crypto.randomUUID(),context={schema:'crm-native-internal-context-v1',brand,campaign_id:900,eligible:true,acceptance_proved:true,internal_test:legacy,commercial:!legacy,list_id:1800,...(!legacy?{freeze_contract:'crm-native-frozen-list-v3',eligible_count:1,audience_id:aid,audience_version:1,base,origins:[origin]}:{})},calls=[],submits=[],author={id:crypto.randomUUID(),email,permissions:{growth:{edit:editor}}};
  const domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com',definition={brand,utm_campaign:'synthetic-campaign',html:'<a href="https://'+domain+'/products/synthetic">Abrir</a>{{ UnsubscribeURL }}',text:'https://'+domain+'/products/synthetic {{ UnsubscribeURL }}'};
- const fetchImpl=async(url,options)=>{calls.push({url:String(url),method:options.method});const u=new URL(url),q=options.body?JSON.parse(options.body):Object.fromEntries(u.searchParams);let value=q.acao==='campanha_nativa_contexto'?context:q.acao==='campanha_obter'?{campaign:{id:900,version:'a'.repeat(32),status:'draft',sent:0,started_at:null,definition}}:{};return new Response(JSON.stringify(value),{status:200});};
+ const fetchImpl=async(url,options)=>{calls.push({url:String(url),method:options.method});const u=new URL(url),q=options.body?JSON.parse(options.body):Object.fromEntries(u.searchParams);let value=q.acao==='campanha_nativa_contexto'?context:q.acao==='campanha_obter'?{campaign:{id:900,version:'a'.repeat(32),status:'draft',sent:0,started_at:null,send_at:definition.send_at||new Date(Date.now()+30*60000).toISOString(),definition}}:{};return new Response(JSON.stringify(value),{status:200});};
  const adapter=N.create({enabled:true,editorsEnabled,frozenAudienceV3,scheduleReady:()=>ready,binding:async()=>({author,credential:'synthetic-source-key',binding:'bound',snapshot:'same'}),remoteKey:()=>crypto.randomUUID(),fetchImpl,delivery:{submit:async(ctx,command)=>{submits.push(command);if(deliveryError)throw Object.assign(Error('lost'),{code:'UPSTREAM_BUSY'});return{state:'succeeded'};},reconcile:async()=>({state:'pending'}),recoverNativeCancel:async()=>({state:'pending'})}});
  const q=(acao,extra={})=>({acao,brand,id:900,expected_version:'a'.repeat(32),idempotency_key:crypto.randomUUID(),...extra});return{adapter,context,author,submits,calls,q,definition,domain};
 }
@@ -17,3 +17,21 @@ for(const brand of ['aristo','fish']){
  test('delivery uncertainty never receives a false not-reserved certificate '+brand,async()=>{const f=fixture(brand,{deliveryError:true});await a.rejects(f.adapter.handle({},'POST',f.q('campanha_nativa_cancelar',{confirm:'cancelar'})),e=>e.code==='UPSTREAM_BUSY'&&e.nativeNotReserved!==true);a.equal(f.submits.length,1);});
  test('read-only person and forged cross-brand base never reach delivery '+brand,async()=>{const f=fixture(brand,{editor:false});await a.rejects(f.adapter.handle({},'POST',f.q('campanha_nativa_cancelar',{confirm:'cancelar'})),e=>e.code==='NATIVE_INTERNAL_EDITOR_REQUIRED');a.equal(f.calls.length,0);const g=fixture(brand);g.context.base.id=brand==='fish'?16:17;await a.rejects(g.adapter.handle({},'POST',g.q('campanha_nativa_cancelar',{confirm:'cancelar'})),e=>e.code==='NATIVE_INTERNAL_NOT_ELIGIBLE'&&e.nativeNotReserved===true);a.equal(g.submits.length,0);});
 }
+
+for(const brand of ['aristo','fish'])for(const email of ['qa.crm+'+brand+'.edicao@shrigma.com.br','felipebandeira+codex@oaristocrata.com'])test('restricted large audience and tomorrow10h '+brand+' '+email,async()=>{
+ const f=fixture(brand,{email});f.context.eligible_count=100001;
+ const r=await f.adapter.handle({},'GET',{acao:'campanha_nativa_contexto',brand,id:900});a.equal(r.body.can_schedule,true);a.equal(r.body.schedule_max_minutes,10080);a.equal(r.body.real_schedule,true);
+ const date=new Date(Date.now()+24*3600000);await f.adapter.handle({},'POST',f.q('campanha_nativa_data',{send_at:date.toISOString()}));a.equal(f.submits.length,1);
+ for(const delay of [19*60000,7*24*3600000+60000])await a.rejects(f.adapter.handle({},'POST',f.q('campanha_nativa_data',{send_at:new Date(Date.now()+delay).toISOString()})),e=>e.code==='NATIVE_INTERNAL_DATE'&&e.nativeNotReserved===true);
+ await f.adapter.handle({},'POST',f.q('campanha_nativa_agendar',{confirm:'agendar',audience_review_id:crypto.randomUUID()}));a.equal(f.submits.length,2);
+});
+for(const brand of ['aristo','fish'])test('ordinary editor cannot opt into the restricted larger audience or window '+brand,async()=>{
+ const f=fixture(brand);f.context.eligible_count=100001;const r=await f.adapter.handle({},'GET',{acao:'campanha_nativa_contexto',brand,id:900});a.equal(r.body.can_schedule,false);a.equal(r.body.schedule_max_minutes,120);a.equal(r.body.real_schedule,false);
+ await a.rejects(f.adapter.handle({},'POST',f.q('campanha_nativa_agendar',{confirm:'agendar',audience_review_id:crypto.randomUUID()})),e=>e.code==='CONSENT_REGISTRATION_REQUIRED'&&e.nativeNotReserved===true);
+ await a.rejects(f.adapter.handle({},'POST',f.q('campanha_nativa_data',{send_at:new Date(Date.now()+24*3600000).toISOString()})),e=>e.code==='NATIVE_INTERNAL_DATE'&&e.nativeNotReserved===true);a.equal(f.submits.length,0);
+});
+
+for(const brand of ['aristo','fish'])test('ordinary editor cannot schedule a shared future date saved by QA '+brand,async()=>{
+ const f=fixture(brand);f.definition.send_at=new Date(Date.now()+24*3600000).toISOString();
+ await a.rejects(f.adapter.handle({},'POST',f.q('campanha_nativa_agendar',{confirm:'agendar',audience_review_id:crypto.randomUUID()})),e=>e.code==='NATIVE_INTERNAL_DATE'&&e.nativeNotReserved===true);a.equal(f.submits.length,0);
+});

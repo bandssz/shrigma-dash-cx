@@ -8,9 +8,9 @@ const positive=n=>Number.isSafeInteger(n)&&n>0&&n<=2147483647;
 const plain=o=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.getPrototypeOf(o)===Object.prototype;
 const exact=(o,keys)=>plain(o)&&Object.keys(o).sort().join(',')===[...keys].sort().join(',');
 const fail=code=>{throw Object.assign(Error(code),{code});};
-async function response(r){
+async function response(r,maxBytes=2*1024*1024){
  if(!r||r.redirected||!/^application\/json(?:\s*;|$)/i.test(r.headers.get('content-type')||''))fail('CONSENT_RESPONSE_UNCONFIRMED');
- let bytes=0;const chunks=[];if(!r.body)fail('CONSENT_RESPONSE_UNCONFIRMED');for await(const chunk of r.body){bytes+=chunk.length;if(bytes>2*1024*1024)fail('CONSENT_RESPONSE_UNCONFIRMED');chunks.push(Buffer.from(chunk));}
+ let bytes=0;const chunks=[];if(!r.body)fail('CONSENT_RESPONSE_UNCONFIRMED');for await(const chunk of r.body){bytes+=chunk.length;if(bytes>maxBytes)fail('CONSENT_RESPONSE_UNCONFIRMED');chunks.push(Buffer.from(chunk));}
  let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{fail('CONSENT_RESPONSE_UNCONFIRMED');}return{status:r.status,body};
 }
 function createNativeConsent({origin,username,token,fetchFn=fetch}){
@@ -21,10 +21,10 @@ function createNativeConsent({origin,username,token,fetchFn=fetch}){
  async function api(q,interrupted=()=>false){
   if(!plain(q))fail('CONSENT_NATIVE_INPUT');let pathname,method='GET',body;
   if(['campaign','list','subscriber'].includes(q.resource)&&exact(q,['resource','id'])&&positive(q.id))pathname='/api/'+{campaign:'campaigns',list:'lists',subscriber:'subscribers'}[q.resource]+'/'+q.id;
-  else if(q.resource==='members'&&exact(q,['resource','id','page','perPage',...(q.subscriptionStatus!==undefined?['subscriptionStatus']:[])])&&positive(q.id)&&positive(q.page)&&q.page<=100&&q.perPage===100&&(q.subscriptionStatus===undefined||q.subscriptionStatus==='unsubscribed')){const query=new URLSearchParams({list_id:String(q.id),page:String(q.page),per_page:'100',order_by:'id',order:'asc'});if(q.subscriptionStatus)query.set('subscription_status',q.subscriptionStatus);pathname='/api/subscribers?'+query;}
+  else if(q.resource==='members'&&exact(q,['resource','id','page','perPage',...(q.subscriptionStatus!==undefined?['subscriptionStatus']:[])])&&positive(q.id)&&positive(q.page)&&q.perPage===1000&&(q.subscriptionStatus===undefined||q.subscriptionStatus==='unsubscribed')){const query=new URLSearchParams({list_id:String(q.id),page:String(q.page),per_page:'1000',order_by:'id',order:'asc'});if(q.subscriptionStatus)query.set('subscription_status',q.subscriptionStatus);pathname='/api/subscribers?'+query;}
   else if(q.resource==='unsubscribe'&&exact(q,['resource','subscriberId','originId'])&&positive(q.subscriberId)&&positive(q.originId)){pathname='/api/subscribers/lists';method='PUT';body=JSON.stringify({ids:[q.subscriberId],action:'unsubscribe',target_list_ids:[q.originId]});}
   else fail('CONSENT_NATIVE_INPUT');
-  if(interrupted())fail('CONSENT_REQUEST_ENDED');return response(await fetchFn(new URL(pathname,base).href,{method,headers:{Accept:'application/json',Authorization:authorization,...(body?{'Content-Type':'application/json'}:{})},...(body?{body}:{}),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)}));
+  if(interrupted())fail('CONSENT_REQUEST_ENDED');return response(await fetchFn(new URL(pathname,base).href,{method,headers:{Accept:'application/json',Authorization:authorization,...(body?{'Content-Type':'application/json'}:{})},...(body?{body}:{}),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)}),q.resource==='members'?8*1024*1024:2*1024*1024);
  }
  return Object.freeze({api,sign,verify});
 }

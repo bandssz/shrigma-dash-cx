@@ -1,7 +1,7 @@
 'use strict';
 // Private gateway composition. No browser route, API16 credential, session
 // fabrication, environment read or timer is introduced by this module.
-const {createTask}=require('./task.cjs'),{createStore}=require('./store.cjs');
+const {createTask}=require('./campaign-consent-task.cjs'),{createStore}=require('./campaign-consent-store.cjs');
 const plain=o=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.getPrototypeOf(o)===Object.prototype;
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const SOURCE='https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35/consent-reconciliation';
@@ -15,7 +15,7 @@ function createBroker({db,encrypt,decrypt,serviceBinding,fetchImpl=fetch,sourceU
   if(before.snapshot!==binding.snapshot||before.credential!==binding.credential)fail('CONSENT_ACCESS_CHANGED');
   const response=await fetchImpl(url.href,{method:'POST',redirect:'error',cache:'no-store',headers:{Accept:'application/json',Authorization:'Bearer '+binding.credential,'Content-Type':'application/json'},body:JSON.stringify(command),signal:AbortSignal.timeout(85000)});
   if(response.redirected||!/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type')||'')||!response.body)fail('CONSENT_RESPONSE_UNCONFIRMED');
-  let size=0;const chunks=[];for await(const chunk of response.body){size+=chunk.length;if(size>2*1024*1024)fail('CONSENT_RESPONSE_UNCONFIRMED');chunks.push(Buffer.from(chunk));}
+  let size=0;const chunks=[];for await(const chunk of response.body){size+=chunk.length;if(size>32*1024*1024)fail('CONSENT_RESPONSE_UNCONFIRMED');chunks.push(Buffer.from(chunk));}
   let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{fail('CONSENT_RESPONSE_UNCONFIRMED');}
   const after=await serviceBinding(command.brand);if(after.snapshot!==binding.snapshot||after.credential!==binding.credential)fail('CONSENT_ACCESS_CHANGED');
   if(response.status!==200){if(/^CONSENT_[A-Z_]{1,70}$/.test(body?.code||''))fail(body.code);fail('CONSENT_SOURCE_PENDING');}
@@ -40,7 +40,8 @@ function createBroker({db,encrypt,decrypt,serviceBinding,fetchImpl=fetch,sourceU
   if(closing)fail('CONSENT_TASK_DISABLED');return store.register({userId,clientKey,brand,campaignId:row.campaign_id},p);
  }
  function register(args){if(closing)return Promise.reject(Object.assign(Error('CONSENT_TASK_DISABLED'),{code:'CONSENT_TASK_DISABLED'}));const key=JSON.stringify([args.userId,args.clientKey,args.brand]);const active=registrations.get(key);if(active){if(active.freezeKey!==args.freezeKey)return Promise.reject(Object.assign(Error('CONSENT_REGISTRATION_CHANGED'),{code:'CONSENT_REGISTRATION_CHANGED'}));return active.promise;}const promise=registerOne(args).finally(()=>registrations.delete(key));registrations.set(key,{freezeKey:args.freezeKey,promise});return promise;}
- function ready({userId,brand,campaignId}){if(closing)return false;try{return store.list().some(r=>r.userId===userId&&r.brand===brand&&r.campaignId===campaignId);}catch{return false;}}
+ // Consent readiness belongs to the campaign. The native caller separately authenticates current editor, front and brand.
+ function ready({brand,campaignId}){if(closing)return false;try{return store.list().some(r=>r.brand===brand&&r.campaignId===campaignId);}catch{return false;}}
  async function close(){closing=true;await Promise.allSettled([task.close(),...[...registrations.values()].map(x=>x.promise)]);contexts.clear();}
  return Object.freeze({register,ready,tick:task.tick,close});
 }

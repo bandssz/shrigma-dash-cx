@@ -11,7 +11,7 @@ function verify({workspaceOnly=false}={}){
  // Every entry remains byte/hash checked and the Git delta must match exactly.
  // The two isolated existing-service contexts are inventoried as individual
  // reviewable sources; the historical base and custody fences stay exact.
- assert(Array.isArray(manifest.files)&&manifest.files.length>=20&&manifest.files.length<=438);assert.equal(new Set(manifest.files.map(f=>f.path)).size,manifest.files.length);
+ assert(Array.isArray(manifest.files)&&manifest.files.length>=20&&manifest.files.length<=443);assert.equal(new Set(manifest.files.map(f=>f.path)).size,manifest.files.length);
  for(const f of manifest.files){assert(typeof f.path==='string'&&!f.path.split('/').some(s=>s==='..'||s.startsWith('.private')));assert(!f.path.startsWith('operacao/')&&!f.path.startsWith('arquivo/'));const file=path.join(ROOT,f.path),st=fs.lstatSync(file);assert(st.isFile()&&!st.isSymbolicLink());const b=fs.readFileSync(file);assert.equal(b.length,f.bytes,f.path);assert.equal(sha(b),f.sha256,f.path);}
  if(!workspaceOnly){
   const git=(...args)=>execFileSync('git',args,{cwd:ROOT,encoding:'utf8'}).trim();

@@ -23,13 +23,13 @@ function createSource({campaignRead,audienceRead,audienceCount,api,sign,verify,n
   return{o,c,receipt:sha(o)};
  }
  async function list(listId,expectedUuid){const l=await native('list',{id:listId});if(l?.id!==listId||!uuid(l.uuid)||expectedUuid&&l.uuid!==expectedUuid||!['single','double'].includes(l.optin)||!['active','archived'].includes(l.status))fail('CONSENT_LIST_UNCONFIRMED');return{id:l.id,uuid:l.uuid,optin:l.optin,status:l.status};}
- async function members(listId,status){
+ async function members(listId,status,listUuid){
   const out=[],seen=new Set();let total=null;
-  for(let page=1;page<=100;page++){
-   const r=await native('members',{id:listId,page,perPage:100,...(status?{subscriptionStatus:status}:{})});
-   if(!plain(r)||!Array.isArray(r.results)||r.results.length>100||r.page!==page||r.per_page!==100||!Number.isSafeInteger(r.total)||r.total<0||r.total>10000||total!==null&&total!==r.total)fail('CONSENT_MEMBERS_UNCONFIRMED');total=r.total;
-   for(const m of r.results){if(!id(m.id)||!uuid(m.uuid)||seen.has(m.id))fail('CONSENT_MEMBERS_UNCONFIRMED');seen.add(m.id);out.push({id:m.id,uuid:m.uuid});}
-   if(out.length===total)return out.sort((a,b)=>a.id-b.id);if(!r.results.length)fail('CONSENT_MEMBERS_UNCONFIRMED');
+  for(let page=1;;page++){
+   const r=await native('members',{id:listId,page,perPage:1000,...(status?{subscriptionStatus:status}:{})});
+   if(!plain(r)||!Array.isArray(r.results)||r.results.length>1000||r.page!==page||r.per_page!==1000||!Number.isSafeInteger(r.total)||r.total<0||total!==null&&total!==r.total)fail('CONSENT_MEMBERS_UNCONFIRMED');total=r.total;
+   for(const m of r.results){if(!id(m.id)||!uuid(m.uuid)||seen.has(m.id))fail('CONSENT_MEMBERS_UNCONFIRMED');seen.add(m.id);const row={id:m.id,uuid:m.uuid};if(listUuid){if(!Array.isArray(m.lists))fail('CONSENT_MEMBER_UNCONFIRMED');const rows=m.lists.filter(l=>l.id===listId);if(rows.length!==1||rows[0].uuid!==listUuid||!['confirmed','unconfirmed'].includes(rows[0].subscription_status))fail('CONSENT_FREEZE_CHANGED');row.subscription_status=rows[0].subscription_status;}out.push(row);}
+   if(out.length===total)return out.sort((a,b)=>a.id-b.id);if(out.length>total||!r.results.length)fail('CONSENT_MEMBERS_UNCONFIRMED');
   }
   fail('CONSENT_MEMBERS_PENDING');
  }
@@ -38,7 +38,7 @@ function createSource({campaignRead,audienceRead,audienceCount,api,sign,verify,n
  }
  function signed(input){
   if(!plain(input)||typeof input.seal!=='string'||!/^[a-f0-9]{64}$/.test(input.seal))fail('CONSENT_PROVENANCE_UNCONFIRMED');const p={...input};delete p.seal;
-  if(p.schema!=='crm-consent-provenance-v1'||!['aristo','fish'].includes(p.brand)||!id(p.campaignId)||!uuid(p.campaignUuid)||!uuid(p.createdOperationId)||!plain(p.freeze)||!plain(p.audience)||!Array.isArray(p.origins)||!p.origins.length||!Array.isArray(p.members)||!p.members.length||p.members.length>10000||typeof p.originalReceiptSha256!=='string'||!/^[a-f0-9]{64}$/.test(p.originalReceiptSha256)||verify(canonical(p),input.seal)!==true)fail('CONSENT_PROVENANCE_UNCONFIRMED');return p;
+  if(p.schema!=='crm-consent-provenance-v1'||!['aristo','fish'].includes(p.brand)||!id(p.campaignId)||!uuid(p.campaignUuid)||!uuid(p.createdOperationId)||!plain(p.freeze)||!plain(p.audience)||!Array.isArray(p.origins)||!p.origins.length||!Array.isArray(p.members)||!p.members.length||typeof p.originalReceiptSha256!=='string'||!/^[a-f0-9]{64}$/.test(p.originalReceiptSha256)||verify(canonical(p),input.seal)!==true)fail('CONSENT_PROVENANCE_UNCONFIRMED');return p;
  }
  async function register({brand,createKey,freezeKey}){
   if(!['aristo','fish'].includes(brand)||!/^bff-[a-f0-9]{64}$/.test(createKey||'')||!uuid(freezeKey))fail('CONSENT_REGISTRATION_INPUT');
@@ -66,11 +66,11 @@ function createSource({campaignRead,audienceRead,audienceCount,api,sign,verify,n
   try{Freeze.receipt({_http:freezeRead.status,_body:f},{brand,id:f.audience_id,expected_version:f.audience_version,expected_definition_hash:f.definition_hash});}catch{fail('CONSENT_FREEZE_UNCONFIRMED');}
   if(c.definition.list_ids[0]!==f.list_id)fail('CONSENT_FREEZE_UNCONFIRMED');
   const origins=[];for(const expected of f.origins){const current=await list(expected.id,expected.uuid);if(canonical(current)!==canonical(expected))fail('CONSENT_ORIGIN_UNCONFIRMED');origins.push(current);}
-  const frozen=await list(f.list_id,f.list_uuid),initial=await members(f.list_id);
+  const frozen=await list(f.list_id,f.list_uuid),initialWithState=await members(f.list_id,undefined,f.list_uuid),initial=initialWithState.map(({id,uuid})=>({id,uuid}));
   if(frozen.optin!==f.list_optin||frozen.status!=='active'||initial.length!==f.eligible_count||sha(initial.map(x=>x.id))!==f.members_sha256||sha(initial.map(x=>[x.id,x.uuid]))!==f.members_identity_sha256)fail('CONSENT_FREEZE_CHANGED');
   // Membership state belongs to this list, never the subscriber's global state.
   // Meta remains a SQL-opaque pin; no personal metadata crosses this boundary.
-  const states=[];for(const m of initial){const value=await native('subscriber',{id:m.id});if(value?.id!==m.id||value.uuid!==m.uuid||!Array.isArray(value.lists))fail('CONSENT_MEMBER_UNCONFIRMED');const rows=value.lists.filter(l=>l.id===f.list_id);if(rows.length!==1||rows[0].uuid!==f.list_uuid||!['confirmed','unconfirmed'].includes(rows[0].subscription_status))fail('CONSENT_FREEZE_CHANGED');states.push([m.id,rows[0].subscription_status]);}
+  const states=initialWithState.map(m=>[m.id,m.subscription_status]);
   if(sha(states)!==f.members_state_sha256)fail('CONSENT_FREEZE_CHANGED');
   const current=await native('campaign',{id:c.id}),p={schema:'crm-consent-provenance-v1',brand,campaignId:c.id,campaignUuid:current.uuid,createdOperationId:o.id,createKey,freezeKey,originalReceiptSha256:receipt,freeze:JSON.parse(JSON.stringify(f)),audience:{id:f.audience_id,version:f.audience_version,definition_hash:f.definition_hash},origins,members:initial,registeredAt:now()};
   await campaign(p);return{...p,seal:sign(canonical(p))};

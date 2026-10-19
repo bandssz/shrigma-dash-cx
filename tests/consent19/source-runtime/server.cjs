@@ -52,17 +52,17 @@ async function readMultipart(req,maxBytes=MAX_FILE_BYTES+65536){
  const brand=form.get('brand'),operationId=form.get('operation_id'),hash=form.get('sha256'),file=form.get('file');if(!['fish','aristo'].includes(brand)||!UUID.test(operationId)||!SHA.test(hash)||!file||typeof file.arrayBuffer!=='function'||typeof file.type!=='string'||file.size>MAX_FILE_BYTES)throw problem(422,'REQUEST_INVALID','Solicitação inválida.');
  return {brand,operation_id:operationId,sha256:hash,content_type:file.type,bytes:Buffer.from(await file.arrayBuffer())};
 }
-function createServer({pool,native,revision,enabled=false,mediaEnabled=false,nativeInternalEnabled=false,executor=createExecutor({pool,native,nativeInternalEnabled}),mediaExecutor=null,consentExecutor=null,consentEnabled=false,maxPending=12,readDeadlineMs=16000,writeDeadlineMs=85000,maxBodyBytes=2*1024*1024,maxResponseBytes=8*1024*1024}){
+function createServer({pool,native,revision,enabled=false,mediaEnabled=false,nativeInternalEnabled=false,executor=createExecutor({pool,native,nativeInternalEnabled}),mediaExecutor=null,consentExecutor=null,consentEnabled=false,maxPending=12,readDeadlineMs=16000,writeDeadlineMs=85000,maxBodyBytes=2*1024*1024,maxResponseBytes=8*1024*1024,consentBodyBytes=32*1024*1024,consentResponseBytes=32*1024*1024}){
  let pending=0,closing=false;
  const server=http.createServer({maxHeaderSize:8192,requestTimeout:15000,headersTimeout:10000},async(req,res)=>{
-  let admitted=false,timer,ended=false,responding=false;
+  let admitted=false,timer,ended=false,responding=false,privateConsent=false;
   const disconnected=()=>{if(!res.writableEnded)ended=true;};res.on('close',disconnected);
   async function reply(status,body){
    if(res.destroyed||res.writableEnded||responding)return;responding=true;
    const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, private','Pragma':'no-cache','Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','Vary':'Accept-Encoding','X-CRM-Campaign-Revision':revision};
    if(status===503)headers['Retry-After']='5';
    let bytes=Buffer.from(body===null?'':JSON.stringify(body));
-   if(bytes.length>maxResponseBytes){status=503;bytes=Buffer.from(JSON.stringify(unavailable().body));}
+   if(bytes.length>(privateConsent?consentResponseBytes:maxResponseBytes)){status=503;bytes=Buffer.from(JSON.stringify(unavailable().body));}
    if(bytes.length>1024&&acceptsGzip(req.headers['accept-encoding'])){bytes=await compress(bytes,{level:1});headers['Content-Encoding']='gzip';}
    if(res.destroyed||res.writableEnded)return;headers['Content-Length']=bytes.length;res.writeHead(status,headers);res.end(bytes);
   }
@@ -80,7 +80,7 @@ function createServer({pool,native,revision,enabled=false,mediaEnabled=false,nat
    pending++;admitted=true;
    timer=setTimeout(()=>{ended=true;reply(req.method==='POST'?502:503,{error:mediaRoute&&req.method==='POST'?'MEDIA_OUTCOME_UNKNOWN':req.method==='POST'?'OUTCOME_UNKNOWN':'READ_UNAVAILABLE',message:'Consulta não concluída. Consulte a mesma operação antes de tentar novamente.'}).catch(()=>res.destroy());},req.method==='POST'?writeDeadlineMs:readDeadlineMs);
    let input;
-   if(consentRoute){const key=bearer(req);if(!key||url.search)throw problem(401,'UNAUTHORIZED','Autenticação necessária.');input={key,command:await readBody(req,maxBodyBytes)};}
+   if(consentRoute){const key=bearer(req);if(!key||url.search)throw problem(401,'UNAUTHORIZED','Autenticação necessária.');privateConsent=true;input={key,command:await readBody(req,consentBodyBytes)};}
    else if(mediaRoute){if(req.method==='GET')input=mediaGet(req,url);else{const key=bearer(req);if(!key)throw problem(401,'UNAUTHORIZED','Autenticação necessária.');input={key,input:await readMultipart(req)};}}
    else{const body=req.method==='POST'?await readBody(req,maxBodyBytes):null;input=parse(req,url,body);}
    if(ended)return;
