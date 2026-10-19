@@ -10,8 +10,8 @@
   "files": [
     {
       "path": ".github/workflows/crm-consent19-gateway.yml",
-      "bytes": 13243,
-      "sha256": "7ddbc6b6e1bee23f7a190d9af61c65a02248014a42160d46a4abe308af155471"
+      "bytes": 13317,
+      "sha256": "3825abc5fa3153c65615dc0b46e01b68ceb4c5d9e50439db86faf49e20cb6f2a"
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
@@ -951,7 +951,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "ea3cb0181bf3fea6da4c3a1f23bdfbe0e51f5c62e250f3ef8f4c3dd537780948"
+      "sha256": "48e9f068efaf3e25ad379fee53ccd0b8a8c51cefecb33841d15947212437c5c9"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1185,18 +1185,18 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 142960,
-      "sha256": "86ff507435cda9f8b26ae5a540532626ffae244a44b7fbe302be000af6079199"
+      "bytes": 143601,
+      "sha256": "c7d13c0a7b7d73a39ccdab0d385df893bd72716a2ea6e705b5ed545a44900b25"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
-      "bytes": 37714,
-      "sha256": "7e1594033cce29cd3cede1992196c422acdb98dc79ed4ff698236af79c5d0853"
+      "bytes": 38530,
+      "sha256": "fac246a5e78925fb504b5b621312ac7cbff3e3a1d6bb8161948953b059432b67"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 84359,
-      "sha256": "655eaaf084b0cd88a6c150d33b6f650884e5f4f0c5c9923ae0bb78d43b5153a8"
+      "bytes": 84755,
+      "sha256": "3ab02caddf56949cdc1e1cd7cf5fbda290742755bf31e49b155e08cb29f378b1"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -1590,8 +1590,8 @@
     },
     {
       "path": "tests/crm-legacy-parity.test.cjs",
-      "bytes": 26683,
-      "sha256": "adeb4016523524e06495a17d233a8016d6846bed7bfad45cca1cf059df9481aa"
+      "bytes": 27968,
+      "sha256": "e3161408e36fca4f5a6d479dbb40b53b1e00d7f782d7e87e52c21add42e5271e"
     },
     {
       "path": "tests/crm-model-import.test.cjs",
