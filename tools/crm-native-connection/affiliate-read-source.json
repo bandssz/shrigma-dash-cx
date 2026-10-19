@@ -951,7 +951,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "a867c7b9cc95d4f37da4473695ca8381f7a0ff9f210bf2442669d6063705af8f"
+      "sha256": "96fdb284c1699f0f6a30bb986d6f618134a345501a47b2130748d645cd321e94"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1195,8 +1195,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 204478,
-      "sha256": "9ff99bc79639b6215bab7dd4ee14ef8b9678260ce4cc4c1a2dad7592dd52e505"
+      "bytes": 204438,
+      "sha256": "f27eac73233d81d7083e933d1801530aaf88baf1dcb097617b546d6d1ed56acf"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -1215,8 +1215,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 122126,
-      "sha256": "9c34fae380f027357e1981c78f2b99c70b2446c2778cb42db8fc1936bf1f3d28"
+      "bytes": 121297,
+      "sha256": "ee27ddbac9a0465c9c0ca15159f5999fe82425fe0fd4c89874f8f27b26244b84"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1240,8 +1240,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/message-preview.js",
-      "bytes": 3463,
-      "sha256": "48cd2818a0b6aab463a082b26b79abe53c4cc8742a1b2fac3a745c629d39c48a"
+      "bytes": 3405,
+      "sha256": "ac56789547be6e23d4af060f2bee717b0177702ca937bcc59ed836a6f5103cad"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/model-import.js",
@@ -1495,8 +1495,8 @@
     },
     {
       "path": "tests/consent19/four-steps.test.cjs",
-      "bytes": 21999,
-      "sha256": "6b774ad7ad0cf10d0c40be3a0ba3d3175ef66a97222e26e5f080826e689f2f1f"
+      "bytes": 19152,
+      "sha256": "20aa30dc93b36670a47a414cbc134aef581f76bc94a6dddd2b43c97e1f3fc07f"
     },
     {
       "path": "tests/consent19/gateway-fixture.cjs",
@@ -1620,8 +1620,8 @@
     },
     {
       "path": "tests/crm-message-preview.test.cjs",
-      "bytes": 3148,
-      "sha256": "22c0df431d13fd35db00af382ac996125dc0df063ea4619f971a886cdded0ff0"
+      "bytes": 2818,
+      "sha256": "01a6a52fd85fbc90127e05a4a90ed12b8119bec3460a0b410743bf67fd94d9e7"
     },
     {
       "path": "tests/crm-model-import.test.cjs",
@@ -2081,7 +2081,7 @@
     {
       "path": "tools/crm-qa/run-ci.cjs",
       "bytes": 7377,
-      "sha256": "ff9d7e666cf43575eccafc4b7bb901c842dd7088ef8112dacb70404ef7463528"
+      "sha256": "08d34133db03c26fa37b29b5d3aa1c85221f6dba8d75768f34ce4dd6d37d47b8"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
