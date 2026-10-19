@@ -1745,8 +1745,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 47052,
-      "sha256": "0cd9e3180ea96e5c30c83316d61bca0623f72b7677160d2a7dbb49c46e9621d6"
+      "bytes": 47157,
+      "sha256": "b41dfa7c040b8be5f974bf45df00cae3f8bddeab47114e2a79afce5f3d5e4db3"
     },
     {
       "path": "tests/production-envelope.test.cjs",
