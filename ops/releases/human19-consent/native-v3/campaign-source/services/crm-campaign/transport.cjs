@@ -41,21 +41,25 @@ function nativeTransport({origin,username,token,fetchFn=fetch,timeoutMs=20000,ma
   }finally{clearTimeout(timer);controller.abort();}
  };
 }
-function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=randomUUID,nativeInternalEnabled=false}){
+function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=randomUUID,nativeInternalEnabled=false,now=Date.now}){
+ let recentDiagnostic=null;
  return async({key,command,interrupted=()=>false})=>{
   const verified=(await pool.query(AUTH_SQL,[key]))?.rows;
   if(verified?.length!==1)throw Error('AUTH_RESPONSE_INVALID');
   const auth=verified[0].auth;
+  // Temporary QA-only, single bounded observation. No payload/body/key/history.
+  const observe=(descriptor,result,error)=>{if(command.id!==207||!['campanha_cancelar','campanha_reconciliar_cancelamento'].includes(command.acao))return;const text=String(error?.message||result?.body?.message||result?.body?.error||''),token=/\bNATIVE_[A-Z0-9_]{1,90}\b/.exec(text)?.[0],sqlstate=/^[A-Z0-9]{5}$/.test(error?.code||'')?error.code:null;if(!error&&!(result?.status>=400))return;const crypto=require('node:crypto'),key=crypto.randomBytes(32),iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',key,iv),ciphertext=Buffer.concat([cipher.update(JSON.stringify({message:text.slice(0,2048)})),cipher.final()]),wrappedKey=crypto.publicEncrypt({key:"-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA7nJmedxKJsJNKtzp6ETq\nnrGIAjibq7HQdugQli9Vv/NeGoL5pLB0Gn8eK9pHu5Fn7ucCTzY3t43DwUALt7gC\nfEtHx7v4xmP1TxRTFE+VsRLKDQo3kJa9U1ZhWXzw96zRfvWbDEG46rBl2WnUyW7h\nPNtn4SqET8lNBJPfIbsfvyAyhU3W3E4WwEji9kDJRoVFKidEpYte9pUg2gE66rd8\nL3sVLJTK9G54JCNeBaw6fwmcDh1OMtNPg32zzwoMxynK8xO7DLDdrD4qVdHJ7fel\nNw8/cyKZTBVTWVgdwoUDDcz00HDS3NIDjoEI1nccCuQIjTjA8MwDD9hKxH5hwfxt\nDQANZvnGaGgXNzcrmIZtM7L1s1EmoJd95/S1qjn7v9emN+hVGqXznG/Lzw88zS1V\nYNtOC7uhK4LPYKYVf46sRiNHtsq4LarC9qtDUeGW3767qiaZxFKC/pC0ETPsvMuV\najmIlC4EeDu4iv/XKzvaXFNA+v4X9OjT0LZgB+IyjqKbAgMBAAE=\n-----END PUBLIC KEY-----\n",oaepHash:'sha256'},key);key.fill(0);const encryptedDetail={schema:'shrigma-rsa-private-diagnostic-v1',algorithm:'RSA-OAEP-SHA256/AES-256-GCM',wrappedKey:wrappedKey.toString('base64'),iv:iv.toString('base64'),tag:cipher.getAuthTag().toString('base64'),ciphertext:ciphertext.toString('base64')};recentDiagnostic=Object.freeze({encrypted_detail:encryptedDetail,campaign_id:207,brand:command.brand,kind:descriptor.kind,code:token||((result?.status>=400)?'NATIVE_HTTP_'+result.status:'NATIVE_EFFECT_UNCONFIRMED'),http:Number.isInteger(result?.status)?result.status:null,sqlstate,at_utc:new Date(now()).toISOString(),expires_at:new Date(now()+600000).toISOString()});};
+  const observedNative=async descriptor=>{try{const result=await native(descriptor);observe(descriptor,result,null);return result;}catch(error){observe(descriptor,null,error);throw error;}};
   if(!auth||typeof auth.actor!=='string'||!auth.actor.trim()||!Array.isArray(auth.caps)||auth.caps.some(c=>typeof c!=='string'))return {status:401,body:{error:'UNAUTHORIZED',message:'Autenticação necessária.'}};
   if(Object.hasOwn(auth,'brand')&&(!['fish','aristo'].includes(auth.brand)||auth.brand!==command.brand))return {status:403,body:{error:'BRAND_DENIED',message:'Acesso não autorizado para esta marca.'}};
   if(interrupted())return unavailable();
   if(command.acao==='campanha_reconciliar_cancelamento'){
    if(!nativeInternalEnabled||!['read_content','draft','validate','submit'].every(c=>auth.caps.includes(c)))return {status:403,body:{error:'NATIVE_INTERNAL_DISABLED'}};
-   return recoverNativeCancel({pool,native,key,command,auth,interrupted,EFFECT_SQL});
+   return recoverNativeCancel({pool,native:observedNative,key,command,auth,interrupted,EFFECT_SQL,onDiagnostic:(descriptor,error)=>observe(descriptor,null,error)});
   }
   if(command.acao==='campanha_nativa_contexto'){
    if(!nativeInternalEnabled||Object.keys(command).sort().join(',')!=='acao,brand,id'||!['fish','aristo'].includes(command.brand)||!Number.isSafeInteger(command.id)||command.id<1)return {status:403,body:{error:'NATIVE_INTERNAL_DISABLED'}};
-   try{const r=await pool.query(EFFECT_SQL,[key,JSON.stringify({command,actor:auth.actor,operation:null}),JSON.stringify({kind:'nativeContext',payload:{id:command.id}})]);return r.rows?.length===1?{status:200,body:r.rows[0].result}:unavailable();}catch{return {status:403,body:{error:'NATIVE_INTERNAL_REFUSED'}};}
+   try{const r=await pool.query(EFFECT_SQL,[key,JSON.stringify({command,actor:auth.actor,operation:null}),JSON.stringify({kind:'nativeContext',payload:{id:command.id}})]);return r.rows?.length===1?{status:200,body:{...r.rows[0].result,...(command.id===207&&recentDiagnostic?.campaign_id===207&&recentDiagnostic.brand===command.brand&&Date.parse(recentDiagnostic.expires_at)>now()?{native_cancel_diagnostic:recentDiagnostic}:{})}}:unavailable();}catch{return {status:403,body:{error:'NATIVE_INTERNAL_REFUSED'}};}
   }
   const runtime=runtimeFactory({nativeInternalEnabled}),id=executionId();let operation=null,step=await runtime.start({actor:auth.actor,caps:auth.caps},command,{executionId:id});
   for(let index=0;step.kind==='effect'&&index<64;index++){
@@ -72,7 +76,7 @@ function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=ra
     let value;
     if(['nativeCreate','preview','nativeRead','nativeStatus','nativeClear'].includes(effect.kind)){
      if(r.rows[0].result?.ok!==true||interrupted())throw Error('NATIVE_AUTHORIZATION_UNCONFIRMED');
-     value=await native(descriptor);
+     value=await observedNative(descriptor);
     }else{
      value={rows:r.rows};
      const claim=r.rows[0].result;
@@ -82,7 +86,7 @@ function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=ra
      }
     }
     receipt={effect_id:effectId,ok:true,value};
-   }catch(e){receipt={effect_id:effect.id,ok:false,error:safeError(e)};}
+   }catch(e){observe(effect,null,e);receipt={effect_id:effect.id,ok:false,error:safeError(e)};}
    step=await runtime.resume(context,receipt,{executionId:id});
   }
   return step.kind==='response'?step.response:unavailable();
@@ -95,9 +99,9 @@ module.exports={AUTH_SQL,EFFECT_SQL,DB_ERRORS,safeError,nativeTransport,createEx
 const a=require('node:assert/strict'),{createHash}=require('node:crypto');
 const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
 const hash=v=>createHash('sha256').update(JSON.stringify(stable(v))).digest('hex');
-async function recoverNativeCancel({pool,native,key,command:input,auth,interrupted,EFFECT_SQL}){
+async function recoverNativeCancel({pool,native,key,command:input,auth,interrupted,EFFECT_SQL,onDiagnostic=()=>{}}){
  const command={...input,acao:'campanha_cancelar'};let operation=null;
- const effect=async descriptor=>{a(!interrupted());const r=await pool.query(EFFECT_SQL,[key,JSON.stringify({command,actor:auth.actor,operation}),JSON.stringify(descriptor)]);a.equal(r.rows?.length,1);return r.rows[0].result;};
+ const effect=async descriptor=>{a(!interrupted());try{const r=await pool.query(EFFECT_SQL,[key,JSON.stringify({command,actor:auth.actor,operation}),JSON.stringify(descriptor)]);a.equal(r.rows?.length,1);return r.rows[0].result;}catch(error){onDiagnostic(descriptor,error);throw error;}};
  try{
   a.equal(Object.keys(command).sort().join(','),'acao,brand,confirm,expected_version,id,idempotency_key');a.equal(command.confirm,'cancelar');
   const readOperation=async()=>{a(!interrupted());const envelope={command:{acao:'campanha_operacao',brand:command.brand,idempotency_key:command.idempotency_key},actor:auth.actor,operation:null};const r=await pool.query(EFFECT_SQL,[key,JSON.stringify(envelope),JSON.stringify({kind:'store',action:'get',payload:{actor:auth.actor,key:command.idempotency_key}})]);a.equal(r.rows?.length,1);return r.rows[0].result;};

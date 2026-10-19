@@ -1,7 +1,7 @@
 name: CRM native v3 consent fidelity and compatible return
 'on':
   push:
-    branches: [codex/segunda19-freeze-v3, codex/segunda19-consent-live-plan]
+    branches: [codex/segunda19-freeze-v3, codex/segunda19-consent-live-plan, codex/segunda19-cancel-diagnostico]
 permissions:
   contents: read
 jobs:
@@ -40,7 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --memory 512m --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/v3,readonly" --entrypoint node "$IMAGE" --test --test-concurrency=1 /v3/source.test.cjs /v3/source-v3.test.cjs
+          docker run --rm --platform linux/amd64 --read-only --network none --user 1000:1000 --memory 512m --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/v3,readonly" --entrypoint node "$IMAGE" --test --test-concurrency=1 /v3/source.test.cjs /v3/source-v3.test.cjs /v3/native-cancel-diagnostic.test.cjs
       - name: Five original definitions and both native lifecycles on empty PG17.10
         shell: bash
         run: |
