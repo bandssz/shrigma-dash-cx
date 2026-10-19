@@ -54,11 +54,14 @@ jobs:
             sleep 1
           done
           [ "$owner_ready" = true ]
+          cp "$RELEASE/pg-driver.cjs" "$RELEASE/fixture/delta/pg-driver.cjs"
+          mkdir -p "$RELEASE/fixture/delta/campaign-candidate"
+          cp -a "$RELEASE/campaign-source/." "$RELEASE/fixture/delta/campaign-candidate/"
           owner_number=19011
           for owner_suite in pg-owner-bootstrap.test.cjs pg-functional.test.cjs; do
             owner_db="native17_test$owner_number"
             docker exec "$owner_pg" createdb -U postgres "$owner_db"
-            docker run --rm --platform linux/amd64 --network "container:$owner_pg" --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/v3,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/consent,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/delta,dst=/delta,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/freeze,dst=/freeze,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/current-source,dst=/current-source,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/source,dst=/source,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/custody,dst=/custody,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/campaign-source,dst=/delta/campaign-candidate,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/pg-driver.cjs,dst=/delta/pg-driver.cjs,readonly" --env "SHRIGMA_LOCAL_TEST_DB=$owner_db" --env CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS=v2 --entrypoint node "$IMAGE" --test --test-concurrency=1 "/v3/$owner_suite"
+            docker run --rm --platform linux/amd64 --network "container:$owner_pg" --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/v3,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/consent,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/delta,dst=/delta,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/freeze,dst=/freeze,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/current-source,dst=/current-source,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/source,dst=/source,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/custody,dst=/custody,readonly" --env "SHRIGMA_LOCAL_TEST_DB=$owner_db" --env CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS=v2 --entrypoint node "$IMAGE" --test --test-concurrency=1 "/v3/$owner_suite"
             owner_number=$((owner_number+1))
           done
       - name: Build actual Campaigns and Audience images on installed artifacts
