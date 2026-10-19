@@ -1,4 +1,5 @@
 'use strict';
+const BaselineAnalytics=require('./analytics-baseline.js');
 // Product parity with growth.html. Reuse the original calculation contracts;
 // the authenticated workspace owns fetching, scope, periods and Tabler markup.
 const G=require('../../../../growth-data.js');
@@ -9,6 +10,7 @@ const Home=require('./home.js');
 require('./model-library.js');
 require('./model-import.js');
 require('./campaign-import.js');
+require('./message-preview.js');
 const Analytics=(()=>{
  const names={fish:'Fishermans',aristo:'O Aristocrata',olivas:'Olivas do Campo'},channels={email:'E-mail',whatsapp:'WhatsApp',todos:'E-mail e WhatsApp'};
  const numeric=v=>v!==null&&v!==undefined&&v!==''&&typeof v!=='boolean'&&Number.isFinite(Number(v))?Number(v):null;
@@ -180,4 +182,4 @@ const Analytics=(()=>{
  return Object.freeze({names,channels,validate,coverage,channelMetric,conversion,pieces,accumulated,campaignName,campaignListRows,campaignListDetail,campaignHistoryRows,campaignHistoryMarkup,campaignPeriodState,campaignPeriodRows,series,flowRows,cart,build,table,cells,metric,summaryMarkup,coverageMarkup,resultMarkup,automationMarkup,exportCsv,numeric,count,knownSum,num,money,pct,esc,search:GT.busca,sort:GT.ordena,download:GT.baixar,models:GA.models});
 })();
 if(typeof module==='object'&&module.exports)module.exports=Analytics;
-if(typeof window==='object')window.ShrigmaCrmAnalytics=Analytics;
+if(typeof window==='object')window.ShrigmaCrmAnalytics=new Proxy({}, {get(_target,key){const selected=window.ShrigmaCrmFeatureEnabled?.('campaignPeriods')===true?Analytics:BaselineAnalytics;return selected[key];}});
