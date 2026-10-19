@@ -34,4 +34,5 @@ const GEC=require('../../../../growth-email-contract.js');
  function list(raw,brand){if(raw?.contract!=='crm-model-drafts-v1'||raw.brand!==brand||!Array.isArray(raw.drafts)||raw.drafts.length>20)fail('IMPORT_LIST_SCOPE');return raw.drafts.map(d=>{try{return fromDraft(d,brand);}catch(e){if(e.code!=='IMPORT_DRAFT_CONTENT')throw e;return {id:d.draft_id,version:d.version,name:typeof d.rascunho.nome==='string'?d.rascunho.nome:'Rascunho',unavailable:true};}});}
  function request(rascunho){return {acao:'rascunho',rascunho,draft_id:null,expected_version:null,confirm:null};}
 
-module.exports=Object.freeze({prepare,fromDraft,list,request,canonical,emailHTML});
+function fontLinksAllowed(html){const parsed=GEC.htmlTokens(String(html));return parsed.ok&&parsed.tokens.filter(t=>t.type==='tag'&&t.name==='link').every(t=>GEC.passiveFontLink(t));}
+module.exports=Object.freeze({prepare,fromDraft,list,request,canonical,emailHTML,fontLinksAllowed});
