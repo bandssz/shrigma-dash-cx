@@ -1410,8 +1410,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 11197,
-      "sha256": "ae662497a50cd42e57ce0e1cb4382eb71a4a4a01e0dfb0b776a5b52d44299f20"
+      "bytes": 11030,
+      "sha256": "5a4aee4c83e1d5a310c82d169d12412257d3caf8cb6190119b4ca19e3bafe86d"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -1565,8 +1565,8 @@
     },
     {
       "path": "tests/consent19/native-reservation-http.test.cjs",
-      "bytes": 2005,
-      "sha256": "8150ea25bb1eea920ed65281fc1b4b285379536edc8e0a07d81fab335dcaf67e"
+      "bytes": 3611,
+      "sha256": "146cca2509dd9c425153a2984a17b1894ccd5e3a3f3e9f5fc27f31bf1d66e8aa"
     },
     {
       "path": "tests/consent19/service-binding.cjs",

@@ -59,15 +59,12 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editor
   if(action==='campanha_nativa_operacao'&&method==='GET'&&exact(q,['acao','brand','idempotency_key']))return delivery.reconcile(context,{brand,idempotency_key:q.idempotency_key});
   if(method!=='POST'||!Number.isSafeInteger(q.id)||q.id<1||!UUID.test(q.idempotency_key)||!/^[a-f0-9]{32}$/.test(q.expected_version||''))throw error(400,'NATIVE_INTERNAL_INPUT');
   const nativeContext=await eligible(context,brand,q.id);
-  let command,checkedCampaign;
-  if(['campanha_nativa_data','campanha_nativa_validar','campanha_nativa_agendar'].includes(action)){
-   const current=await transport(context,{method:'GET',command:{acao:'campanha_obter',brand,id:q.id}}),c=current.body.campaign;
-   if(current.status!==200||c?.id!==q.id||c.version!==q.expected_version||c.status!=='draft'||c.sent!==0||c.started_at!==null||c.definition?.brand!==brand)throw error(409,'NATIVE_INTERNAL_CHANGED');
-   requireCouponDestinations(c.definition,brand);checkedCampaign=c;
-  }
+  let command;
   if(action==='campanha_nativa_data'&&exact(q,['acao','brand','id','expected_version','idempotency_key','send_at'])){
    const date=Date.parse(q.send_at);if(typeof q.send_at!=='string'||!Number.isFinite(date)||date<Date.now()+20*60000||date>Date.now()+2*3600000)throw error(400,'NATIVE_INTERNAL_DATE');
-   const c=checkedCampaign;
+   const current=await transport(context,{method:'GET',command:{acao:'campanha_obter',brand,id:q.id}}),c=current.body.campaign;
+   if(current.status!==200||c?.id!==q.id||c.version!==q.expected_version||c.status!=='draft'||c.sent!==0||c.started_at!==null||c.definition?.brand!==brand)throw error(409,'NATIVE_INTERNAL_CHANGED');
+   requireCouponDestinations(c.definition,brand);
    command={acao:'campanha_salvar',brand,id:q.id,expected_version:q.expected_version,idempotency_key:q.idempotency_key,definition:{...c.definition,send_at:q.send_at}};
   }else if(action==='campanha_nativa_validar'&&exact(q,['acao','brand','id','expected_version','idempotency_key']))command={...q,acao:'campanha_validar'};
   else if(action==='campanha_nativa_agendar'&&exact(q,['acao','brand','id','expected_version','idempotency_key','confirm','audience_review_id'])&&q.confirm==='agendar')command={...q,acao:'campanha_agendar'};
