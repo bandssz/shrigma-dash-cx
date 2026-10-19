@@ -1166,7 +1166,7 @@
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
       "bytes": 81747,
-      "sha256": "ac8937f8eb26882fc93a9476c2f5406fb3cc59f638320a667c033e00b087e1da"
+      "sha256": "e630c56c5809753fb49b0f03cb68cba34c681b74f2f5ad83235df659d95b4a15"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -1471,7 +1471,7 @@
     {
       "path": "tests/crm-ui-business.test.cjs",
       "bytes": 19797,
-      "sha256": "0d37accbb1c332c89c137aec4ea5d9f6c5883884e7e764e5fb19fcaa87be8d5d"
+      "sha256": "41c60ee454de21b0aee6a9ffa90fc52560077a7769d4901441271f8b49f75bb8"
     },
     {
       "path": "tests/dashboard-central-delegation.test.cjs",

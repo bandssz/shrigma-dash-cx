@@ -50,7 +50,7 @@ function crmSyncContextHeader(){
  else{button.textContent=target.hasAttribute('data-lab-save')?'Salvar jornada':'Criar jornada';target.hidden=true;}
 }
 function crmInstallContextHeader(actions){
- const journey=document.querySelector('#journeys [data-view="lab"]');if(journey){journey.id='new-journey';journey.textContent='Nova jornada';journey.className='btn btn-primary btn-sm';journey.hidden=true;actions.append(journey);}
+ const journey=document.querySelector('#journeys [data-view="lab"]');if(journey){journey.id='new-journey';journey.textContent='Abrir editor';journey.className='btn btn-primary btn-sm';journey.hidden=true;actions.append(journey);}
  const button=document.createElement('button');button.id='crm-context-primary';button.type='button';button.className='btn btn-primary btn-sm';button.hidden=true;actions.append(button);
  button.addEventListener('click',()=>{const target=crmContextHeaderTarget();if(!target||target.disabled)return;if(crmState.view==='templates'){target.scrollIntoView?.({block:'center',behavior:'smooth'});target.focus();}else target.click();});
  if(typeof window.MutationObserver==='function'){crmContextHeaderObserver?.disconnect();crmContextHeaderObserver=new window.MutationObserver(crmSyncContextHeader);for(const id of ['control-lab','model-import-host']){const host=crmEl(id);if(host)crmContextHeaderObserver.observe(host,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']});}}
