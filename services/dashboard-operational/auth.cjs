@@ -1157,7 +1157,7 @@ function createAuth(options){
   const build=descriptor=>require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:descriptor?descriptor.mode:'crm-sandbox',...(descriptor?{corporateWriter:descriptor}:{}),allowedEmailDomains:options.allowedEmailDomains,authorize:campaignWriterAuthorization,transport:coexistence?G.guardedTransport(transport,individualOperationSnapshot):transport,now,encrypt,decrypt,
    hasOpenDelivery:(userId,brand)=>!!db.prepare("SELECT 1 FROM crm_campaign_delivery_v1 WHERE user_id=? AND brand=? AND phase IN ('queued','uncertain','confirmed')").get(userId,brand),
    preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),
-   prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
+   prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepareDraft(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
   const creator=build(masterWriter);campaignCreateInitialized=true;
   if(!coexistence)return creator;
   const individual=build(corporateWriter),choose=ctx=>authorize({...ctx,area:'growth',edit:ctx.method==='POST'}).role==='superadmin'?creator:individual;
@@ -1285,7 +1285,7 @@ function createAuth(options){
  function simpleCampaignDraftFactories(transport){
   if(!simpleReadMode||!simpleAccounts||!ownMasterWriter||!campaignSubmit)return undefined;
   const G=require('./crm-manager-runtime.cjs'),descriptor=G.serviceDraftDescriptor(ownMasterWriter),C=require('./campaign-write-contract.js'),T=require('./campaign-write-tracking.js');
-  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:descriptor.mode,corporateWriter:descriptor,allowedEmailDomains:options.allowedEmailDomains,authorize:simpleDraftAuthority,transport,now:current,encrypt,decrypt,hasOpenDelivery:(userId,brand)=>unresolvedCampaignDelivery(userId,brand),preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
+  const creator=require('./crm-campaign-create.cjs').createCampaignCreator({db,enabled:true,profile:descriptor.mode,corporateWriter:descriptor,allowedEmailDomains:options.allowedEmailDomains,authorize:simpleDraftAuthority,transport,now:current,encrypt,decrypt,hasOpenDelivery:(userId,brand)=>unresolvedCampaignDelivery(userId,brand),preflightDefinition:(definition,{catalog,now:time})=>C.preflight(definition,{catalog,tracking:T,now:time}),prepareDefinition:(definition,{catalog,id,now:time})=>{const p=C.prepareDraft(definition,{catalog,tracking:T,trackingId:id,now:time});return {definition:p.definition,tracking:p.tracking};}});
   campaignCreateInitialized=true;
   const delivery=require('./crm-campaign-delivery.cjs').createCampaignDelivery({db,authorize:simpleDraftAuthority,transport,now:current,encrypt,decrypt,serviceDraftProfile:descriptor,hasOpenCreate:hasOpenCampaignCreate,prepareDefinition:(definition,{catalog,id,now:time})=>C.prepare(definition,{catalog,tracking:T,trackingId:id,now:time}).definition});
   return Object.freeze({creator,delivery,descriptor});

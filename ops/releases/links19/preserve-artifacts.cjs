@@ -1,0 +1,9 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),a=require('node:assert/strict'),{execFileSync}=require('node:child_process'),{build}=require('../../../tools/production-release/build-envelope.cjs');
+const run=args=>execFileSync('docker',args,{encoding:'utf8',maxBuffer:8*1024*1024}),sha=process.env.GITHUB_SHA;a.match(sha,/^[a-f0-9]{40}$/);a.equal(process.env.GITHUB_REPOSITORY,'bandssz/shrigma-dash-cx');a.equal(process.env.GITHUB_REF,'refs/heads/codex/segunda19-links-source');
+const gateway='ghcr.io/bandssz/shrigma-dash-native-connection',source='ghcr.io/bandssz/shrigma-dash-operational-canary';
+const push=(tag,prefix)=>{run(['push',tag]);const values=JSON.parse(run(['image','inspect',tag]))[0].RepoDigests.filter(x=>x.startsWith(prefix+'@sha256:'));a.equal(values.length,1);return values[0];};
+const sourceImage=push(source+':links19-'+sha,source),artifact=push(gateway+':links-return-'+sha,gateway),tag=gateway+':rollback-'+sha,contract=build({artifactImage:artifact,tag,directory:path.join(process.env.LINKS_CI_DIR,'return-envelope')});
+run(['run','--rm','--platform','linux/amd64','--network','none','--read-only','--user','1000:1000','--memory','512m','--tmpfs','/tmp:rw,noexec,nosuid,mode=1777','--tmpfs','/dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000','--mount','type=bind,src='+path.resolve('tools/production-release/envelope-smoke.cjs')+',dst=/proof.cjs,readonly','--entrypoint','node',tag,'/proof.cjs']);
+const envelope=push(tag,gateway),receipt={schema:'shrigma-draft-links-source-return-v1',revision:sha,sourceBase:'4285d4762e4472d6ff4aab56222f796d3b042de4',sourceImage,compatibleGateway:{...contract,envelopeImage:envelope},newAdmissionStrict:true,newReceiptsReadable:true,productionInstalled:false,sqlChanged:false,n8nWorkflowsChanged:false,customerDataUsed:false};
+fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'```json\n'+JSON.stringify(receipt,null,2)+'\n```\n');console.log(JSON.stringify(receipt));

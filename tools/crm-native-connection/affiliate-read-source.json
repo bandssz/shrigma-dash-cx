@@ -14,6 +14,11 @@
       "sha256": "2b6f8bc3005816c7e88bef043fb069b600de4f2e4eb3cf01cb9c4f6875f21a8f"
     },
     {
+      "path": ".github/workflows/crm-links19.yml",
+      "bytes": 4912,
+      "sha256": "69294d241fbe74dd930522ac2d2e75ccc05fc5e19a218ee56b9b7870a7b2bfee"
+    },
+    {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 44486,
       "sha256": "cd7dc1f6c77ea4a7d82dfbe3b1e95890410cec1f8bd07473b1ff7a95c9e60628"
@@ -154,9 +159,14 @@
       "sha256": "afcc644baf4514ca67a765da1a540d399d3bcbd1f423a919dacca90d236142f0"
     },
     {
+      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
+      "bytes": 9695,
+      "sha256": "0a9ce2595e21d9fcdf93263e1c057fc04d455f3da1ec36bbff3b55c23563c45f"
+    },
+    {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 15892,
-      "sha256": "7557feef13700062f470892229545c238feeb222290d3ef5520138f7758943f4"
+      "bytes": 15981,
+      "sha256": "0a90f05bd5f7784ca41d792bab69ddd1f214ea332eddaad04dc4fc293aafaa1c"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -165,13 +175,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 8296,
-      "sha256": "6ead767e1ebb0e362edeff0c9edbd48f76b468dcb2abbda10761e18c5fff0d99"
-    },
-    {
-      "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 9637,
-      "sha256": "f9e138831730bf62469c118355ab5a4e352ff8ba416ce2bbf564445b6429e81b"
+      "bytes": 8325,
+      "sha256": "bf5248d2506b175d7ba3921a684ac3b0901caf38af49503eb4ee06fb94c18a1a"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/journey-smoke.cjs",
@@ -182,6 +187,41 @@
       "path": "ops/releases/crm-native-connection-20261007/start-existing.cjs",
       "bytes": 5235,
       "sha256": "26456ef5a2c84beff951c78206f65191174320421fe68e063858bb3c880ba463"
+    },
+    {
+      "path": "ops/releases/links19/image-start-smoke.cjs",
+      "bytes": 1261,
+      "sha256": "2b79c3e76375673f377c8e0b686c5a63a1b3850f51a64678978c7f6c50a74604"
+    },
+    {
+      "path": "ops/releases/links19/preserve-artifacts.cjs",
+      "bytes": 1963,
+      "sha256": "2607f68408f24c0f542c2ed83e29cb9cc5574db7b5dac02a819747e9a577112f"
+    },
+    {
+      "path": "ops/releases/links19/source-http.test.cjs",
+      "bytes": 2806,
+      "sha256": "039fd1e8c0dcab6bed3de87c659de34e484d927de56814a38118f9f932479bbb"
+    },
+    {
+      "path": "ops/releases/links19/source/Dockerfile",
+      "bytes": 464,
+      "sha256": "07ad39e51438a993da0c5fb451acadc32fb25ef615b4062b8cc4bdab88fc7728"
+    },
+    {
+      "path": "ops/releases/links19/source/campaign-contract.js",
+      "bytes": 13190,
+      "sha256": "691c4e3faff342614418b0bbeb335d8310d2a93211c0f786fc1efe1ccf4db412"
+    },
+    {
+      "path": "ops/releases/links19/source/campaign-service.js",
+      "bytes": 10315,
+      "sha256": "7e42134c0a7d38ecf17b94cf477684235f1439afd4d0273c077a109551c40ece"
+    },
+    {
+      "path": "ops/releases/links19/source/campaign-tracking.js",
+      "bytes": 8560,
+      "sha256": "8b8c550b6677fec0c7a2607f7451149e9e77e74337b554c4d00db72adcb57e48"
     },
     {
       "path": "ops/releases/saturday17-native/audience-return/growth-ab-experiment-contract.js",
@@ -429,14 +469,14 @@
       "sha256": "ed4d8e84b2d3b6464e11fb6cbf16997fb247237cf777c7e5b8e2a8bc9a2f099a"
     },
     {
-      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/config.cjs",
-      "bytes": 1774,
-      "sha256": "67fa469c291c6ca5591927b7db41bf14a96bc1d378a7fcac97f987091cab9813"
-    },
-    {
       "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/Dockerfile",
       "bytes": 1283,
       "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/config.cjs",
+      "bytes": 1774,
+      "sha256": "67fa469c291c6ca5591927b7db41bf14a96bc1d378a7fcac97f987091cab9813"
     },
     {
       "path": "ops/releases/saturday17-native/audience-return/services/crm-audience/main.cjs",
@@ -719,14 +759,14 @@
       "sha256": "ed4d8e84b2d3b6464e11fb6cbf16997fb247237cf777c7e5b8e2a8bc9a2f099a"
     },
     {
-      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/config.cjs",
-      "bytes": 1957,
-      "sha256": "a18a20e5b54806290dad42ba332fce1bc6a755d382293e6cf0f23fcdf3c81684"
-    },
-    {
       "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/Dockerfile",
       "bytes": 1283,
       "sha256": "6d9406f3b1a5f5bcac3d96d50bce234cce01518865c986dd3f6c407b2247db5c"
+    },
+    {
+      "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/config.cjs",
+      "bytes": 1957,
+      "sha256": "a18a20e5b54806290dad42ba332fce1bc6a755d382293e6cf0f23fcdf3c81684"
     },
     {
       "path": "ops/releases/saturday17-native/audience-source/services/crm-audience/main.cjs",
@@ -884,6 +924,11 @@
       "sha256": "262c4841e3bb84cc0730c52dd95dd5ef1ecb37758c88e2d5a58cacf95139411f"
     },
     {
+      "path": "services/dashboard-operational/BCRYPT-LICENSE",
+      "bytes": 1530,
+      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
+    },
+    {
       "path": "services/dashboard-operational/afiliados-native-consent.cjs",
       "bytes": 12773,
       "sha256": "6501c565bab8673286a0d13fbf1ab56c60e4cb43d72ed20f5d6894bb333268fb"
@@ -910,13 +955,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 164018,
-      "sha256": "a96cadb2d91bed320908a5828b33826693f4512f4bd899ad8876b6a93f8d02cf"
-    },
-    {
-      "path": "services/dashboard-operational/BCRYPT-LICENSE",
-      "bytes": 1530,
-      "sha256": "095017ef78d2c818465eea7d71ebed918eb415aee9d38d36ce0b1240ae5781ee"
+      "bytes": 164028,
+      "sha256": "4722b9975887637b7abb3768d29c793ca34666bfab7e8f3772332c30842afa28"
     },
     {
       "path": "services/dashboard-operational/bcrypt.mjs",
@@ -956,12 +996,17 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "f3ea0abd3bfb9721b871321c719d06e04b2859d6b079b2003c550fd1814eb1bc"
+      "sha256": "39397dc36b43fd1fe606d63ec27ff0c8711a8411ef48d0aafd40f2bca108f15a"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
-      "bytes": 12959,
-      "sha256": "5f71c867978601d9b39afc0f14a3e5b7b4930130bddadaec3c7bf3682ba41009"
+      "bytes": 13679,
+      "sha256": "805268458ecfe90b4b89b40ff4c6835df3b9be070e0ba1168773c31fdaf406a1"
+    },
+    {
+      "path": "services/dashboard-operational/campaign-write-tracking.js",
+      "bytes": 8560,
+      "sha256": "8b8c550b6677fec0c7a2607f7451149e9e77e74337b554c4d00db72adcb57e48"
     },
     {
       "path": "services/dashboard-operational/crm-campaign-create.cjs",
@@ -1139,6 +1184,11 @@
       "sha256": "5957c999cd0373c74819cb8ea56a519a6c84ec04bc1b5c487cd355b73969a4af"
     },
     {
+      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
+      "bytes": 6733,
+      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
+    },
+    {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/chart.umd.js",
       "bytes": 208518,
       "sha256": "ecc3cd1eeb8c34d2178e3f59fd63ec5a3d84358c11730af0b9958dc886d7652a"
@@ -1162,11 +1212,6 @@
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/inter-700.woff2",
       "bytes": 24356,
       "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
-    },
-    {
-      "path": "services/dashboard-operational/public/afiliados-preview/vendor/LICENSES.txt",
-      "bytes": 6733,
-      "sha256": "dbc9c3ac2a08e36c6fdd7d6ea5725d84ac7b8bf156650bef361fc879b6fee16b"
     },
     {
       "path": "services/dashboard-operational/public/afiliados-preview/vendor/tabler.min.css",
@@ -1200,8 +1245,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 203912,
-      "sha256": "16ffb888cfb24565c055e1a0748ee9be992f7e4e082ebd3775e16e765a70c8fa"
+      "bytes": 207773,
+      "sha256": "b333cdab37de71fddb8b13686bf489fb54dbe8527f9dd4a75877e14c2af127b0"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -1602,6 +1647,16 @@
       "path": "tests/creators-read-isolation.test.cjs",
       "bytes": 6486,
       "sha256": "ea2397070cdd1f579be42cedd2537bb16060d91e15bb4d0f454162ad4daf09a1"
+    },
+    {
+      "path": "tests/crm-campaign-draft-links-source.test.cjs",
+      "bytes": 5582,
+      "sha256": "f8241f886c2e7e6f15b68c14a6a51fd84c35316228601690ba125039887b0192"
+    },
+    {
+      "path": "tests/crm-campaign-draft-links.test.cjs",
+      "bytes": 6154,
+      "sha256": "c8eacd01cf8c1b1e2436804fcabc1eced42b1baab8ab2f840b46b2d833a7e83e"
     },
     {
       "path": "tests/crm-campaign-import.test.cjs",
@@ -2071,7 +2126,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 3028,
-      "sha256": "32fe7b9d263b438befb6b526236000da56ed5b45b6054d25bb441ac85444f309"
+      "sha256": "50dd12dae0ce0ad1d54317b4ba11bfaec3424b7ede31479f67d3ce5aa6c9e649"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
@@ -2138,5 +2193,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Campaign/public lists, single CRM header, committed revenue snapshot time and authorized last-count cache over installed751. Original campaign form, source SQL and native operation/consent restrictions preserved. No minimum-draft dependency."
+  "candidatePurpose": "Draft link warnings; compatible old receipt reads; no SQL or n8n workflow change"
 }

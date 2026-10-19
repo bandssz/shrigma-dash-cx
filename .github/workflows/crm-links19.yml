@@ -1,0 +1,69 @@
+name: CRM draft links source and compatible return
+'on':
+  push:
+    branches: [codex/segunda19-links-source]
+permissions:
+  contents: read
+jobs:
+  source-and-return:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'test-only:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GATEWAY_IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
+      SOURCE_IMAGE: ghcr.io/bandssz/shrigma-dash-operational-canary
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Verify inventory and locked compiled assets
+        run: |
+          npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+          node tools/dashboard-campaign-ui-build.cjs --check
+          node tools/dashboard-model-piece-build.cjs --check
+          node tools/crm-native-connection/verify-affiliate-read-source.cjs
+      - name: Private registry session
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          links_dir="$(mktemp -d "$RUNNER_TEMP/shrigma-links.XXXXXX")"
+          printf 'LINKS_CI_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$links_dir" "$links_dir" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$links_dir/docker"
+          export DOCKER_CONFIG="$links_dir/docker"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build original source over installed artifact; build compatible gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$SOURCE_IMAGE:links19-$GITHUB_SHA" --file ops/releases/links19/source/Dockerfile ops/releases/links19/source
+          docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$GATEWAY_IMAGE:links-return-$GITHUB_SHA" --file ops/releases/crm-native-connection-20261007/Dockerfile .
+      - name: Actual source draft, edit, coupon schedule gate and receipt contracts serially
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env LINKS_SOURCE_ROOT=/app/n8n/growth --env LINKS_GATEWAY_ROOT=/source/services/dashboard-operational --entrypoint node "$SOURCE_IMAGE:links19-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-campaign-draft-links.test.cjs /source/tests/crm-campaign-draft-links-source.test.cjs
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/links19,dst=/proof,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/app/services/crm-campaign --entrypoint node "$SOURCE_IMAGE:links19-$GITHUB_SHA" --test --test-concurrency=1 /proof/source-http.test.cjs
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/links19,dst=/proof,readonly" --entrypoint node "$SOURCE_IMAGE:links19-$GITHUB_SHA" /proof/image-start-smoke.cjs "$GITHUB_SHA"
+      - name: Actual compatible gateway contracts and preserved startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 512m --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env LINKS_RUNTIME_ROOT=/app/native-backend/runtime --entrypoint node "$GATEWAY_IMAGE:links-return-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-campaign-draft-links.test.cjs
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/journey-smoke.cjs,dst=/proof.cjs,readonly" --entrypoint node "$GATEWAY_IMAGE:links-return-$GITHUB_SHA" /proof.cjs
+      - name: Preserve source and compatible return artifacts without installation
+        run: node ops/releases/links19/preserve-artifacts.cjs
+      - name: Remove private registry session
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi
