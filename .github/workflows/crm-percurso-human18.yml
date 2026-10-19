@@ -1,7 +1,7 @@
-name: Human18 CRM context image and contracts
+name: Prepare compatible minimum-draft return without deployment
 'on':
   push:
-    branches: [codex/domingo18-percurso, codex/domingo18-rascunho-minimo]
+    branches: [codex/domingo18-retorno-compativel]
 permissions:
   contents: read
 concurrency:
@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      packages: read
+      packages: write
     env:
       IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
     steps:
@@ -91,7 +91,22 @@ jobs:
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env CAMPAIGN_CREATE_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_DIAGNOSTICS_TEST_RUNTIME=/app/native-backend/runtime --env SOURCE_DIAGNOSTICS_INPUT_ROOT=/source/tests/source-commit-diagnostics-native/sealed-inputs --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/campaign-create-native/gateway.test.cjs /source/tests/source-commit-diagnostics-native/diagnostics.test.cjs /source/tests/source-diagnostics-native/operator-ui.test.cjs
       - name: Native QA visibility and current-state receipt regressions
         run: |
-          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --env NATIVE_UI_EXPECT_ENABLED=true --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-native-night18.test.cjs /source/tests/crm-minimum-draft-ui.test.cjs
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --env NATIVE_UI_EXPECT_ENABLED=true --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-native-night18.test.cjs
+      - name: Prove minimum editor writes are closed in the actual return image
+        run: |
+          docker run --rm --network none --read-only --user 1000:1000 --entrypoint node "$IMAGE:source-$GITHUB_SHA" -e "const a=require('node:assert/strict'),fs=require('node:fs');a.equal(process.getuid(),1000);a.equal(require('/app/native-backend/runtime/campaign-write-contract.js').DRAFT_WRITES_ENABLED,false);const ui=fs.readFileSync('/app/native-backend/runtime/public/crm-preview/drafts.js','utf8');a(ui.includes('minimumDraftEditor=false'));a(ui.includes('crm-draft-editor-v2'));console.log(JSON.stringify({schema:'shrigma-minimum-compatible-return-image-v1',writes:false,retainsV2Reader:true,node:process.version,uid:process.getuid(),deployment:false}));"
+      - name: Publish immutable compatible return envelope without promotion or deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:source-$GITHUB_SHA"
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),a=require('node:assert/strict'),{IMAGE,docker,build}=require('./tools/production-release/build-envelope.cjs');
+          const image=JSON.parse(docker(['image','inspect',IMAGE+':source-'+process.env.GITHUB_SHA]))[0].RepoDigests.filter(x=>x.startsWith(IMAGE+'@sha256:'));a.equal(image.length,1);
+          const tag=IMAGE+':rollback-'+process.env.GITHUB_SHA,contract=build({artifactImage:image[0],tag,directory:path.join(process.env.AFFILIATE_CI_DIR,'compatible-return-envelope')});
+          for(const [file,mount]of [['ops/releases/crm-native-connection-20261007/journey-smoke.cjs','smoke.cjs'],['tools/production-release/envelope-smoke.cjs','envelope-smoke.cjs']])docker(['run','--rm','--platform','linux/amd64','--network','none','--read-only','--user','1000:1000','--memory','512m','--tmpfs','/tmp:rw,noexec,nosuid,mode=1777','--tmpfs','/dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000','--mount','type=bind,src='+path.resolve(file)+',dst=/tmp/'+mount+',readonly','--entrypoint','node',tag,'/tmp/'+mount]);
+          docker(['push',tag]);const envelope=JSON.parse(docker(['image','inspect',tag]))[0].RepoDigests.filter(x=>x.startsWith(IMAGE+'@sha256:'));a.equal(envelope.length,1);const receipt={schema:'shrigma-compatible-return-prepared-v1',revision:process.env.GITHUB_SHA,artifactImage:image[0],envelopeImage:envelope[0],manifestSha256:contract.manifestSha256,presentationManifestSha256:contract.presentationManifestSha256,writes:false,retainsV2ReadersAndReceipts:true,productionTagChanged:false,deployAttempted:false};fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,JSON.stringify(receipt)+'\n');console.log(JSON.stringify(receipt));
+          NODE
       - name: Remove temporary registry session
         if: always()
         run: rm -rf -- "$DOCKER_CONFIG"

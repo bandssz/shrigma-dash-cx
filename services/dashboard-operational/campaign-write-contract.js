@@ -60,7 +60,7 @@ const CampaignContract=(()=>{
  }
  // New editor drafts use an explicit save/receipt policy. Existing complete
  // definitions and their historical tracking preparations remain byte-identical.
- const DRAFT_WRITES_ENABLED=true,DRAFT_EDITOR_TAG='crm-draft-editor-v2',DRAFT_POLICY='crm-campaign-draft-v1';
+ const DRAFT_WRITES_ENABLED=false,DRAFT_EDITOR_TAG='crm-draft-editor-v2',DRAFT_POLICY='crm-campaign-draft-v1';
  const isEditorDraft=input=>Array.isArray(input?.tags)&&input.tags.includes(DRAFT_EDITOR_TAG);
  function draftSlug(name){
   const value=name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,90).replace(/-+$/,'');

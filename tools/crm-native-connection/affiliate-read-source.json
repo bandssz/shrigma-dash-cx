@@ -20,8 +20,8 @@
     },
     {
       "path": ".github/workflows/crm-percurso-human18.yml",
-      "bytes": 11583,
-      "sha256": "3e7bd9d4c29e2ab0a5132ad2a6c7e9bebc3d2afbcb654bd9d7fbfdf78e299e18"
+      "bytes": 14258,
+      "sha256": "b5b384b20b09aa99c9ab3f891ecdcd8ba8f929a71dc38651ca156685026ce6b4"
     },
     {
       "path": "afiliados-proprios.js",
@@ -920,8 +920,8 @@
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
-      "bytes": 17438,
-      "sha256": "9463a5c93e9ebd2f378520fc95c68f42b56e72c37307f1d9532155bf983aa5c0"
+      "bytes": 17439,
+      "sha256": "4cca599afba8f26234b3631ca84aa6ceca69b4501a3d447a9bd30041e0bf9a15"
     },
     {
       "path": "services/dashboard-operational/crm-campaign-create.cjs",
@@ -1165,8 +1165,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 85908,
-      "sha256": "1152e605890278f7f8a1b62bb8b2107564fd790e5a62d394e86cc6420157f615"
+      "bytes": 85957,
+      "sha256": "1340d33a4052b0a5587ab76b9f00f757beef2a8a2537e4b69e4f307c036db049"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1888,5 +1888,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Human journey A1/A2: explicit saving state, saved draft list and identifier restoration after entry reload, authenticated working-brand preference, confirmed existing sender defaults. Native homologation remains only QA plus the owner, original fixed QA audiences/count1, ordinary editor release held for human acceptance and consent. No source, SQL, customer, schedule or workflow change."
+  "candidatePurpose": "Compatible return for minimum campaign drafts: close new editor writes; retain original and v2 readers, receipts, guards and source binding. Preparation only; no production promotion or deployment."
 }
