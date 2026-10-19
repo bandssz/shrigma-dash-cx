@@ -40,7 +40,8 @@ function createBroker({db,encrypt,decrypt,serviceBinding,fetchImpl=fetch,sourceU
   if(closing)fail('CONSENT_TASK_DISABLED');return store.register({userId,clientKey,brand,campaignId:row.campaign_id},p);
  }
  function register(args){if(closing)return Promise.reject(Object.assign(Error('CONSENT_TASK_DISABLED'),{code:'CONSENT_TASK_DISABLED'}));const key=JSON.stringify([args.userId,args.clientKey,args.brand]);const active=registrations.get(key);if(active){if(active.freezeKey!==args.freezeKey)return Promise.reject(Object.assign(Error('CONSENT_REGISTRATION_CHANGED'),{code:'CONSENT_REGISTRATION_CHANGED'}));return active.promise;}const promise=registerOne(args).finally(()=>registrations.delete(key));registrations.set(key,{freezeKey:args.freezeKey,promise});return promise;}
- function ready({userId,brand,campaignId}){if(closing)return false;try{return store.list().some(r=>r.userId===userId&&r.brand===brand&&r.campaignId===campaignId);}catch{return false;}}
+ // Consent readiness belongs to the campaign. The native caller separately authenticates current editor, front and brand.
+ function ready({brand,campaignId}){if(closing)return false;try{return store.list().some(r=>r.brand===brand&&r.campaignId===campaignId);}catch{return false;}}
  async function close(){closing=true;await Promise.allSettled([task.close(),...[...registrations.values()].map(x=>x.promise)]);contexts.clear();}
  return Object.freeze({register,ready,tick:task.tick,close});
 }

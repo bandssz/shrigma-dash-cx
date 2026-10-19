@@ -3,6 +3,6 @@
   "enabled": true,
   "commercial": false,
   "proof": null,
-  "editorsEnabled": false,
+  "editorsEnabled": true,
   "frozenAudienceV3": true
 }
