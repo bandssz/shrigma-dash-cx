@@ -35,8 +35,8 @@ async function fixture(t,{email='synthetic-analyst@oaristocrata.com',write=true,
  const catalog=brand=>({brand,current:true,lists:[{id:brand==='aristo'?7:17,brand,name:'Synthetic list',available:true}],templates:[{id:1,name:'Original shared layout',type:'campaign',version:'a'.repeat(32),available:true}],initiatives:[],read_at:STAMP});
  const fetchImpl=async(url,o)=>{
   const u=new URL(url),body=o.method==='POST'?JSON.parse(o.body):null,action=body?.acao||u.searchParams.get('acao')||u.searchParams.get('action');calls.push({method:o.method,action,url:u.href,body});a.equal(o.headers.Cookie,undefined);
-  if(o.headers.Origin==='https://bandssz.github.io'&&hooks.native){a([P.REVIEWED_DYNAMIC.routes.campaigns,P.REVIEWED_DYNAMIC.routes.segments].includes(u.origin+u.pathname));if(o.method==='POST'&&u.pathname!=='/segments')a.equal(body.k,key);else a.equal(o.headers.Authorization,'Bearer '+key);return hooks.native({u,body,action,method:o.method});}
-  a.equal(o.headers.Origin,undefined);
+  if(o.headers.Origin==='https://bandssz.github.io'&&hooks.native){a([P.REVIEWED_DYNAMIC.routes.campaigns,P.REVIEWED_DYNAMIC.routes.segments].includes(u.origin+u.pathname));if(o.method==='POST'&&u.pathname!=='/segments')a.equal(body.k,key);else a.equal(o.headers.Authorization,'Bearer '+key);const value=await hooks.native({u,body,action,method:o.method});if(value)return value;}
+  if(!(hooks.native&&o.headers.Origin==='https://bandssz.github.io'))a.equal(o.headers.Origin,undefined);
   if(action==='cache_growth'){a.equal(o.headers.Authorization,'Bearer synthetic-read-crm-only');await hooks.afterCache?.();return response({crm_diario:[{marca:'aristo',dia:'2026-10-14',canal:'email',janela:'1d',enviados:12,cliques:2},{marca:'fish',dia:'2026-10-14',canal:'email',janela:'1d',enviados:24,cliques:null}]},u);}
   if(action==='identity'){a.equal(o.headers.Authorization,'Bearer '+key);await hooks.identity?.();return identity(u);}
   if(u.pathname==='/webhook/crm-modelos-20261014-14a1976f59cd'){

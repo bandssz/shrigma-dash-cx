@@ -841,7 +841,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     return result;
   };
   simpleCampaignDrafts=s.simpleReadMode===true&&auth.simpleCampaignDraftFactories?auth.simpleCampaignDraftFactories(simpleDraftTransport):undefined;
-  const consentPolicy=require('./campaign-consent-policy.json');
+  const consentPolicy=s.simpleReadMode===true&&auth.simpleConsentJobFactory?require('./campaign-consent-policy.json'):{enabled:false};
   if(consentPolicy.enabled===true&&s.simpleReadMode===true&&simpleCampaignDrafts&&auth.simpleAccounts?.journeyTest){
     if(!Number.isSafeInteger(consentPolicy.enabledSince)||consentPolicy.enabledSince<0)throw Error('CONSENT_ORIGINAL_RUNTIME_REQUIRED');
     simpleConsentJob=auth.simpleConsentJobFactory?.({fetchImpl,enabled:true,enabledSince:consentPolicy.enabledSince});
@@ -1417,6 +1417,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields.brand;
           if(req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'NATIVE_INTERNAL_BRAND');
           if(req.method==='GET'){if(fields.id!==undefined&&/^[1-9][0-9]{0,8}$/.test(fields.id))fields.id=Number(fields.id);if(fields.expected_version!==undefined&&/^[1-9][0-9]{0,8}$/.test(fields.expected_version))fields.expected_version=Number(fields.expected_version);}
+          if(req.method==='POST'&&['campanha_nativa_data','campanha_nativa_validar','campanha_nativa_agendar','campanha_nativa_cancelar'].includes(fields.acao))req.crmDraftAttempt={context:ctx,brand,key:fields.idempotency_key,kind:'delivery'};
           const context=auth.simpleDraftContext(ctx,{brand}),result=await nativeInternal.handle(context,req.method,fields);
           if(result&&Number.isInteger(result.status))return sendJson(req,res,result.status,result.body);
           return sendJson(req,res,campaignStatus(result),campaignDto(fields.acao,fields.idempotency_key,result));
@@ -1496,7 +1497,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
             let available=false,write=false,reason='CRM_SERVICE_DRAFT_UNAVAILABLE';
             if(simpleCampaignDrafts)try{await auth.verifySimpleDraftBinding(ctx,{brand,write:false,fetchImpl});available=true;try{auth.simpleDraftBinding(ctx,{brand});write=true;}catch{}reason=write?null:'READ_ONLY';}catch(e){reason=/^[A-Z_]+$/.test(e.code||'')?e.code:reason;}
-            return sendJson(req,res,200,{schema:'crm-local-account-drafts-v1',brand,read:available,draft:available&&write,validate:available&&write,send:false,reason,checked_at:new Date().toISOString()});
+            let nativeFreezeV3=false;if(available&&write)try{const flags=require('./native-internal-release.json'),author=auth.simpleDraftBinding(ctx,{brand}).author;nativeFreezeV3=flags.enabled===true&&flags.frozenAudienceV3===true&&(flags.editorsEnabled===true||require('./simple-crm-native-internal.cjs').allowedOperator(author));}catch{}
+            return sendJson(req,res,200,{schema:'crm-local-account-drafts-v1',brand,read:available,draft:available&&write,validate:available&&write,native_freeze_v3:nativeFreezeV3,send:false,reason,checked_at:new Date().toISOString()});
           }
           if(!simpleCampaignDrafts)throw jsonError(503,'CRM_SERVICE_DRAFT_UNAVAILABLE');
           releaseCacheWork=reserveCampaignWork(auth.authorizeBrand({...ctx,area:'growth',productFront:'growth',edit:false},brand).id);
@@ -1842,7 +1844,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const status=error instanceof AuthError||error instanceof ProxyError||Number.isInteger(error.status)?error.status:500;
       const code=status===500?'INTERNAL_ERROR':error.code||'REQUEST_DENIED';
       if(status===503&&code==='CRM_CACHE_BUSY')res.setHeader('Retry-After','2');
-      let notReserved=error.nativeNotReserved===true;
+      let notReserved=false;
       if(req.crmDraftAttempt&&req.crmDraftPostOwner&&!simpleDraftPostsInFlight.has(req.crmDraftPostOwner)&&auth.simpleDraftAttemptReserved)try{const {context,...query}=req.crmDraftAttempt;notReserved=auth.simpleDraftAttemptReserved(context,query)===false;}catch{}
       sendJson(req,res,status,{error:code,...(notReserved?{reserved:false}:{})});
     });

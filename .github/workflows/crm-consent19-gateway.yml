@@ -1,11 +1,11 @@
-name: Consent19 actual gateway and four-step creator
+name: Consent19 compatible return image
 'on':
   push:
-    branches: [codex/segunda19-agenda-consentimento]
+    branches: [codex/segunda19-agenda-retorno-compativel]
 permissions:
   contents: read
 concurrency:
-  group: shrigma-consent19-validation
+  group: shrigma-consent19-return-validation
   cancel-in-progress: false
 jobs:
   image-and-contracts:
@@ -96,7 +96,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/source/tests/consent19/source-runtime --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/consent19/task.test.cjs /source/tests/consent19/source.test.cjs /source/tests/consent19/source-v3.test.cjs /source/tests/consent19/store.test.cjs /source/tests/consent19/broker.test.cjs /source/tests/consent19/service-binding.test.cjs /source/tests/consent19/transport.test.cjs /source/tests/consent19/source-http.test.cjs /source/tests/consent19/gateway-integration.test.cjs /source/tests/consent19/four-steps.test.cjs /source/tests/consent19/native-admission.test.cjs
+          docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/source/tests/consent19/source-runtime --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/consent19/task.test.cjs /source/tests/consent19/source.test.cjs /source/tests/consent19/source-v3.test.cjs /source/tests/consent19/store.test.cjs /source/tests/consent19/broker.test.cjs /source/tests/consent19/service-binding.test.cjs /source/tests/consent19/transport.test.cjs /source/tests/consent19/source-http.test.cjs /source/tests/consent19/gateway-integration.test.cjs /source/tests/consent19/four-steps.test.cjs /source/tests/consent19/native-admission.test.cjs /source/tests/consent19/native-reservation-http.test.cjs
       - name: Preserve verified candidate artifact without installing
         shell: bash
         run: |
@@ -105,6 +105,16 @@ jobs:
           docker tag "$IMAGE:source-$GITHUB_SHA" "$candidate_tag"
           docker push "$candidate_tag"
           docker inspect --format '{{json .RepoDigests}}' "$candidate_tag"
+      - name: Prepare immutable compatible return envelope; never install
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),a=require('node:assert/strict'),{execFileSync}=require('node:child_process'),{build}=require('./tools/production-release/build-envelope.cjs');
+          const image=process.env.IMAGE,tag=image+':consent19-'+process.env.GITHUB_SHA+'-'+process.env.GITHUB_RUN_ID,info=JSON.parse(execFileSync('docker',['image','inspect',tag],{encoding:'utf8'}))[0],pins=info.RepoDigests.filter(x=>x.startsWith(image+'@sha256:'));a.equal(pins.length,1);const envelopeTag=image+':envelope-'+process.env.GITHUB_SHA;
+          const r=build({artifactImage:pins[0],tag:envelopeTag,directory:path.join(process.env.AFFILIATE_CI_DIR,'compatible-return-envelope')});a.equal(r.sourceRevision,process.env.GITHUB_SHA);execFileSync('docker',['run','--rm','--network','none','--read-only','--user','1000:1000','--memory','512m','--tmpfs','/tmp:rw,nosuid,mode=1777','--tmpfs','/dashboard-data:rw,nosuid,mode=0700,uid=1000,gid=1000','--mount','type=bind,src='+path.resolve('tools/production-release/envelope-smoke.cjs')+',dst=/tmp/envelope-smoke.cjs,readonly','--entrypoint','node',envelopeTag,'/tmp/envelope-smoke.cjs'],{stdio:'inherit'});execFileSync('docker',['push',envelopeTag],{stdio:'inherit'});
+          const final=JSON.parse(execFileSync('docker',['image','inspect',envelopeTag],{encoding:'utf8'}))[0],out={schema:'shrigma-consent19-compatible-return-envelope-v1',...r,envelopeImage:final.RepoDigests.find(x=>x.startsWith(image+'@sha256:')),sourceImagesRemainV3:true,newScheduling:false,job:false,cancelHistorical:true,installed:false};console.log(JSON.stringify(out));fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'\n'+JSON.stringify(out,null,2)+'\n');
+          NODE
       - name: Remove temporary registry session
         if: always()
         run: rm -rf -- "$DOCKER_CONFIG"
