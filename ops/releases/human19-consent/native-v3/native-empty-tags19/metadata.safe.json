@@ -1,0 +1,18 @@
+{
+  "atUtc": "2026-10-19T06:45:00.201Z",
+  "signature": "public.shrigma_campaign_guard()",
+  "baselineMd5": "372ba227490e7956b0c06366957e3249",
+  "candidateMd5": "ba6d44aa3ee1080165ff4015cc066710",
+  "newFunctions": 0,
+  "newTables": 0,
+  "dataWrites": 0,
+  "guardConditionsUnchanged": true,
+  "originalEmptyArrayPreserved": true,
+  "neverClearsNonemptyTags": true,
+  "backup": ".private/provas-sprint-curto-20261018/qa-owner-guard-definition-0344-result.json",
+  "causeInferredUntilRealQaPass": true,
+  "primarySources": [
+    "https://github.com/knadh/listmonk/blob/v6.1.0/internal/core/core.go",
+    "https://github.com/knadh/listmonk/blob/v6.1.0/internal/core/campaigns.go#L195-L216"
+  ]
+}
