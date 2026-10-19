@@ -1,8 +1,8 @@
 'use strict';
 const http=require('node:http'),{gzip}=require('node:zlib'),{promisify}=require('node:util');
-const {acceptsGzip}=require('../crm-panel-read/server.cjs');
-const {createExecutor,unavailable}=require('./transport.cjs');
-const {MAX_FILE_BYTES,UUID,SHA}=require('./media.cjs');
+const {acceptsGzip}=require('../../../services/crm-panel-read/server.cjs');
+const {createExecutor,unavailable}=require('../../../services/crm-campaign/transport.cjs');
+const {MAX_FILE_BYTES,UUID,SHA}=require('../../../services/crm-campaign/media.cjs');
 const compress=promisify(gzip),ORIGIN='https://bandssz.github.io';
 const PATH='/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35';
 const MEDIA_PATH=PATH+'/media',CONSENT_PATH=PATH+'/consent-reconciliation';

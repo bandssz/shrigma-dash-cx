@@ -1515,8 +1515,8 @@
     },
     {
       "path": "tests/consent19/source-runtime/server.cjs",
-      "bytes": 11795,
-      "sha256": "5ed7b49b3b4fed3cbca58dd3a774f08058856b9526fd7d8bda01ab385dede306"
+      "bytes": 11868,
+      "sha256": "a7fc50c0684d6f8f7c5ad9977f4311978dae9ee0f74a61876dece5c99a95b419"
     },
     {
       "path": "tests/consent19/source-v3.test.cjs",
