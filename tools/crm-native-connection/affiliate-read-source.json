@@ -2080,8 +2080,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 6554,
-      "sha256": "73c119dc6905614ee261238c0cb9895b31d0ffcebf99f220c8d9bec4ab544fdf"
+      "bytes": 7377,
+      "sha256": "08d34133db03c26fa37b29b5d3aa1c85221f6dba8d75768f34ce4dd6d37d47b8"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
