@@ -41,7 +41,7 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editor
    const probe=await transport(context,{method:'GET',command:{acao:'campanha_nativa_contexto',brand,id:1}});
    const available=probe.status===200&&probe.body.schema==='crm-native-internal-context-v1',legacy=allowedOperator(who.author),newAllowed=legacy||editorsEnabled&&frozenAudienceV3;return {status:200,body:{schema:'crm-native-internal-capability-v1',brand,enabled:newAllowed&&available&&probe.body.acceptance_proved===true,homologation_available:newAllowed&&available,internal_test:legacy,commercial:!legacy&&newAllowed,frozen_audiences_v3:frozenAudienceV3&&newAllowed,audience_id:legacy&&!frozenAudienceV3?IDS[brand]:null}};
   }
-  if(action==='campanha_nativa_contexto'&&method==='GET'&&exact(q,['acao','brand','id'])){const r=await transport(context,{method,command:q});if(r.status===200&&r.body?.eligible===true){const b=await eligible(context,brand,q.id);return{status:200,body:{...b,can_schedule:canStart(who,b),can_cancel:true}};}return r;}
+  if(action==='campanha_nativa_contexto'&&method==='GET'&&exact(q,['acao','brand','id'])){const r=await transport(context,{method,command:q});if(r.status===200&&r.body?.eligible===true){const b=await eligible(context,brand,q.id);return{status:200,body:{...b,can_schedule:canStart(who,b)&&!(b.eligible_count>10000),can_cancel:true}};}return r;}
   if(action==='campanha_nativa_congelar'&&method==='POST'&&exact(q,['acao','brand','id','expected_version','expected_definition_hash','expected_context_hash','expected_catalog_hash','idempotency_key'])){
    if(!UUID.test(q.id||'')||!Number.isSafeInteger(q.expected_version)||q.expected_version<1||![q.expected_definition_hash,q.expected_context_hash,q.expected_catalog_hash].every(x=>HASH.test(x))||!UUID.test(q.idempotency_key))throw error(400,'NATIVE_INTERNAL_INPUT');
    const key=remoteKey(context,{brand,key:q.idempotency_key});
@@ -70,7 +70,7 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editor
   else if(action==='campanha_nativa_agendar'&&exact(q,['acao','brand','id','expected_version','idempotency_key','confirm','audience_review_id'])&&q.confirm==='agendar')command={...q,acao:'campanha_agendar'};
   else if(action==='campanha_nativa_cancelar'&&exact(q,['acao','brand','id','expected_version','idempotency_key','confirm'])&&q.confirm==='cancelar')command={...q,acao:'campanha_cancelar'};
   else throw error(400,'NATIVE_INTERNAL_INPUT');
-  if(action==='campanha_nativa_agendar'&&!canStart(who,nativeContext))throw error(409,'CONSENT_REGISTRATION_REQUIRED');
+  if(action==='campanha_nativa_agendar'&&(!canStart(who,nativeContext)||nativeContext.eligible_count>10000))throw error(409,'CONSENT_REGISTRATION_REQUIRED');
   deliveryStarted=true;return await delivery.submit(context,command);
   }catch(e){if(!deliveryStarted&&method==='POST'&&['campanha_nativa_data','campanha_nativa_validar','campanha_nativa_agendar','campanha_nativa_cancelar'].includes(q?.acao))e.nativeNotReserved=true;throw e;}
  }

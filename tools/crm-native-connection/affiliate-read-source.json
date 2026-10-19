@@ -9,6 +9,11 @@
   "operational": false,
   "files": [
     {
+      "path": ".github/workflows/crm-agenda19-return.yml",
+      "bytes": 3303,
+      "sha256": "627a5dee58a9558168281aa5be68d827abb7134eb4ea77c502d16300fe234938"
+    },
+    {
       "path": ".github/workflows/crm-consent19-gateway.yml",
       "bytes": 13928,
       "sha256": "2b6f8bc3005816c7e88bef043fb069b600de4f2e4eb3cf01cb9c4f6875f21a8f"
@@ -970,8 +975,8 @@
     },
     {
       "path": "services/dashboard-operational/campaign-consent-broker.cjs",
-      "bytes": 5630,
-      "sha256": "950cadf4696f9484769e28cfc001af97bf3472d5a1b42d5a0b7591e7342ddae6"
+      "bytes": 5631,
+      "sha256": "e366ab02af38fe880cb617f8d374037e1e821f97d0201ec76358ebc9b998c86d"
     },
     {
       "path": "services/dashboard-operational/campaign-consent-policy.json",
@@ -985,13 +990,13 @@
     },
     {
       "path": "services/dashboard-operational/campaign-consent-store.cjs",
-      "bytes": 7074,
-      "sha256": "e3d785e90512072fafda34b7b8aca60c64d2fd96a8b5c1db87e2168860b23f09"
+      "bytes": 7075,
+      "sha256": "f16b630772e66ea93d949580a63759236571089e81aac7a47dc5a88c0c11536e"
     },
     {
       "path": "services/dashboard-operational/campaign-consent-task.cjs",
-      "bytes": 6949,
-      "sha256": "0bc8bd8444e711c865be9c2e190a756bb754923b7ce6d859b002bd35e0c6e056"
+      "bytes": 6922,
+      "sha256": "0cb68b9d5c1d3a1a9cfbe58431ccd227e0a1b9951710d9e52c39256ee31df24d"
     },
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
@@ -1410,8 +1415,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 11030,
-      "sha256": "5a4aee4c83e1d5a310c82d169d12412257d3caf8cb6190119b4ca19e3bafe86d"
+      "bytes": 11095,
+      "sha256": "87af65fc2001a575d27c777c3112400fe9288b69b5c4e47e27293e61dba37ce1"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -2136,7 +2141,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 3028,
-      "sha256": "7f9af473df205ef00520c7ef541e7fe6f77326f21da26768e54e979a92070967"
+      "sha256": "e592bc88d1f8e175b552eec64bd5cc28081d32523499da3b32e5398cfa2b5c88"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
@@ -2203,5 +2208,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Draft link warnings; compatible old receipt reads; no SQL or n8n workflow change"
+  "candidatePurpose": "Compatible return to5e8fbe50 interface; retain large consent metadata, hold expanded audience scheduling, preserve cancellation"
 }

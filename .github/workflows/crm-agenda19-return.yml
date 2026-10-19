@@ -1,0 +1,46 @@
+name: Native schedule compatible return
+on:
+  push:
+    branches: [codex/agenda-real-retorno-20261019]
+permissions:
+  contents: read
+jobs:
+  return-image:
+    if: github.repository == 'bandssz/shrigma-dash-cx'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Exact source manifest
+        run: node tools/crm-native-connection/verify-affiliate-read-source.cjs --workspace-only
+      - name: Registry session
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          agenda_return_registry="$(mktemp -d "$RUNNER_TEMP/agenda-return-registry.XXXXXX")"
+          printf 'DOCKER_CONFIG=%s\n' "$agenda_return_registry" >> "$GITHUB_ENV"
+          export DOCKER_CONFIG="$agenda_return_registry"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build return with installed interface and large metadata compatibility
+        run: docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE:agenda-return-$GITHUB_SHA" --file ops/releases/crm-native-connection-20261007/Dockerfile .
+      - name: Original authentication and startup smoke in actual image
+        run: |
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/crm-native-connection-20261007/journey-smoke.cjs,dst=/tmp/smoke.cjs,readonly" --entrypoint node "$IMAGE:agenda-return-$GITHUB_SHA" /tmp/smoke.cjs
+      - name: Preserve artifact and verified envelope without installing
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:agenda-return-$GITHUB_SHA"
+          node <<'NODE'
+          const fs=require('node:fs'),p=require('node:path'),{execFileSync}=require('node:child_process'),{build}=require('./tools/production-release/build-envelope.cjs');const image=process.env.IMAGE+':agenda-return-'+process.env.GITHUB_SHA,info=JSON.parse(execFileSync('docker',['image','inspect',image],{encoding:'utf8'}))[0],artifactImage=info.RepoDigests.find(x=>x.startsWith(process.env.IMAGE+'@sha256:')),tag=process.env.IMAGE+':rollback-'+process.env.GITHUB_SHA,contract=build({artifactImage,tag,directory:p.join(process.env.RUNNER_TEMP,'agenda-return-envelope'),pull:false});execFileSync('docker',['push',tag],{stdio:'inherit'});const envelope=JSON.parse(execFileSync('docker',['image','inspect',tag],{encoding:'utf8'}))[0].RepoDigests.find(x=>x.startsWith(process.env.IMAGE+'@sha256:'));const receipt={...contract,envelopeImage:envelope,installed:false,largeMetadataCompatible:true,expandedScheduling:false};fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'```json\n'+JSON.stringify(receipt,null,2)+'\n```\n');console.log(JSON.stringify(receipt));
+          NODE
