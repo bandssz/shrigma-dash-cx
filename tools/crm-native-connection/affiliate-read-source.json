@@ -1195,8 +1195,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 84755,
-      "sha256": "3ab02caddf56949cdc1e1cd7cf5fbda290742755bf31e49b155e08cb29f378b1"
+      "bytes": 85017,
+      "sha256": "62b36eb1cfb373ab6c9585c176298712414aad81372276549fb7f3517450fbdb"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
@@ -1640,8 +1640,8 @@
     },
     {
       "path": "tests/crm-ui-independent.test.cjs",
-      "bytes": 20107,
-      "sha256": "0c95e1e249e84ea02a234b06ae269e13b019330adc27d8ee2b9299ff73492156"
+      "bytes": 21309,
+      "sha256": "7a0a079326fb400ac81c6770a1e43e48dc86486ce95efc6db302d2432e0694e3"
     },
     {
       "path": "tests/dashboard-central-delegation.test.cjs",
