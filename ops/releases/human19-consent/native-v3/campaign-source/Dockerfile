@@ -7,3 +7,4 @@ COPY --chown=node:node services/crm-campaign/server.cjs /app/services/crm-campai
 COPY --chown=node:node services/crm-campaign/consent-source.cjs /app/services/crm-campaign/consent-source.cjs
 COPY --chown=node:node n8n/growth/campaign-provider.js /app/n8n/growth/campaign-provider.js
 COPY --chown=node:node n8n/growth/campaign-service.js /app/n8n/growth/campaign-service.js
+COPY --chown=node:node services/crm-campaign/transport.cjs /app/services/crm-campaign/transport.cjs
