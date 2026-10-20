@@ -1,0 +1,17 @@
+{
+  "policy": "crm-campaign-v1",
+  "source_repository": "https://github.com/bandssz/shrigma-dash-cx",
+  "source_revision": "efc57ef1a3cab2fa612d21e8a53f222de21f8bd5",
+  "verified_at": "2026-10-05",
+  "files": {
+    "campaign-contract.js": {
+      "source_path": "n8n/growth/campaign-contract.js",
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390"
+    },
+    "campaign-tracking.js": {
+      "source_path": "n8n/growth/campaign-tracking.js",
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63"
+    }
+  },
+  "verification_scope": "repository only; no production query"
+}
