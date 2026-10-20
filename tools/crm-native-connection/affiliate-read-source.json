@@ -2630,8 +2630,8 @@
     },
     {
       "path": "tools/crm-qa/journey.cjs",
-      "bytes": 26637,
-      "sha256": "090fa8ec2e3ea047ff12d9700fa97fc02fc5e583a24538cae7cd5b36f6797415"
+      "bytes": 216,
+      "sha256": "2d9d502926add15ec30a8a176597b3723c62c0d97de910d6718e2e436253aea1"
     },
     {
       "path": "tools/crm-qa/permissions.cjs",
@@ -2645,8 +2645,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 8798,
-      "sha256": "b718aa6c5af35ddae70ec4d77b68aa39b58056062d1fa5b2fa03c41a4a77ae56"
+      "bytes": 8822,
+      "sha256": "96b4a7e833111985b24750f40c0f87b7c4b347b618f75c95024c835922c1906a"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -2710,8 +2710,8 @@
     },
     {
       "path": "tools/crm-qa/editor-journey.cjs",
-      "bytes": 28864,
-      "sha256": "bb20cbb0e9ddbbc1548149896f30d57170bf5863b81284a7730198c89f6fc42b"
+      "bytes": 216,
+      "sha256": "2d9d502926add15ec30a8a176597b3723c62c0d97de910d6718e2e436253aea1"
     },
     {
       "path": "tools/crm-qa/editor-objects.cjs",
@@ -2730,8 +2730,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 15036,
-      "sha256": "56eff3e7314a6e5916f7d99ac91eea3673ebda8b382cabbcb67003e01151f26d"
+      "bytes": 14939,
+      "sha256": "1c4adf965875adf049358f5929b2158a683368c7aae5e5dc01d02d4f499e7c53"
     },
     {
       "path": "tests/campaign-account-operator.test.cjs",
