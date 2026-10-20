@@ -180,7 +180,7 @@ function createCampaignDelivery({ db, authorize, transport, now = Date.now, encr
       const catalog=await call(context,row,'GET',Object.freeze({acao:'campanha_catalogo',brand:row.brand}));
       if(catalog?.status!==200)return pending();
       if(typeof prepareDefinition!=='function')fail('CAMPAIGN_DELIVERY_CONFIG');
-      try{savedDefinition=prepareDefinition(definition(row),{catalog:catalog.body,id:row.campaign_id,now:t});if(savedDefinition&&typeof savedDefinition.then==='function'){Promise.resolve(savedDefinition).catch(()=>{});savedDefinition=null;}if(!plain(savedDefinition)||savedDefinition.brand!==row.brand||savedDefinition.send_at!==null&&!date(savedDefinition.send_at))savedDefinition=null;}catch{savedDefinition=null;}
+      try{savedDefinition=prepareDefinition(definition(row),{catalog:catalog.body,id:row.campaign_id,now:t,context});if(savedDefinition&&typeof savedDefinition.then==='function'){Promise.resolve(savedDefinition).catch(()=>{});savedDefinition=null;}if(!plain(savedDefinition)||savedDefinition.brand!==row.brand||savedDefinition.send_at!==null&&!date(savedDefinition.send_at))savedDefinition=null;}catch{savedDefinition=null;}
     }
     const acceptable = c.version === row.expected_version && c.sent === 0 && c.startedAt === null && (!draftOnly||c.sendAt===null&&(savedDefinition===null||savedDefinition.send_at===null)) && (['salvar','validar'].includes(row.action) ? c.status === 'draft'&&(row.action!=='salvar'||savedDefinition!==null) : c.sendAt !== null && (row.action === 'agendar' ? c.status === 'draft' && Date.parse(c.sendAt) >= t + 15 * 60000 : c.status === 'scheduled' && Date.parse(c.sendAt) > t));
     if (!acceptable) {

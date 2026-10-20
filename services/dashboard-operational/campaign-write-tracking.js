@@ -32,7 +32,7 @@ const CampaignTracking=(()=>{
   if(target.origin!==selected.u.origin||target.username||target.password||target.port||!/^\/(products|pages|collections)\//.test(target.pathname))throw issue('COUPON_DESTINATION_INVALID','Coupon destination is outside the store');let changes=0;
   const rewrite=value=>String(value||'').replace(urlPattern,raw=>{const p=link(raw,brand);if(!p?.coupon||p.u.href!==selected.u.href)return raw;p.u.searchParams.set('redirect',target.pathname+target.search+target.hash);const out=serialize(p,p.u);if(out!==raw)changes++;return out;});return{body:rewrite(c.body),altbody:c.altbody==null?c.altbody:rewrite(c.altbody),changes};
  }
- function inspect(c,{brand,campaign,now=Date.now()}={},assignIdentity=true,{allowConflictingUtms=false,allowMissingCoupon=false,legacyReceipt=false}={}){
+ function inspect(c,{brand,campaign,now=Date.now()}={},assignIdentity=true,{allowConflictingUtms=false,allowMissingCoupon=false,legacyReceipt=false,editorialAdmitted=false}={}){
   if(!config[brand]||!campaign||!/^[a-z0-9_-]+$/.test(campaign))throw Error('Brand and campaign are required');
   if((assignIdentity&&!id(c.id))||!['draft','scheduled'].includes(c.status)||Number(c.sent)!==0||c.started_at)throw Error('Only unsent draft/scheduled campaigns can be prepared');
   if(c.status==='scheduled'&&!(Date.parse(c.send_at)>now+15*60e3))throw Error('Campaign is too close to sending');
@@ -50,7 +50,8 @@ const CampaignTracking=(()=>{
    const original=new URL(u.href);let target=u,coupon=false;
    if(u.pathname.startsWith('/discount/')){
     const redirect=u.searchParams.get('redirect');if(!redirect){if(allowMissingCoupon){commercialLinks++;return raw;}throw issue('COUPON_DESTINATION_REQUIRED','Coupon has no explicit destination');}
-    target=new URL(redirect,u.origin);
+    try{target=new URL(redirect,u.origin);}catch(e){if(editorialAdmitted)return raw;throw e;}
+    if(editorialAdmitted&&(target.origin!==u.origin||target.username||target.password||target.port||!/^\/(products|pages|collections)\//.test(target.pathname)))return raw;
     if(target.origin!==u.origin||!legacyReceipt&&(target.username||target.password||target.port)||!/^\/(products|pages|collections)\//.test(target.pathname))throw issue('COUPON_DESTINATION_INVALID','Coupon destination is outside the store');
     coupon=true;
    }
@@ -83,6 +84,6 @@ const CampaignTracking=(()=>{
  const draft={allowConflictingUtms:true,allowMissingCoupon:true},schedule={allowConflictingUtms:true,allowMissingCoupon:false};
  // Admission uses checkDraft before any save. Receipt recomposition must retain
  // the old deterministic serialization, including already committed snapshots.
- return {prepareLegacyReceipt:(c,o)=>inspect(c,o,true,{legacyReceipt:true}),prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,{...draft,legacyReceipt:true}),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
+ return {prepareAdmitted:(c,o)=>inspect(c,o,true,{...draft,editorialAdmitted:true}),prepareLegacyReceipt:(c,o)=>inspect(c,o,true,{legacyReceipt:true}),prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,{...draft,legacyReceipt:true}),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
 })();
 if(typeof module!=='undefined')module.exports=CampaignTracking;

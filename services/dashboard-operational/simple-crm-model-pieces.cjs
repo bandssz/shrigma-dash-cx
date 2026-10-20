@@ -32,28 +32,35 @@ function create({db,authorize,now=Date.now}={}){
  function append({context,brand,body}){
   const user=owner(context,brand,true);
   if(!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).sort().join(',')!=='acao,idempotency_key,rascunho'||body.acao!=='rascunho'||!UUID.test(body.idempotency_key||''))fail('PIECE_INPUT');
-  const r=body.rascunho,expected=Input.prepare({name:r?.nome,subject:r?.assunto,format:'html',content:r?.corpo},brand);
+  const restricted=require('./crm-ui-features.cjs').restrictedUser(user),r=body.rascunho,expected=Input.prepare({name:r?.nome,subject:r?.assunto,format:'html',content:r?.corpo},brand,restricted?{editorialMode:'gateway'}:undefined);
   if(canonical(expected)!==canonical(r))fail('PIECE_INPUT');
+  if(restricted&&!require('./campaign-editorial-policy.cjs').review({html:r.corpo,text:'',brand}).ok)fail('EDITORIAL_CONTENT_BLOCKED',422);
   const payload=Input.request(r),serialized=canonical(payload),digest=hash(payload);if(Buffer.byteLength(serialized)>290000)fail('PIECE_INPUT',413);
   if(db.isTransaction)fail('PIECE_TRANSACTION',409);db.exec('BEGIN IMMEDIATE');
   try{
-   if(owner(context,brand,true).id!==user.id)fail('PIECE_ACCESS_CHANGED',403);
+   const current=owner(context,brand,true);if(current.id!==user.id||require('./crm-ui-features.cjs').restrictedUser(current)!==restricted)fail('PIECE_ACCESS_CHANGED',403);
    let row=db.prepare('SELECT * FROM crm_model_piece_v1 WHERE user_id=? AND brand=? AND attempt_key=?').get(user.id,brand,body.idempotency_key);
    if(row){if(row.request_sha256!==digest||row.request_json!==serialized)fail('PIECE_ATTEMPT_CHANGED',409);}
    else{const t=now();if(!Number.isSafeInteger(t)||t<0)fail('PIECE_CLOCK',503);const id='d_piece_'+crypto.randomUUID().replaceAll('-','');db.prepare('INSERT INTO crm_model_piece_v1 VALUES(?,?,?,?,?,?,?)').run(id,user.id,brand,body.idempotency_key,serialized,digest,t);row=db.prepare('SELECT * FROM crm_model_piece_v1 WHERE draft_id=?').get(id);}
    const result=receipt(user,brand,body.idempotency_key,row);db.exec('COMMIT');return result;
   }catch(e){if(db.isTransaction)db.exec('ROLLBACK');throw e;}
  }
+ function review({context,brand,body}){
+  const user=owner(context,brand,true);if(!require('./crm-ui-features.cjs').restrictedUser(user))fail('PIECE_REVIEW_DENIED',403);
+  if(!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).sort().join(',')!=='acao,input,marca'||body.acao!=='peca_conferir'||body.marca!==brand)fail('PIECE_INPUT');
+  const r=Input.prepare(body.input,brand,{editorialMode:'gateway'}),review=require('./campaign-editorial-policy.cjs').review({html:r.corpo,text:'',brand});
+  return{schema:'crm-piece-editorial-review-v1',brand,ok:review.ok,diagnostics:review.diagnostics};
+ }
  // Internal runner resolver. Enforces the same brand access as the model UI,
  // including colleague-owned pieces, and validates stored integrity first.
  function internalTestSnapshot(context,brand,id,version){
-  owner(context,brand);if(!REF.test(id||'')||version!==1)fail('TEST_HTML_MODEL_VERSION',409);
+  const user=owner(context,brand);if(!REF.test(id||'')||version!==1)fail('TEST_HTML_MODEL_VERSION',409);
   const row=db.prepare('SELECT * FROM crm_model_piece_v1 WHERE brand=? AND draft_id=?').get(brand,id);if(!row)fail('PIECE_NOT_FOUND',404);
   let payload;try{payload=JSON.parse(row.request_json);}catch{fail('TEST_HTML_MODEL_INTEGRITY',503);}
   if(canonical(payload)!==row.request_json||hash(payload)!==row.request_sha256)fail('TEST_HTML_MODEL_INTEGRITY',503);
-  const p=Input.fromDraft(draft(row),brand);
+  const p=Input.fromDraft(draft(row),brand,require('./crm-ui-features.cjs').restrictedUser(user)?{editorialMode:'gateway'}:undefined);
   return {id:p.id,brand,version:p.version,subject:p.subject,html:p.html};
  }
- return Object.freeze({read,append,get,internalTestSnapshot});
+ return Object.freeze({read,append,get,internalTestSnapshot,review});
 }
 module.exports={create};

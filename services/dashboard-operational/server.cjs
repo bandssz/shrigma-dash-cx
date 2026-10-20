@@ -219,6 +219,10 @@ function readTimingHeaders(res,result,{restricted=false}={}){
  if(restricted){for(const key of ['source_poolQuery','source_serialize','source_gzip']){const v=result.readTiming[key];if(typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=120000)values.push(key+';dur='+v.toFixed(2));}const bytes=result.readTiming.source_bytes;if(Number.isSafeInteger(bytes)&&bytes>=0&&bytes<=8*1024*1024)values.push('source_bytes;desc="'+bytes+'"');}
  if(values.length)res.setHeader('Server-Timing',values.join(', '));
 }
+function readPayloadShapeHeader(res,result,{restricted=false,requested=false}={}){
+ if(result.status!==200||restricted!==true||requested!==true||!result.payloadShape)return;
+ try{res.setHeader('X-Shrigma-Crm-Payload-Shape',require('./crm-payload-shape.cjs').headerValue(result.payloadShape));}catch{}
+}
 function headers(res){
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Referrer-Policy','no-referrer');
@@ -901,6 +905,13 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }):undefined;
         return sendJson(req,res,200,{ok:true,mode:s.mode,...(sandbox?{synthetic:true,upstreamProfile}:{}),identity:true,...(affiliatePreviewPublicFiles?{affiliatePreviewPublicFiles,workspacePublicFiles:[...affiliatePreviewPublicFiles.map(f=>({...f,path:f.path.replace(AFFILIATE_PREVIEW,AFFILIATE_WORKSPACE).replace(CRM_PREVIEW,CRM_WORKSPACE)})),...readWorkspacePublicFiles]}:{}),...(s.crmNativeEnabled===true?{nativeMcp:true,nativeBackendManifestSha256:s.crmNativeManifestSha256,...(s.crmJourneyPresentationManifestSha256?{journeyPresentationManifestSha256:s.crmJourneyPresentationManifestSha256,journeyConfiguredRead:true,journeyPublicFiles}:{}),...(s.crmNativeDatabaseInspection===true?{nativeDatabaseInspection:true}:{})}:{}),runtimeUid:typeof process.getuid==='function'?process.getuid():null});
       }
+      if(url.pathname==='/internal/crm-campaign-editorial-admission'){
+        if(nativeContext||host!==s.managerHost||req.method!=='POST'||url.search||req.headers.cookie||req.headers.origin!==undefined||req.headers['content-encoding']||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||typeof auth.campaignEditorialAdmission!=='function')throw jsonError(403,'EDITORIAL_AUTHORITY_REFUSED');
+        const bearer=/^Bearer ([a-z0-9-]{8,128})$/.exec(req.headers.authorization||'')?.[1];
+        if(!bearer)throw jsonError(403,'EDITORIAL_AUTHORITY_REFUSED');
+        const input=await readJson(req,2*1024*1024),result=auth.campaignEditorialAdmission({bearer,input});
+        return sendJson(req,res,200,result);
+      }
       // Same-origin browser GET fetches may omit Origin. Receipt reads still
       // require the real session's CSRF secret, and may derive their origin
       // only from browser-controlled Fetch Metadata on this allowed host.
@@ -1251,6 +1262,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
         if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
         const body=await readJson(req,300000);
+        if(body?.acao==='peca_conferir')return sendJson(req,res,200,pieces.review({context:ctx,brand:body.marca,body}));
         return sendJson(req,res,200,pieces.append({context:ctx,brand:body?.rascunho?.marca,body}));
       }
       if(url.pathname==='/api/journey-activation-review'&&s.simpleReadMode===true&&auth.simpleAccounts?.journeyActivationReview){
@@ -1511,7 +1523,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
             const catalog=await simpleDraftTransport(context,{method:'GET',command:{acao:'campanha_catalogo',brand}});
             if(catalog.status!==200)throw jsonError(503,'CRM_SERVICE_DRAFT_SOURCE_REFUSED');
             const hints={FIELD_INVALID:'Preencha os campos obrigatórios.',SLUG_INVALID:'Use letras minúsculas, números, hífen ou sublinhado no código e na UTM.',SENDER_BRAND:'Escolha um remetente já utilizado pela marca.',REPLY_BRAND:'Escolha um endereço de respostas da marca.',SUBJECT_INVALID:'Use uma única linha no assunto.',UNSUBSCRIBE_MISSING:'Inclua {{ UnsubscribeURL }} no HTML e no texto.',HTML_ACTIVE_CONTENT:'Remova scripts, formulários e eventos do HTML.',NO_COMMERCIAL_LINK:'Inclua um link para produto, página ou coleção da loja.',TRACKING_INVALID:'Confira o destino dos links. Use páginas, coleções ou produtos da loja para o destino dos cupons.',LIST_SCOPE:'Escolha uma lista disponível para esta marca.',TEMPLATE_SCOPE:'Escolha um layout de campanha disponível.',INITIATIVE_CONFLICT:'Esta UTM já pertence a outra iniciativa.',CATALOG_UNAVAILABLE:'Atualize o catálogo da marca.'};
-            try{const tracking=require('./campaign-write-tracking.js'),definition=require('./campaign-write-contract.js').preflightDraft(fields.definition,{catalog:catalog.body,tracking}),warnings=tracking.review({body:definition.html,altbody:definition.text},{brand,campaign:definition.utm_campaign}).issues;return sendJson(req,res,200,{schema:'crm-campaign-preflight-v1',brand,ready:true,...(warnings.length?{warnings}:{})});}
+            try{const restricted=require('./crm-ui-features.cjs').restrictedUser(auth.session(ctx).user),tracking=require('./campaign-write-tracking.js'),definition=require('./campaign-write-contract.js').preflightDraft(fields.definition,{catalog:catalog.body,tracking,...(restricted?{editorialMode:'gateway'}:{})});if(restricted){const review=require('./campaign-editorial-policy.cjs').review({html:definition.html,text:definition.text,brand,campaign:definition.utm_campaign});return sendJson(req,res,200,{schema:'crm-campaign-preflight-v1',brand,ready:review.ok,diagnostics:review.diagnostics,...(!review.ok?{message:'Revise os bloqueios indicados nas linhas da peça.'}:{})});}const warnings=tracking.review({body:definition.html,altbody:definition.text},{brand,campaign:definition.utm_campaign}).issues;return sendJson(req,res,200,{schema:'crm-campaign-preflight-v1',brand,ready:true,...(warnings.length?{warnings}:{})});}
             catch(e){const code=Object.hasOwn(hints,e.code)?e.code:'CAMPAIGN_CONTENT_INVALID';return sendJson(req,res,200,{schema:'crm-campaign-preflight-v1',brand,ready:false,code,message:hints[code]||'Revise os campos e o conteúdo da campanha.'});}
           }
           if(req.method==='POST'){
@@ -1543,14 +1555,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           }
           return sendJson(req,res,result.status,result.body);
         }
-        if(simpleReader&&!nativeContext){const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],homeOnly:req.headers['x-shrigma-crm-view']==='home',origin});
+        if(simpleReader&&!nativeContext){const restricted=require('./crm-ui-features.cjs').restrictedUser(auth.session(ctx).user),measurePayload=restricted&&req.headers['x-shrigma-crm-measure']==='payload-v1';const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],homeOnly:req.headers['x-shrigma-crm-view']==='home',measurePayload,origin});
           if(route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200&&req.headers['x-shrigma-crm-view']==='home'){const started=Date.now();result.body=require('./simple-dashboard-read.cjs').projectCrmHome(result.body);if(result.readTiming)result.readTiming.homeResponse=Date.now()-started;}
           const resultsReadOnly=route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&req.headers['x-shrigma-crm-consumer']==='results-read-v1'&&req.headers['x-shrigma-crm-view']!=='home';
           // Analytics needs the same authenticated data, without model-write or
           // email-test capability probes. This grants no operation permission.
           if(result.status===200&&resultsReadOnly){result.body.capabilities={read:true,send:false};if(result.readTiming)result.readTiming.modelCapability=0;}
           else if(simpleModels&&route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200&&req.headers['x-shrigma-crm-view']!=='home'){const capabilityStarted=Date.now(),brand=req.headers['x-shrigma-view-brand']||auth.session(ctx).user?.brand;let availability;try{availability=await simpleModels.capability(ctx,brand);}catch{availability={read:false,draft:false,validate:false,submit:false,send:false};}const cap=result.body.capabilities||{};result.body.capabilities={...cap,write_key_required:false,templates:{...(cap.templates||{}),read_content:availability.read,read_contract:'crm-template-read-v1',server_drafts:availability.read,draft:availability.draft,validate:availability.validate,submit:availability.submit,submit_email:availability.submit,list_history:false,read_submission:false,send:false,native_email_preview:availability.read,native_email_test:availability.internalTest===true,...(availability.testRecovery===true?{test_recovery:true,email_test_recipient:'crm_email_test_recipient_v2',test_internal_only:true,test_recipient:availability.recipient,test_user_id:availability.userId}:{})},endpoints:{...(cap.endpoints||{}),templates:origin+'/api/templates'}};if(result.readTiming)result.readTiming.modelCapability=Date.now()-capabilityStarted;}
-          readTimingHeaders(res,result,{restricted:require('./crm-ui-features.cjs').restrictedUser(auth.session(ctx).user)});return sendJson(req,res,result.status,result.body);}
+          const restrictedNow=require('./crm-ui-features.cjs').restrictedUser(auth.session(ctx).user);readTimingHeaders(res,result,{restricted:restrictedNow});readPayloadShapeHeader(res,result,{restricted:restrictedNow,requested:measurePayload});return sendJson(req,res,result.status,result.body);}
         const parityAction=req.method==='GET'&&(crmManagedAudienceRead&&Object.hasOwn(AudienceRead.ACTIONS[route]||{},url.searchParams.get('acao'))||crmManagedTemplateRead&&Object.hasOwn(TemplateRead.ACTIONS[route]||{},url.searchParams.get('acao')));
         const parityUser=parityAction?auth.authorize({...ctx,area:'growth',edit:false}):null;
         const individualParity=!(corporateWriter&&allowAudienceDraft&&route==='segments'&&audienceFeature(ctx))&&parityUser?.role==='manager'&&auth.managedCrmJournal.status(parityUser.id)!==null;
@@ -1928,4 +1940,4 @@ if(require.main===module){
     createServer(settings,{auth,managedCrmRuntime}).listen(settings.port,settings.host,()=>console.log('Dashboard operational service listening'));
   }catch{console.error('Dashboard operational startup refused: invalid configuration');process.exitCode=1;}
 }
-module.exports={readTimingHeaders,cartContractSummary,environmentForSimpleDashboardRead,environmentForOriginalMasterAffiliateRead,environmentForOriginalMasterIndividualRead,projectBrandCache,environmentForOriginalMasterIndividualCoexistence,environmentForOriginalMasterTemplateRead,environmentForOriginalMasterPublishedJourneyRead,environmentForOriginalMasterCampaignCreate,environmentForOriginalMasterAudienceRead,settingsFromEnv,safeRequestPath,fileForHost,createServer,typeAndCsp,authOptionsFor,managedRuntimeFor};
+module.exports={readTimingHeaders,readPayloadShapeHeader,cartContractSummary,environmentForSimpleDashboardRead,environmentForOriginalMasterAffiliateRead,environmentForOriginalMasterIndividualRead,projectBrandCache,environmentForOriginalMasterIndividualCoexistence,environmentForOriginalMasterTemplateRead,environmentForOriginalMasterPublishedJourneyRead,environmentForOriginalMasterCampaignCreate,environmentForOriginalMasterAudienceRead,settingsFromEnv,safeRequestPath,fileForHost,createServer,typeAndCsp,authOptionsFor,managedRuntimeFor};

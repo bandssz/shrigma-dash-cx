@@ -83,7 +83,7 @@ function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,cor
    const s=snapshot(row);let matched=false;
    // Compare both deterministic policies against the authenticated receipt.
    // This is read-only recovery; neither alternative admits or dispatches input.
-   for(const legacyReceipt of [false,true]){try{const p=synchronous(prepareDefinition(s.definition,{catalog:s.catalog,id:o.providerId,now:row.prepared_at,legacyReceipt}),'CAMPAIGN_CREATE_CONFIG');if(plain(p)&&plain(p.definition)&&exact(p.tracking,['policy','term','list_ids','changed_links'])&&sha(p.definition)===sha(b.campaign.definition)&&sha(p.tracking)===sha(b.tracking)){matched=true;break;}}catch{}}
+   for(const [legacyReceipt,editorialReceipt]of [[false,false],[true,false],[false,true]]){try{const p=synchronous(prepareDefinition(s.definition,{catalog:s.catalog,id:o.providerId,now:row.prepared_at,legacyReceipt,editorialReceipt}),'CAMPAIGN_CREATE_CONFIG');if(plain(p)&&plain(p.definition)&&exact(p.tracking,['policy','term','list_ids','changed_links'])&&sha(p.definition)===sha(b.campaign.definition)&&sha(p.tracking)===sha(b.tracking)){matched=true;break;}}catch{}}
    if(!matched)return null;
   }else if(!exact(b,['error','message','provider_id','operation_id'])||typeof b.error!=='string'||!/^[A-Z][A-Z0-9_]{0,63}$/.test(b.error)||typeof b.message!=='string'||b.message.length>2000||b.operation_id!==o.id||b.provider_id!==o.providerId||o.state==='rejected'&&!(o.response.status>=400&&o.response.status<=599&&b.error!=='OUTCOME_UNKNOWN')||o.state==='outcome_unknown'&&(o.response.status!==502||b.error!=='OUTCOME_UNKNOWN'))return null;
   const h=sha(o);if(row.receipt_sha256&&(row.receipt_sha256!==h||row.receipt_state!==o.state))return null;
@@ -111,7 +111,7 @@ function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,cor
   if(row.phase!=='queued')return reconcileRow(ctx,row);
   const catalog=await call(ctx,row,'GET',Object.freeze({acao:'campanha_catalogo',brand:row.brand}));if(catalog?.status!==200)return pending();
   const t=clock();let d;
-  try{d=synchronous(preflightDefinition(input(row).definition,{catalog:catalog.body,now:t}),'CAMPAIGN_CREATE_CONFIG');if(!plain(d)||d.brand!==row.brand||d.send_at!==null)d=null;}catch{d=null;}
+  try{d=synchronous(preflightDefinition(input(row).definition,{catalog:catalog.body,now:t,context:ctx}),'CAMPAIGN_CREATE_CONFIG');if(!plain(d)||d.brand!==row.brand||d.send_at!==null)d=null;}catch{d=null;}
   if(!d){const changed=atomic(()=>{same(ctx,row);return db.prepare("UPDATE crm_campaign_create_v1 SET phase='rejected',updated_at=? WHERE user_id=? AND client_key=? AND phase='queued'").run(t,row.user_id,row.client_key).changes===1;});return changed?dto('rejected'):reconcileRow(ctx,get(row.user_id,row.client_key));}
   const normalizedCipher=cipher(d),catalogCipher=cipher(catalog.body);
   const claimed=atomic(()=>{same(ctx,row);return db.prepare("UPDATE crm_campaign_create_v1 SET phase='uncertain',normalized_ciphertext=?,normalized_sha256=?,catalog_ciphertext=?,catalog_sha256=?,prepared_at=?,updated_at=? WHERE user_id=? AND client_key=? AND phase='queued'").run(normalizedCipher,sha(d),catalogCipher,sha(catalog.body),t,t,row.user_id,row.client_key).changes===1;});
