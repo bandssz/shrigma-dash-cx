@@ -1431,12 +1431,12 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "b861d816f4d69c4a9b4aa73deef4f2e1dc1be80326e8e891543db79c433b2e9d"
+      "sha256": "ed5fcd58993f15691220ad72dccd76c33f0c9777bfcb45b7c60924201a8da1ba"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
-      "bytes": 13496,
-      "sha256": "45286deb114c859177bfa393397cecdc076673c6d12f01a1f0014002cb7eea4d"
+      "bytes": 13985,
+      "sha256": "e2e7f25f0b1e79757faf0a2cf5e9e55b94b6d25d494a9b78f74718f6d32739e2"
     },
     {
       "path": "services/dashboard-operational/campaign-write-tracking.js",
@@ -1690,13 +1690,13 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 209527,
-      "sha256": "6f60910ea9745392d1fb373abadc17a6d38a5b441d5922c30fa5d59625be985f"
+      "bytes": 209915,
+      "sha256": "c80897b0002ffa19be7f705268fd46347068351231eadf3c14f4be2ad0e201e0"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
-      "bytes": 38886,
-      "sha256": "4b237ac8e59660fea96b119ce5e5ddc47d322e4bf357a5c579c852563280a367"
+      "bytes": 38914,
+      "sha256": "cd22f50a703570bff035c54001383b9bf6c0dadc10981bb6da55754aaa601591"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
@@ -1710,8 +1710,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 135317,
-      "sha256": "1b06b3960140881c0b4dd99bcd44083869d3fa38b2100b0286671e3ea556ce8f"
+      "bytes": 136079,
+      "sha256": "733d5011bb8c1dc9723ef6a4c9b1c50aede3ba2b196f739ee71fe35cdb568c4b"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1855,8 +1855,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 12771,
-      "sha256": "b1e13674ced15fd734a88f51b80511a401b26f1012a996fde4473c57e1c445a6"
+      "bytes": 12802,
+      "sha256": "f398effe1f441a3c4cb32ac47a18377ac37251365cadac26527050795db78dc3"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -2005,8 +2005,8 @@
     },
     {
       "path": "tests/consent19/native-admission.test.cjs",
-      "bytes": 8521,
-      "sha256": "9c4585b2037d525997e206d1326929844c2b1e4adb89b906841847d35391755f"
+      "bytes": 9155,
+      "sha256": "5b311cb3f1f55f59960067c4eabc1f88261e9d978847f731632c12e0980d24a9"
     },
     {
       "path": "tests/consent19/native-reservation-http.test.cjs",
@@ -2125,8 +2125,8 @@
     },
     {
       "path": "tests/crm-campaign-link-warnings.test.cjs",
-      "bytes": 6528,
-      "sha256": "a870f38bb39c2c212324a678292c440f5d7547a372af72cd886e9df1e9b55e49"
+      "bytes": 7192,
+      "sha256": "9e737bcc268794df77da1fb3912e737718985e11387f035496632b5b796cfa64"
     },
     {
       "path": "tests/crm-campaign-piece-picker.test.cjs",
@@ -2150,8 +2150,8 @@
     },
     {
       "path": "tests/crm-editorial-policy.test.cjs",
-      "bytes": 5883,
-      "sha256": "1e897ad1c06728f2f153acb4cc755a3bc0ac982488487413ecb46f6fcbc955c7"
+      "bytes": 7113,
+      "sha256": "6e5c546a3afd7fc84df60f44e82e9f3c0ab494c269e9e31c72870e5ca04a0074"
     },
     {
       "path": "tests/crm-freeze-scale20.test.cjs",
@@ -2530,8 +2530,8 @@
     },
     {
       "path": "tests/simple-crm-campaign-tests.test.cjs",
-      "bytes": 35626,
-      "sha256": "413d337c92ee97f7375c7e4cfc30fa5a360f74a9b6ad3db7342b21d3c989a421"
+      "bytes": 37195,
+      "sha256": "f7ea0a928bd5ea881b584f60a6f151e86066ac3862ad3cc87fd6cdfaee5061ef"
     },
     {
       "path": "tests/simple-crm-model-pieces.test.cjs",
@@ -2570,8 +2570,8 @@
     },
     {
       "path": "tests/simple-tabler-read.test.cjs",
-      "bytes": 28426,
-      "sha256": "7c971b9383ad73e5e982f026951598ea84e0a6ec2f6a9f376fc01183d42f2230"
+      "bytes": 28444,
+      "sha256": "a0290d8070fba419ab93de0f80327f2423e1ae3f3ba92fa1255217aed43b75f8"
     },
     {
       "path": "tests/simple-tts-manual.test.cjs",

@@ -184,4 +184,4 @@ const Analytics=(()=>{
 if(typeof module==='object'&&module.exports)module.exports=Analytics;
 if(typeof window==='object')window.ShrigmaCrmAnalytics=new Proxy({}, {get(_target,key){const selected=window.ShrigmaCrmFeatureEnabled?.('campaignPeriods')===true?Analytics:BaselineAnalytics;return selected[key];}});
 
-window.ShrigmaCrmCampaignIdentity=require('../../../../campaign-identity.js');
+if(typeof window==='object')window.ShrigmaCrmCampaignIdentity=require('../../../../campaign-identity.js');
