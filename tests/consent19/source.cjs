@@ -14,7 +14,7 @@ function originIds(definition,base){
  function walk(rule,depth){if(++nodes>32||depth>4||!plain(rule))fail('CONSENT_ORIGIN_UNCONFIRMED');if(rule.op==='in_list'){if(!id(rule.list_id))fail('CONSENT_ORIGIN_UNCONFIRMED');out.add(rule.list_id);return;}if(['and','or'].includes(rule.op)){if(!Array.isArray(rule.rules)||!rule.rules.length||rule.rules.length>16)fail('CONSENT_ORIGIN_UNCONFIRMED');rule.rules.forEach(x=>walk(x,depth+1));return;}if(rule.op!=='condition')fail('CONSENT_ORIGIN_UNCONFIRMED');}
  walk(definition.rule,0);return [...out].sort((a,b)=>a-b);
 }
-function createSource({campaignRead,audienceRead,audienceCount,api,sign,verify,now=Date.now}){
+function createSource({campaignRead,audienceRead,audienceCount,api,sign,verify,scope,now=Date.now}){
  if(![campaignRead,audienceRead,audienceCount,api,sign,verify,now].every(f=>typeof f==='function'))throw Error('CONSENT_SOURCE_CONFIG');
  async function native(resource,fields={}){return data(await api({resource,...fields}));}
  async function operation(brand,key){
@@ -38,7 +38,8 @@ function createSource({campaignRead,audienceRead,audienceCount,api,sign,verify,n
  }
  function signed(input){
   if(!plain(input)||typeof input.seal!=='string'||!/^[a-f0-9]{64}$/.test(input.seal))fail('CONSENT_PROVENANCE_UNCONFIRMED');const p={...input};delete p.seal;
-  if(p.schema!=='crm-consent-provenance-v1'||!['aristo','fish'].includes(p.brand)||!id(p.campaignId)||!uuid(p.campaignUuid)||!uuid(p.createdOperationId)||!plain(p.freeze)||!plain(p.audience)||!Array.isArray(p.origins)||!p.origins.length||!Array.isArray(p.members)||!p.members.length||typeof p.originalReceiptSha256!=='string'||!/^[a-f0-9]{64}$/.test(p.originalReceiptSha256)||verify(canonical(p),input.seal)!==true)fail('CONSENT_PROVENANCE_UNCONFIRMED');return p;
+  const membersKnown=p.memberScope==='server'&&!Object.hasOwn(p,'members')||Array.isArray(p.members)&&p.members.length>0;
+  if(p.schema!=='crm-consent-provenance-v1'||!['aristo','fish'].includes(p.brand)||!id(p.campaignId)||!uuid(p.campaignUuid)||!uuid(p.createdOperationId)||!plain(p.freeze)||!plain(p.audience)||!Array.isArray(p.origins)||!p.origins.length||!membersKnown||typeof p.originalReceiptSha256!=='string'||!/^[a-f0-9]{64}$/.test(p.originalReceiptSha256)||verify(canonical(p),input.seal)!==true)fail('CONSENT_PROVENANCE_UNCONFIRMED');return p;
  }
  async function register({brand,createKey,freezeKey}){
   if(!['aristo','fish'].includes(brand)||!/^bff-[a-f0-9]{64}$/.test(createKey||'')||!uuid(freezeKey))fail('CONSENT_REGISTRATION_INPUT');
@@ -66,27 +67,31 @@ function createSource({campaignRead,audienceRead,audienceCount,api,sign,verify,n
   try{Freeze.receipt({_http:freezeRead.status,_body:f},{brand,id:f.audience_id,expected_version:f.audience_version,expected_definition_hash:f.definition_hash});}catch{fail('CONSENT_FREEZE_UNCONFIRMED');}
   if(c.definition.list_ids[0]!==f.list_id)fail('CONSENT_FREEZE_UNCONFIRMED');
   const origins=[];for(const expected of f.origins){const current=await list(expected.id,expected.uuid);if(canonical(current)!==canonical(expected))fail('CONSENT_ORIGIN_UNCONFIRMED');origins.push(current);}
-  const frozen=await list(f.list_id,f.list_uuid),initialWithState=await members(f.list_id,undefined,f.list_uuid),initial=initialWithState.map(({id,uuid})=>({id,uuid}));
-  if(frozen.optin!==f.list_optin||frozen.status!=='active'||initial.length!==f.eligible_count||sha(initial.map(x=>x.id))!==f.members_sha256||sha(initial.map(x=>[x.id,x.uuid]))!==f.members_identity_sha256)fail('CONSENT_FREEZE_CHANGED');
-  // Membership state belongs to this list, never the subscriber's global state.
-  // Meta remains a SQL-opaque pin; no personal metadata crosses this boundary.
-  const states=initialWithState.map(m=>[m.id,m.subscription_status]);
-  if(sha(states)!==f.members_state_sha256)fail('CONSENT_FREEZE_CHANGED');
-  const current=await native('campaign',{id:c.id}),p={schema:'crm-consent-provenance-v1',brand,campaignId:c.id,campaignUuid:current.uuid,createdOperationId:o.id,createKey,freezeKey,originalReceiptSha256:receipt,freeze:JSON.parse(JSON.stringify(f)),audience:{id:f.audience_id,version:f.audience_version,definition_hash:f.definition_hash},origins,members:initial,registeredAt:now()};
-  await campaign(p);return{...p,seal:sign(canonical(p))};
+  const frozen=await list(f.list_id,f.list_uuid);
+  if(frozen.optin!==f.list_optin||frozen.status!=='active')fail('CONSENT_FREEZE_CHANGED');
+  // The original SQL receipt pins the complete cohort. Its members stay in
+  // Postgres; the existing CREATE row stores only these compact signed pins.
+  const current=await native('campaign',{id:c.id}),p={schema:'crm-consent-provenance-v1',brand,campaignId:c.id,campaignUuid:current.uuid,createdOperationId:o.id,createKey,freezeKey,originalReceiptSha256:receipt,freeze:JSON.parse(JSON.stringify(f)),audience:{id:f.audience_id,version:f.audience_version,definition_hash:f.definition_hash},origins,memberScope:'server',registeredAt:now()};
+  await campaign(p);await checkedScope(p,undefined,true);return{...p,seal:sign(canonical(p))};
  }
- async function admission(input){const p=signed(input),original=await operation(p.brand,p.createKey);if(original.o.id!==p.createdOperationId||original.c.id!==p.campaignId||original.receipt!==p.originalReceiptSha256)fail('CONSENT_CREATE_CHANGED');await campaign(p);await list(p.freeze.list_id,p.freeze.list_uuid);for(const l of p.origins)await list(l.id,l.uuid);return p;}
- async function plan(input){const p=await admission(input),withdrawn=await members(p.freeze.list_id,'unsubscribed'),known=new Map(p.members.map(x=>[x.id,x.uuid]));return{schema:'crm-campaign-consent-job-plan-v1',brand:p.brand,campaign_id:p.campaignId,campaign_uuid:p.campaignUuid,created_operation_id:p.createdOperationId,frozen:await list(p.freeze.list_id,p.freeze.list_uuid),origins:p.origins.map(x=>({id:x.id,uuid:x.uuid})),original_receipt_sha256:p.originalReceiptSha256,member_ids:withdrawn.filter(x=>known.get(x.id)===x.uuid).map(x=>x.id)};}
+ async function checkedScope(p,subscriberId,initial=false){
+  if(typeof scope!=='function')fail('CONSENT_SCOPE_UNCONFIRMED');
+  const s=await scope({brand:p.brand,campaignId:p.campaignId,createKey:p.createKey,freezeKey:p.freezeKey,...(subscriberId===undefined?{}:{subscriberId})});
+  if(s?.confirmed!==true||s.list_id!==p.freeze.list_id||s.list_uuid!==p.freeze.list_uuid||s.campaign_uuid!==p.campaignUuid||s.created_operation_id!==p.createdOperationId||s.freeze_key!==p.freezeKey||['eligible_count','members_sha256','members_identity_sha256','members_meta_sha256'].some(k=>s[k]!==p.freeze[k])||initial&&s.members_state_sha256!==p.freeze.members_state_sha256||subscriberId!==undefined&&!uuid(s.member_uuid))fail('CONSENT_SCOPE_UNCONFIRMED');
+  return s;
+ }
+ async function admission(input,{member=false}={}){const p=signed(input),original=await operation(p.brand,p.createKey);if(original.o.id!==p.createdOperationId||original.c.id!==p.campaignId||original.receipt!==p.originalReceiptSha256)fail('CONSENT_CREATE_CHANGED');await campaign(p);await list(p.freeze.list_id,p.freeze.list_uuid);for(const l of p.origins)await list(l.id,l.uuid);if(p.memberScope==='server'&&!member)await checkedScope(p);return p;}
+ async function plan(input){const p=await admission(input),withdrawn=await members(p.freeze.list_id,'unsubscribed'),known=p.memberScope==='server'?null:new Map(p.members.map(x=>[x.id,x.uuid]));return{schema:'crm-campaign-consent-job-plan-v1',brand:p.brand,campaign_id:p.campaignId,campaign_uuid:p.campaignUuid,created_operation_id:p.createdOperationId,frozen:await list(p.freeze.list_id,p.freeze.list_uuid),origins:p.origins.map(x=>({id:x.id,uuid:x.uuid})),original_receipt_sha256:p.originalReceiptSha256,member_ids:withdrawn.filter(x=>known===null||known.get(x.id)===x.uuid).map(x=>x.id)};}
  async function memberValue(p,subscriberId){
-  const known=p.members.find(x=>x.id===subscriberId);if(!known)fail('CONSENT_MEMBER_SCOPE');
+  const known=p.memberScope==='server'?{id:subscriberId,uuid:(await checkedScope(p,subscriberId)).member_uuid}:p.members.find(x=>x.id===subscriberId);if(!known)fail('CONSENT_MEMBER_SCOPE');
   const value=await native('subscriber',{id:subscriberId});if(value?.id!==subscriberId||value.uuid!==known.uuid||!Array.isArray(value.lists))fail('CONSENT_MEMBER_UNCONFIRMED');
   const status=(listId,listUuid)=>{const rows=value.lists.filter(x=>x.id===listId);if(!rows.length)return'absent';if(rows.length!==1||rows[0].uuid!==listUuid||!['confirmed','unconfirmed','unsubscribed'].includes(rows[0].subscription_status))fail('CONSENT_MEMBER_UNCONFIRMED');return rows[0].subscription_status;};
   return{id:subscriberId,uuid:value.uuid,frozen_id:p.freeze.list_id,frozen_uuid:p.freeze.list_uuid,frozen_status:status(p.freeze.list_id,p.freeze.list_uuid),origins:p.origins.map(x=>({id:x.id,uuid:x.uuid,status:status(x.id,x.uuid)}))};
  }
- async function member(input,subscriberId){return memberValue(await admission(input),subscriberId);}
+ async function member(input,subscriberId){if(!id(subscriberId))fail('CONSENT_MEMBER_SCOPE');return memberValue(await admission(input,{member:true}),subscriberId);}
  async function unsubscribe(input,{id:subscriberId,uuid:subscriberUuid,originId,originUuid,expectedOriginStatus}){
   if(!['confirmed','unconfirmed'].includes(expectedOriginStatus))fail('CONSENT_BACKUP_UNCONFIRMED');
-  const p=await admission(input),origin=p.origins.find(x=>x.id===originId&&x.uuid===originUuid);if(!origin)fail('CONSENT_ORIGIN_SCOPE');const m=await memberValue(p,subscriberId),o=m.origins.find(x=>x.id===originId);
+  if(!id(subscriberId))fail('CONSENT_MEMBER_SCOPE');const p=await admission(input,{member:true}),origin=p.origins.find(x=>x.id===originId&&x.uuid===originUuid);if(!origin)fail('CONSENT_ORIGIN_SCOPE');const m=await memberValue(p,subscriberId),o=m.origins.find(x=>x.id===originId);
   if(m.uuid!==subscriberUuid||m.frozen_status!=='unsubscribed')fail('CONSENT_WITHDRAWAL_CHANGED');if(o.status==='absent'||o.status==='unsubscribed')return true;if(o.status!==expectedOriginStatus)fail('CONSENT_ORIGIN_CHANGED');
   const changed=await native('unsubscribe',{subscriberId,originId});if(changed!==true)fail('CONSENT_EFFECT_UNCONFIRMED');return true;
  }

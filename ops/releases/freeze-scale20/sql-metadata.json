@@ -1,0 +1,35 @@
+{
+  "newFunctions": 0,
+  "newTables": 0,
+  "newKeys": 0,
+  "changed": [
+    {
+      "file": "freeze.bulk.sql",
+      "signature": "crm_audience_v2.freeze_native_internal_saved_audience_20261017(text,text,uuid,integer,text,text,text,jsonb,jsonb,text,text)",
+      "beforeMd5": "cc208e098c39d5094314231a64f55ac5",
+      "afterMd5": "cee4f6ddb5601612b2cc14518f0ca665",
+      "owner": "postgres",
+      "acl": "{postgres=X/postgres,crm_audience_api=X/postgres}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "provolatile": "v",
+      "prosecdef": true
+    },
+    {
+      "file": "effect.compact.sql",
+      "signature": "crm_audience_v2.native_internal_effect_v1(text,jsonb,jsonb)",
+      "beforeMd5": "b2aeda8243901ff6de5be2d152a3ce10",
+      "afterMd5": "31a074a6d9c76c29e5a5b06d5b2b051c",
+      "owner": "postgres",
+      "acl": "{postgres=X/postgres}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "provolatile": "v",
+      "prosecdef": true
+    }
+  ],
+  "returnFreezeMd5": "bbe8beef2be702c032938654d28138dd",
+  "returnKeepsCompactConsentRead": true
+}

@@ -5,7 +5,7 @@ const crypto=require('node:crypto');
 const canonical=x=>JSON.stringify(x,(_k,v)=>v&&Object.getPrototypeOf(v)===Object.prototype?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 const digest=x=>crypto.createHash('sha256').update(canonical(x)).digest('hex');
 const HEX=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
-const ACTION='segmento_congelar_nativo_interno',RECOVER='segmento_congelamento_nativo_obter';
+const ACTION='segmento_congelar_nativo_interno',RECOVER='segmento_congelamento_nativo_obter',RECONCILE='segmento_reconciliar_congelamento_nativo';
 const fields=['acao','brand','id','expected_version','expected_definition_hash','expected_context_hash','expected_catalog_hash','idempotency_key'];
 const bodyFields=['contract','brand','audience_id','audience_version','definition_hash','list_id','list_uuid','eligible_count','members_sha256','checked_at','schedules','sends','internal_test','source_operation_sha256'];
 const bodyFieldsV3=bodyFields.filter(k=>k!=='internal_test').concat(['list_optin','members_state_sha256','members_identity_sha256','members_meta_sha256','base','origins','frozen_at']);
@@ -13,6 +13,7 @@ const exact=(x,keys)=>x&&Object.getPrototypeOf(x)===Object.prototype&&Object.key
 const fail=(code,status=503)=>{throw Object.assign(Error(code),{code,status});};
 const SQL='SELECT crm_audience_v2.freeze_native_internal_saved_audience_20261017($1::text,$2::text,$3::uuid,$4::integer,$5::text,$6::text,$7::text,$8::jsonb,$9::jsonb,$10::text,$11::text) AS result';
 function validateRequest(p){if(!exact(p,fields)||p.acao!==ACTION||!['fish','aristo'].includes(p.brand)||!UUID.test(p.id||'')||!Number.isSafeInteger(p.expected_version)||p.expected_version<1||p.expected_version>999999999||!['expected_definition_hash','expected_context_hash','expected_catalog_hash'].every(k=>HEX.test(p[k]||''))||!/^[A-Za-z0-9_.:-]{8,128}$/.test(p.idempotency_key||''))fail('NATIVE_FREEZE_INPUT',400);return JSON.parse(canonical(p));}
+function reconciliationRequest(p){if(!exact(p,[...fields,'confirm'])||p.acao!==RECONCILE||p.confirm!=='reconciliar_intencao_original')fail('NATIVE_FREEZE_INPUT',400);const original={...p,acao:ACTION};delete original.confirm;return validateRequest(original);}
 function receipt(value,p){const b=value?._body;
  if(b?.contract==='crm-native-frozen-internal-list-v2'){
   if(!exact(value,['_http','_body'])||value._http!==200||!exact(b,bodyFields)||b.brand!==p.brand||b.audience_id!==p.id||b.audience_version!==p.expected_version||b.definition_hash!==p.expected_definition_hash||!Number.isSafeInteger(b.list_id)||b.list_id<1||b.list_id>2147483647||!UUID.test(b.list_uuid||'')||b.eligible_count!==1||b.members_sha256!==digest([26948228])||b.internal_test!==true||(b.source_operation_sha256!==null&&(typeof b.source_operation_sha256!=='string'||!HEX.test(b.source_operation_sha256)))||typeof b.checked_at!=='string'||!Number.isFinite(Date.parse(b.checked_at))||b.schedules!==false||b.sends!==false)fail('NATIVE_FREEZE_READBACK');
@@ -38,10 +39,16 @@ function createInternalFreeze({transaction,source}={}){
   await query(source.SQL.lock,[actor,p.idempotency_key]);await reauth();const old=(await query(source.SQL.operation,[actor,p.idempotency_key])).rows;if(old.length>1)fail('NATIVE_FREEZE_READBACK');if(old.length){const existing=stored(old[0],p.brand,p.idempotency_key);if(digest(existing.payload)!==payloadHash)fail('NATIVE_FREEZE_REQUEST_CONFLICT',409);await reauth();return existing.receipt;}
   const before=await source.readCatalog(query,p.brand);await reauth();if(!before.ready||!before.catalog.current||before.catalog.catalog_hash!==p.expected_catalog_hash)fail('NATIVE_FREEZE_CATALOG_CHANGED',409);
   const saved=await source.readDefinition(query,{brand:p.brand,id:p.id});if(!saved||saved.archived||saved.version!==p.expected_version||saved.definition_hash!==p.expected_definition_hash||saved.context_hash!==p.expected_context_hash||digest(saved.definition)!==saved.definition_hash||digest(saved.context)!==saved.context_hash)fail('NATIVE_FREEZE_AUDIENCE_CHANGED',409);const current=source.pins(saved.definition,before);if(digest(current)!==saved.context_hash)fail('NATIVE_FREEZE_AUDIENCE_CHANGED',409);await reauth();
+  // This operation is synchronous and set-based. Its local SQL deadline does
+  // not widen the pool/default deadline used by other audience operations.
+  await query("SELECT pg_catalog.set_config('statement_timeout','25000ms',true)");
   const rows=(await query(SQL,[key,p.brand,p.id,p.expected_version,p.expected_definition_hash,p.expected_context_hash,p.expected_catalog_hash,JSON.stringify(before.catalog),JSON.stringify(current),p.idempotency_key,payloadHash])).rows;if(rows.length!==1)fail('NATIVE_FREEZE_READBACK');const result=receipt(rows[0].result,p);
   // Exclude exactly this transaction's new list; retain every other delta.
   const finalQuery=async(text,values)=>{const r=await query(text,values);return text===source.SQL.lists?{...r,rows:r.rows.filter(x=>x.id!==result._body.list_id)}:r;};const after=await source.readCatalog(finalQuery,p.brand);await reauth();if(!after.ready||after.metadataSnapshot!==before.metadataSnapshot||after.config_revision!==before.config_revision||after.expires_at!==before.expires_at||after.catalog.catalog_hash!==before.catalog.catalog_hash||digest(source.pins(saved.definition,after))!==saved.context_hash)fail('NATIVE_FREEZE_CATALOG_CHANGED',409);return result;
  });}
- return Object.freeze({execute,recover});
+ // Explicit reconciliation acquires the SAME source advisory lock and checks
+ // the original immutable receipt before any effect. It never changes the key.
+ const reconcile=({key,request,signal}={})=>execute({key,request:reconciliationRequest(request),signal});
+ return Object.freeze({execute,recover,reconcile});
 }
-module.exports={createInternalFreeze,SQL,ACTION,RECOVER,digest,validateRequest,receipt};
+module.exports={createInternalFreeze,SQL,ACTION,RECOVER,RECONCILE,digest,validateRequest,reconciliationRequest,receipt};

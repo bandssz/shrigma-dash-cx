@@ -20,7 +20,7 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editor
  const identity=async(context,brand)=>{if(!enabled||!['fish','aristo'].includes(brand))throw error(403,'NATIVE_INTERNAL_DISABLED');const p=await binding(context,{brand,write:true,fetchImpl});if(!allowedEditor(p.author))throw error(403,'NATIVE_INTERNAL_EDITOR_REQUIRED');return p;};
  async function transport(context,{route='campaigns',method,command}){
   const p=await identity(context,command.brand),action=command.acao;
-  const allowed=route==='segments'?(method==='GET'?['segmento_contexto_revisao','segmento_congelamento_nativo_obter']:['segmento_congelar_nativo_interno']):(method==='GET'?['campanha_nativa_contexto','campanha_obter','campanha_catalogo','campanha_operacao']:['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar','campanha_reconciliar_cancelamento']);
+  const allowed=route==='segments'?(method==='GET'?['segmento_contexto_revisao','segmento_congelamento_nativo_obter']:['segmento_congelar_nativo_interno','segmento_reconciliar_congelamento_nativo']):(method==='GET'?['campanha_nativa_contexto','campanha_obter','campanha_catalogo','campanha_operacao']:['campanha_salvar','campanha_validar','campanha_agendar','campanha_cancelar','campanha_reconciliar_cancelamento']);
   if(!allowed.includes(action)||!['GET','POST'].includes(method))throw error(403,'NATIVE_INTERNAL_SCOPE');
   if(route==='segments'&&command.id!==undefined){if(!UUID.test(command.id||''))throw error(403,'NATIVE_INTERNAL_AUDIENCE');if(command.id===IDS[command.brand]){if(!allowedOperator(p.author))throw error(403,'NATIVE_INTERNAL_QA_ONLY');}else if(!frozenAudienceV3||!editorsEnabled&&!allowedOperator(p.author))throw error(403,'NATIVE_NEW_SCHEDULE_CLOSED');}
   const url=new URL(P.REVIEWED_DYNAMIC.routes[route]);
@@ -49,6 +49,11 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editor
    // Source request owns replay/commit. A caller repeats this SAME intention;
    // an unconfirmed response is recovered with GET, never a new freeze key.
    return transport(context,{route:'segments',method:'POST',command:{...q,acao:'segmento_congelar_nativo_interno',idempotency_key:key}});
+  }
+  if(action==='campanha_nativa_reconciliar_congelamento'&&method==='POST'&&exact(q,['acao','brand','id','expected_version','expected_definition_hash','expected_context_hash','expected_catalog_hash','idempotency_key','confirm'])){
+   if(!restrictedUser(who.author))throw error(403,'NATIVE_INTERNAL_QA_ONLY');
+   if(!UUID.test(q.id||'')||!Number.isSafeInteger(q.expected_version)||q.expected_version<1||![q.expected_definition_hash,q.expected_context_hash,q.expected_catalog_hash].every(x=>HASH.test(x))||!UUID.test(q.idempotency_key)||q.confirm!=='reconciliar_intencao_original')throw error(400,'NATIVE_INTERNAL_INPUT');
+   return transport(context,{route:'segments',method:'POST',command:{...q,acao:'segmento_reconciliar_congelamento_nativo',idempotency_key:remoteKey(context,{brand,key:q.idempotency_key})}});
   }
   if(action==='campanha_nativa_congelamento_obter'&&method==='GET'&&exact(q,['acao','brand','idempotency_key'])){
    if(!UUID.test(q.idempotency_key))throw error(400,'NATIVE_INTERNAL_INPUT');return transport(context,{route:'segments',method,command:{acao:'segmento_congelamento_nativo_obter',brand,idempotency_key:remoteKey(context,{brand,key:q.idempotency_key})}});

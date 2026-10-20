@@ -4,6 +4,7 @@
 const crypto=require('node:crypto'),{createSource,canonical}=require('./source.cjs');
 const AUDIENCE='https://comunicacao-crm-audience.tazdb8.easypanel.host/segments';
 const AUTH_SQL='SELECT public.shrigma_crm_campaign_auth_v1($1::text) AS auth';
+const EFFECT_SQL='SELECT public.shrigma_crm_campaign_effect_v1($1::text,$2::jsonb,$3::jsonb) AS result';
 const positive=n=>Number.isSafeInteger(n)&&n>0&&n<=2147483647;
 const plain=o=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.getPrototypeOf(o)===Object.prototype;
 const exact=(o,keys)=>plain(o)&&Object.keys(o).sort().join(',')===[...keys].sort().join(',');
@@ -37,7 +38,8 @@ function createConsentExecutor({pool,campaignExecutor,nativeConsent,fetchFn=fetc
    const {kind,brand}=command,fields={register:['kind','brand','createKey','freezeKey'],plan:['kind','brand','provenance'],member:['kind','brand','provenance','subscriberId'],unsubscribe:['kind','brand','provenance','member']}[kind];if(!fields||!exact(command,fields)||kind!=='register'&&command.provenance?.brand!==brand)fail('CONSENT_REQUEST_INVALID');
    const before=await identity(key,brand),guard=()=>{if(interrupted())fail('CONSENT_REQUEST_ENDED');};
    const audience=async(q,method)=>{guard();const url=new URL(AUDIENCE);if(method==='GET')for(const[k,v]of Object.entries(q))url.searchParams.set(k,String(v));return response(await fetchFn(url.href,{method,headers:{Accept:'application/json',Authorization:'Bearer '+key,...(method==='POST'?{'Content-Type':'application/json'}:{})},...(method==='POST'?{body:JSON.stringify(q)}:{}),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(25000)}));};
-   const source=createSource({campaignRead:async q=>{guard();return campaignExecutor({key,command:q,interrupted});},audienceRead:q=>audience(q,'GET'),audienceCount:q=>audience(q,'POST'),api:async q=>{guard();if(q.resource==='unsubscribe'){if(await identity(key,brand)!==before)fail('CONSENT_ACCESS_CHANGED');guard();}return nativeConsent.api(q,interrupted);},sign:nativeConsent.sign,verify:nativeConsent.verify});
+   const scope=async p=>{guard();if(p.brand!==brand)fail('CONSENT_ACCESS_DENIED');const result=await pool.query(EFFECT_SQL,[key,JSON.stringify({command:{acao:'campanha_nativa_contexto',brand,id:p.campaignId},actor:JSON.parse(before).actor,operation:null}),JSON.stringify({kind:'nativeContext',payload:{id:p.campaignId,purpose:'consent_scope',createKey:p.createKey,freezeKey:p.freezeKey,...(p.subscriberId===undefined?{}:{subscriberId:p.subscriberId})}})]);guard();if(result.rows?.length!==1)fail('CONSENT_SCOPE_UNCONFIRMED');return result.rows[0].result;};
+   const source=createSource({scope,campaignRead:async q=>{guard();return campaignExecutor({key,command:q,interrupted});},audienceRead:q=>audience(q,'GET'),audienceCount:q=>audience(q,'POST'),api:async q=>{guard();if(q.resource==='unsubscribe'){if(await identity(key,brand)!==before)fail('CONSENT_ACCESS_CHANGED');guard();}return nativeConsent.api(q,interrupted);},sign:nativeConsent.sign,verify:nativeConsent.verify});
    guard();const result=kind==='register'?await source.register(command):kind==='plan'?await source.plan(command.provenance):kind==='member'?await source.member(command.provenance,command.subscriberId):await source.unsubscribe(command.provenance,command.member);
    guard();if(await identity(key,brand)!==before)fail('CONSENT_ACCESS_CHANGED');
    const serialized=JSON.stringify(result);if(serialized.includes(key))fail('CONSENT_RESPONSE_UNCONFIRMED');
