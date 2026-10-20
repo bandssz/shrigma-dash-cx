@@ -1,0 +1,44 @@
+'use strict';
+const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto'),{parseHTML}=require('linkedom');
+const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational'),source=fs.readFileSync(runtime+'/public/crm-preview/drafts.js','utf8');
+async function fixture(brand,{lost=false,pages=false}={}){
+ const {window,document}=parseHTML('<html><body>'+['new-campaign','new-audience'].map(id=>'<button id="'+id+'"></button>').join('')+['crm-pending','campaign-editor','audience-editor','campaign-drafts','audience-draft-status','campaign-draft-status'].map(id=>'<div id="'+id+'" class="d-none"></div>').join('')+'</body></html>');
+ Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){const o=this.querySelector('option[selected]')||this.querySelector('option');return o?(o.getAttribute('value')??o.textContent):'';},set(v){for(const o of this.querySelectorAll('option'))o.selected=(o.getAttribute('value')??o.textContent)===String(v);}});
+ const domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com',base=brand==='fish'?17:16,posts=[],calls=[],storage=[],state={brand,view:'campaigns',ticket:1},rows=new Map(),audience={id:'synthetic-public',brand,name:'Base inteira',version:1,archived:false,definition:{rule:{op:'in_list',list_id:base}}};let current;
+ const read=async(url,b,t,options={})=>{a.equal(b,brand);const method=options.method||'GET',q=method==='POST'?JSON.parse(options.body):Object.fromEntries(new URL(url,'https://synthetic.invalid').searchParams);calls.push(q.acao);if(method==='POST')posts.push(q);
+  switch(q.acao){
+   case'campanha_capacidade':return{brand,read:true,draft:true,send:false,native_direct:true};
+   case'campanha_catalogo':return{brand,templates:[{id:brand==='fish'?1:3,available:true}],lists:[{id:base,name:'Base',available:true}]};
+   case'campanha_listar':return pages?{campaigns:Number(q.page||1)===3?[{id:900,status:'draft',definition:{brand,name:'Página final'}}]:[],has_more:Number(q.page||1)<3,total:201}:{campaigns:[...rows.values()],has_more:false};
+   case'campanha_obter':return{campaign:rows.get(Number(q.id))};
+   case'segmentos_listar':return{segments:[audience],catalog:{catalog_hash:'synthetic'}};
+   case'segmento_contar':return{source_confirmed:true,eligible_count:12,base_list_id:base};
+   case'listar':return{contract:'crm-template-read-v1',brand,templates:[],offset:0,total:0,next_offset:null};
+   case'campanha_criar':case'campanha_salvar':{current={id:700,status:'draft',sent:0,started_at:null,send_at:q.definition.send_at,definition:q.definition,attribs:q.attribs||{},media:q.media||[],headers:q.headers||[],content_type:'html',type:'regular',messenger:'email',audience_id:q.audience_id,audience_name:q.audience_name};rows.set(700,current);if(lost)throw Error('Lost acknowledgment');return{campaign:current};}
+   case'campanha_teste':return{accepted:true};
+   case'campanha_agendar':current={...current,status:'scheduled'};rows.set(700,current);return{campaign:current};
+   case'campanha_cancelar':current={...current,status:'draft',send_at:null,definition:{...current.definition,send_at:null}};rows.set(700,current);return{campaign:current};
+   default:throw Error('FORBIDDEN_LEGACY_ACTION '+q.acao);
+  }
+ };
+ const feature=key=>['campaignAdvanced','campaignScheduleSummary'].includes(key);
+ window.ShrigmaCrmFeatureEnabled=feature;window.ShrigmaCrmModels={isolate:html=>html};
+ vm.runInContext(source,vm.createContext({window,document,sessionStorage:{getItem:k=>{storage.push(['get',k]);return null;},setItem:(...v)=>storage.push(['set',...v]),removeItem:k=>storage.push(['remove',k])},crypto:crypto.webcrypto,URLSearchParams,Intl,Date,DOMParser:window.DOMParser,Uint8Array,TextDecoder,TextEncoder}));
+ const editor=window.ShrigmaCrmDrafts.create({feature,availability:{audienceCount:true},state:()=>state,read,session:async()=>({authenticated:true,user:{id:'ordinary-editor',email:'editor-qa-'+brand+'@shrigma.com.br',role:'manager',permissions:{growth:{read:true,edit:true}},productWriteFronts:['growth']}}),esc:v=>String(v??'').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'),when:String,number:String,reload:()=>{},campaignSelected:id=>state.campaignId=id});
+ const settle=async predicate=>{for(let i=0;i<500;i++){await new Promise(setImmediate);if(predicate()){await new Promise(setImmediate);return;}}throw Error('UI_NOT_SETTLED');};
+ await editor.load('campaigns',1);
+ const change=(id,value)=>{const n=document.getElementById(id);n.value=value;n.dispatchEvent(new window.Event('input',{bubbles:true}));if(n.tagName==='SELECT')n.dispatchEvent(new window.Event('change',{bubbles:true}));};
+ const fill=async()=>{document.getElementById('new-campaign').click();await settle(()=>document.getElementById('campaign-first-audience')?.options.length>1);change('campaign-first-audience',audience.id);await settle(()=>document.getElementById('campaign-first-count').textContent==='12 destinatários');change('draft-name','[QA] editor');change('draft-subject','Olá {{ .Subscriber.FirstName }}');change('draft-html','<p>Olá {{ .Subscriber.FirstName }}</p>');change('draft-text','Olá {{ .Subscriber.FirstName }}');};
+ const save=async()=>{document.getElementById('campaign-draft-form').dispatchEvent(new window.Event('submit',{cancelable:true}));await settle(()=>!editor.hasUnsaved());};
+ return{window,document,editor,posts,calls,storage,fill,save,change,settle,get current(){return current;}};
+}
+for(const brand of ['aristo','fish'])test(brand+': ordinary editor saves, TESTs, saves time, schedules and cancels without a key or recovery click',async()=>{
+ const f=await fixture(brand);await f.fill();a.deepEqual([...f.document.querySelectorAll('[data-campaign-step]>h3')].map(n=>n.textContent),['1. Para quem','2. O quê','3. Teste','4. Quando']);a.equal(f.document.querySelectorAll('[name=draft-list]').length,0);
+ a.match(f.document.getElementById('draft-from_email').value,/^avisos@/);f.change('draft-from_email',f.document.getElementById('draft-from_email').value.replace('avisos@','contato@'));a.equal(f.document.getElementById('campaign-reserved-sender-warning').hidden,false);f.change('draft-from_email',f.document.getElementById('draft-from_email').value.replace('contato@','avisos@'));
+ await f.save();a.equal(f.current.send_at,null);a.equal(f.document.getElementById('campaign-test-send').disabled,false);f.document.getElementById('campaign-test-send').click();await f.settle(()=>/Teste enviado/.test(f.document.getElementById('campaign-test-status').textContent));
+ f.change('native-send-at',new Date(Date.now()+60*60000-3*3600000).toISOString().slice(0,16));a.equal(f.editor.hasUnsaved(),true);a.equal(f.document.querySelector('[data-native-task=schedule]').disabled,true);a.equal(f.posts.filter(q=>q.acao==='campanha_agendar').length,0);await f.save();a(f.current.send_at);a.equal(f.document.querySelector('[data-native-task=schedule]').disabled,false);
+ f.document.querySelector('[data-native-task=schedule]').click();await f.settle(()=>f.current.status==='scheduled'&&!f.editor.hasUnsaved());f.document.querySelector('[data-native-task=cancel]').click();await f.settle(()=>f.current.status==='draft'&&f.current.send_at===null&&!f.editor.hasUnsaved());
+ a.deepEqual(f.posts.filter(q=>q.acao.startsWith('campanha_')).map(q=>q.acao),['campanha_criar','campanha_teste','campanha_salvar','campanha_agendar','campanha_cancelar']);a.equal(f.storage.length,0);for(const q of f.posts.filter(q=>q.acao.startsWith('campanha_')))for(const k of ['idempotency_key','claim_id','preview_token','expected_version'])a.equal(Object.hasOwn(q,k),false);
+});
+test('native campaign pagination continues through an empty filtered page',async()=>{const f=await fixture('aristo',{pages:true});a.equal(f.calls.filter(x=>x==='campanha_listar').length,3);a.match(f.document.getElementById('campaign-drafts').textContent,/Página final/);});
+test('uncertain Save does not create a local operation or automatic second POST',async()=>{const f=await fixture('fish',{lost:true});await f.fill();f.document.getElementById('campaign-draft-form').dispatchEvent(new f.window.Event('submit',{cancelable:true}));await f.settle(()=>/Não foi possível confirmar/.test(f.document.getElementById('campaign-edit-status').textContent));a.equal(f.posts.filter(q=>q.acao==='campanha_criar').length,1);a.equal(f.storage.length,0);a.equal(f.document.querySelector('#crm-pending button'),null);});

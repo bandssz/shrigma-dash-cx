@@ -61,6 +61,8 @@ function cspFor(html){
 function settingsFromEnv(env=process.env){
   if(env.DASHBOARD_SIMPLE_READ_LOGIN!==undefined&&!['disabled','enabled'].includes(env.DASHBOARD_SIMPLE_READ_LOGIN))throw Error('Simple login configuration invalid');
   const simpleReadMode=env.DASHBOARD_SIMPLE_READ_LOGIN==='enabled';
+  let listmonkBindings;
+  if(simpleReadMode&&env.DASHBOARD_LISTMONK_BINDINGS)try{listmonkBindings=JSON.parse(env.DASHBOARD_LISTMONK_BINDINGS);}catch{process.emitWarning('Conexão do Listmonk indisponível.',{code:'LISTMONK_BINDINGS_UNAVAILABLE'});}
   const simpleReadSources=simpleReadMode?require('./simple-dashboard-read.cjs').sourceKeysFromEnv(env):undefined;
   const simpleAffiliateWriteKey=simpleReadMode?require('./simple-dashboard-read.cjs').affiliateWriteKeyFromEnv(env):undefined;
   const crmNativeMode=env.DASHBOARD_NATIVE_MCP||'disabled';
@@ -155,7 +157,7 @@ function settingsFromEnv(env=process.env){
   const port=Number(env.PORT||3000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
   if(typeof process.getuid==='function'&&env.DASHBOARD_EXPECT_UID&&process.getuid()!==Number(env.DASHBOARD_EXPECT_UID))throw Error('Unexpected runtime UID');
-  return {mode,...(simpleReadMode?{simpleReadMode:true,simpleReadSources,simpleAffiliateWriteKey}:{}),...(dashboardAffiliateRead?{dashboardAffiliateRead:true}:{}),...(dashboardIndividualRead?{dashboardIndividualRead:true}:{}),...(crmIndividualCoexistence?{crmIndividualCoexistence:true}:{}),...(crmNativeMode==='enabled'?{crmNativeEnabled:true}:{}),...(crmNativeSourceSyncEnabled?{crmNativeSourceSyncEnabled:true,...(crmNativeSourceFreshReadRequest?{crmNativeSourceFreshReadRequest}:{})}:{}),...(crmNativeSourceDiagnosticsEnabled?{crmNativeSourceDiagnosticsEnabled:true}:{}),...(crmNativeDeliveryHealthEnabled?{crmNativeDeliveryHealthEnabled:true}:{}),...(crmNativeSchedulerBindingEnabled?{crmNativeSchedulerBindingEnabled:true}:{}),...(crmNativeSchedulerStateEnabled?{crmNativeSchedulerStateEnabled:true}:{}),upstreamProfile,crmPublishedJourneyRead,crmMasterTemplateRead,crmDraftWrite,crmAudienceDraft,crmMasterAudienceRead,crmMasterAudienceWrite,crmMasterAudienceCount,crmMasterAudienceContextReview,crmCampaignSubmitWrite,crmCorporateCreate,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmCampaignWriterProfile?{crmCampaignWriterProfile}:{}),...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
+  return {mode,...(listmonkBindings?{listmonkBindings}:{}),...(simpleReadMode?{simpleReadMode:true,simpleReadSources,simpleAffiliateWriteKey}:{}),...(dashboardAffiliateRead?{dashboardAffiliateRead:true}:{}),...(dashboardIndividualRead?{dashboardIndividualRead:true}:{}),...(crmIndividualCoexistence?{crmIndividualCoexistence:true}:{}),...(crmNativeMode==='enabled'?{crmNativeEnabled:true}:{}),...(crmNativeSourceSyncEnabled?{crmNativeSourceSyncEnabled:true,...(crmNativeSourceFreshReadRequest?{crmNativeSourceFreshReadRequest}:{})}:{}),...(crmNativeSourceDiagnosticsEnabled?{crmNativeSourceDiagnosticsEnabled:true}:{}),...(crmNativeDeliveryHealthEnabled?{crmNativeDeliveryHealthEnabled:true}:{}),...(crmNativeSchedulerBindingEnabled?{crmNativeSchedulerBindingEnabled:true}:{}),...(crmNativeSchedulerStateEnabled?{crmNativeSchedulerStateEnabled:true}:{}),upstreamProfile,crmPublishedJourneyRead,crmMasterTemplateRead,crmDraftWrite,crmAudienceDraft,crmMasterAudienceRead,crmMasterAudienceWrite,crmMasterAudienceCount,crmMasterAudienceContextReview,crmCampaignSubmitWrite,crmCorporateCreate,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmCampaignWriterProfile?{crmCampaignWriterProfile}:{}),...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
 }
 // Apply the new bounded READ projection AFTER the immutable existing-grant
 // verifier. Its historical pins/controller/consumed operation stay untouched.
@@ -718,8 +720,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const affiliateReader=dashboardAffiliateRead?AffiliateRead.createReader({auth,upstreams,fetchImpl}):null;
   const simpleReader=s.simpleReadMode===true?require('./simple-dashboard-read.cjs').createReader({auth,upstreams,keys:s.simpleReadSources||{},fetchImpl,projectGrowth:projectBrandCache,growthDiagnostics:cartContractSummary,timings:true,onReadFailure:row=>process.stderr.write(JSON.stringify(row)+'\n')}):null;
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
-  const simpleCampaignTests=simpleReader?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
-  const simpleCampaignAudiences=simpleReader?auth.simpleCampaignAudienceFactory?.({fetchImpl}):null;
+  const simpleCampaignTests=simpleReader&&!s.listmonkBindings?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
+  const simpleCampaignAudiences=simpleReader&&!s.listmonkBindings?auth.simpleCampaignAudienceFactory?.({fetchImpl}):null;
+  const directCampaigns=simpleReader&&s.listmonkBindings?require('./simple-crm-native-internal.cjs').createDirect({credentials:s.listmonkBindings,fetchImpl,authorize:(context,brand,write)=>auth.authorizeBrand({...context,area:'growth',productFront:'growth',edit:write},brand),admitted:(context,brand,user)=>require('./crm-ui-features.cjs').restrictedUser(user)||auth.uiFeatures.releasedToAccount(context,brand,'campaignScheduleSummary')}):null;
   const simpleAffiliateEditor=simpleReader?require('./simple-dashboard-read.cjs').createAffiliateEditor({auth,upstreams,readKey:s.simpleReadSources?.afiliados,writeKey:s.simpleAffiliateWriteKey,otherReadKeys:Object.values(s.simpleReadSources||{}),fetchImpl}):null;
   // The production constructor closes decisions until commercial policy and
   // programme budget are admitted. Synthetic tests inject their fake policy.
@@ -797,7 +800,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     const query=method==='GET'?new URLSearchParams(Object.entries(command).map(([k,v])=>[k,String(v)])):new URLSearchParams();
     return forward({route:'campaigns',method,query,body:method==='POST'?command:undefined,user,credential,upstreams,origin:'https://'+context.host,crmCampaignSubmitWrite:true,...(campaignWriter?{crmCorporateWriter:coexistence&&user.role==='manager'?corporateWriter:campaignWriter}:{}),fetchImpl});
   };
-  const campaignDelivery=allowCampaignSubmit?auth.campaignDeliveryFor(campaignTransport):null;
+  const campaignDelivery=allowCampaignSubmit&&!s.listmonkBindings?auth.campaignDeliveryFor(campaignTransport):null;
   const submitCampaignDelivery=async(context,command)=>{
     const prior=await campaignDelivery.recoverSubmission(context,command);
     if(prior!==null)return prior;
@@ -813,7 +816,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     return campaignDelivery.submit(context,command);
   };
   if(allowCampaignSubmit&&typeof auth.campaignCreateFor!=='function')throw Error('Campaign create configuration required');
-  const campaignCreator=allowCampaignSubmit?auth.campaignCreateFor(campaignTransport):null;
+  const campaignCreator=allowCampaignSubmit&&!s.listmonkBindings?auth.campaignCreateFor(campaignTransport):null;
   const campaignDto=(action,key,value)=>({schema:'crm-campaign-bff-operation-v1',action,attemptKey:key,state:value.state,campaign:value.campaign,validation:value.validation??null});
   const campaignStatus=value=>value.state==='pending'?202:value.state==='rejected'?409:200;
   let simpleCampaignDrafts,simpleConsentJob;
@@ -845,9 +848,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     }
     return result;
   };
-  simpleCampaignDrafts=s.simpleReadMode===true&&auth.simpleCampaignDraftFactories?auth.simpleCampaignDraftFactories(simpleDraftTransport):undefined;
+  simpleCampaignDrafts=s.simpleReadMode===true&&auth.simpleCampaignDraftFactories?auth.simpleCampaignDraftFactories(simpleDraftTransport,{readOnly:!!s.listmonkBindings}):undefined;
   const consentPolicy=s.simpleReadMode===true&&auth.simpleConsentJobFactory?require('./campaign-consent-policy.json'):{enabled:false};
-  if(consentPolicy.enabled===true&&s.simpleReadMode===true&&simpleCampaignDrafts&&auth.simpleAccounts?.journeyTest){
+  if(!s.listmonkBindings&&consentPolicy.enabled===true&&s.simpleReadMode===true&&simpleCampaignDrafts&&auth.simpleAccounts?.journeyTest){
     if(!Number.isSafeInteger(consentPolicy.enabledSince)||consentPolicy.enabledSince<0)throw Error('CONSENT_ORIGINAL_RUNTIME_REQUIRED');
     simpleConsentJob=auth.simpleConsentJobFactory?.({fetchImpl,enabled:true,enabledSince:consentPolicy.enabledSince});
     // Missing original custody closes new v3 scheduling; existing reads and cancellation remain.
@@ -859,7 +862,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     try{const binding=auth.simpleDraftBinding(context,{brand}),freezeKey=auth.simpleAudienceRemoteKey(context,{brand,key});await simpleConsentJob.register({userId:binding.author.id,clientKey:key,brand,freezeKey});}catch{}
   }
 
-  const nativeInternal=s.simpleReadMode===true&&auth.simpleNativeInternalFactory?auth.simpleNativeInternalFactory({fetchImpl,enabled:require('./native-internal-release.json').enabled===true,editorsEnabled:require('./native-internal-release.json').editorsEnabled===true,frozenAudienceV3:require('./native-internal-release.json').frozenAudienceV3===true,scheduleReady:args=>simpleConsentJob?.ready(args)===true}):undefined;
+  const nativeInternal=!s.listmonkBindings&&s.simpleReadMode===true&&auth.simpleNativeInternalFactory?auth.simpleNativeInternalFactory({fetchImpl,enabled:require('./native-internal-release.json').enabled===true,editorsEnabled:require('./native-internal-release.json').editorsEnabled===true,frozenAudienceV3:require('./native-internal-release.json').frozenAudienceV3===true,scheduleReady:args=>simpleConsentJob?.ready(args)===true}):undefined;
   const audienceFeature=ctx=>{
     if(coexistence&&auth.session(ctx).user?.role==='manager'&&s.crmAudienceDraft!==true)return false;
     if(!allowAudienceDraft||!sandbox&&!corporateWriter&&!crmMasterAudienceWrite)return false;
@@ -1097,6 +1100,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         return sendJson(req,res,200,{users});
       }
       if(url.pathname==='/auth/campaign-create'){
+        if(directCampaigns){
+          if(req.method!=='POST')throw jsonError(410,'CAMPAIGN_NATIVE_ACTION_REQUIRED');
+          if(url.search||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(400,'REQUEST_DENIED');
+          const q=await readJson(req,MAX_CAMPAIGN_REQUEST),result=await directCampaigns.handle(ctx,'POST',{acao:'campanha_criar',brand:q.brand,definition:q.definition,audience_id:q.audience_id,audience_name:q.audience_name});return sendJson(req,res,result.status,result.body);
+        }
         // Corporate CREATE needs its own explicit gate and the existing FULL
         // individual WRITER authorization; historical GET recovery is unchanged.
         if(!campaignCreator||campaignWriter&&req.method==='POST'&&!crmCorporateCreate)throw jsonError(403,'EDIT_NOT_READY');
@@ -1115,6 +1123,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         try{const value=await campaignCreator[req.method==='POST'?'submit':'reconcile'](ctx,q);return sendJson(req,res,campaignStatus(value),campaignDto('campanha_criar',q.idempotency_key,value));}finally{release();}
       }
       if(url.pathname==='/auth/campaign-delivery'&&req.method==='GET'){
+        if(directCampaigns)throw jsonError(410,'CAMPAIGN_NATIVE_ACTION_REQUIRED');
         if(!campaignDelivery)throw jsonError(403,'EDIT_NOT_READY');
         if([...url.searchParams.keys()].some(k=>!['brand','idempotency_key'].includes(k))||url.searchParams.getAll('brand').length!==1||url.searchParams.getAll('idempotency_key').length!==1)throw jsonError(400,'QUERY_DENIED');
         const q={brand:url.searchParams.get('brand'),idempotency_key:url.searchParams.get('idempotency_key')};auth.authorizeBrand({...ctx,area:'growth',edit:true},q.brand);const descriptor=campaignDelivery.describe(ctx,q);
@@ -1418,6 +1427,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }
         if(req.method==='POST'&&req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
         const body=req.method==='POST'?await readJson(req,route==='campaigns'?MAX_CAMPAIGN_REQUEST:route==='segments'?MAX_AUDIENCE_REQUEST:undefined):undefined;
+        if(directCampaigns&&route==='campaigns'){
+          if(new Set(url.searchParams.keys()).size!==url.searchParams.size||req.method==='POST'&&url.search)throw jsonError(400,'ARGUMENTS_INVALID');
+          const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields?.brand;
+          if(!nativeContext&&req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'CAMPAIGN_BRAND_REFUSED');
+          if(req.method==='GET'&&fields.id!==undefined)fields.id=/^[1-9][0-9]{0,9}$/.test(fields.id)?Number(fields.id):null;
+          if(directCampaigns.actions.has(fields?.acao)){const result=await directCampaigns.handle(ctx,req.method,fields);return sendJson(req,res,result.status,result.body);}
+          if(fields?.acao!=='campanha_catalogo')throw jsonError(410,'CAMPAIGN_NATIVE_ACTION_REQUIRED');
+        }
         if(simpleReader&&!nativeContext&&route==='campaigns'&&String(req.method==='POST'?body?.acao:url.searchParams.get('acao')).startsWith('campanha_nativa_')){
           if(!nativeInternal||new Set(url.searchParams.keys()).size!==url.searchParams.size||req.method==='POST'&&url.search)throw jsonError(403,'NATIVE_INTERNAL_DISABLED');
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields.brand;
