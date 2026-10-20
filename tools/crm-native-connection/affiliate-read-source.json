@@ -2645,8 +2645,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 8624,
-      "sha256": "e66f36efe7349067dfb71418efb4ead1b7e2c07913409b0f4ed44b8f48a7d791"
+      "bytes": 8798,
+      "sha256": "b718aa6c5af35ddae70ec4d77b68aa39b58056062d1fa5b2fa03c41a4a77ae56"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -2730,8 +2730,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 14294,
-      "sha256": "b11269958c70b235267e36ae390efd7aafd8d9c913205371e9dc5966d4715954"
+      "bytes": 15036,
+      "sha256": "56eff3e7314a6e5916f7d99ac91eea3673ebda8b382cabbcb67003e01151f26d"
     },
     {
       "path": "tests/campaign-account-operator.test.cjs",
