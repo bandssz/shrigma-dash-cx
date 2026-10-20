@@ -404,8 +404,8 @@ jobs:
       - name: Live analyst QA in Linux Docker - blocks publication on failure
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d
-          CRM_QA_EXPECT_MANIFEST: 29f7c37107536d673d68546a31de74817ef2ff6c5a1d7b5f80882749b42fee9b
+          CRM_QA_EXPECT_REVISION: 4b501e4225c116bd0401b47b058411b5b39b6cb3
+          CRM_QA_EXPECT_MANIFEST: b4c68d65608edffd974334512de7087e17d5b9f81e92cfd6534194b35bc989f7
         shell: bash
         run: |
           set -euo pipefail
@@ -424,6 +424,28 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           SHRIGMA_EASYPANEL_DEPLOY_URL: ${{ secrets.SHRIGMA_EASYPANEL_DEPLOY_URL }}
         run: node tools/production-release/publish-ci.cjs
+      - name: Ordinary editor QA in both brands after installation
+        id: editor_gate
+        timeout-minutes: 12
+        env:
+          CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
+          CRM_QA_GATE: editors
+          CRM_QA_EXPECT_REVISION: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CRM_QA_EXPECT_MANIFEST="$(node -p "JSON.parse(require('fs').readFileSync(process.env.AFFILIATE_CI_DIR+'/native-receipt.json')).manifestSha256")"
+          CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
+      - name: Redeploy the known previous image if the editor path fails
+        if: failure() && steps.editor_gate.outcome == 'failure'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SHRIGMA_EASYPANEL_DEPLOY_URL: ${{ secrets.SHRIGMA_EASYPANEL_DEPLOY_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const fs=require('fs'),r=JSON.parse(fs.readFileSync(process.env.AFFILIATE_CI_DIR+'/production-receipt.json'));fs.writeFileSync('tools/production-release/production-request.json',JSON.stringify({schema:'shrigma-production-request-v1',action:'rollback',image:r.previousEnvelopeImage}));"
+          node tools/production-release/publish-ci.cjs
   rollback-production:
     if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'rollback:')
     runs-on: ubuntu-24.04
