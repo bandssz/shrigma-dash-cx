@@ -75,7 +75,7 @@ const CampaignTracking=(()=>{
    if(nativeIdentity&&field==='altbody'){
     const punctuation=raw.match(/[.,;:!?]+$/)?.[0]||'',urlEnd=raw.length-punctuation.length;let end=urlEnd;
     for(const [open,close]of [['(',')'],['[',']']])while(raw[end-1]===close&&raw.slice(0,end).split(close).length>raw.slice(0,end).split(open).length)end--;
-    if(end<urlEnd)return transform(raw.slice(0,end),field)+raw.slice(end);
+    if(end<raw.length)return transform(raw.slice(0,end),field)+raw.slice(end);
    }
    const shorthand=raw.endsWith('@TrackLink'),literal=shorthand?raw.slice(0,-10):raw;
    const entity=literal.includes('&amp;'),decoded=literal.replace(/&amp;/g,'&');let u;

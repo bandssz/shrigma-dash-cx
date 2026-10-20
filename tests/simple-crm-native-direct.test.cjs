@@ -44,6 +44,11 @@ test('past or unsaved dates cannot trigger native scheduling; missing metadata c
 test('an uncertain native write is made once and never retried or converted into a local attempt',async()=>{
  const f=fixture('aristo',{fail:true});await a.rejects(f.adapter.handle({},'POST',{acao:'campanha_criar',brand:'aristo',definition:f.definition}),e=>e.code==='LISTMONK_RESULT_UNCONFIRMED'&&!e.message.includes('private'));a.equal(f.calls.length,1);
 });
+test('direct Save and TEST retain the existing script and redirect protection before the single request',async()=>{
+ for(const action of ['campanha_criar','campanha_salvar','campanha_teste'])for(const html of ['<script>alert(1)</script>','<meta http-equiv="refresh" content="0;url=https://outside.invalid/">','<a href="https://fishermans.com.br/discount/QA?redirect=https%3A%2F%2Foutside.invalid%2F">Cupom</a>']){
+  const f=fixture('fish');await a.rejects(f.adapter.handle({},'POST',{acao:action,brand:'fish',id:700,definition:{...f.definition,html},attribs:{},media:[],headers:[],recipient:'felipebandeira+codex@oaristocrata.com'}),e=>e.code==='CAMPAIGN_CONTENT_INVALID');a.equal(f.calls.length,0);
+ }
+});
 test('Save preserves native attributes, attachments and ordinary headers; TEST strips recipient headers',async()=>{
  const f=fixture('fish'),invoke=(acao,fields={})=>f.adapter.handle({},'POST',{acao,brand:'fish',...fields});
  await invoke('campanha_criar',{definition:{...f.definition,send_at:null}});

@@ -1431,7 +1431,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "9f4e6ee66b48d5b36d4eba2c786120eddfd2e041106ba87b536931aa646df254"
+      "sha256": "6de71ff3646086f8ceb79a753891ef55beb956fe6fab181afeedf763f9bb56d1"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1440,8 +1440,8 @@
     },
     {
       "path": "services/dashboard-operational/campaign-write-tracking.js",
-      "bytes": 12958,
-      "sha256": "2a6e46259aeb2b8d486444f9799e00b1dd191bbc0be96cb12d5543b933e30125"
+      "bytes": 12962,
+      "sha256": "1a3a52b5d76c793a557537fd4aa5069513ae9c24120d15b15531cf8aa0b0f4dd"
     },
     {
       "path": "services/dashboard-operational/crm-campaign-create.cjs",
@@ -1691,7 +1691,7 @@
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
       "bytes": 212278,
-      "sha256": "1e7f6998a536d486e78fcabb638e48f62675b12860ef234ba1dd46541a482788"
+      "sha256": "4b63915e3bba58e93c07da7e2699c1392e86ff7c5e6cea36f3b852f48686f51c"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -1855,8 +1855,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 22750,
-      "sha256": "0a42a3949782b8c8d779b8597b976b2ad1ba1d9a87d14855eab1aa7a2af6d683"
+      "bytes": 22915,
+      "sha256": "a5efe27c7ad9be0761a05cc61b5141ac0b786da3f3ae8cdb348b6cf02141e724"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -2645,8 +2645,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 9196,
-      "sha256": "c27de59e52def4a2519a7f5596424905bab4abce00e611f374260a5f29419e0f"
+      "bytes": 9260,
+      "sha256": "54b1535e3e2539e343898e84af67576485e1a94ce2041c71756d4b7cd8242168"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -2715,8 +2715,8 @@
     },
     {
       "path": "tools/crm-qa/editor-objects.cjs",
-      "bytes": 4404,
-      "sha256": "acec8dc5bcbacb933df86a84eb7dc1732f1e5a0e974081922c11ae5d8ad935b3"
+      "bytes": 4481,
+      "sha256": "f766b58e9d929b09eb4948fb3ec794d9e9dfabbf39a97c1805c40d4bcdd26d20"
     },
     {
       "path": "tests/simple-crm-native-direct-ui.test.cjs",
@@ -2725,13 +2725,13 @@
     },
     {
       "path": "tests/simple-crm-native-direct.test.cjs",
-      "bytes": 11172,
-      "sha256": "197a303743a821987d0fbc542b86c896ae792a14b4a720feccc4fb5f7813f265"
+      "bytes": 11879,
+      "sha256": "67b05d99eebde851fb3778d1bb03fc38fc3186d0398dcbc70ce8b5c3fa14c9f5"
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 14222,
-      "sha256": "6c87208e2db9884bcd7340bfc70cad1a165f937d6d6f0acd731ed3ab4d49ee80"
+      "bytes": 14294,
+      "sha256": "b11269958c70b235267e36ae390efd7aafd8d9c913205371e9dc5966d4715954"
     },
     {
       "path": "tests/campaign-account-operator.test.cjs",
@@ -2740,8 +2740,13 @@
     },
     {
       "path": "tests/campaign-native-tracking.test.cjs",
-      "bytes": 3383,
-      "sha256": "fd5f549b481a70da6bc06701a77cdf39a9b9ce3a5d5edea6def0ea79304a89c2"
+      "bytes": 3704,
+      "sha256": "63354e5a85376eb23082e91b33aaf5b14afc03de83104e0b602deb774947798b"
+    },
+    {
+      "path": "tools/crm-qa/editor-tracking.cjs",
+      "bytes": 1420,
+      "sha256": "dd9f767b1b93791af8768e825b408586c8c1e75a11ced653da019b33ddb1da31"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
