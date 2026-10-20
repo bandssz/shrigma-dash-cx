@@ -404,8 +404,8 @@ jobs:
       - name: Live analyst QA in Linux Docker - blocks publication on failure
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: aeb50ad7881a2d9bd73a1044291e11a8c3360b5b
-          CRM_QA_EXPECT_MANIFEST: 54ae13868e9261a537608660f7d119e892f072353b8f6fd77e7d6dd1462d4468
+          CRM_QA_EXPECT_REVISION: 3f98dc0b58b1bfff35dc9249f1a3d42697d5c758
+          CRM_QA_EXPECT_MANIFEST: ceab4be3ce1e3ac1c2e9dd1d722f06dc2e002a626a2a362ae0a65027ed9e9df7
         shell: bash
         run: |
           set -euo pipefail

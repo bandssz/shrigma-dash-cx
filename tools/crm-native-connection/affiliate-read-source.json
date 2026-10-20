@@ -31,7 +31,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 45857,
-      "sha256": "eb7a352d057c0b6a3e16893cfe34483223f9bb7b13c6b2dde64e5e69722d0ddb"
+      "sha256": "66748948608829295a66d8a069cfe445a45047644d00872f19dcf5929263c9b0"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1710,8 +1710,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 136107,
-      "sha256": "ce0b7b9a9cc51f99118143c242653138bd873bd6032d88f2d21fa9896aa676d2"
+      "bytes": 136602,
+      "sha256": "ddefcbc5fb8ce4a04c520f53f9d1fe783997d507df07b4c96bbc4e3169262300"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -1990,8 +1990,8 @@
     },
     {
       "path": "tests/consent19/four-steps.test.cjs",
-      "bytes": 22119,
-      "sha256": "565ed13a60362cfeb685a77188d1165bf8cb40e5f28fa9c024bd9973338769f4"
+      "bytes": 22193,
+      "sha256": "b1c78f2f5e4379415f5f523d37682b3b069a48fde6a5fffe4d8ce8ca6b1ad8d1"
     },
     {
       "path": "tests/consent19/gateway-fixture.cjs",
@@ -2215,8 +2215,8 @@
     },
     {
       "path": "tests/crm-ui-features.test.cjs",
-      "bytes": 9385,
-      "sha256": "c0a34d0a7285c8c082348669254b6e8822f4f9724f7524e8d99abdbf79284de2"
+      "bytes": 9737,
+      "sha256": "59073fc0fc6a778c993aa07a9da92a631bdbb22e083998487180c78071c1c7bd"
     },
     {
       "path": "tests/crm-ui-independent-boundaries.fixture.json",
@@ -2693,5 +2693,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Restricted single gateway editorial authority with original journals; exact real-ID campaign link adjustment after CREATE; aggregate-only payload measurement; no production installation in preparation branch"
+  "candidatePurpose": "Restricted schedule confirmation UI: asynchronous public label, known count time only and truthful last-test state; no native scheduling or test protection changes"
 }
