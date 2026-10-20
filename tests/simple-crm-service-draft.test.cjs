@@ -222,18 +222,24 @@ test('same-key reattestation preserves campaign recovery and durable attempt ide
  const poll=await f.request('/api/campaigns?acao=campanha_operacao&kind=create&brand=aristo&idempotency_key='+command.idempotency_key);a.equal(poll.status,200,JSON.stringify(poll.body));a.equal(poll.body.state,'succeeded');a.equal(f.posts(),1);
  a.equal((await f.request('/api/campaigns',{method:'POST',body:command})).status,200);a.equal(f.posts(),1);a.equal(f.dbQuery(db=>db.prepare('SELECT credential_mac FROM crm_campaign_create_v1 WHERE client_key=?').get(command.idempotency_key)).credential_mac,before);
 });
-test('expired local master proof permits only drafts with a fresh original identity proof; persisted lifetime and grants stay unchanged',async t=>{
+test('historical master proof date does not disable the stored credential; original source grants still apply',async t=>{
  const f=await fixture(t),before=f.dbQuery(db=>({att:db.prepare('SELECT * FROM campaign_writer_attestation_v1').get(),grants:db.prepare('SELECT * FROM grants ORDER BY user_id,area').all(),credentials:db.prepare('SELECT * FROM upstream_credentials ORDER BY user_id,slot').all()}));
  f.advance(15*86400000);const login=await f.loginAgain(),result=await f.request('/api/campaigns',{method:'POST',body:createCampaign(),login});a.equal(result.status,200,JSON.stringify(result.body));a.equal(result.body.state,'succeeded');a.equal(f.posts(),1);a(f.calls.filter(c=>c.action==='identity').length>=2);
  const audience=await f.request('/api/segments',{method:'POST',body:createAudience(),login});a.equal(audience.status,200,JSON.stringify(audience.body));a.equal(audience.body.state,'succeeded');a.equal(f.posts(),2);
- const after=f.dbQuery(db=>({att:db.prepare('SELECT * FROM campaign_writer_attestation_v1').get(),grants:db.prepare('SELECT * FROM grants ORDER BY user_id,area').all(),credentials:db.prepare('SELECT * FROM upstream_credentials ORDER BY user_id,slot').all()}));a.deepEqual(after,before);const master=await f.loginMasterAgain();a.equal(f.auth.campaignWriterReady({...f.adminContext,cookieHeader:master.cookie.split(';')[0],csrf:master.csrf}),false);
+ const after=f.dbQuery(db=>({att:db.prepare('SELECT * FROM campaign_writer_attestation_v1').get(),grants:db.prepare('SELECT * FROM grants ORDER BY user_id,area').all(),credentials:db.prepare('SELECT * FROM upstream_credentials ORDER BY user_id,slot').all()}));a.deepEqual(after,before);const master=await f.loginMasterAgain();a.equal(f.auth.campaignWriterReady({...f.adminContext,cookieHeader:master.cookie.split(';')[0],csrf:master.csrf}),true);
  a.equal((await f.request('/api/campaigns',{method:'POST',body:{acao:'campanha_agendar',brand:'aristo',id:result.body.campaign.id,expected_version:result.body.campaign.version,idempotency_key:crypto.randomUUID(),confirm:'agendar'},login})).status,403);a.equal(f.posts(),2);
+});
+test('no local attestation is needed for the existing stored key and active application grants',async t=>{
+ const f=await fixture(t),before=f.dbQuery(db=>db.prepare('SELECT * FROM upstream_credentials ORDER BY user_id,slot').all());
+ f.dbQuery(db=>db.prepare('DELETE FROM campaign_writer_attestation_v1').run());
+ const result=await f.request('/api/campaigns',{method:'POST',body:createCampaign()});a.equal(result.status,200,JSON.stringify(result.body));a.equal(f.posts(),1);
+ a.deepEqual(f.dbQuery(db=>db.prepare('SELECT * FROM upstream_credentials ORDER BY user_id,slot').all()),before);
 });
 test('expired local proof cannot substitute for current source caps, owner or principal',async t=>{
  for(const changed of [{caps:['read_content','draft','validate']},{owner:'another@oaristocrata.com'},{principal:'another-synthetic-principal'}]){const f=await fixture(t);f.advance(15*86400000);Object.assign(f.hooks,changed);const login=await f.loginAgain(),result=await f.request('/api/campaigns',{method:'POST',body:createCampaign(),login});a(result.status>=400,JSON.stringify(result.body));a.equal(f.posts(),0);a.equal(f.dbQuery(db=>db.prepare('SELECT COUNT(*) AS n FROM crm_campaign_create_v1').get().n),0);}
 });
-test('reattestation during source identity GET changes the request snapshot and stops before POST',async t=>{
- const f=await fixture(t);let once=false;f.hooks.identity=async()=>{if(!once){once=true;f.advance(1000);await f.reattest();}};const result=await f.request('/api/campaigns',{method:'POST',body:createCampaign()});a.equal(result.status,403,JSON.stringify(result.body));a.equal(f.posts(),0);
+test('historical proof dates changing during identity GET do not block the same stored credential',async t=>{
+ const f=await fixture(t);let once=false;f.hooks.identity=async()=>{if(!once){once=true;f.advance(1000);await f.reattest();}};const result=await f.request('/api/campaigns',{method:'POST',body:createCampaign()});a.equal(result.status,200,JSON.stringify(result.body));a.equal(f.posts(),1);
 });
 test('individual account saves by version and validates the persisted draft without enabling submit',async t=>{
  const f=await fixture(t),created=await f.request('/api/campaigns',{method:'POST',body:createCampaign()});a.equal(created.status,200);

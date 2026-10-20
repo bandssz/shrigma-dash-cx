@@ -31,11 +31,18 @@ function receipt(j){fs.writeFileSync(path.join(process.env.AFFILIATE_CI_DIR,'pro
 function isMissing(error){const s=String(error.stderr||'');return !/unauthorized|forbidden|denied|timeout|timed out|connection|TLS|certificate|5\d\d.*server/i.test(s)&&/(?:manifest unknown|manifest.*not found|name unknown)/i.test(s);}
 async function main(){
  publicationPhase='check-branch';await currentHead();const request=validateRequest(JSON.parse(fs.readFileSync(path.join(__dirname,'production-request.json'))),{rollbackJob:process.env.GITHUB_JOB==='rollback-production'});
+ if(request.action==='rollback'){
+  publicationPhase='redeploy-known-image';docker(['pull','--platform','linux/amd64',request.image]);
+  const candidate=inspect(request.image);triggerUrl();await currentHead();
+  docker(['tag',request.image,IMAGE+':producao']);docker(['push',IMAGE+':producao']);await trigger();
+  const observed=await wait(candidate);receipt({schema:'shrigma-production-receipt-v1',revision:process.env.GITHUB_SHA,action:'rollback',envelopeImage:request.image,artifactImage:candidate.artifactImage,sourceRevision:candidate.sourceRevision,manifestSha256:candidate.manifestSha256,presentationManifestSha256:candidate.presentationManifestSha256,status:observed?'known-image-health-observed':'rollback-unconfirmed',deployAttempted:true,productionVerified:false,rollbackVerified:false,requiresNativeDeploymentReconciliation:true,checkedAt:new Date().toISOString()});
+  if(!observed)process.exitCode=1;return;
+ }
  if(request.action==='publish'){const q=JSON.parse(fs.readFileSync(path.join(process.env.AFFILIATE_CI_DIR,'qa-gate-safe.json'),'utf8'));if(q.schema!=='shrigma-ci-live-qa-v1'||q.ok!==true||q.candidateRevision!==process.env.GITHUB_SHA||q.brands!==2||q.readonlyServerDenials!==4||q.scheduledAndCancelled!==2||q.mockedResponses!==false)throw Error('QA_GATE_MISSING');}
  let previous,previousImage,initial=false;
  try{publicationPhase='pull-previous';docker(['pull','--platform','linux/amd64',IMAGE+':producao']);publicationPhase='inspect-previous';previousImage=digest(IMAGE+':producao');previous=inspect(previousImage);}
  catch(e){if(!isMissing(e))throw Error('PREVIOUS_PUBLICATION_NOT_VERIFIED');initial=true;const h=await health(HOSTS[0]);if(h.nativeBackendManifestSha256!==INITIAL_MANIFEST)throw Error('INITIAL_INSTALLED_VERSION_CHANGED');const tag=IMAGE+':rollback-'+PREVIOUS.split('@sha256:')[1];previous=build({artifactImage:PREVIOUS,tag,directory:path.join(process.env.AFFILIATE_CI_DIR,'previous-envelope')});docker(['push',tag]);previousImage=digest(tag);}
- publicationPhase='compare-registry-runtime';if(!await matches(previous))throw Error('REGISTRY_AND_INSTALLED_VERSION_DIFFER');
+ publicationPhase='compare-registry-runtime';if(request.action==='publish'&&!await matches(previous))throw Error('REGISTRY_AND_INSTALLED_VERSION_DIFFER');
  let candidate,desired;
  if(request.action==='rollback'){
   if(Object.keys(request).sort().join(',')!=='action,image,schema'||!DIGEST_RE.test(request.image))throw Error('ROLLBACK_TARGET_REFUSED');

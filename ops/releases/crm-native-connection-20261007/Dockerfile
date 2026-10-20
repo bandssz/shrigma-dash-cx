@@ -39,7 +39,6 @@ COPY services/dashboard-operational/crm-presentation.css services/dashboard-oper
 COPY services/dashboard-operational/own-foundation/ ./services/dashboard-operational/own-foundation/
 COPY tools/native-pg-dependency/package.json tools/native-pg-dependency/package-lock.json tools/native-pg-dependency/build-driver.cjs ./tools/native-pg-dependency/
 RUN cd tools/native-pg-dependency && npm ci --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org
-COPY services/dashboard-operational/native-continuity/read-only.cjs services/dashboard-operational/native-continuity/pins.json ./services/dashboard-operational/native-continuity/
 COPY ops/releases/crm-native-connection-20261007/bootstrap.cjs ops/releases/crm-native-connection-20261007/build-release.cjs ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs ops/releases/crm-native-connection-20261007/start-existing.cjs ops/releases/crm-native-connection-20261007/health-existing.cjs ./ops/releases/crm-native-connection-20261007/
 RUN node ops/releases/crm-native-connection-20261007/build-release.cjs /source /app /native-output "$GIT_SHA"
 
@@ -53,7 +52,7 @@ USER 0:0
 COPY --from=native-build /native-output/ /app/native-backend/
 COPY --from=native-build /native-output-presentation/ /app/presentation-release/
 COPY --from=native-build /native-output-pg-driver/ /app/native-pg-driver/
-RUN chmod 0555 /app/native-backend /app/native-backend/runtime /app/native-backend/runtime/native-continuity /app/native-backend/runtime/own-foundation /app/native-backend/runtime/journey-read /app/native-pg-driver /app/presentation-release /app/presentation-release/public /app/presentation-release/public/assets /app/presentation-release/public/assets/panels
+RUN chmod 0555 /app/native-backend /app/native-backend/runtime /app/native-backend/runtime/own-foundation /app/native-backend/runtime/journey-read /app/native-pg-driver /app/presentation-release /app/presentation-release/public /app/presentation-release/public/assets /app/presentation-release/public/assets/panels
 USER 1000:1000
 # Native startup is admitted separately by Root on the existing Compose gateway.
 # The historical pack/controller and public V2 files stay intact. Production uses

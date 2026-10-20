@@ -118,10 +118,10 @@ const GEC={
  },
  templateExpressions(source,html=false){
   source=String(source||'');
-  // Use the same existing expression parser for HTML, subject and plain text.
-  // Native Listmonk still compiles and renders the saved campaign.
-  const parser=source.includes('{{')?GEC.expressionParser():null;
-  if(parser){const parsed=parser.parse(source,{html});return {keys:parsed.keys,fields:parsed.fields,unsupported:!parsed.ok,errors:parsed.errors,native:parsed.actions.some(a=>a.kind!=='output'||a.expression?.type!=='field'||!a.expression.path.startsWith('.Tx.Data.'))};}
+  // Expanded expressions belong to HTML bodies. Subjects and plain-text fields
+  // keep their existing simple-variable contract and never pretend to be rendered.
+  const parser=html&&source.includes('{{')?GEC.expressionParser():null;
+  if(parser){const parsed=parser.parse(source,{html:true});return {keys:parsed.keys,fields:parsed.fields,unsupported:!parsed.ok,errors:parsed.errors,native:parsed.actions.some(a=>a.kind!=='output'||a.expression?.type!=='field'||!a.expression.path.startsWith('.Tx.Data.'))};}
   const parts=html?GEC.htmlTokens(source):{ok:true,tokens:[{type:'text',start:0,end:source.length}]},keys=new Set();let unsupported=!parts.ok;
   for(const t of parts.tokens){
    const part=source.slice(t.start,t.end);

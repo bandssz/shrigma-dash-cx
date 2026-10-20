@@ -20,7 +20,7 @@ async function run(mode){
  require(ROOT+'/bootstrap.cjs').verifyRelease(args.manifestSha256);
  if(mode==='verify')return {schema:contract.schema,verified:true,...contract};
  if(mode==='health')return require(ROOT+'/health-existing.cjs').healthExisting(args);
- const r=await require(ROOT+'/start-existing.cjs').startExisting(args);return {schema:contract.schema,started:true,existingContinuityVerified:r.continuity.existingGrantVerified};
+ await require(ROOT+'/start-existing.cjs').startExisting(args);return {schema:contract.schema,started:true};
 }
 if(require.main===module)run(process.argv[2]).then(r=>console.log(JSON.stringify(r)),()=>{console.error('PRODUCTION_ENVELOPE_REFUSED');process.exitCode=1;});
 module.exports={validate,run};

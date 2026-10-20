@@ -351,7 +351,7 @@ jobs:
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
       - name: Build over the same preserved gateway base
         run: docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE:source-$GITHUB_SHA" --file ops/releases/crm-native-connection-20261007/Dockerfile .
-      - name: Prove original Master continuity and actual assets in UID1000
+      - name: Prove real auth, source assets and UID1000 startup
         shell: bash
         run: |
           set -euo pipefail

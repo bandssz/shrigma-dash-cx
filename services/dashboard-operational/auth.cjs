@@ -1082,15 +1082,16 @@ function createAuth(options){
   return {ok:true,state:'renewing'};
  }
  function intactMasterWriterBinding(user){
-  if(user.role==='superadmin'){
-   if(!campaignSubmit||!masterWriter||user.email!==adminEmail||user.permissions.growth?.edit!==true)return null;
-   const a=db.prepare("SELECT a.*,c.key_digest,c.encrypted_key FROM campaign_writer_attestation_v1 a JOIN upstream_credentials c ON c.user_id=a.user_id AND c.slot='growth-campaign' WHERE a.user_id=?").get(user.id),bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='growth-campaign'").get(user.id);
-   return a&&a.owner===user.email&&a.credential_mac===a.key_digest&&Number.isSafeInteger(a.attested_at)&&a.attested_at<=current()&&Number.isSafeInteger(a.expires_at)&&a.expires_at>a.attested_at&&a.expires_at<=a.attested_at+14*86400000&&equalHex(a.master_proof_mac,masterWriterMac(user,a))&&bound&&equalHex(bound.binding_mac,upstreamBindingMac(user,'growth-campaign',a))?a:null;
-  }
-  return null;
+  if(!campaignSubmit||!masterWriter||user.role!=='superadmin'||user.email!==adminEmail||user.permissions.growth?.edit!==true)return null;
+  const stored=db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign'").get(user.id),bound=db.prepare("SELECT binding_mac FROM upstream_brand_bindings_v1 WHERE user_id=? AND slot='growth-campaign'").get(user.id);
+  if(!stored||!bound||!equalHex(bound.binding_mac,upstreamBindingMac(user,'growth-campaign',stored)))return null;
+  // Retain only the old actor identifier for existing operation recovery. No
+  // attestation, date, renewal or proof controls access to the stored key.
+  const historical=db.prepare('SELECT principal_id FROM campaign_writer_attestation_v1 WHERE user_id=?').get(user.id);
+  return {...stored,owner:user.email,credential_mac:stored.key_digest,principal_id:historical?.principal_id??null};
  }
  function writerBinding(user){
-  if(user.role==='superadmin'){const a=intactMasterWriterBinding(user);return a&&a.expires_at>current()?a:null;}
+  if(user.role==='superadmin')return intactMasterWriterBinding(user);
   if(ownMasterWriter&&!coexistence)return null;
   if(managedWriter)return managedWriter.bindingForUser(user.id);
   if(!campaignSubmit||user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.edit!==true)return null;
@@ -1200,15 +1201,13 @@ function createAuth(options){
   if(write&&author.role!=='superadmin'&&(author.permissions.growth?.edit!==true||!author.productWriteFronts?.includes('growth')))err('PRODUCT_WRITE_DENIED',403);
   const row=db.prepare("SELECT * FROM users WHERE email=? AND role='superadmin' AND state='active'").get(adminEmail);
   if(!row)err('CRM_SERVICE_DRAFT_UNAVAILABLE',503);
-  // Only the three-cap draft service can inspect an intact expired proof.
-  // Its fixed original identity GET is mandatory before/after each transport;
-  // the commercial writer's persistent lifetime and grants remain unchanged.
+  // Application permissions and the existing encrypted source key authorize drafts.
   const holder=publicUser(row),att=intactMasterWriterBinding(holder);
   if(!att||holder.permissions.growth?.edit!==true||!holder.productWriteFronts?.includes('growth'))err('CRM_SERVICE_DRAFT_UNAVAILABLE',503);
   const credential=decrypt(att.encrypted_key);
   if(!equalHex(att.credential_mac,crypto.createHmac('sha256',encKey).update('upstream-key:'+credential).digest('hex')))err('CREDENTIAL_UNAVAILABLE',503);
   const binding=brandMac(['crm-local-account-drafts-v2',author.id,brand,holder.id,att.principal_id,att.credential_mac]);
-  const snapshot=brandMac(['crm-local-account-draft-request-v1',binding,profileRevision(author.id),profileRevision(holder.id),att.expires_at,att.attested_at,att.master_proof_mac]);
+  const snapshot=brandMac(['crm-local-account-draft-request-v1',binding,profileRevision(author.id),profileRevision(holder.id),att.credential_mac]);
   const marked=simpleDraftContexts.get(context);if(marked&&(marked.brand!==brand||marked.binding!==binding||marked.snapshot!==snapshot))err('CRM_SERVICE_DRAFT_ACCESS_CHANGED',403);
   return {author,holder,credential,binding,snapshot,principal:att.principal_id,expiresAt:att.expires_at};
  }
@@ -1216,7 +1215,7 @@ function createAuth(options){
   const before=simpleDraftBinding(context,{brand,write});let proof;
   try{proof=await require('./crm-campaign-writer-attestation.cjs').verifyStoredMasterCampaignWriterCredential({bearer:before.credential,owner:before.holder.email},{fetchImpl});}catch{err('CRM_SERVICE_DRAFT_SOURCE_REFUSED',503);}
   const principal='master-'+crypto.createHmac('sha256',encKey).update('master-campaign-actor:'+proof.principalId).digest('hex'),after=simpleDraftBinding(context,{brand,write});
-  if(principal!==before.principal||proof.owner!==before.holder.email||after.binding!==before.binding||after.snapshot!==before.snapshot)err('CRM_SERVICE_DRAFT_ACCESS_CHANGED',403);
+  if((before.principal!==null&&principal!==before.principal)||proof.owner!==before.holder.email||after.binding!==before.binding||after.snapshot!==before.snapshot)err('CRM_SERVICE_DRAFT_ACCESS_CHANGED',403);
   return {...after,sourceActor:'panel:'+proof.principalId};
  }
  function simpleDraftContext(context,{brand}={}){
@@ -1244,7 +1243,7 @@ function createAuth(options){
   const author=publicUser(record),holder=publicUser(holderRecord),att=intactMasterWriterBinding(holder);
   if(!att||!['manager','superadmin'].includes(author.role)||author.permissions.growth?.read!==true||author.permissions.growth?.edit!==true||!author.productFronts?.includes('growth')||!author.productWriteFronts?.includes('growth')||!author.brands?.includes(q.brand)||(!holder.productWriteFronts?.includes('growth')||holder.permissions.growth?.read!==true||holder.permissions.growth?.edit!==true))err('EDITORIAL_AUTHORITY_REFUSED',403);
   const credentialMac=crypto.createHmac('sha256',encKey).update('upstream-key:'+bearer).digest('hex'),sourcePrincipal='master-'+crypto.createHmac('sha256',encKey).update('master-campaign-actor:'+q.sourceActor.slice(6)).digest('hex');
-  if(!equalHex(credentialMac,att.credential_mac)||sourcePrincipal!==att.principal_id)err('EDITORIAL_AUTHORITY_REFUSED',403);
+  if(!equalHex(credentialMac,att.credential_mac)||(att.principal_id!==null&&sourcePrincipal!==att.principal_id))err('EDITORIAL_AUTHORITY_REFUSED',403);
   const binding=brandMac(['crm-local-account-drafts-v2',author.id,q.brand,holder.id,att.principal_id,att.credential_mac]);
   if(!equalHex(row.credential_mac,binding)&&!(author.role==='superadmin'&&equalHex(row.credential_mac,att.credential_mac)))err('EDITORIAL_AUTHORITY_REFUSED',403);
   const {definition}=A.journalCommand({row,kind,decrypt},q);
@@ -1435,7 +1434,7 @@ function createAuth(options){
   if(user.role!=='superadmin'||user.email!==adminEmail||!a)err('CREDENTIAL_ATTESTATION_REQUIRED',403);
   const credential=getUpstreamCredential({...ctx,area:'growth',edit:true,slot:'growth-campaign',brand});
   if(!credential)err('CREDENTIAL_UNAVAILABLE',503);
-  return Object.freeze({userId:user.id,credential,binding:brandMac(['original-master-audience-read-v1',user.id,brand,profileRevision(user.id),a.principal_id,a.credential_mac,a.expires_at,a.attested_at,a.master_proof_mac])});
+  return Object.freeze({userId:user.id,credential,binding:brandMac(['original-master-audience-read-v1',user.id,brand,profileRevision(user.id),a.principal_id,a.credential_mac,a.credential_mac])});
  }
  // PRIVATE CURRENT Master binding for published content READ only. The
  // original service authenticates read_content; no new actor or slot is issued.

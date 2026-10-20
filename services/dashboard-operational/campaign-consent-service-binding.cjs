@@ -9,7 +9,7 @@ function createServiceBinding({local,verify,principal}){
   const before=local(brand);let proof;
   try{proof=await verify({bearer:before.credential,owner:before.owner});}catch{fail('CONSENT_IDENTITY_UNCONFIRMED');}
   const after=local(brand);
-  if(proof.owner!==before.owner||principal(proof.principalId)!==before.principal||before.snapshot!==after.snapshot||before.credential!==after.credential||before.owner!==after.owner)fail('CONSENT_ACCESS_CHANGED');
+  if(proof.owner!==before.owner||before.principal!==null&&principal(proof.principalId)!==before.principal||before.snapshot!==after.snapshot||before.credential!==after.credential||before.owner!==after.owner)fail('CONSENT_ACCESS_CHANGED');
   return Object.freeze({credential:after.credential,snapshot:after.snapshot});
  };
 }
