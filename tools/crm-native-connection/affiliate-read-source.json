@@ -2730,8 +2730,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 13954,
-      "sha256": "65ac674587ddfacab50c9405dc3ba6e5fef10c8a07bfbaff708fac821c51b0c5"
+      "bytes": 14222,
+      "sha256": "6c87208e2db9884bcd7340bfc70cad1a165f937d6d6f0acd731ed3ab4d49ee80"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
