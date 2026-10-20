@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "code": "NATIVE_GET_QUERY_REFUSED_OR_UNCONFIRMED",
+  "httpStatus": 403,
+  "name": "Error",
+  "noRetry": true,
+  "noFallback": true,
+  "newBusinessPosts": 0
+}

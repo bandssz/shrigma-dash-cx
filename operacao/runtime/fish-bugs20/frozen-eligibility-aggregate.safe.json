@@ -1,0 +1,65 @@
+{
+  "schema": "shrigma-frozen-eligibility-aggregate-read-v1",
+  "startedAt": "2026-10-20T15:03:47.349Z",
+  "serial": true,
+  "linuxDocker": true,
+  "methods": [
+    "GET"
+  ],
+  "newBusinessPosts": 0,
+  "rows": [
+    {
+      "brand": "aristo",
+      "campaignId": 277,
+      "listId": 256,
+      "expectedCount": 196157,
+      "frozen": {
+        "uuidMatches": true,
+        "status": "active",
+        "type": "private",
+        "optin": "single"
+      },
+      "base": {
+        "uuidMatches": true,
+        "status": "active",
+        "optin": "single"
+      },
+      "counts": {
+        "all": 196157,
+        "confirmed": 196157,
+        "unconfirmed": 0,
+        "unsubscribed": 0
+      },
+      "frozenCountMatches": true,
+      "confirmedCountMatches": true
+    },
+    {
+      "brand": "fish",
+      "campaignId": 278,
+      "listId": 257,
+      "expectedCount": 82213,
+      "frozen": {
+        "uuidMatches": true,
+        "status": "active",
+        "type": "private",
+        "optin": "single"
+      },
+      "base": {
+        "uuidMatches": true,
+        "status": "active",
+        "optin": "single"
+      },
+      "counts": {
+        "all": 82213,
+        "confirmed": 53332,
+        "unconfirmed": 28881,
+        "unsubscribed": 0
+      },
+      "frozenCountMatches": true,
+      "confirmedCountMatches": false
+    }
+  ],
+  "finishedAt": "2026-10-20T15:03:48.508Z",
+  "ok": true,
+  "completeSnapshotPredicateDiagnosis": false
+}
