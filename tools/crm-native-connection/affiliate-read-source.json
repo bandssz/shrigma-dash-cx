@@ -1361,7 +1361,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "ac4f567d38b40852c1b099ba5cf003751dcdf990260ae7ee7a4bdd39d2fb4be1"
+      "sha256": "96580577b06e6632143c66512e51ab929b59a06599c939f35107c12603bc427a"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1370,8 +1370,8 @@
     },
     {
       "path": "services/dashboard-operational/campaign-write-tracking.js",
-      "bytes": 9229,
-      "sha256": "a336e677c914f983499c9d4a3e55e12aef345f9c580780dbe4b77179c4a13245"
+      "bytes": 11089,
+      "sha256": "7261f7fac91c5d2df224f41756fd17d04012ed8c9052e85e0db5dee5aae6937a"
     },
     {
       "path": "services/dashboard-operational/crm-campaign-create.cjs",
@@ -1610,8 +1610,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 208472,
-      "sha256": "2091f6d4ffecfba93e0c26af202e09ac995b8fa684c168ea828ebc6c997d5c6b"
+      "bytes": 209590,
+      "sha256": "98702003991cb7d05d3e69f50c30c28660f52973b176945b3c1a3afe5b79b7f4"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -2055,8 +2055,8 @@
     },
     {
       "path": "tests/crm-editorial-return.test.cjs",
-      "bytes": 5082,
-      "sha256": "2377f80a0188961e7dfd4f7ba595692f432605070641cf95ea783bf2d80e72f2"
+      "bytes": 5403,
+      "sha256": "9caf01301e0bcbdb60db41ab8c674596f779a7828b8eff2d0c85f155f0d1781a"
     },
     {
       "path": "tests/crm-freeze-scale20.test.cjs",
