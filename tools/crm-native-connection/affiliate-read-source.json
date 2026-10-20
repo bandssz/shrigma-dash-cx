@@ -30,8 +30,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 47344,
-      "sha256": "d53c483e237d55dbfb856bb88b4b960bc1d0eb6e00d920651be1a373eae4fefc"
+      "bytes": 47358,
+      "sha256": "4e923e13cd8c72a8041eb4f671cbcf4c8e0e3873b5522275841458dacefe3a85"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -2510,8 +2510,8 @@
     },
     {
       "path": "tests/production-envelope.test.cjs",
-      "bytes": 2628,
-      "sha256": "401799cb1b7d35713035d42ecb575b2460e83a41f5817fa39521f8d4213eda15"
+      "bytes": 3498,
+      "sha256": "0bb039b4e40d233210751aa012b48ac7780e090fcbf343b0aaef45ff8163ee85"
     },
     {
       "path": "tests/published-journeys-native/gateway.test.cjs",
@@ -2645,8 +2645,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 9260,
-      "sha256": "54b1535e3e2539e343898e84af67576485e1a94ce2041c71756d4b7cd8242168"
+      "bytes": 8624,
+      "sha256": "e66f36efe7349067dfb71418efb4ead1b7e2c07913409b0f4ed44b8f48a7d791"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -2685,8 +2685,8 @@
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 12034,
-      "sha256": "c3210c26a747ebb012f806750da87389bfcd60d68d1a189f13a972c3b26b6555"
+      "bytes": 12212,
+      "sha256": "0faa01a224b28314899f9380f89821adaed7b4dfa48b78611d5e232c64793e6e"
     },
     {
       "path": "tests/dashboard-operational-campaign-create-packaging.test.cjs",
