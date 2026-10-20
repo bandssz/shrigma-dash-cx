@@ -1825,8 +1825,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 225825,
-      "sha256": "843e277f6ebb4ef6fd207b12b74c10372761d16a190cadd6f49c0d00a6dc8d16"
+      "bytes": 226244,
+      "sha256": "0be55ee7ff542788865cbb165a3b4fed232a9c480de45932618fff726346f5e0"
     },
     {
       "path": "services/dashboard-operational/simple-crm-campaign-audiences.cjs",
@@ -2640,8 +2640,8 @@
     },
     {
       "path": "tools/crm-qa/read-policy.cjs",
-      "bytes": 2882,
-      "sha256": "7892ff88deafd87d0608f87a9d79a720b7a9090ec7a9c7d52dcc4f7aba965199"
+      "bytes": 3009,
+      "sha256": "73d24640a391a4c24ddc12457a7f17bf1be79ac62d397cfd548a15653bbc8ad9"
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
@@ -2735,8 +2735,8 @@
     },
     {
       "path": "tests/campaign-account-operator.test.cjs",
-      "bytes": 5217,
-      "sha256": "d7f700036bb52f7983227e9c0d5ee7deae5e2b463e47e299d2e7714b62a4306f"
+      "bytes": 6185,
+      "sha256": "e280bb62786ee9d10f87067c9150f655a70b224cdb34f703e3b388300393297f"
     },
     {
       "path": "tests/campaign-native-tracking.test.cjs",

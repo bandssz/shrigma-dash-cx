@@ -9,6 +9,7 @@ function allow(method,address,body){
   if(u.pathname.startsWith('/auth/'))return u.pathname==='/auth/session';
   if(!u.pathname.startsWith('/api/'))return ['/healthz','/guard.js','/favicon.ico'].includes(u.pathname)||u.pathname.startsWith('/app/')||u.pathname.startsWith('/assets/');
   if(u.pathname==='/api/crm-features')return u.searchParams.size===1&&['fish','aristo'].includes(u.searchParams.get('brand'));
+  if(u.pathname==='/api/crm-ab-plans')return u.searchParams.size===1&&['fish','aristo'].includes(u.searchParams.get('brand'));
   if(u.pathname==='/api/segments')return ['fish','aristo'].includes(u.searchParams.get('brand'))&&['segmentos_listar','segmento_obter','segmento_capacidade','segmento_operacao'].includes(u.searchParams.get('acao'));
   if(u.pathname==='/api/campaign_audience')return ['fish','aristo'].includes(u.searchParams.get('brand'))&&['campanha_publico_obter','campanha_publico_operacao'].includes(u.searchParams.get('acao'));
   if(u.pathname==='/api/campaigns')return campaignActions.has(u.searchParams.get('acao'));
