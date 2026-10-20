@@ -1,0 +1,155 @@
+{
+  "schema": "github-bootstrap-deploy-proof-v1",
+  "repository": "bandssz/shrigma-dash-cx",
+  "credentialPath": ".private/github-bootstrap/credential.json",
+  "credentialValuesPrinted": false,
+  "expiresAtUtc": "2027-10-20T03:00:00Z",
+  "nativeScope": "existing gateway only",
+  "consumerAudit": {
+    "workflows": 54,
+    "allRead": true,
+    "sha": "209c87ae6d223238f194baac411b14ca6ceea7de",
+    "repoSecretNames": [
+      "CRM_QA_ACCOUNTS_JSON",
+      "CRM_QA_EMAIL",
+      "CRM_QA_PASSWORD",
+      "SHRIGMA_EASYPANEL_DEPLOY_URL"
+    ],
+    "persistentPatWorkflowConsumers": 0,
+    "bootstrapRole": "write current gateway URL to existing deployment Secret",
+    "ciAuthentication": "job-provided github.token",
+    "unrelatedGlobalEasypanelTokenChanged": false,
+    "historicalCredentialPacketsChanged": false,
+    "workflowNames": [
+      "ab-listmonk-build.yml",
+      "ab-listmonk-image-build.yml",
+      "ab-listmonk-image-publish.yml",
+      "ab-registry-tests.yml",
+      "campaign-audience-tests.yml",
+      "campaign-recovery-tests.yml",
+      "cowork-panel-source.yml",
+      "crm-ab-audience-tests.yml",
+      "crm-agenda19.yml",
+      "crm-audience-tests.yml",
+      "crm-campaign-service.yml",
+      "crm-consent19-gateway.yml",
+      "crm-flow-image-publish.yml",
+      "crm-flow-service.yml",
+      "crm-freeze-scale20.yml",
+      "crm-graph-lifecycle-tests.yml",
+      "crm-graph-worker-runtime-access-tests.yml",
+      "crm-links19.yml",
+      "crm-native-connection-20261007.yml",
+      "crm-native-night-20261018.yml",
+      "crm-percurso-human18.yml",
+      "crm-policy-links20.yml",
+      "crm-presentation-v2-release-20261006.yml",
+      "crm-recorded-origin-tests.yml",
+      "crm-regular-image-publish.yml",
+      "crm-regular-worker-tests.yml",
+      "crm-rfm-conversion-tests.yml",
+      "crm-shopify-tests.yml",
+      "crm-worker-credential-pgp-probe.yml",
+      "crm-worker-credential-prepare.yml",
+      "dashboard-audience-deliverability-source-20261006.yml",
+      "dashboard-candidate-crm-fix-20261002.yml",
+      "dashboard-crm-jornadas-source-state-20261006.yml",
+      "dashboard-crm-mvp-controls-source-20261006.yml",
+      "dashboard-crm-sandbox-shadow.yml",
+      "dashboard-crm-sprint-final-portal-20261005.yml",
+      "dashboard-crm-ui-final-release-20261006.yml",
+      "dashboard-identity-offsite-shadow.yml",
+      "dashboard-login-edge-probe.yml",
+      "dashboard-operational-shadow.yml",
+      "dashboard-reviewed-baselines-20261006.yml",
+      "email-test-tests.yml",
+      "graph-acl-migration-tests.yml",
+      "growth-health-query-tests.yml",
+      "growth-tests.yml",
+      "journey-graph-install-tests.yml",
+      "journey-graph-source-release-tests.yml",
+      "journey-graph-tests.yml",
+      "listmonk-test-probe.yml",
+      "maintenance-retention-tests.yml",
+      "maintenance-tx-tests.yml",
+      "n8n-aristo-readonly.yml",
+      "tiktok-manual-tests.yml",
+      "vip-consent-tests.yml"
+    ],
+    "coverage": "All54 repository workflows at fixedSHA and4 repository ActionsSecrets; no inference about unrelated global integrations or historical credential packets",
+    "additionalWorkflowReferences": [
+      "automatic secrets.GITHUB_TOKEN",
+      "N8N_API_KEY in historical n8n-aristo-readonly(main/manual)"
+    ]
+  },
+  "newPatSecretWrite": {
+    "http": 204,
+    "updatedAtUtc": "2026-10-20T16:06:50Z",
+    "sameGatewayCurrentUrl": true,
+    "previousSecretPlaintextRead": false
+  },
+  "ci": {
+    "run": 39454642257,
+    "job": 118738167700,
+    "createdAtUtc": "2026-10-20T16:07:27Z",
+    "conclusion": "success",
+    "triggerRevision": "adf0545a79b2274bd623f8ececbd655e7055e586",
+    "newImage": false,
+    "workflowConclusion": "success"
+  },
+  "receipts": [
+    {
+      "schema": "shrigma-production-receipt-v1",
+      "revision": "adf0545a79b2274bd623f8ececbd655e7055e586",
+      "action": "rollback",
+      "artifactImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:569625f0a3cd578ebbce041a3b16f5538cc9bd2f8942c2e1ca8da017c80aa176",
+      "envelopeImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:289a63d988cb745d24f5e278d0d2c209f1e9b4415dc7ae9207373a752cad3c39",
+      "previousEnvelopeImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:289a63d988cb745d24f5e278d0d2c209f1e9b4415dc7ae9207373a752cad3c39",
+      "previousArtifactImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:569625f0a3cd578ebbce041a3b16f5538cc9bd2f8942c2e1ca8da017c80aa176",
+      "manifestSha256": "29f7c37107536d673d68546a31de74817ef2ff6c5a1d7b5f80882749b42fee9b",
+      "presentationManifestSha256": "fcebaef430deaa3d6ae6b9321e8c25a3b1165282b14af7a3932063868ade3c72",
+      "sourceRevision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+      "checkedAt": "2026-10-20T16:07:42.858Z",
+      "status": "installed",
+      "productionVerified": true,
+      "deployAttempted": true
+    }
+  ],
+  "native": {
+    "actionId": "cmvgvn1ty070i07nc55qbf3vi",
+    "createdAtUtc": "2026-10-20T16:07:44Z",
+    "completedAtUtc": "2026-10-20T16:07:46Z",
+    "actionStatus": "done",
+    "containerId": "dc95028a0d16d48f6f2ec5114a50d7f4724f1aea82754abb7594df70fffea2f9",
+    "health": "healthy",
+    "containerRecreated": false,
+    "configurationExactlyPreserved": true
+  },
+  "httpPostDeployProof": ".private/provas-sprint-curto-20261018/e9-bootstrap-http-20261020-1308.json",
+  "http8of8Pending": false,
+  "http8of8": true,
+  "httpAllE9": true,
+  "completedAtUtc": "2026-10-20T16:08:53.850Z",
+  "effectiveConsumers": [
+    {
+      "consumer": "operacao/atualizar-bootstrap-github.cjs",
+      "credentialSource": ".private/github-bootstrap/credential.json",
+      "newPatConsumed": true
+    },
+    {
+      "consumer": "canonical CI and GHCR",
+      "credentialSource": "job-provided github.token",
+      "persistentPatConsumer": false
+    },
+    {
+      "consumer": "existing gateway deploy hook",
+      "credentialSource": "SHRIGMA_EASYPANEL_DEPLOY_URL refreshed by new PAT",
+      "newUrlUsedByFreshCi": true
+    }
+  ],
+  "notRewritten": {
+    "unrelatedEasypanelGlobalIntegration": true,
+    "historicalCredentialPackets": true,
+    "reason": "no proven binding to this bootstrap PAT"
+  }
+}

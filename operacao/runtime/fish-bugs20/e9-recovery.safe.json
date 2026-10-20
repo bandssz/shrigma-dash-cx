@@ -1,0 +1,68 @@
+{
+  "schema": "e9-recovery-result-v1",
+  "ok": true,
+  "atUtc": "2026-10-20T15:52:43.584Z",
+  "backupDir": "/dashboard-data/recovery-e9-20261020-1252",
+  "encryptedBackupFiles": [
+    {
+      "source": "/dashboard-data/dashboard.sqlite",
+      "bytes": 10510336,
+      "sha256": "1fe6c5e4b199be005402c0b561c9f297a8bf24cf94625ac1d9c614a36063d4ab",
+      "encryptedFile": "0.aes",
+      "encryptedSha256": "c60a9396b4f02ad104d92d3361c9eeff4e535ffa83faea5921cc3f331e1c5c1a"
+    },
+    {
+      "source": "/dashboard-data/dashboard.sqlite-wal",
+      "bytes": 4120032,
+      "sha256": "8a68d509813ebdb97fef15d1f9052f33497e3945a26b05e50691e8585bf06e6b",
+      "encryptedFile": "1.aes",
+      "encryptedSha256": "45e6f9ddf07884dfe7eef1c309c3e85e93a8f8d9b59e3630996c0df9c427321b"
+    },
+    {
+      "source": "/dashboard-data/dashboard.sqlite-shm",
+      "bytes": 32768,
+      "sha256": "a27160f7c0f0a7a1554826b1fcae71753813687122d31af16ba1513b2a756953",
+      "encryptedFile": "2.aes",
+      "encryptedSha256": "09fc7955a8856a9704a5cd473214a84c6006b3a06411d959e702adcca2daee45"
+    },
+    {
+      "source": "/source-identity/dashboard.sqlite",
+      "bytes": 110592,
+      "sha256": "e7981f6c62fa2106e52c38b5aaf24f9848e9d833db8f04d539d4d22cb16dbdb3",
+      "encryptedFile": "3.aes",
+      "encryptedSha256": "0caf992fe88ef2ec7046d186d48ea8833e5a3b4c5fc303fcbe745e9d9389be1a"
+    }
+  ],
+  "checkpoint": {
+    "busy": 0,
+    "log": 468,
+    "checkpointed": 468
+  },
+  "tableCountsPreserved": true,
+  "sourceIdentityUnchanged": true,
+  "continuityVerified": true,
+  "auxiliariesRemaining": 0,
+  "removedBySqlite": [
+    "/dashboard-data/dashboard.sqlite-wal",
+    "/dashboard-data/dashboard.sqlite-shm"
+  ],
+  "filesDeletedManually": 0,
+  "credentialsChanged": false,
+  "newTables": 0,
+  "revision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+  "envelope": "sha256:289a63d988cb745d24f5e278d0d2c209f1e9b4415dc7ae9207373a752cad3c39",
+  "newImage": false,
+  "sourceExactlyRestored": true,
+  "http8of8": true,
+  "httpProof": ".private/provas-sprint-curto-20261018/e9-recovered-http-20261020-1254.json",
+  "serial": true,
+  "linuxDocker": true,
+  "businessWrites": 0,
+  "finishedHttpAtUtc": "2026-10-20T15:54:24.981Z",
+  "localRecoveryTests": {
+    "tests": 2,
+    "pass": 2,
+    "fail": 0
+  },
+  "bootstrapTokenRotation": "pending-exact-secret-location"
+}
