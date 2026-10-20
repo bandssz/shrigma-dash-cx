@@ -1,0 +1,57 @@
+{
+  "schema": "shrigma-fish-analyst-diagnostic-v1",
+  "checkedAt": "2026-10-20T14:18:42.639Z",
+  "ok": true,
+  "transport": "Original Listmonk API16 GET; Docker Linux serial",
+  "businessPosts": 0,
+  "campaigns": [
+    {
+      "id": 281,
+      "from": "João da Fishermans <avisos@fishermans.com.br>",
+      "lists": [
+        {
+          "listId": 263,
+          "count": 9055
+        }
+      ],
+      "nativeExpressions": [
+        "{{ UnsubscribeURL }}"
+      ]
+    },
+    {
+      "id": 282,
+      "from": "João da Fishermans <avisos@fishermans.com.br>",
+      "lists": [
+        {
+          "listId": 264,
+          "count": 3925
+        }
+      ],
+      "nativeExpressions": [
+        "{{ UnsubscribeURL }}"
+      ]
+    }
+  ],
+  "nativeFinal": [
+    {
+      "id": 277,
+      "brand": "aristo",
+      "status": "draft",
+      "send_at": null,
+      "sent": 0,
+      "started_at": null
+    },
+    {
+      "id": 278,
+      "brand": "fish",
+      "status": "draft",
+      "send_at": null,
+      "sent": 0,
+      "started_at": null
+    }
+  ],
+  "nativeCampaignsInspected": 276,
+  "target": "2026-10-21T13:00:00.000Z",
+  "scheduledAtTarget": [],
+  "nativeTargetEmpty": true
+}

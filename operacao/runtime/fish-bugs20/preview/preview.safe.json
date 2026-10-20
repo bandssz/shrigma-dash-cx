@@ -1,0 +1,80 @@
+{
+  "serial": true,
+  "linuxDocker": true,
+  "realQaData": true,
+  "businessPosts": 0,
+  "staticOverrideOnly": false,
+  "projectedFields": [
+    "campaign.definition.from_email = brand Contato (preview only)",
+    "Native schedule eligibility/capabilities from prior frozen QA snapshot (presentation only)"
+  ],
+  "operationalAcceptance": false,
+  "rows": [
+    {
+      "brand": "fish",
+      "id": 278,
+      "width": 1440,
+      "choice": "reserved-sender-fish-1440-choice.png",
+      "review": "reserved-sender-fish-1440-confirmation.png",
+      "unmarkedConfirmation": true,
+      "availableSchedule": true
+    },
+    {
+      "brand": "fish",
+      "id": 278,
+      "width": 390,
+      "choice": "reserved-sender-fish-390-choice.png",
+      "review": "reserved-sender-fish-390-confirmation.png",
+      "unmarkedConfirmation": true,
+      "availableSchedule": true
+    },
+    {
+      "brand": "aristo",
+      "id": 277,
+      "width": 1440,
+      "choice": "reserved-sender-aristo-1440-choice.png",
+      "review": "reserved-sender-aristo-1440-confirmation.png",
+      "unmarkedConfirmation": true,
+      "availableSchedule": true
+    },
+    {
+      "brand": "aristo",
+      "id": 277,
+      "width": 390,
+      "choice": "reserved-sender-aristo-390-choice.png",
+      "review": "reserved-sender-aristo-390-confirmation.png",
+      "unmarkedConfirmation": true,
+      "availableSchedule": true
+    }
+  ],
+  "currentNativeContext": [
+    {
+      "brand": "fish",
+      "id": 278,
+      "status": 200,
+      "eligible": false
+    },
+    {
+      "brand": "fish",
+      "id": 278,
+      "status": 200,
+      "eligible": false
+    },
+    {
+      "brand": "aristo",
+      "id": 277,
+      "status": 200,
+      "eligible": false
+    },
+    {
+      "brand": "aristo",
+      "id": 277,
+      "status": 200,
+      "eligible": false
+    }
+  ],
+  "ok": true,
+  "revision": "084805fb57aa00782a75c20d8fbe5e976ff6ef7e",
+  "visuallyReviewedCaptures": 8,
+  "installation": false
+}

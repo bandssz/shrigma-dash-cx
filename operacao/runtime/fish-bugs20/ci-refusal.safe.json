@@ -1,0 +1,22 @@
+{
+  "schema": "shrigma-candidate-ci-refusal-v1",
+  "revision": "eb9437de48b884c1d256b9a23e80a1cf71cf28f4",
+  "branch": "codex/crm-fish-analyst-bugs-20261020",
+  "run": 39440973372,
+  "job": 118690398149,
+  "conclusion": "failure",
+  "failedAt": "2026-10-20T14:37:56Z",
+  "failedStep": "Verify exact Afiliados delta over installed source",
+  "reason": "Git delta contains two source paths omitted from the 536-file admitted inventory",
+  "extraPaths": [
+    "growth-drafts.js",
+    "growth-email-expressions.js"
+  ],
+  "imageBuildReached": false,
+  "installed": false,
+  "productionRevision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+  "historicalBaseRepinned": false,
+  "verifierChangedToPass": false,
+  "gateBypassed": false,
+  "publicationStopped": true
+}
