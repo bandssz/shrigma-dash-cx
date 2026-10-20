@@ -1,4 +1,5 @@
 'use strict';
+const {randomUUID}=require('node:crypto');
 // The gateway owns the single editorial policy. It never evaluates HTML,
 // templates or CSS; it retains offsets for diagnostics on the original line.
 const STORES=Object.freeze({aristo:'oaristocrata.com',fish:'fishermans.com.br'});
@@ -34,7 +35,17 @@ function lineIndex(source){
 // Unlike the old strict tokenizer, malformed markup does not stop inspection
 // of later tags. Quoted values, ordinary comments and raw styles stay inert.
 function scan(source){
- const out=[];let i=0,malformed=false;
+ const out=[],stack=[],voidHtml=new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']),foreignBreakout=new Set(['b','big','blockquote','body','br','center','code','dd','div','dl','dt','em','embed','h1','h2','h3','h4','h5','h6','head','hr','i','img','li','listing','menu','meta','nobr','ol','p','pre','ruby','s','small','span','strong','strike','sub','sup','table','tt','u','ul','var']);let i=0,malformed=false;
+ // Resolve raw text using the element namespace and HTML integration points.
+ function childNamespace(parent,name){
+  if(!parent)return 'html';
+  if(parent.ns==='svg'&&['title','desc','foreignobject'].includes(parent.name))return 'html';
+  if(parent.ns==='math'){
+   if(['mi','mo','mn','ms','mtext'].includes(parent.name)&&!['mglyph','malignmark'].includes(name))return 'html';
+   if(parent.name==='annotation-xml'&&/^(?:text\/html|application\/xhtml\+xml)$/i.test(decode(parent.attrs.encoding?.value)))return 'html';
+  }
+  return parent.ns;
+ }
  while(i<source.length){
   const start=source.indexOf('<',i);if(start<0)break;
   if(source.startsWith('<!--',start)){
@@ -48,11 +59,11 @@ function scan(source){
   const name=/^<(\/?)([a-z][a-z0-9:_-]*)/i.exec(source.slice(start));
   if(!name){i=start+1;continue;}
   const tag={kind:'tag',start,name:name[2].toLowerCase(),closing:!!name[1],attrs:{}};
-  let cursor=start+name[0].length,closed=false;
+  let cursor=start+name[0].length,closed=false,selfClosing=false;
   while(cursor<source.length){
    while(/[\t\n\f\r ]/.test(source[cursor]||'!'))cursor++;
    if(source[cursor]==='>'){cursor++;closed=true;break;}
-   if(source[cursor]==='/'){cursor++;if(source[cursor]==='>'){cursor++;closed=true;break;}malformed=true;continue;}
+   if(source[cursor]==='/'){cursor++;if(source[cursor]==='>'){cursor++;closed=true;selfClosing=true;break;}malformed=true;continue;}
    const at=cursor;
    while(cursor<source.length&&!/[\t\n\f\r />=]/.test(source[cursor]))cursor++;
    const key=source.slice(at,cursor).toLowerCase();if(!key){cursor++;malformed=true;continue;}
@@ -72,8 +83,14 @@ function scan(source){
    }
    if(!Object.hasOwn(tag.attrs,key))tag.attrs[key]={value,start:at,valueStart};
   }
-  tag.end=cursor;out.push(tag);i=cursor;if(!closed)malformed=true;
-  if(!tag.closing&&['script','style','textarea','title','iframe','xmp','noembed','noframes','plaintext'].includes(tag.name)){
+  let ns=childNamespace(stack.at(-1),tag.name);
+  if(ns!=='html'&&(tag.closing?['p','br'].includes(tag.name):foreignBreakout.has(tag.name)||tag.name==='font'&&['color','face','size'].some(k=>Object.hasOwn(tag.attrs,k)))){while(stack.length&&childNamespace(stack.at(-1),tag.name)!=='html')stack.pop();ns='html';}
+  if(!tag.closing&&ns==='html'&&['svg','math'].includes(tag.name))ns=tag.name;
+  tag.ns=ns;tag.end=cursor;out.push(tag);i=cursor;if(!closed)malformed=true;
+  if(tag.closing){for(let n=stack.length-1;n>=0;n--)if(stack[n].name===tag.name){stack.length=n;break;}}
+  else if(!(ns==='html'?voidHtml.has(tag.name):selfClosing))stack.push(tag);
+  if(!tag.closing&&!selfClosing&&ns!=='html'&&tag.name==='style'){const close=/<\/style(?=[\t\n\f\r />])/ig;close.lastIndex=i;const match=close.exec(source),end=match?match.index:source.length;out.push({kind:'raw',name:'style',start:i,end,content:source.slice(i,end)});}
+  if(!tag.closing&&ns==='html'&&['script','style','textarea','title','iframe','xmp','noembed','noframes','plaintext'].includes(tag.name)){
    if(tag.name==='plaintext'){out.push({kind:'raw',name:tag.name,start:i,end:source.length,content:source.slice(i)});break;}
    const close=new RegExp('</'+tag.name+'(?=[\\t\\n\\f\\r />])','ig');close.lastIndex=i;
    const match=close.exec(source),end=match?match.index:source.length;
@@ -100,11 +117,13 @@ function review({html='',text='',brand,campaign}={}){
   const value=decode(raw).trim();
   if(/^(?:javascript|vbscript):/i.test(value.replace(/[\u0000-\u0020\u007f]/g,''))){add('SCRIPT','block',offset,'Remova o código executável deste destino.',field);return;}
   if(!value||value[0]==='#'||/^\{\{\s*\.?UnsubscribeURL\s*\}\}$/.test(value))return;
-  if(value.includes('{{')||value.includes('}}')){add('DYNAMIC_DESTINATION','warning',offset,'Confira o destino na prévia nativa.',field);return;}
+  const dynamic=value.includes('{{')||value.includes('}}'),marker='shrigmadynamic'+randomUUID().replaceAll('-','');
+  if(dynamic)add('DYNAMIC_DESTINATION','warning',offset,'Confira o destino na prévia nativa.',field);
   if(/^(?:mailto|tel):/i.test(value)){add('CONTACT_DESTINATION','warning',offset,'Confira este link de contato.',field);return;}
-  let u;try{u=new URL(value,base);}catch{add('DESTINATION_SYNTAX','warning',offset,'Confira a sintaxe deste destino.',field);return;}
-  const local=target=>['https:','http:'].includes(target.protocol)&&[store,'www.'+store].includes(target.hostname)&&!target.port;
-  if(!local(u)){add('OUTSIDE_STORE','block',offset,'O destino precisa permanecer na loja desta marca.',field);return;}
+  const masked=value.replace(/\{\{[\s\S]*?(?:\}\}|$)/g,marker).replace(/\}\}/g,marker);
+  let u;try{u=new URL(masked,base);}catch{add('DESTINATION_SYNTAX','warning',offset,'Confira a sintaxe deste destino.',field);return;}
+  const local=target=>target.hostname.includes(marker)?null:![store,'www.'+store].includes(target.hostname)||target.port?false:target.protocol.includes(marker)?null:['https:','http:'].includes(target.protocol);
+  if(local(u)===false){add('OUTSIDE_STORE','block',offset,'O destino precisa permanecer na loja desta marca.',field);return;}
   if(u.username||u.password)add('URL_CREDENTIALS','warning',offset,'Confira as credenciais presentes neste endereço.',field);
   if(u.protocol==='http:')add('HTTP_DESTINATION','warning',offset,'Prefira HTTPS neste destino.',field);
   let target=u;
@@ -112,7 +131,7 @@ function review({html='',text='',brand,campaign}={}){
    let rawTarget=u.searchParams.get('redirect');
    for(let n=0;n<3;n++){let next;try{next=decodeURIComponent(rawTarget);}catch{break;}if(next===rawTarget)break;rawTarget=next;}
    try{target=new URL(rawTarget,u.origin);}catch{target=null;}
-   if(!target||!local(target)){add('REDIRECT','block',offset,'O redirecionamento precisa permanecer na loja desta marca.',field);return;}
+   if(!target||local(target)===false){add('REDIRECT','block',offset,'O redirecionamento precisa permanecer na loja desta marca.',field);return;}
   }else if(u.pathname.startsWith('/discount/'))add('COUPON_DESTINATION_REQUIRED','warning',offset,'Confira o destino deste cupom antes do envio.',field);
   if(/^\/(?:products|pages|collections)\//.test(target.pathname))commercial++;
   if(campaign&&target.searchParams.getAll('utm_campaign').some(v=>v&&v!==campaign))add('UTM_CONFLICT','warning',offset,'O link usa outra identificação de campanha.',field);
