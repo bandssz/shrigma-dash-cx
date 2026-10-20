@@ -1990,8 +1990,8 @@
     },
     {
       "path": "tests/consent19/four-steps.test.cjs",
-      "bytes": 21999,
-      "sha256": "6b774ad7ad0cf10d0c40be3a0ba3d3175ef66a97222e26e5f080826e689f2f1f"
+      "bytes": 22119,
+      "sha256": "565ed13a60362cfeb685a77188d1165bf8cb40e5f28fa9c024bd9973338769f4"
     },
     {
       "path": "tests/consent19/gateway-fixture.cjs",
