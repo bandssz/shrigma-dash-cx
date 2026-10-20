@@ -81,9 +81,9 @@ function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,cor
    if(o.response.status!==201||!positive(o.providerId)||!exact(b,['campaign','tracking','operation_id'])||b.operation_id!==o.id)return null;
    c=campaign(b.campaign,row.brand,o.providerId);if(!c||c.status!=='draft'||c.sent!==0||c.startedAt!==null||c.sendAt!==null||b.campaign.definition.send_at!==null)return null;
    const s=snapshot(row);let matched=false;
-   // Compare both deterministic policies against the authenticated receipt.
+   // Reproduce deterministic policies against the authenticated receipt.
    // This is read-only recovery; neither alternative admits or dispatches input.
-   for(const legacyReceipt of [false,true]){try{const p=synchronous(prepareDefinition(s.definition,{catalog:s.catalog,id:o.providerId,now:row.prepared_at,legacyReceipt}),'CAMPAIGN_CREATE_CONFIG');if(plain(p)&&plain(p.definition)&&exact(p.tracking,['policy','term','list_ids','changed_links'])&&sha(p.definition)===sha(b.campaign.definition)&&sha(p.tracking)===sha(b.tracking)){matched=true;break;}}catch{}}
+   for(const [legacyReceipt,editorialReceipt]of [[false,false],[true,false],[false,true]]){try{const p=synchronous(prepareDefinition(s.definition,{catalog:s.catalog,id:o.providerId,now:row.prepared_at,legacyReceipt,editorialReceipt}),'CAMPAIGN_CREATE_CONFIG');if(plain(p)&&plain(p.definition)&&exact(p.tracking,['policy','term','list_ids','changed_links'])&&sha(p.definition)===sha(b.campaign.definition)&&sha(p.tracking)===sha(b.tracking)){matched=true;break;}}catch{}}
    if(!matched)return null;
   }else if(!exact(b,['error','message','provider_id','operation_id'])||typeof b.error!=='string'||!/^[A-Z][A-Z0-9_]{0,63}$/.test(b.error)||typeof b.message!=='string'||b.message.length>2000||b.operation_id!==o.id||b.provider_id!==o.providerId||o.state==='rejected'&&!(o.response.status>=400&&o.response.status<=599&&b.error!=='OUTCOME_UNKNOWN')||o.state==='outcome_unknown'&&(o.response.status!==502||b.error!=='OUTCOME_UNKNOWN'))return null;
   const h=sha(o);if(row.receipt_sha256&&(row.receipt_sha256!==h||row.receipt_state!==o.state))return null;

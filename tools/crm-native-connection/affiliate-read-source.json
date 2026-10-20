@@ -44,6 +44,11 @@
       "sha256": "2514532442fc838f2802e66288f15f826920eac1e08cc77277227e5c3017b182"
     },
     {
+      "path": ".github/workflows/crm-policy20-return.yml",
+      "bytes": 16528,
+      "sha256": "97f3de72ed11cd2966de148674f89513dc75b553d936d11cc48600d9b0729534"
+    },
+    {
       "path": "afiliados-proprios.js",
       "bytes": 11367,
       "sha256": "4291a5aeff75bee53e9dfa42726eb587285c67ce5b334263e84c41273cd2441b"
@@ -1315,8 +1320,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 164325,
-      "sha256": "cd950908b4dacca61e7b2657ff91684d4b3e9ea3f59e28fa4bb78e0e1061f17f"
+      "bytes": 164595,
+      "sha256": "0b4d7f5692b36640ec7906c562fe995bb089e252226d60d290a3ff60c459cb98"
     },
     {
       "path": "services/dashboard-operational/bcrypt.mjs",
@@ -1356,22 +1361,22 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "974bab2c91ca90f3466f5abb289579fbe274ebb315d1223ba0b98fd8defa7a4a"
+      "sha256": "ac4f567d38b40852c1b099ba5cf003751dcdf990260ae7ee7a4bdd39d2fb4be1"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
-      "bytes": 13679,
-      "sha256": "805268458ecfe90b4b89b40ff4c6835df3b9be070e0ba1168773c31fdaf406a1"
+      "bytes": 13985,
+      "sha256": "e2e7f25f0b1e79757faf0a2cf5e9e55b94b6d25d494a9b78f74718f6d32739e2"
     },
     {
       "path": "services/dashboard-operational/campaign-write-tracking.js",
-      "bytes": 8903,
-      "sha256": "dfa0311a9a2f36f9de4a60e0bf14010e3200f257ce41bd9639071a02ffd20e4a"
+      "bytes": 9229,
+      "sha256": "a336e677c914f983499c9d4a3e55e12aef345f9c580780dbe4b77179c4a13245"
     },
     {
       "path": "services/dashboard-operational/crm-campaign-create.cjs",
-      "bytes": 16591,
-      "sha256": "09062c3d88c5545a970a9c9dcf7289c9cca0f1279650786aa206a8e97de44a1c"
+      "bytes": 16652,
+      "sha256": "57145f342497e98cc6f765aa730e8ed3c2bcc74da74f0c7717511313db72dbb9"
     },
     {
       "path": "services/dashboard-operational/crm-campaign-delivery.cjs",
@@ -1605,8 +1610,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 208000,
-      "sha256": "158634ea32f146f89ca9571390f2e58bfd5d3409d95edb19e890012d51b24321"
+      "bytes": 208472,
+      "sha256": "2091f6d4ffecfba93e0c26af202e09ac995b8fa684c168ea828ebc6c997d5c6b"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -2047,6 +2052,11 @@
       "path": "tests/crm-client-session-lazy19.test.cjs",
       "bytes": 8197,
       "sha256": "1a5127a236d577878f8321530cb537b023eb5a1641474b2b10a612329703f48e"
+    },
+    {
+      "path": "tests/crm-editorial-return.test.cjs",
+      "bytes": 5082,
+      "sha256": "2377f80a0188961e7dfd4f7ba595692f432605070641cf95ea783bf2d80e72f2"
     },
     {
       "path": "tests/crm-freeze-scale20.test.cjs",
@@ -2511,7 +2521,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 3028,
-      "sha256": "c9815697b2f1b7ab348865a9bbf8fc8c793532bc456ace636035cf769a120f22"
+      "sha256": "cfc38ce057f8c9c33145f11a51410e789c3fbca0d65ff90d3fc049e3a7aa3f40"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
@@ -2578,5 +2588,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Restricted set-based native freeze and explicit same-intention recovery; compact consent pins; original schema, native schedule and journals preserved"
+  "candidatePurpose": "Compatible restricted-editorial return: legacy admission for all new writes; exact read-only recovery of already admitted CREATE receipts; bulk freeze and original protections preserved"
 }
