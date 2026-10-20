@@ -1855,8 +1855,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 21695,
-      "sha256": "7f10765de611a8f042687b0c7100a4ac64f455168ac536908cdbfb02e4270245"
+      "bytes": 22750,
+      "sha256": "0a42a3949782b8c8d779b8597b976b2ad1ba1d9a87d14855eab1aa7a2af6d683"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -2720,13 +2720,13 @@
     },
     {
       "path": "tests/simple-crm-native-direct-ui.test.cjs",
-      "bytes": 8547,
-      "sha256": "b2f84004b8a94134db4c18481b63dc5a1319514b129df8a8003105e9d1eb1a2a"
+      "bytes": 8595,
+      "sha256": "e94cfd2d980ef8d57383ad37535778b2fa465a67e047aec9c0df7fcdb3bfddc2"
     },
     {
       "path": "tests/simple-crm-native-direct.test.cjs",
-      "bytes": 8353,
-      "sha256": "dcfd66e6415749a69eb5776a37a1500fb3665d8e1fd3a4133dc18e5280585bc5"
+      "bytes": 11172,
+      "sha256": "197a303743a821987d0fbc542b86c896ae792a14b4a720feccc4fb5f7813f265"
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",

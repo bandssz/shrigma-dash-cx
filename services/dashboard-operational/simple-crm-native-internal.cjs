@@ -94,7 +94,7 @@ module.exports={allowedOperator,allowedEditor,create,requireCouponDestinations,E
 // action makes exactly one native HTTP request; no local attempt is reserved.
 function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.now}){
  const bases={aristo:16,fish:17},domains={aristo:'oaristocrata.com',fish:'fishermans.com.br'};
- const actions=new Set(['campanha_capacidade','campanha_listar','campanha_obter','campanha_criar','campanha_salvar','campanha_teste','campanha_agendar','campanha_cancelar']);
+ const actions=new Set(['campanha_capacidade','campanha_catalogo','campanha_listar','campanha_obter','campanha_criar','campanha_salvar','campanha_teste','campanha_agendar','campanha_cancelar']);
  const writing=action=>['campanha_criar','campanha_salvar','campanha_teste','campanha_agendar','campanha_cancelar'].includes(action);
  const future=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&Date.parse(value)>=now()+20*60000&&Date.parse(value)<=now()+7*86400000;
  const address=value=>String(value||'').match(/<([^<>]+)>$/)?.[1]||String(value||'');
@@ -103,14 +103,15 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
  function campaign(c,brand){
   const lists=ids(c),allowed=binding(brand).listIds;
   if(!idOk(c?.id)||!lists.length||lists.some(id=>!allowed.includes(id)))throw error(403,'CAMPAIGN_BRAND_REFUSED');
-  const meta=c.attribs?.shrigma||{},headers=Array.isArray(c.headers)?Object.assign({},...c.headers):c.headers||{};
-  return {id:c.id,version:c.updated_at||c.created_at,status:c.status,sent:c.sent??0,started_at:c.started_at??null,send_at:c.send_at??null,attribs:c.attribs??{},media:(c.media||[]).map(x=>typeof x==='object'?x.id:x),headers:c.headers||[],content_type:c.content_type,type:c.type,messenger:c.messenger,definition:{schema_version:'crm-campaign-v1',brand,channel:'email',name:c.name,subject:c.subject,from_email:c.from_email,reply_to:headers['Reply-To']||'contato@'+domains[brand],list_ids:lists,template_id:c.template_id,html:c.body||'',text:c.altbody||'',tags:c.tags||[],initiative:meta.initiative||{key:'campanha',name:c.name},utm_campaign:meta.utm_campaign||'campanha',send_at:c.send_at??null},audience_id:meta.audience_id||null,audience_name:meta.audience_name||null};
+  const meta=c.attribs?.shrigma||{},previous=c.attribs?.crm||{},headers=Array.isArray(c.headers)?Object.assign({},...c.headers):c.headers||{};
+  return {id:c.id,version:c.updated_at||c.created_at,status:c.status,sent:c.sent??0,started_at:c.started_at??null,send_at:c.send_at??null,attribs:c.attribs??{},media:(c.media||[]).map(x=>typeof x==='object'?x.id:x),headers:c.headers||[],content_type:c.content_type,type:c.type,messenger:c.messenger,definition:{schema_version:'crm-campaign-v1',brand,channel:'email',name:c.name,subject:c.subject,from_email:c.from_email,reply_to:headers['Reply-To']||'contato@'+domains[brand],list_ids:lists,template_id:c.template_id,html:c.body||'',text:c.altbody||'',tags:c.tags||[],initiative:meta.initiative||(previous.initiative_key?{key:previous.initiative_key,name:previous.initiative_name||c.name}:{key:'campanha',name:c.name}),utm_campaign:meta.utm_campaign||previous.utm_campaign||'campanha',send_at:c.send_at??null},audience_id:meta.audience_id||null,audience_name:meta.audience_name||null};
  }
  const idOk=n=>Number.isSafeInteger(n)&&n>0&&n<=2147483647;
  function payload(d,brand,q){
   if(!d||d.brand!==brand||typeof d.name!=='string'||!d.name.trim()||typeof d.subject!=='string'||!d.subject.trim()||typeof d.html!=='string'||!d.html.trim()||!Array.isArray(d.list_ids)||!d.list_ids.length||d.list_ids.some(id=>!binding(brand).listIds.includes(id)))throw error(400,'CAMPAIGN_INPUT');
   const sender=address(d.from_email).toLowerCase(),domain=domains[brand];
-  if(!['avisos@'+domain,'contato@'+domain].includes(sender)||d.reply_to!=='contato@'+domain||d.template_id!==(brand==='aristo'?3:1))throw error(403,'CAMPAIGN_BRAND_REFUSED');
+  if(!['avisos@'+domain,'contato@'+domain].includes(sender)||d.reply_to!=='contato@'+domain)throw error(403,'CAMPAIGN_BRAND_REFUSED');
+  if(d.template_id!==null&&(!Number.isSafeInteger(d.template_id)||d.template_id<0))throw error(400,'CAMPAIGN_INPUT');
   if(q.acao!=='campanha_teste'&&d.send_at!==null&&d.send_at!==undefined&&!future(d.send_at))throw error(400,'NATIVE_INTERNAL_DATE');
   if(q.content_type&&q.content_type!=='html'||q.type&&q.type!=='regular'||q.messenger&&q.messenger!=='email')throw error(400,'CAMPAIGN_FORMAT_UNAVAILABLE');
   const headers=(q.headers||[]).map(h=>Object.fromEntries(Object.entries(h).filter(([k])=>k.toLowerCase()!=='reply-to'&&(q.acao!=='campanha_teste'||!['to','cc','bcc'].includes(k.toLowerCase()))))).filter(h=>Object.keys(h).length);headers.push({'Reply-To':d.reply_to});
@@ -132,6 +133,15 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   if(write&&(!released||!allowedEditor(user)))throw error(403,'CAMPAIGN_RELEASE_CLOSED');
   if(method!==(write?'POST':'GET'))throw error(405,'METHOD_DENIED');
   if(action==='campanha_capacidade')return {status:200,body:{schema:'crm-listmonk-direct-v1',brand,read:true,draft:released&&allowedEditor(user),send:false,native_direct:true}};
+  if(action==='campanha_catalogo'){
+   const data=await request(brand,'GET','/lists?minimal=true'),rows=Array.isArray(data)?data:data.results;
+   if(!Array.isArray(rows))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
+   const lists=rows.filter(list=>binding(brand).listIds.includes(list.id)).map(list=>({id:list.id,name:list.name,brand,available:list.status==='active'}));
+   const nativeTemplates=await request(brand,'GET','/templates?no_body=true');
+   if(!Array.isArray(nativeTemplates))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
+   const templates=nativeTemplates.filter(t=>t.is_default&&t.type==='campaign').map(t=>({id:t.id,name:t.name,brand,type:t.type,available:true}));
+   return {status:200,body:{brand,current:true,read_at:new Date(now()).toISOString(),lists,templates,initiatives:[]}};
+  }
   if(action==='campanha_listar'){
    const data=await request(brand,'GET','/campaigns?no_body=true&per_page=100&page='+Math.max(1,Number(q.page)||1));
    const rows=Array.isArray(data)?data:data.results;if(!Array.isArray(rows))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');

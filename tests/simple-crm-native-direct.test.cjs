@@ -14,10 +14,12 @@ function fixture(brand,{released=true,edit=true,fail=false,boolStatus=false}={})
   else if(options.method==='PUT'&&u.pathname==='/api/campaigns/700/status'){const row=source.get(700);row.status=q.status;result=boolStatus?true:row;}
   else if(options.method==='PUT'&&u.pathname==='/api/campaigns/700'){const row=source.get(700);Object.assign(row,q,{lists:q.lists.map(id=>({id}))});if(row.status==='scheduled'&&q.send_at===null)row.status='draft';result=row;}
   else if(options.method==='GET'&&u.pathname==='/api/campaigns/700')result=source.get(700);
+  else if(options.method==='GET'&&u.pathname==='/api/lists')result={total:2,results:[{id:16,name:'Aristo',status:'active'},{id:17,name:'Fish',status:'active'}]};
+  else if(options.method==='GET'&&u.pathname==='/api/templates')result=[{id:1,name:'Default campaign template',type:'campaign',is_default:true},{id:14,name:'Outra marca transacional',type:'tx',is_default:false}];
   else throw Error('UNEXPECTED_NATIVE_CALL');
   return Response.json({data:structuredClone(result)});
  }});
- const definition={schema_version:'crm-campaign-v1',brand,channel:'email',name:'[QA] native editor',subject:'Olá {{ .Subscriber.FirstName }}',from_email:'avisos@'+domain,reply_to:'contato@'+domain,list_ids:[id],template_id:brand==='aristo'?3:1,html:'<p>Olá {{ .Subscriber.FirstName }}</p>',text:'Olá {{ .Subscriber.FirstName }}',initiative:{key:'qa-native',name:'Teste interno'},utm_campaign:'qa-native',tags:['qa'],send_at:sendAt};
+ const definition={schema_version:'crm-campaign-v1',brand,channel:'email',name:'[QA] native editor',subject:'Olá {{ .Subscriber.FirstName }}',from_email:'avisos@'+domain,reply_to:'contato@'+domain,list_ids:[id],template_id:1,html:'<p>Olá {{ .Subscriber.FirstName }}</p>',text:'Olá {{ .Subscriber.FirstName }}',initiative:{key:'qa-native',name:'Teste interno'},utm_campaign:'qa-native',tags:['qa'],send_at:sendAt};
  return{adapter,definition,calls,source,id};
 }
 for(const brand of ['aristo','fish'])test(brand+': one native request per create, TEST, schedule and cancel; no journal or operation key',async()=>{
@@ -51,4 +53,26 @@ test('Save preserves native attributes, attachments and ordinary headers; TEST s
 });
 test('an unexpected native status boolean does not invent a campaign or trigger another call',async()=>{
  const f=fixture('fish',{boolStatus:true});await f.adapter.handle({},'POST',{acao:'campanha_criar',brand:'fish',definition:f.definition});await a.rejects(f.adapter.handle({},'POST',{acao:'campanha_agendar',brand:'fish',id:700,confirm:'agendar',send_at:sendAt}),e=>e.code==='LISTMONK_RESPONSE_UNCONFIRMED');a.equal(f.calls.length,2);
+});
+for(const brand of ['aristo','fish'])test(brand+': catalog reads native lists and template without the SQL catalog or foreign lists',async()=>{
+ const f=fixture(brand),r=await f.adapter.handle({},'GET',{acao:'campanha_catalogo',brand});
+ a.equal(r.status,200);a.equal(r.body.brand,brand);a.deepEqual(r.body.lists,[{id:f.id,name:brand==='aristo'?'Aristo':'Fish',brand,available:true}]);
+ a.equal(r.body.templates.length,1);a.equal(r.body.templates[0].id,1);a.equal(r.body.templates[0].name,'Default campaign template');
+ a.equal(new URL(f.calls[0].url).searchParams.get('minimal'),'true');
+ a.equal(new URL(f.calls[1].url).searchParams.get('no_body'),'true');
+ a.deepEqual(f.calls.map(x=>[x.method,new URL(x.url).pathname]),[['GET','/api/lists'],['GET','/api/templates']]);
+});
+test('opening and saving an older native campaign retains its existing initiative and UTM identity',async()=>{
+ const f=fixture('fish');await f.adapter.handle({},'POST',{acao:'campanha_criar',brand:'fish',definition:f.definition});
+ const legacy={brand:'fish',policy:'crm-campaign-v1',initiative_key:'old-initiative',initiative_name:'Existing initiative',utm_campaign:'existing-utm'};f.source.get(700).attribs={crm:legacy};
+ const read=await f.adapter.handle({},'GET',{acao:'campanha_obter',brand:'fish',id:700}),c=read.body.campaign;
+ a.deepEqual(c.definition.initiative,{key:'old-initiative',name:'Existing initiative'});a.equal(c.definition.utm_campaign,'existing-utm');
+ const saved=await f.adapter.handle({},'POST',{acao:'campanha_salvar',brand:'fish',id:700,definition:c.definition,attribs:c.attribs,headers:c.headers,media:c.media});
+ a.deepEqual(saved.body.campaign.attribs.crm,legacy);a.equal(saved.body.campaign.definition.utm_campaign,'existing-utm');a.equal(f.calls.length,3);
+});
+test('a campaign with the native null layout keeps Listmonk default selection on Save',async()=>{
+ const f=fixture('aristo');await f.adapter.handle({},'POST',{acao:'campanha_criar',brand:'aristo',definition:{...f.definition,template_id:null}});
+ const c=(await f.adapter.handle({},'GET',{acao:'campanha_obter',brand:'aristo',id:700})).body.campaign;a.equal(c.definition.template_id,null);
+ const saved=await f.adapter.handle({},'POST',{acao:'campanha_salvar',brand:'aristo',id:700,definition:c.definition,attribs:c.attribs,headers:c.headers,media:c.media});
+ a.equal(saved.body.campaign.definition.template_id,null);a.equal(f.calls.at(-1).body.template_id,null);a.equal(f.calls.length,3);
 });
