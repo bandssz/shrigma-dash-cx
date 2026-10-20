@@ -29,6 +29,7 @@ async function trigger(){const u=triggerUrl();const r=await fetch(u,{method:'POS
 async function wait(contract){const end=Date.now()+240000;while(Date.now()<end){try{if(await matches(contract))return true;}catch{}await new Promise(r=>setTimeout(r,5000));}return false;}
 function receipt(j){fs.writeFileSync(path.join(process.env.AFFILIATE_CI_DIR,'production-receipt.json'),JSON.stringify(j,null,2)+'\n',{mode:0o600});fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'```json\n'+JSON.stringify(j,null,2)+'\n```\n');console.log(JSON.stringify(j));}
 function isMissing(error){const s=String(error.stderr||'');return !/unauthorized|forbidden|denied|timeout|timed out|connection|TLS|certificate|5\d\d.*server/i.test(s)&&/(?:manifest unknown|manifest.*not found|name unknown)/i.test(s);}
+function validateAccessGate(q,revision){if(q?.schema!=='shrigma-ci-access-qa-v1'||q.ok!==true||q.candidateRevision!==revision||q.brands!==2||q.qaAccounts!==6||q.readonlyServerDenials!==4||q.internalTestsAccepted!==0||q.scheduledAndCancelled!==0||q.mockedResponses!==false||q.serial!==true||q.linuxDocker!==true)throw Error('QA_GATE_MISSING');return q;}
 async function main(){
  publicationPhase='check-branch';await currentHead();const request=validateRequest(JSON.parse(fs.readFileSync(path.join(__dirname,'production-request.json'))),{rollbackJob:process.env.GITHUB_JOB==='rollback-production'});
  if(request.action==='rollback'){
@@ -38,7 +39,7 @@ async function main(){
   const observed=await wait(candidate);receipt({schema:'shrigma-production-receipt-v1',revision:process.env.GITHUB_SHA,action:'rollback',envelopeImage:request.image,artifactImage:candidate.artifactImage,sourceRevision:candidate.sourceRevision,manifestSha256:candidate.manifestSha256,presentationManifestSha256:candidate.presentationManifestSha256,status:observed?'known-image-health-observed':'rollback-unconfirmed',deployAttempted:true,productionVerified:false,rollbackVerified:false,requiresNativeDeploymentReconciliation:true,checkedAt:new Date().toISOString()});
   if(!observed)process.exitCode=1;return;
  }
- if(request.action==='publish'){const q=JSON.parse(fs.readFileSync(path.join(process.env.AFFILIATE_CI_DIR,'qa-gate-safe.json'),'utf8'));if(q.schema!=='shrigma-ci-live-qa-v1'||q.ok!==true||q.candidateRevision!==process.env.GITHUB_SHA||q.brands!==2||q.readonlyServerDenials!==4||q.scheduledAndCancelled!==2||q.mockedResponses!==false)throw Error('QA_GATE_MISSING');}
+ if(request.action==='publish')validateAccessGate(JSON.parse(fs.readFileSync(path.join(process.env.AFFILIATE_CI_DIR,'qa-gate-safe.json'),'utf8')),process.env.GITHUB_SHA);
  let previous,previousImage,initial=false;
  try{publicationPhase='pull-previous';docker(['pull','--platform','linux/amd64',IMAGE+':producao']);publicationPhase='inspect-previous';previousImage=digest(IMAGE+':producao');previous=inspect(previousImage);}
  catch(e){if(!isMissing(e))throw Error('PREVIOUS_PUBLICATION_NOT_VERIFIED');initial=true;const h=await health(HOSTS[0]);if(h.nativeBackendManifestSha256!==INITIAL_MANIFEST)throw Error('INITIAL_INSTALLED_VERSION_CHANGED');const tag=IMAGE+':rollback-'+PREVIOUS.split('@sha256:')[1];previous=build({artifactImage:PREVIOUS,tag,directory:path.join(process.env.AFFILIATE_CI_DIR,'previous-envelope')});docker(['push',tag]);previousImage=digest(tag);}
@@ -75,4 +76,4 @@ async function main(){
  }
 }
 if(require.main===module)main().catch(e=>{console.error(JSON.stringify(publicationFailure(e)));process.exitCode=1;});
-module.exports={isMissing,publicationFailure,validateRequest};
+module.exports={isMissing,publicationFailure,validateRequest,validateAccessGate};
