@@ -8,7 +8,7 @@ async function fixture(brand,{lost=false,pages=false}={}){
  const read=async(url,b,t,options={})=>{a.equal(b,brand);const method=options.method||'GET',q=method==='POST'?JSON.parse(options.body):Object.fromEntries(new URL(url,'https://synthetic.invalid').searchParams);calls.push(q.acao);if(method==='POST')posts.push(q);
   switch(q.acao){
    case'campanha_capacidade':return{brand,read:true,draft:true,send:false,native_direct:true};
-   case'campanha_catalogo':return{brand,templates:[{id:brand==='fish'?1:3,available:true}],lists:[{id:base,name:'Base',available:true}]};
+   case'campanha_catalogo':return{brand,templates:[{id:1,available:true}],lists:[{id:base,name:'Base',available:true}]};
    case'campanha_listar':return pages?{campaigns:Number(q.page||1)===3?[{id:900,status:'draft',definition:{brand,name:'Página final'}}]:[],has_more:Number(q.page||1)<3,total:201}:{campaigns:[...rows.values()],has_more:false};
    case'campanha_obter':return{campaign:rows.get(Number(q.id))};
    case'segmentos_listar':return{segments:[audience],catalog:{catalog_hash:'synthetic'}};
@@ -34,6 +34,7 @@ async function fixture(brand,{lost=false,pages=false}={}){
 }
 for(const brand of ['aristo','fish'])test(brand+': ordinary editor saves, TESTs, saves time, schedules and cancels without a key or recovery click',async()=>{
  const f=await fixture(brand);await f.fill();a.deepEqual([...f.document.querySelectorAll('[data-campaign-step]>h3')].map(n=>n.textContent),['1. Para quem','2. O quê','3. Teste','4. Quando']);a.equal(f.document.querySelectorAll('[name=draft-list]').length,0);
+ a.equal(f.document.getElementById('draft-template').value,'1');
  a.match(f.document.getElementById('draft-from_email').value,/^avisos@/);f.change('draft-from_email',f.document.getElementById('draft-from_email').value.replace('avisos@','contato@'));a.equal(f.document.getElementById('campaign-reserved-sender-warning').hidden,false);f.change('draft-from_email',f.document.getElementById('draft-from_email').value.replace('contato@','avisos@'));
  await f.save();a.equal(f.current.send_at,null);a.equal(f.document.getElementById('campaign-test-send').disabled,false);f.document.getElementById('campaign-test-send').click();await f.settle(()=>/Teste enviado/.test(f.document.getElementById('campaign-test-status').textContent));
  f.change('native-send-at',new Date(Date.now()+60*60000-3*3600000).toISOString().slice(0,16));a.equal(f.editor.hasUnsaved(),true);a.equal(f.document.querySelector('[data-native-task=schedule]').disabled,true);a.equal(f.posts.filter(q=>q.acao==='campanha_agendar').length,0);await f.save();a(f.current.send_at);a.equal(f.document.querySelector('[data-native-task=schedule]').disabled,false);

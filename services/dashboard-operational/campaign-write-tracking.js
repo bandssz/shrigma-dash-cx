@@ -21,14 +21,14 @@ const CampaignTracking=(()=>{
  function urlEnd(source,start){
   let end=start;while(end<source.length&&!/[\s<>"']/.test(source[end])){if(source.startsWith('{{',end))end=templateEnd(source,end);else end++;}return end;
  }
- function rewriteUrls(value,visit,preserveTemplates=false){
+ function rewriteUrls(value,visit,preserveTemplates=false,renderStatic=null){
   const source=String(value||'');if(!preserveTemplates)return source.replace(urlPattern,visit);
   const candidates=/\{\{|https?:\/\//g;let result='',cursor=0,match;
   while((match=candidates.exec(source))){
    const start=match.index;let end=start,dynamic=match[0]==='{{';result+=source.slice(cursor,start);
    if(dynamic)end=templateEnd(source,start);
    else{end=urlEnd(source,start);dynamic=source.slice(start,end).includes('{{');}
-   const raw=source.slice(start,end),literal=dynamic&&staticTrackLink(raw);result+=literal?raw.slice(0,literal.start)+visit(literal.url)+raw.slice(literal.end):dynamic||raw.includes('}}')?raw:visit(raw);cursor=end;candidates.lastIndex=end;
+   const raw=source.slice(start,end),nativeLiteral=renderStatic&&/^\{\{-?\s*TrackLink\s+(?:"([^"\\{}\r\n]*)"|`([^`{}\r\n]*)`)\s+[.$]\s*-?\}\}$/.exec(raw),literal=dynamic&&(staticTrackLink(raw)||(nativeLiteral?{url:nativeLiteral[1]??nativeLiteral[2]}:null));result+=literal?(renderStatic?renderStatic(raw,literal):raw.slice(0,literal.start)+visit(literal.url)+raw.slice(literal.end)):dynamic||raw.includes('}}')?raw:visit(raw);cursor=end;candidates.lastIndex=end;
   }
   return result+source.slice(cursor);
  }
@@ -62,15 +62,21 @@ const CampaignTracking=(()=>{
   if(target.origin!==selected.u.origin||target.username||target.password||target.port||!/^\/(products|pages|collections)\//.test(target.pathname))throw issue('COUPON_DESTINATION_INVALID','Coupon destination is outside the store');let changes=0;
   const rewrite=value=>rewriteUrls(value,raw=>{const p=link(raw,brand);if(!p?.coupon||p.u.href!==selected.u.href)return raw;p.u.searchParams.set('redirect',target.pathname+target.search+target.hash);const out=serialize(p,p.u);if(out!==raw)changes++;return out;},preserveTemplates);return{body:rewrite(c.body),altbody:c.altbody==null?c.altbody:rewrite(c.altbody),changes};
  }
- function inspect(c,{brand,campaign,now=Date.now()}={},assignIdentity=true,{allowConflictingUtms=false,allowMissingCoupon=false,legacyReceipt=false,editorialAdmitted=false}={}){
+ function inspect(c,{brand,campaign,now=Date.now()}={},assignIdentity=true,{allowConflictingUtms=false,allowMissingCoupon=false,legacyReceipt=false,editorialAdmitted=false,nativeIdentity=false}={}){
   if(!config[brand]||!campaign||!/^[a-z0-9_-]+$/.test(campaign))throw Error('Brand and campaign are required');
-  if((assignIdentity&&!id(c.id))||!['draft','scheduled'].includes(c.status)||Number(c.sent)!==0||c.started_at)throw Error('Only unsent draft/scheduled campaigns can be prepared');
+  if((assignIdentity&&!nativeIdentity&&!id(c.id))||!['draft','scheduled'].includes(c.status)||Number(c.sent)!==0||c.started_at)throw Error('Only unsent draft/scheduled campaigns can be prepared');
   if(c.status==='scheduled'&&!(Date.parse(c.send_at)>now+15*60e3))throw Error('Campaign is too close to sending');
   if(c.content_type!=='html'||c.body_source)throw Error('Only HTML campaigns without visual source are supported');
   const lists=[...new Set((c.lists||[]).map(l=>Number(l.id??l)))].sort((a,b)=>a-b);
   if(!lists.length||!lists.every(id))throw Error('Verified list IDs are required');
-  const token=assignIdentity?`lm-${c.id}-l${lists.join('-')}`:null,changes=[];let commercialLinks=0;
+  let nativeMarker='SHRIGMA_NATIVE_CAMPAIGN_ID';while((String(c.body)+String(c.altbody)).includes(nativeMarker))nativeMarker+='_';
+  const token=assignIdentity?`lm-${nativeIdentity?nativeMarker:c.id}-l${lists.join('-')}`:null,changes=[];let commercialLinks=0;
   function transform(raw,field){
+   if(nativeIdentity&&field==='altbody'){
+    const punctuation=raw.match(/[.,;:!?]+$/)?.[0]||'',urlEnd=raw.length-punctuation.length;let end=urlEnd;
+    for(const [open,close]of [['(',')'],['[',']']])while(raw[end-1]===close&&raw.slice(0,end).split(close).length>raw.slice(0,end).split(open).length)end--;
+    if(end<raw.length)return transform(raw.slice(0,end),field)+raw.slice(end);
+   }
    const shorthand=raw.endsWith('@TrackLink'),literal=shorthand?raw.slice(0,-10):raw;
    const entity=literal.includes('&amp;'),decoded=literal.replace(/&amp;/g,'&');let u;
    try{u=new URL(decoded);}catch{return raw;}
@@ -96,9 +102,13 @@ const CampaignTracking=(()=>{
    // A cloned campaign keeps its experiment label, never another dispatch identity.
    const managedSuffix=/(?:^|--)lm-[1-9]\d*-l[1-9]\d*(?:-[1-9]\d*)*$/;
    while(managedSuffix.test(previous))previous=previous.replace(managedSuffix,'');
-   if(assignIdentity)target.searchParams.set('utm_term',previous?previous+'--'+token:token);
+   let marker=nativeMarker;if(nativeIdentity)while((u.href+target.href).includes(marker))marker+='_';
+   const dispatchToken=nativeIdentity?`lm-${marker}-l${lists.join('-')}`:token;
+   if(assignIdentity)target.searchParams.set('utm_term',previous?previous+'--'+dispatchToken:dispatchToken);
    if(coupon)u.searchParams.set('redirect',target.pathname+target.search+target.hash);
-   let result=u.href+(shorthand?'@TrackLink':'');if(entity)result=result.replace(/&/g,'&amp;');
+   let result=u.href+(shorthand?'@TrackLink':'');
+   if(nativeIdentity){const at=u.href.indexOf(marker);if(at<0)throw Error('Native campaign expression missing');const expression='printf "%s%d%s" '+JSON.stringify(u.href.slice(0,at))+' $.Campaign.ID '+JSON.stringify(u.href.slice(at+marker.length)),value=shorthand?'TrackLink ('+expression+') $':expression;result=field==='altbody'?'{{ Safe ('+value+') }}':'{{ '+value+' }}';}
+   else if(entity)result=result.replace(/&/g,'&amp;');
    if(result!==raw)changes.push({field,before:raw,after:result,content,term:target.searchParams.get('utm_term'),coupon});
    // Routing, variant and coupon code remain exactly the same after stripping tracking.
    const clean=x=>{const q=new URL(x);for(const k of [...q.searchParams.keys()])if(k.startsWith('utm_'))q.searchParams.delete(k);return q;};
@@ -106,14 +116,15 @@ const CampaignTracking=(()=>{
    else if(clean(original).href!==clean(u).href)throw Error('Product routing changed');
    return result;
   }
-  const body=rewriteUrls(c.body,raw=>transform(raw,'body'),editorialAdmitted);
-  const altbody=c.altbody==null?c.altbody:rewriteUrls(String(c.altbody),raw=>transform(raw,'altbody'),editorialAdmitted);
+  const renderStatic=field=>(raw,literal)=>{const input=literal.url+'@TrackLink';let result=transform(input,field);if(result===input)return raw;if(raw.startsWith('{{-'))result=result.replace(/^\{\{/,'{{-');if(raw.endsWith('-}}'))result=result.replace(/\}\}$/,'-}}');return result;};
+  const body=rewriteUrls(c.body,raw=>transform(raw,'body'),editorialAdmitted,nativeIdentity?renderStatic('body'):null);
+  const altbody=c.altbody==null?c.altbody:rewriteUrls(String(c.altbody),raw=>transform(raw,'altbody'),editorialAdmitted,nativeIdentity?renderStatic('altbody'):null);
   if(!body)throw Error('Empty HTML body');
   return assignIdentity?{id:c.id,token,lists,body,altbody,changes}:{commercial_links:commercialLinks};
  }
  const draft={allowConflictingUtms:true,allowMissingCoupon:true},schedule={allowConflictingUtms:true,allowMissingCoupon:false};
  // Admission uses checkDraft before any save. Receipt recomposition must retain
  // the old deterministic serialization, including already committed snapshots.
- return {templateEnd,staticTrackLink,urlEnd,prepareAdmitted:(c,o)=>inspect(c,o,true,{...draft,editorialAdmitted:true}),prepareLegacyReceipt:(c,o)=>inspect(c,o,true,{legacyReceipt:true}),prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,{...draft,legacyReceipt:true}),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
+ return {templateEnd,staticTrackLink,urlEnd,prepareNative:(c,o)=>inspect(c,o,true,{...draft,editorialAdmitted:true,nativeIdentity:true}),prepareAdmitted:(c,o)=>inspect(c,o,true,{...draft,editorialAdmitted:true}),prepareLegacyReceipt:(c,o)=>inspect(c,o,true,{legacyReceipt:true}),prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,{...draft,legacyReceipt:true}),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
 })();
 if(typeof module!=='undefined')module.exports=CampaignTracking;
