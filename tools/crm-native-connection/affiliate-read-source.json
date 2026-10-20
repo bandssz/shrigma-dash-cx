@@ -2125,8 +2125,8 @@
     },
     {
       "path": "tests/crm-campaign-link-warnings.test.cjs",
-      "bytes": 9937,
-      "sha256": "00689bc10470c0d813d394cd1bf5068d33f5debcf84ef2afc4ce6b6fde4a132c"
+      "bytes": 9953,
+      "sha256": "afe8971fc642d4fbd1432fa57cecf336af49ee3be4b5a8227f5b8f04a2977f52"
     },
     {
       "path": "tests/crm-campaign-piece-picker.test.cjs",
