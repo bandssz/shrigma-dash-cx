@@ -122,10 +122,10 @@ test('master editor GET and save/validate/schedule use production profile, curre
  assert.deepEqual(a.origin.effects,{create:1,save:2,validate:1,schedule:1,cancel:0});assert.equal(a.calls.filter(x=>x.method==='POST').length,4);assert.equal(a.f.db.prepare("SELECT count(*) n FROM crm_campaign_delivery_v1 WHERE phase='succeeded'").get().n,3);
 });
 
-test('old six-column attestations migrate without gaining master authority; expired master proof stays closed',async t=>{
+test('old six-column attestations migrate without gaining master authority; intact Master binding survives its historical date',async t=>{
  const a=await setup(t);await a.install();const original=a.f.db.prepare('SELECT user_id,owner,principal_id,credential_mac,expires_at,attested_at FROM campaign_writer_attestation_v1').get();
  a.f.db.exec('ALTER TABLE campaign_writer_attestation_v1 DROP COLUMN master_proof_mac');a.f.restart();assert.deepEqual(a.f.db.prepare('SELECT user_id,owner,principal_id,credential_mac,expires_at,attested_at FROM campaign_writer_attestation_v1').get(),original);assert.equal(a.f.auth.campaignWriterReady(a.f.context),false);
- await a.install({expiresAt:a.f.now+300000});a.f.advance(300001);assert.equal(a.f.auth.campaignWriterReady(a.f.context),false);assert.equal((await a.post(a.make(),command())).status,403);assert.equal(a.calls.length,0);
+ await a.install({expiresAt:a.f.now+300000});a.f.advance(300001);assert.equal(a.f.auth.campaignWriterReady(a.f.context),true);assert.equal(a.calls.length,0);
 });
 
 test('master campaign GET without a writer, with invalid proof or after authoritative read_content revocation never exposes catalog',async t=>{
@@ -134,7 +134,7 @@ test('master campaign GET without a writer, with invalid proof or after authorit
  await a.install();const proof=a.f.db.prepare('SELECT master_proof_mac FROM campaign_writer_attestation_v1').get().master_proof_mac;a.f.db.prepare('UPDATE campaign_writer_attestation_v1 SET master_proof_mac=?').run('0'.repeat(64));assert.equal(a.f.auth.campaignWriterReady(a.f.context),false);assert.equal((await request(app,a.f.context,url)).status,503);assert.equal(a.calls.length,0);
  a.f.db.prepare('UPDATE campaign_writer_attestation_v1 SET master_proof_mac=?').run(proof);
  await a.pg.query("UPDATE public.shrigma_panel_permission_v1 SET caps=$1::jsonb WHERE principal_id=$2 AND area='growth'",[JSON.stringify(CAPS.slice(1)),principalId]);
- // Stored local proof has a TTL, not a claim that remote grants never change.
+ // Stored local integrity proof does not claim remote grants never change.
  // The actual backend operator grants are checked again on every GET/POST.
  const denied=await request(app,a.f.context,url);assert.equal(denied.status,403);assert.equal(denied.body.error,'CAPABILITY_MISSING');assert.equal(denied.body.lists,undefined);assert.equal(a.calls.length,1);assert.equal(a.calls[0].method,'GET');assert.equal(a.origin.effects.create,0);await assert.rejects(a.install(),e=>e.code==='CREDENTIAL_ATTESTATION_FAILED');
 });
@@ -155,3 +155,9 @@ test('master promotion refuses a credential owned elsewhere and opaque actor uni
  a.f.db.prepare('DELETE FROM campaign_writer_attestation_v1 WHERE user_id=?').run(a.f.master.user.id);a.f.db.prepare('INSERT INTO campaign_writer_attestation_v1(user_id,owner,principal_id,credential_mac,expires_at,attested_at) VALUES(?,?,?,?,?,?)').run(other,'manager@oaristocrata.com',master.principal_id,'0'.repeat(64),master.expires_at,master.attested_at);
  const foreign=a.f.db.prepare('SELECT * FROM campaign_writer_attestation_v1 WHERE user_id=?').get(other);await assert.rejects(a.install(),e=>e.code==='ERR_SQLITE_ERROR'&&e.message.includes('principal_id')&&!e.message.includes(bearer));assert.deepEqual(a.f.db.prepare("SELECT * FROM upstream_credentials WHERE user_id=? AND slot='growth-campaign'").get(a.f.master.user.id),credential);assert.deepEqual(a.f.db.prepare('SELECT * FROM campaign_writer_attestation_v1 WHERE user_id=?').get(other),foreign);assert.equal(a.f.auth.campaignWriterReady(a.f.context),false);assert.equal(a.calls.length,0);
 });
+
+ test('Master after fourteen days requires a fresh session and still obeys source revocation without renewing stored proof',async t=>{
+ const a=await setup(t);await a.install();const rows=()=>({attestation:a.f.db.prepare('SELECT * FROM campaign_writer_attestation_v1').all(),keys:a.f.db.prepare('SELECT * FROM upstream_credentials').all()});const before=rows();a.f.advance(15*86400000);assert.equal(a.f.auth.campaignWriterReady(a.f.context),false);
+ const login=await a.f.auth.login({email:owner,password:'Synthetic writer manager password 2026!',host:hosts.manager,origin:'https://'+hosts.manager});Object.assign(a.f.context,{cookieHeader:login.cookie.split(';')[0],csrf:login.csrf});assert.equal(a.f.auth.campaignWriterReady(a.f.context),true);assert.deepEqual(rows(),before);
+ const app=a.make(),url='/api/campaigns?acao=campanha_catalogo&brand=fish';assert.equal((await request(app,a.f.context,url)).status,200);await a.pg.query("UPDATE public.shrigma_panel_permission_v1 SET caps=$1::jsonb WHERE principal_id=$2 AND area='growth'",[JSON.stringify(CAPS.slice(1)),principalId]);assert.equal((await request(app,a.f.context,url)).status,403);assert.deepEqual(rows(),before);assert.equal(a.origin.effects.create,0);
+ });

@@ -1090,7 +1090,8 @@ function createAuth(options){
   return null;
  }
  function writerBinding(user){
-  if(user.role==='superadmin'){const a=intactMasterWriterBinding(user);return a&&a.expires_at>current()?a:null;}
+  // Own Master: the sealed historical date remains integrity metadata, not a local cutoff.
+  if(user.role==='superadmin')return intactMasterWriterBinding(user);
   if(ownMasterWriter&&!coexistence)return null;
   if(managedWriter)return managedWriter.bindingForUser(user.id);
   if(!campaignSubmit||user.role!=='manager'||user.areas.length!==1||user.areas[0]!=='growth'||user.permissions.growth?.edit!==true)return null;
@@ -1200,9 +1201,9 @@ function createAuth(options){
   if(write&&author.role!=='superadmin'&&(author.permissions.growth?.edit!==true||!author.productWriteFronts?.includes('growth')))err('PRODUCT_WRITE_DENIED',403);
   const row=db.prepare("SELECT * FROM users WHERE email=? AND role='superadmin' AND state='active'").get(adminEmail);
   if(!row)err('CRM_SERVICE_DRAFT_UNAVAILABLE',503);
-  // Only the three-cap draft service can inspect an intact expired proof.
-  // Its fixed original identity GET is mandatory before/after each transport;
-  // the commercial writer's persistent lifetime and grants remain unchanged.
+  // The sealed Master binding remains required; its historical date is metadata.
+  // Fixed original identity GET stays mandatory before/after each transport.
+  // No local proof replaces current source permissions or account state.
   const holder=publicUser(row),att=intactMasterWriterBinding(holder);
   if(!att||holder.permissions.growth?.edit!==true||!holder.productWriteFronts?.includes('growth'))err('CRM_SERVICE_DRAFT_UNAVAILABLE',503);
   const credential=decrypt(att.encrypted_key);
