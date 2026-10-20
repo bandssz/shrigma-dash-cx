@@ -1710,8 +1710,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 136678,
-      "sha256": "1af3ab88d9d5d1521186c8286f7b86953a19bf775263dd5d5743580e36b72fa6"
+      "bytes": 139131,
+      "sha256": "3a27a4dc145a69a57d2f1918c481845441b0f1c0a501b11de4d47009b7fd9e03"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -2180,8 +2180,8 @@
     },
     {
       "path": "tests/crm-native-night18.test.cjs",
-      "bytes": 7803,
-      "sha256": "e651ded7e822f4f4831221cc66dfb8311c0c79f69b63c385101e9de34d5016b3"
+      "bytes": 10538,
+      "sha256": "65b4cc9a8463febec5becd35240e713f32b6c326661483d93b6ab3d974b0f53b"
     },
     {
       "path": "tests/crm-payload-shape-proxy.test.cjs",
