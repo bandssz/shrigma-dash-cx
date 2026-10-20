@@ -12,6 +12,10 @@ for(const brand of ['aristo','fish'])test(brand+': technical preparation keeps b
  for(const change of [{from_email:'private@outside.invalid'},{list_ids:[99]},{html:'x'.repeat(300001)}])a.throws(()=>C.prepareDraft({...d,...change},opts));
  a.throws(()=>C.prepareDraft(d,{...opts,trackingId:null}),{code:'TRACKING_ID_REQUIRED'});
 });
+for(const brand of ['aristo','fish'])test(brand+': actual admitted source and gateway preserve identical dynamic HTML and text',()=>{
+ const d=definition(brand),store=C.STORES[brand];d.html='<a href="https://'+store+'/products/{{ .Subscriber.Attribs.handle }}?utm_campaign=old">Oferta</a>';d.text='{{ printf "}} https://'+store+'/pages/%s?utm_campaign=old" .Subscriber.Attribs.page }}';const options={catalog:catalog(brand),tracking:T,trackingId:701,editorialMode:'gateway'},source=C.prepareDraft(d,options);a.equal(source.definition.html,d.html);a.equal(source.definition.text,d.text);a.equal(source.tracking.changed_links,0);
+ const gateway=process.env.LINKS_GATEWAY_ROOT||path.resolve(__dirname,'../../../services/dashboard-operational'),G=require(gateway+'/campaign-write-contract.js'),GT=require(gateway+'/campaign-write-tracking.js');a.deepEqual(G.prepareDraft(d,{...options,tracking:GT}),source);
+});
 test('one execution memoizes the same authenticated command, including replay, and cannot accept an echo for another hash',async()=>{
  let calls=0;const cmd={acao:'campanha_salvar',brand:'fish',definition:definition('fish'),idempotency_key:key},admit=A.createAdmission({key:'synthetic-bearer',actor:auth.actor,fetchImpl:async(url,o)=>{calls++;a.equal(url,A.DESTINATION);a.equal(o.headers.Authorization,'Bearer synthetic-bearer');a.equal(o.redirect,'manual');const q=JSON.parse(o.body);a.equal(q.sourceActor,auth.actor);a.equal(q.commandSha256,A.hash(cmd));return reply(q);}});
  a.deepEqual(await Promise.all([admit(auth,cmd),admit(auth,structuredClone(cmd))]),['gateway','gateway']);a.equal(calls,1);

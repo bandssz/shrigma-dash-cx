@@ -1,5 +1,5 @@
 'use strict';
-const {randomUUID}=require('node:crypto');
+const {randomUUID}=require('node:crypto'),{templateEnd,staticTrackLink,urlEnd}=require('./campaign-write-tracking.js');
 // The gateway owns the single editorial policy. It never evaluates HTML,
 // templates or CSS; it retains offsets for diagnostics on the original line.
 const STORES=Object.freeze({aristo:'oaristocrata.com',fish:'fishermans.com.br'});
@@ -73,11 +73,11 @@ function scan(source){
     cursor++;while(/[\t\n\f\r ]/.test(source[cursor]||'!'))cursor++;
     const quote=source[cursor];
     if(quote==='"'||quote==="'"){
-     valueStart=++cursor;const end=source.indexOf(quote,cursor);
+     valueStart=++cursor;let end=cursor;while(end<source.length&&source[end]!==quote){if(source.startsWith('{{',end))end=templateEnd(source,end);else end++;}if(end===source.length)end=-1;
      if(end<0){value=source.slice(cursor);cursor=source.length;malformed=true;}
      else{value=source.slice(cursor,end);cursor=end+1;}
     }else{
-     valueStart=cursor;while(cursor<source.length&&!/[\t\n\f\r >]/.test(source[cursor]))cursor++;
+     valueStart=cursor;while(cursor<source.length&&!/[\t\n\f\r >]/.test(source[cursor])){if(source.startsWith('{{',cursor))cursor=templateEnd(source,cursor);else cursor++;}
      value=source.slice(valueStart,cursor);
     }
    }
@@ -114,7 +114,7 @@ function review({html='',text='',brand,campaign}={}){
  }
  const scriptProtocol=value=>/^(?:javascript|vbscript):/i.test(decode(value).replace(/[\u0000-\u0020\u007f]/g,''));
  function destination(raw,offset,field,base){
-  const value=decode(raw).trim();
+  const rawValue=String(raw||'').trim(),decoded=decode(rawValue).trim(),literal=staticTrackLink(rawValue)||staticTrackLink(decoded),value=literal?decode(literal.url).trim():decoded;
   if(/^(?:javascript|vbscript):/i.test(value.replace(/[\u0000-\u0020\u007f]/g,''))){add('SCRIPT','block',offset,'Remova o código executável deste destino.',field);return;}
   if(!value||value[0]==='#'||/^\{\{\s*\.?UnsubscribeURL\s*\}\}$/.test(value))return;
   const dynamic=value.includes('{{')||value.includes('}}'),marker='shrigmadynamic'+randomUUID().replaceAll('-','');
@@ -172,7 +172,15 @@ function review({html='',text='',brand,campaign}={}){
  inspect(original);
  for(const match of original.matchAll(/\{\{[\s\S]*?\}\}/g))if(!/^\{\{\s*\.?UnsubscribeURL\s*\}\}$/.test(match[0]))add('TEMPLATE_EXPRESSION','warning',match.index,'Confira a variável ou expressão na prévia nativa.');
  if(!/\{\{\s*\.?UnsubscribeURL\s*\}\}/.test(original))add('UNSUBSCRIBE_REVIEW','warning',0,'Confira o descadastro no modelo nativo antes de enviar.');
- for(const match of plain.matchAll(/https?:\/\/[^\s<>"']+/g))destination(match[0],match.index,'text','https://'+store+'/');
+ const textCandidates=/\{\{|https?:\/\//g;let textMatch;
+ while((textMatch=textCandidates.exec(plain))){
+  if(textMatch[0]==='{{'){
+   const end=templateEnd(plain,textMatch.index),action=plain.slice(textMatch.index,end),literal=staticTrackLink(action);
+   if(literal)destination(literal.url,textMatch.index,'text','https://'+store+'/');
+   else if(!/^\{\{\s*\.?UnsubscribeURL\s*\}\}$/.test(action))add('TEMPLATE_EXPRESSION','warning',textMatch.index,'Confira a variável ou expressão na prévia nativa.','text');
+   textCandidates.lastIndex=end;
+  }else{const end=urlEnd(plain,textMatch.index),raw=plain.slice(textMatch.index,end);destination(raw,textMatch.index,'text','https://'+store+'/');textCandidates.lastIndex=end;}
+ }
  if(!commercial)add('NO_COMMERCIAL_LINK','warning',0,'Confira se a peça precisa de um link de produto, página ou coleção.');
  diagnostics.sort((x,y)=>x.field.localeCompare(y.field)||x.line-y.line||x.code.localeCompare(y.code));
  return{schema:'crm-editorial-policy-v1',brand,ok:!blocked,diagnostics,truncated};

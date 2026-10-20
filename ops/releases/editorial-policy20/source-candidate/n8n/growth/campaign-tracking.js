@@ -2,6 +2,36 @@
 'use strict';
 const CampaignTracking=(()=>{
  const urlPattern=/https?:\/\/[^\s<>"']+/g;
+ // Delimiters inside Go strings/comments belong to the expression itself.
+ function templateEnd(source,start){
+  let quote=null;
+  for(let i=start+2;i<source.length;i++){
+   const ch=source[i];
+   if(quote){if(quote!=='`'&&ch==='\\'){i++;continue;}if(ch===quote)quote=null;continue;}
+   if(ch==='"'||ch==="'"||ch==='`'){quote=ch;continue;}
+   if(ch==='/'&&source[i+1]==='*'){const end=source.indexOf('*/',i+2);if(end<0)return source.length;i=end+1;continue;}
+   if(ch==='}'&&source[i+1]==='}')return i+2;
+  }
+  return source.length;
+ }
+ function staticTrackLink(action){
+  const m=/^(\{\{-?\s*TrackLink\s+)(?:"([^"\\{}\r\n]*)"|`([^`{}\r\n]*)`)(\s*-?\}\})$/.exec(action);
+  if(!m)return null;const url=m[2]??m[3],start=m[1].length+1;return{url,start,end:start+url.length};
+ }
+ function urlEnd(source,start){
+  let end=start;while(end<source.length&&!/[\s<>"']/.test(source[end])){if(source.startsWith('{{',end))end=templateEnd(source,end);else end++;}return end;
+ }
+ function rewriteUrls(value,visit,preserveTemplates=false){
+  const source=String(value||'');if(!preserveTemplates)return source.replace(urlPattern,visit);
+  const candidates=/\{\{|https?:\/\//g;let result='',cursor=0,match;
+  while((match=candidates.exec(source))){
+   const start=match.index;let end=start,dynamic=match[0]==='{{';result+=source.slice(cursor,start);
+   if(dynamic)end=templateEnd(source,start);
+   else{end=urlEnd(source,start);dynamic=source.slice(start,end).includes('{{');}
+   const raw=source.slice(start,end),literal=dynamic&&staticTrackLink(raw);result+=literal?raw.slice(0,literal.start)+visit(literal.url)+raw.slice(literal.end):dynamic||raw.includes('}}')?raw:visit(raw);cursor=end;candidates.lastIndex=end;
+  }
+  return result+source.slice(cursor);
+ }
  const config={aristo:{host:'oaristocrata.com'},fish:{host:'fishermans.com.br'},olivas:{host:'olivasdocampo.com.br'}};
  const id=v=>Number.isSafeInteger(Number(v))&&Number(v)>0;
  const expected=campaign=>[['utm_source','listmonk'],['utm_medium','campanha'],['utm_campaign',campaign]];
@@ -14,23 +44,23 @@ const CampaignTracking=(()=>{
   return{u,target,coupon,redirect,invalid,shorthand,entity};
  }
  const serialize=(p,u)=>{let out=u.href+(p.shorthand?'@TrackLink':'');return p.entity?out.replace(/&/g,'&amp;'):out;};
- function review(c,{brand,campaign}={}){
+ function review(c,{brand,campaign,preserveTemplates=false}={}){
   if(!config[brand]||typeof campaign!=='string')throw Error('Brand and campaign are required');const issues=[];
-  for(const[field,value]of [['body',c.body],['altbody',c.altbody]])String(value||'').replace(urlPattern,raw=>{const p=link(raw,brand);if(!p)return raw;if(p.coupon&&!p.redirect)issues.push({field,url:raw,code:'COUPON_DESTINATION_REQUIRED'});else if(p.invalid)issues.push({field,url:raw,code:'COUPON_DESTINATION_INVALID'});
-   for(const[k,v]of expected(campaign)){const targets=p.coupon&&p.redirect&&!p.invalid?[p.target,p.u]:[p.u];if(targets.some(u=>u.searchParams.getAll(k).some(old=>old&&old!==v)))issues.push({field,url:raw,code:'UTM_CONFLICT',parameter:k});}return raw;});
+  for(const[field,value]of [['body',c.body],['altbody',c.altbody]])rewriteUrls(value,raw=>{const p=link(raw,brand);if(!p)return raw;if(p.coupon&&!p.redirect)issues.push({field,url:raw,code:'COUPON_DESTINATION_REQUIRED'});else if(p.invalid)issues.push({field,url:raw,code:'COUPON_DESTINATION_INVALID'});
+   for(const[k,v]of expected(campaign)){const targets=p.coupon&&p.redirect&&!p.invalid?[p.target,p.u]:[p.u];if(targets.some(u=>u.searchParams.getAll(k).some(old=>old&&old!==v)))issues.push({field,url:raw,code:'UTM_CONFLICT',parameter:k});}return raw;},preserveTemplates);
   return{issues};
  }
- function adjust(c,{brand,campaign}={}){
+ function adjust(c,{brand,campaign,preserveTemplates=false}={}){
   if(!config[brand]||!/^[a-z0-9_-]+$/.test(campaign||''))throw Error('Brand and campaign are required');let changes=0;
-  const rewrite=value=>String(value||'').replace(urlPattern,raw=>{const p=link(raw,brand);if(!p)return raw;if(p.invalid)throw issue('COUPON_DESTINATION_INVALID','Coupon destination is outside the store');
+  const rewrite=value=>rewriteUrls(value,raw=>{const p=link(raw,brand);if(!p)return raw;if(p.invalid)throw issue('COUPON_DESTINATION_INVALID','Coupon destination is outside the store');
    const target=p.coupon&&p.redirect?p.target:p.u;for(const[k,v]of expected(campaign))target.searchParams.set(k,v);
    if(p.coupon&&p.redirect){p.u.searchParams.set('redirect',target.pathname+target.search+target.hash);for(const[k,v]of expected(campaign))if(p.u.searchParams.has(k))p.u.searchParams.set(k,v);}
-   const out=serialize(p,p.u);if(out!==raw)changes++;return out;});return{body:rewrite(c.body),altbody:c.altbody==null?c.altbody:rewrite(c.altbody),changes};
+   const out=serialize(p,p.u);if(out!==raw)changes++;return out;},preserveTemplates);return{body:rewrite(c.body),altbody:c.altbody==null?c.altbody:rewrite(c.altbody),changes};
  }
- function setCouponDestination(c,{brand,url,destination}={}){
+ function setCouponDestination(c,{brand,url,destination,preserveTemplates=false}={}){
   const selected=link(url,brand);if(!selected?.coupon)throw issue('COUPON_DESTINATION_INVALID','Choose a store coupon link');let target;try{target=new URL(destination,selected.u.origin);}catch{throw issue('COUPON_DESTINATION_INVALID','Choose a store destination');}
   if(target.origin!==selected.u.origin||target.username||target.password||target.port||!/^\/(products|pages|collections)\//.test(target.pathname))throw issue('COUPON_DESTINATION_INVALID','Coupon destination is outside the store');let changes=0;
-  const rewrite=value=>String(value||'').replace(urlPattern,raw=>{const p=link(raw,brand);if(!p?.coupon||p.u.href!==selected.u.href)return raw;p.u.searchParams.set('redirect',target.pathname+target.search+target.hash);const out=serialize(p,p.u);if(out!==raw)changes++;return out;});return{body:rewrite(c.body),altbody:c.altbody==null?c.altbody:rewrite(c.altbody),changes};
+  const rewrite=value=>rewriteUrls(value,raw=>{const p=link(raw,brand);if(!p?.coupon||p.u.href!==selected.u.href)return raw;p.u.searchParams.set('redirect',target.pathname+target.search+target.hash);const out=serialize(p,p.u);if(out!==raw)changes++;return out;},preserveTemplates);return{body:rewrite(c.body),altbody:c.altbody==null?c.altbody:rewrite(c.altbody),changes};
  }
  function inspect(c,{brand,campaign,now=Date.now()}={},assignIdentity=true,{allowConflictingUtms=false,allowMissingCoupon=false,legacyReceipt=false,editorialAdmitted=false}={}){
   if(!config[brand]||!campaign||!/^[a-z0-9_-]+$/.test(campaign))throw Error('Brand and campaign are required');
@@ -76,14 +106,14 @@ const CampaignTracking=(()=>{
    else if(clean(original).href!==clean(u).href)throw Error('Product routing changed');
    return result;
   }
-  const body=String(c.body||'').replace(urlPattern,raw=>transform(raw,'body'));
-  const altbody=c.altbody==null?c.altbody:String(c.altbody).replace(urlPattern,raw=>transform(raw,'altbody'));
+  const body=rewriteUrls(c.body,raw=>transform(raw,'body'),editorialAdmitted);
+  const altbody=c.altbody==null?c.altbody:rewriteUrls(String(c.altbody),raw=>transform(raw,'altbody'),editorialAdmitted);
   if(!body)throw Error('Empty HTML body');
   return assignIdentity?{id:c.id,token,lists,body,altbody,changes}:{commercial_links:commercialLinks};
  }
  const draft={allowConflictingUtms:true,allowMissingCoupon:true},schedule={allowConflictingUtms:true,allowMissingCoupon:false};
  // Admission uses checkDraft before any save. Receipt recomposition must retain
  // the old deterministic serialization, including already committed snapshots.
- return {prepareAdmitted:(c,o)=>inspect(c,o,true,{...draft,editorialAdmitted:true}),prepareLegacyReceipt:(c,o)=>inspect(c,o,true,{legacyReceipt:true}),prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,{...draft,legacyReceipt:true}),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
+ return {templateEnd,staticTrackLink,urlEnd,prepareAdmitted:(c,o)=>inspect(c,o,true,{...draft,editorialAdmitted:true}),prepareLegacyReceipt:(c,o)=>inspect(c,o,true,{legacyReceipt:true}),prepare:(c,o)=>inspect(c,o,true),check:(c,o)=>inspect(c,o,false),prepareDraft:(c,o)=>inspect(c,o,true,{...draft,legacyReceipt:true}),checkDraft:(c,o)=>inspect(c,o,false,draft),prepareSchedule:(c,o)=>inspect(c,o,true,schedule),checkSchedule:(c,o)=>inspect(c,o,false,schedule),review,adjust,setCouponDestination};
 })();
 if(typeof module!=='undefined')module.exports=CampaignTracking;

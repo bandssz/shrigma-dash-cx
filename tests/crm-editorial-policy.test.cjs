@@ -69,3 +69,29 @@ for(const editorialMode of ['legacy','gateway'])test('gateway keeps sticky inter
  const C=require(runtime+'/campaign-write-contract.js'),d={schema_version:C.VERSION,brand:'aristo',channel:'email',initiative:{key:'internal-proof',name:'Internal proof'},utm_campaign:'internal-proof',name:'Internal proof',subject:'[TESTE] Internal proof',from_email:'synthetic@oaristocrata.com',reply_to:'synthetic@oaristocrata.com',list_ids:[16],template_id:1,html:'<a href="https://oaristocrata.com/products/x">Produto</a><a href="{{ UnsubscribeURL }}">Sair</a>',text:'https://oaristocrata.com/products/x {{ UnsubscribeURL }}',tags:[],send_at:null};
  const normalized=C.normalize(d,{editorialMode});a(normalized.tags.includes('crm-internal-test'));const current={id:270,definition:{...normalized,subject:'Subject changed'},status:'draft',sent:0,started_at:null};a.equal(C.isInternalTest(current),true);a.throws(()=>C.schedule({confirm:'agendar'},current,{canPublish:true}),{code:'TEST_CAMPAIGN_INTERNAL_ONLY'});a.equal(C.isInternalTest({id:185,definition:{brand:'aristo'}}),true);a.equal(C.isInternalTest({id:185,definition:{brand:'fish'}}),false);
 });
+for(const brand of ['aristo','fish'])test('admitted tracking and explicit restricted adjustment preserve whole template expressions '+brand,()=>{
+ const T=require(runtime+'/campaign-write-tracking.js'),store=P.STORES[brand],list=brand==='aristo'?16:17;
+ for(const body of ['<a href="https://'+store+'/products/{{ .Subscriber.Attribs.handle }}?utm_campaign=old">Oferta</a>','{{ printf "https://'+store+'/pages/%s?utm_campaign=old" .Subscriber.Attribs.page }}','<a href="https://'+store+'/discount/BLACK?redirect={{ .Subscriber.Attribs.destination }}">Cupom</a>','{{ printf "}} https://'+store+'/pages/%s?utm_campaign=old" .Subscriber.Attribs.page }}','{{ printf `}} https://'+store+'/pages/%s?utm_campaign=old` .Subscriber.Attribs.page }}','{{/* }} https://'+store+'/pages/example?utm_campaign=old */}}']){
+  const input={id:701,status:'draft',sent:0,started_at:null,send_at:null,content_type:'html',body_source:null,lists:[{id:list}],body,altbody:body},opts={brand,campaign:'lm-701'},prepared=T.prepareAdmitted(input,opts);a.equal(prepared.body,body);a.equal(prepared.altbody,body);a.deepEqual(prepared.changes,[]);
+  const adjusted=T.adjust({body,altbody:body},{...opts,preserveTemplates:true});a.equal(adjusted.body,body);a.equal(adjusted.altbody,body);a.equal(adjusted.changes,0);a.deepEqual(T.review({body,altbody:body},{...opts,preserveTemplates:true}).issues,[]);
+ }
+});
+for(const brand of ['aristo','fish'])test('native static TrackLink is inspected as its literal destination with original lines '+brand,()=>{
+ const store=P.STORES[brand];
+ for(const wrapper of [url=>'{{ TrackLink "'+url+'" }}',url=>'{{- TrackLink `'+url+'` -}}']){
+  for(const quote of ['"',"'",'']){
+   const html=url=>'<p>Primeira linha</p>\n<a href='+quote+wrapper(url)+quote+'>Oferta</a>\n'+footer;
+   a.equal(P.review({brand,html:html('https://'+store+'/pages/black')}).ok,true);
+   for(const [url,code]of [['https://foreign.example/pages/black','OUTSIDE_STORE'],['javascript:bad()','SCRIPT'],['https://'+store+'/discount/A?redirect=https%3A%2F%2Fforeign.example%2Fpages%2Fx','REDIRECT']]){const r=P.review({brand,html:html(url)});a.equal(r.ok,false);a(r.diagnostics.some(d=>d.code===code&&d.line===2&&d.severity==='block'));}
+  }
+ }
+ const r=P.review({brand,html:'<a href="{{ TrackLink .Subscriber.Attribs.url }}">Oferta</a>'+footer});a.equal(r.ok,true);a(r.diagnostics.some(d=>d.code==='DYNAMIC_DESTINATION'));
+ for(const [url,ok]of [['https://'+store+'/pages/black',true],['https://foreign.example/pages/black',false],['javascript:bad()',false]]){const r=P.review({brand,html:footer,text:'Olá\n{{ TrackLink "'+url+'" }}'});a.equal(r.ok,ok);if(!ok)a(r.diagnostics.some(d=>d.field==='text'&&d.line===2&&d.severity==='block'));}
+ const unknown=P.review({brand,html:footer,text:'{{ printf "https://foreign.example/%s" .Subscriber.Attribs.page }}'});a.equal(unknown.ok,true);a(unknown.diagnostics.some(d=>d.code==='TEMPLATE_EXPRESSION'&&d.field==='text'));
+ const nested=P.review({brand,html:footer,text:'https://'+store+'/products/{{ printf "https://foreign.example" }}'});a.equal(nested.ok,true);a(nested.diagnostics.some(d=>d.code==='DYNAMIC_DESTINATION'&&d.field==='text'));a(!nested.diagnostics.some(d=>d.severity==='block'));
+ for(const [url,code]of [['https://foreign.example/pages/x?q=&quot;','OUTSIDE_STORE'],['javascript:bad(&quot;x&quot;)','SCRIPT']]){const r=P.review({brand,html:"<a href='{{ TrackLink \""+url+"\" }}'>x</a>"+footer});a.equal(r.ok,false);a(r.diagnostics.some(d=>d.code===code&&d.severity==='block'));}
+});
+for(const brand of ['aristo','fish'])test('admitted tracking preserves a native static TrackLink wrapper while setting tracking '+brand,()=>{
+ const T=require(runtime+'/campaign-write-tracking.js'),store=P.STORES[brand],list=brand==='aristo'?16:17;
+ for(const [prefix,suffix]of [['{{ TrackLink "','" }}'],['{{- TrackLink `','` -}}']]){const url='https://'+store+'/pages/black?utm_term=experiment',body=prefix+url+suffix,input={id:701,status:'draft',sent:0,started_at:null,content_type:'html',body_source:null,lists:[{id:list}],body,altbody:body},r=T.prepareAdmitted(input,{brand,campaign:'lm-701'});a(r.body.startsWith(prefix));a(r.body.endsWith(suffix));for(const [field,content]of [['body','link'],['altbody','alt-link']]){a(r[field].startsWith(prefix));a(r[field].endsWith(suffix));const u=new URL(r[field].slice(prefix.length,-suffix.length));a.equal(u.searchParams.get('utm_campaign'),'lm-701');a.equal(u.searchParams.get('utm_content'),content);}a.equal(r.changes.length,2);}
+});
