@@ -1,0 +1,81 @@
+{
+  "revision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+  "tree": "828cc547302c3fe28bd0c689fed6169c4e1c110f",
+  "ciRun": 39409655632,
+  "job": 118583990175,
+  "tests": {
+    "tests": 1673,
+    "pass": 1673,
+    "fail": 0
+  },
+  "receipts": [
+    {
+      "schema": "shrigma-ci-live-qa-v1",
+      "ok": true,
+      "candidateRevision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+      "installedBackendRevision": "3f98dc0b58b1bfff35dc9249f1a3d42697d5c758",
+      "installedBackendManifest": "ceab4be3ce1e3ac1c2e9dd1d722f06dc2e002a626a2a362ae0a65027ed9e9df7",
+      "serial": true,
+      "linuxDocker": true,
+      "mockedResponses": false,
+      "screenshots": false,
+      "customerData": false,
+      "brands": 2,
+      "qaAccounts": 4,
+      "readonlyServerDenials": 4,
+      "internalTestsAccepted": 2,
+      "scheduledAndCancelled": 2,
+      "sentCommercial": 0,
+      "candidateImageContracts": "separate preceding Docker image steps",
+      "campaigns": [
+        {
+          "brand": "aristo",
+          "id": 279,
+          "listId": 258,
+          "finalStatus": "draft",
+          "sent": 0
+        },
+        {
+          "brand": "fish",
+          "id": 280,
+          "listId": 259,
+          "finalStatus": "draft",
+          "sent": 0
+        }
+      ]
+    },
+    {
+      "schema": "shrigma-production-receipt-v1",
+      "revision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+      "action": "publish",
+      "artifactImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:569625f0a3cd578ebbce041a3b16f5538cc9bd2f8942c2e1ca8da017c80aa176",
+      "envelopeImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:289a63d988cb745d24f5e278d0d2c209f1e9b4415dc7ae9207373a752cad3c39",
+      "previousEnvelopeImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:0bc1030c3bcba0c5a897042574576f1579acde893d4f87100bf9d1ad36ae954f",
+      "previousArtifactImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:9d33d34c291ef1a609641b75e3dacb23b45486fe722d4617d1a34910a5e3d030",
+      "manifestSha256": "29f7c37107536d673d68546a31de74817ef2ff6c5a1d7b5f80882749b42fee9b",
+      "presentationManifestSha256": "fcebaef430deaa3d6ae6b9321e8c25a3b1165282b14af7a3932063868ade3c72",
+      "sourceRevision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+      "checkedAt": "2026-10-20T10:49:59.361Z",
+      "status": "installed",
+      "productionVerified": true,
+      "deployAttempted": true
+    }
+  ],
+  "native": [
+    {
+      "id": "e0bf24a97bcb4356e0e424892ba26c830b09945672bc80c4bc30acd83d3c7410",
+      "digest": "sha256:289a63d988cb745d24f5e278d0d2c209f1e9b4415dc7ae9207373a752cad3c39",
+      "revision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+      "health": "healthy"
+    }
+  ],
+  "nativeHealthy": true,
+  "http8of8": true,
+  "httpProof": ".private/provas-sprint-curto-20261018/sprint13-summary-installed-20261020-0750.json",
+  "realUiReadProof": true,
+  "uiProof": ".private/provas-freeze-scale20/sprint13-installed-ui-e9ab89fd.json",
+  "campaignSource": "c3448ea6073e761ca3f66032613bbef2c7b8c49c",
+  "returnGateway": "3f98dc0b58b1bfff35dc9249f1a3d42697d5c758",
+  "returnEnvelope": "sha256:0bc1030c3bcba0c5a897042574576f1579acde893d4f87100bf9d1ad36ae954f",
+  "editorRelease": false
+}

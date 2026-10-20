@@ -1,0 +1,10 @@
+# Roteiro de cinco minutos — Felipe · 20/10
+Use o acesso QA/gerencial. Gateway e9ab89fd, Campanhas c3448ea6. As campanhas abaixo terminaram em Rascunho, sem data, envio comercial ou pendência.
+
+1. **0:00–1:00 — Público e peça.** Em [Públicos Aristo](https://crm.shrigma.com.br/app/crm/?brand=aristo&view=audiences), abra o público “Teste interno · percurso20 sprint13-analyst-20261020-0721 aristo”. Em [Modelos](https://crm.shrigma.com.br/app/crm/?brand=aristo&view=templates), reabra a peça com esse mesmo nome e confira a prévia. Importação, contagem e reabertura já passaram automaticamente nas duas marcas.
+2. **1:00–2:00 — Campanha Aristo.** Abra a [277](https://crm.shrigma.com.br/app/crm/?brand=aristo&view=campaigns&campaign_id=277). Confira público congelado de 196.157 pessoas, duração de 197 min, marca, assunto e prévia. Em Avançado, os links usam lm-277. Consulte o teste já enviado no passo 3.
+3. **2:00–3:00 — Agenda Aristo.** Preencha 21/10/2026 às 10:00, horário de Brasília. Agende, confira Agendada e o mesmo horário no [Listmonk](https://email.shrigma.com.br/), campanha 277. Cancele e confirme Rascunho sem data.
+4. **3:00–4:30 — Fish inteira.** Abra a [278](https://crm.shrigma.com.br/app/crm/?brand=fish&view=campaigns&campaign_id=278). Confira 82.213 pessoas congeladas e 83 min; é a base inteira elegível da leitura do ensaio. Os links usam lm-278. Agende 21/10 às 10:00, confira no Listmonk e cancele. O resumo 171.304 versus 86.159 é o limbo conhecido e permanece fora desta correção.
+5. **4:30–5:00 — Aceite.** Confirme as duas campanhas em Rascunho, sem data nem tentativa pendente. Os dois testes internos já têm confirmação; esta sprint não leu as caixas de entrada. Se o percurso passar, registre “passou” no chat. A abertura aos editores fica com Felipe.
+
+Provas: [percurso completo](runtime/freeze-scale20/analyst-acceptance-sprint13.safe.json), [ciclos grandes](runtime/freeze-scale20/main-acceptance-sprint13.safe.json). O roteiro reutiliza os registros do ensaio. Nenhum envio comercial foi autorizado.

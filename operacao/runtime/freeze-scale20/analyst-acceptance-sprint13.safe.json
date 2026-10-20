@@ -1,0 +1,187 @@
+{
+  "schema": "sprint13-full-analyst-acceptance-v1",
+  "ok": true,
+  "completedAtUtc": "2026-10-20T10:28:02.641Z",
+  "gateway": "3f98dc0b58b1bfff35dc9249f1a3d42697d5c758",
+  "campaignSource": "c3448ea6073e761ca3f66032613bbef2c7b8c49c",
+  "serial": true,
+  "linuxDocker": true,
+  "mockedResponses": false,
+  "commercialSent": 0,
+  "qaObjects": {
+    "publics": 2,
+    "models": 2,
+    "campaigns": 2,
+    "frozenLists": 2
+  },
+  "internalTests": 2,
+  "pendingFinal": 0,
+  "originalFailure": {
+    "kind": "QA assertion",
+    "cause": "Fish minimum82205 missing from native reader allowlist",
+    "productChangedForThis": false,
+    "originalProofPreserved": true
+  },
+  "fishContinuation": {
+    "sameObjects": true,
+    "newObjects": 0,
+    "replayedPosts": 0,
+    "repeatedTests": 0,
+    "originalCancelReconciled": true
+  },
+  "proofs": [
+    "sprint13-analyst-20261020-0721.json",
+    "sprint13-analyst-fish-cancel-reconciliation-20261020.json",
+    "sprint13-analyst-fish-cont-20261020-0728.json"
+  ],
+  "rows": [
+    {
+      "brand": "aristo",
+      "publicId": "0f9542ef-c1ba-4e6b-bf5a-2d944e37fb1d",
+      "modelId": "d_piece_b2e31ff3eb9145b2912727df664e1401",
+      "modelVersion": 1,
+      "campaignId": 277,
+      "frozenListId": 256,
+      "recipients": 196157,
+      "wholeBase": true,
+      "modelImportPreviewReload": true,
+      "createdOnce": true,
+      "realEditorialAdmission": true,
+      "links": {
+        "appliedAfterCreate": true,
+        "campaignValue": "lm-277",
+        "beforeCampaignValue": "teste-interno-preop19-sprint13-analyst-20261020-0721-aristo",
+        "hrefCampaignMatched": true,
+        "persistedHrefCampaignMatched": true,
+        "termPreserved": true,
+        "termPreservedAfterSave": true,
+        "version": "484f4f2dc50186e54b67700daaf766fd"
+      },
+      "internalTest": {
+        "accepted": true,
+        "sourceUnchanged": true,
+        "count": 1,
+        "physicalInboxVerified": false
+      },
+      "schedule": {
+        "source": "Listmonk API16 original GET",
+        "readStartedAt": "2026-10-20T10:22:36.586Z",
+        "readFinishedAt": "2026-10-20T10:22:36.942Z",
+        "brand": "aristo",
+        "id": 277,
+        "uuid": "5df16f36-1095-4302-9f76-48b81f313b0c",
+        "listIds": [
+          256
+        ],
+        "status": "scheduled",
+        "send_at": "2026-10-21T13:00:00.000Z",
+        "sent": 0,
+        "started_at": null,
+        "to_send": 0,
+        "recipients": 196157,
+        "countSource": "GET /api/subscribers?list_id=:id total; exact campaign list binding",
+        "physicalListCount": true
+      },
+      "final": {
+        "status": "draft",
+        "send_at": null,
+        "sent": 0,
+        "started_at": null,
+        "pending": false,
+        "nativeRead": {
+          "source": "Listmonk API16 original GET",
+          "readStartedAt": "2026-10-20T10:22:46.806Z",
+          "readFinishedAt": "2026-10-20T10:22:47.121Z",
+          "brand": "aristo",
+          "id": 277,
+          "uuid": "5df16f36-1095-4302-9f76-48b81f313b0c",
+          "listIds": [
+            256
+          ],
+          "status": "draft",
+          "send_at": null,
+          "sent": 0,
+          "started_at": null,
+          "to_send": 0,
+          "recipients": 196157,
+          "countSource": "GET /api/subscribers?list_id=:id total; exact campaign list binding",
+          "physicalListCount": true
+        }
+      }
+    },
+    {
+      "brand": "fish",
+      "publicId": "ef3db013-d096-4b91-9f09-131bdd8a0ac3",
+      "modelId": "d_piece_4369ad0a028545ad90e52a6eddc02700",
+      "modelVersion": 1,
+      "campaignId": 278,
+      "frozenListId": 257,
+      "recipients": 82213,
+      "wholeBase": true,
+      "modelImportPreviewReload": true,
+      "createdOnce": true,
+      "realEditorialAdmission": true,
+      "links": {
+        "appliedAfterCreate": true,
+        "campaignValue": "lm-278",
+        "beforeCampaignValue": "teste-interno-preop19-sprint13-analyst-20261020-0721-fish",
+        "hrefCampaignMatched": true,
+        "persistedHrefCampaignMatched": true,
+        "termPreserved": true,
+        "termPreservedAfterSave": true,
+        "version": "7edfef5b98055c2fd13c0d246efbad8a"
+      },
+      "internalTest": {
+        "accepted": true,
+        "sourceUnchanged": true,
+        "count": 1,
+        "physicalInboxVerified": false
+      },
+      "schedule": {
+        "source": "Listmonk API16 original GET",
+        "readStartedAt": "2026-10-20T10:27:55.649Z",
+        "readFinishedAt": "2026-10-20T10:27:55.989Z",
+        "brand": "fish",
+        "id": 278,
+        "uuid": "0125ac7b-ccf2-49a0-b181-250b7fce0075",
+        "listIds": [
+          257
+        ],
+        "status": "scheduled",
+        "send_at": "2026-10-21T13:00:00.000Z",
+        "sent": 0,
+        "started_at": null,
+        "to_send": 0,
+        "recipients": 82213,
+        "countSource": "GET /api/subscribers?list_id=:id total; exact campaign list binding",
+        "physicalListCount": true
+      },
+      "final": {
+        "status": "draft",
+        "send_at": null,
+        "sent": 0,
+        "started_at": null,
+        "pending": false,
+        "nativeRead": {
+          "source": "Listmonk API16 original GET",
+          "readStartedAt": "2026-10-20T10:28:02.267Z",
+          "readFinishedAt": "2026-10-20T10:28:02.626Z",
+          "brand": "fish",
+          "id": 278,
+          "uuid": "0125ac7b-ccf2-49a0-b181-250b7fce0075",
+          "listIds": [
+            257
+          ],
+          "status": "draft",
+          "send_at": null,
+          "sent": 0,
+          "started_at": null,
+          "to_send": 0,
+          "recipients": 82213,
+          "countSource": "GET /api/subscribers?list_id=:id total; exact campaign list binding",
+          "physicalListCount": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "atUtc": "2026-10-20T11:09:40.583Z",
+  "installed": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+  "campaignSource": "c3448ea6073e761ca3f66032613bbef2c7b8c49c",
+  "restricted": true,
+  "editorRelease": false,
+  "mainAcceptance": "operacao/runtime/freeze-scale20/main-acceptance-sprint13.safe.json",
+  "analystAcceptance": "operacao/runtime/freeze-scale20/analyst-acceptance-sprint13.safe.json",
+  "canonicalCiGreen": true,
+  "http8of8": true,
+  "nativeHealthy": true,
+  "legacyMatrixFailures": 30,
+  "legacyFailureTitlesUnchanged": true,
+  "branchOnly": {
+    "shopifyPaid": {
+      "revision": "90c77c17cbf91abb360e1796cddc99a645c439c9",
+      "branch": "codex/crm-shopify-paid-order-20261020",
+      "installed": false,
+      "linuxCases": 10,
+      "persistenceReady": false,
+      "reason": "single-order write contract and shop binding not proven"
+    },
+    "masterAttestation": {
+      "revision": "c73a258e77939cae669ea9223ce126b47715c9a3",
+      "branch": "codex/crm-master-attestation-no-expiry-20261020",
+      "installed": false,
+      "linuxMasterCases": 13,
+      "linuxContinuityCases": 14,
+      "productionCredentialChanged": false,
+      "shortProofExpiryPreserved": true
+    }
+  },
+  "route": "operacao/ROTEIRO-5-MIN-20261020.md",
+  "currentSprintPendingOperations": 0,
+  "legacy188189Preserved": true,
+  "commercialSends": 0
+}

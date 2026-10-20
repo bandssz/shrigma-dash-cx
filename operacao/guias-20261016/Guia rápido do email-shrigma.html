@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guia rápido — email-shrigma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1EC; --surface:#F8FAF7; --ink:#1B2420; --muted:#5C6B63; --line:#CFD8D1;
+  --warn:#9A5418; --warn-bg:#F6E7D6; --bad:#9B2C2C; --bad-bg:#F7E1DF; --ok:#2F6B45;
+  --accent:#3F6B4E; --accent-soft:#DCE8DF;
+  --sans:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root[data-brand="fish"]{--accent:#1F5F7A; --accent-soft:#D6E6EE}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#121815; --surface:#1A221E; --ink:#E4EBE6; --muted:#9AAAA1; --line:#2E3A34;
+    --warn:#E6A766; --warn-bg:#3A2A1A; --bad:#EE9A93; --bad-bg:#3B1F1D; --ok:#8BC79F;
+    --accent:#86B596; --accent-soft:#24352B;
+  }
+  :root:not([data-theme="light"])[data-brand="fish"]{--accent:#7DB8D2; --accent-soft:#1D3340}
+}
+:root[data-theme="dark"]{
+  --paper:#121815; --surface:#1A221E; --ink:#E4EBE6; --muted:#9AAAA1; --line:#2E3A34;
+  --warn:#E6A766; --warn-bg:#3A2A1A; --bad:#EE9A93; --bad-bg:#3B1F1D; --ok:#8BC79F;
+  --accent:#86B596; --accent-soft:#24352B;
+}
+:root[data-theme="dark"][data-brand="fish"]{--accent:#7DB8D2; --accent-soft:#1D3340}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 var(--sans);-webkit-font-smoothing:antialiased;transition:background .2s}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 56px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px}
+h1{font-size:clamp(1.6rem,4vw,2.3rem);line-height:1.1;font-weight:800;letter-spacing:-.02em;margin:0}
+h1 small{display:block;font-size:.95rem;font-weight:500;color:var(--muted);letter-spacing:0;margin-top:6px}
+.brand{display:inline-flex;border:1.5px solid var(--accent);border-radius:999px;padding:3px;background:var(--surface)}
+.brand button{border:0;background:none;padding:7px 16px;border-radius:999px;cursor:pointer;font-weight:700;color:var(--muted)}
+.brand button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.status{display:flex;gap:10px;align-items:baseline;background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:.92rem;margin-bottom:20px}
+.status b{white-space:nowrap}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1.5px solid var(--line);margin-bottom:22px;scrollbar-width:none}
+nav.tabs button{border:0;background:none;padding:10px 14px;cursor:pointer;font-weight:700;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1.5px;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.panel[hidden]{display:none}
+/* stepper */
+.stepper{display:grid;grid-template-columns:220px 1fr;gap:22px}
+.rail{list-style:none;margin:0;padding:0;position:relative}
+.rail::before{content:"";position:absolute;left:15px;top:16px;bottom:16px;width:2px;background:var(--line)}
+.rail li button{display:flex;gap:12px;align-items:center;width:100%;border:0;background:none;padding:7px 0;cursor:pointer;text-align:left;position:relative;color:var(--muted)}
+.dot{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.9rem;background:var(--paper);border:2px solid var(--line);color:var(--muted)}
+.rail li button[aria-current="step"]{color:var(--ink);font-weight:700}
+.rail li button[aria-current="step"] .dot{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.rail li.done .dot{border-color:var(--accent);color:var(--accent)}
+.rail li.locked button{opacity:.75}
+.card{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:22px 24px}
+.who{display:inline-block;font-size:.8rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-right:6px}
+.who.wait{background:var(--warn-bg);color:var(--warn)}
+.card h2{font-size:1.45rem;line-height:1.2;margin:12px 0 10px;letter-spacing:-.01em}
+.card p{margin:0 0 12px;max-width:62ch}
+.done-when{border-left:3px solid var(--accent);padding:4px 0 4px 12px;color:var(--muted);font-size:.93rem;margin:16px 0 0}
+.done-when b{color:var(--ink)}
+.never{border-left:3px solid var(--bad);padding:4px 0 4px 12px;color:var(--muted);font-size:.93rem;margin:10px 0 0}
+.never b{color:var(--bad)}
+pre{font:13px/1.55 var(--mono);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;margin:12px 0 0;white-space:pre}
+.nav-btns{display:flex;justify-content:space-between;gap:10px;margin-top:20px}
+.btn{border:1.5px solid var(--line);background:var(--surface);padding:9px 16px;border-radius:10px;cursor:pointer;font-weight:700}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn:disabled{opacity:.4;cursor:default}
+/* test */
+.seg[hidden]{display:none}
+.seg{display:inline-flex;gap:4px;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:3px;margin-bottom:16px}
+.seg button{border:0;background:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:700;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.facts{display:grid;grid-template-columns:150px 1fr;gap:0;border-top:1px solid var(--line);margin:8px 0 0}
+.facts dt,.facts dd{margin:0;padding:10px 0;border-bottom:1px solid var(--line)}
+.facts dt{color:var(--muted);font-size:.92rem}
+/* trouble */
+.trouble{display:grid;grid-template-columns:260px 1fr;gap:22px}
+.sits{display:flex;flex-direction:column;gap:6px}
+.sits button{text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:11px 14px;cursor:pointer;font-weight:600}
+.sits button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.limits{margin-top:22px;border:1.5px dashed var(--line);border-radius:14px;padding:16px 20px}
+.limits[hidden]{display:none}
+.limits h3{margin:0 0 8px;font-size:1rem}
+.limits ul{margin:0;padding-left:20px}
+.limits li{margin:4px 0;font-size:.94rem}
+.sec{font-size:1.15rem;margin:0 0 12px;letter-spacing:-.01em}
+.sec:not(:first-child){margin-top:30px}
+.senders{display:flex;flex-direction:column;gap:8px}
+.sender{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:12px 16px}
+.addr{font:500 .95rem/1.3 var(--mono);word-break:break-all}
+.sender p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+.light{width:12px;height:12px;border-radius:50%;flex:none}
+.light.go{background:var(--ok)} .light.ramp{background:var(--warn)} .light.stop{background:var(--bad)} .light.info{background:var(--muted)}
+.tag{font-size:.8rem;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap;cursor:help}
+.tag.go{background:var(--accent-soft);color:var(--ok)} .tag.ramp{background:var(--warn-bg);color:var(--warn)} .tag.stop{background:var(--bad-bg);color:var(--bad)} .tag.info{background:var(--paper);color:var(--muted)}
+.health{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.metric{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:14px 16px}
+.metric b{display:block;font-size:.95rem}
+.metric .lim{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--accent);margin:4px 0 2px}
+.metric p{margin:0;font-size:.88rem;color:var(--muted)}
+.post[hidden],.hint[hidden]{display:none}
+.post{margin-top:14px;border-radius:12px;padding:14px 16px;font-size:.93rem}
+.post.warn{background:var(--bad-bg);color:var(--bad)} .post.okk{background:var(--accent-soft);color:var(--ok)}
+.post b{display:block;margin-bottom:2px}
+@media (max-width:720px){.sender{grid-template-columns:auto 1fr}.sender .tag{grid-column:2;justify-self:start}}
+.senders.compact{flex-direction:row;flex-wrap:wrap}
+.senders.compact .sender{grid-template-columns:auto auto auto;padding:8px 12px}
+.senders.compact .sender p{display:none}
+.alerts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.alerts li{display:flex;gap:10px;align-items:baseline;background:var(--surface);border:1.5px solid var(--line);border-left:4px solid var(--warn);border-radius:10px;padding:10px 14px;font-size:.95rem}
+.alerts li.red{border-left-color:var(--bad)}
+.choices{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+.choices .seg{margin:0}
+.phase{display:block;color:var(--muted);font-size:.85rem;font-weight:600;margin:0 0 2px;padding:0 0 0 44px}
+.rail li.ph{padding-top:10px}
+.rail li.ph:first-child{padding-top:0}
+.card .step-of{color:var(--muted);font-size:.88rem;font-weight:600}
+.card h2{margin-top:6px}
+details{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;font-weight:700;color:var(--accent);font-size:.92rem;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"+ ";}
+details[open] summary::before{content:"− ";}
+details ul{margin:8px 0 0;padding-left:20px;color:var(--muted);font-size:.93rem}
+details li{margin:4px 0}
+.rule1{font-size:1.05rem;font-weight:700;margin:0 0 14px}
+/* prompt builder */
+.builder{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:.88rem;font-weight:700;color:var(--muted)}
+.field input,.field select,.field textarea{border:1.5px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 11px;width:100%}
+.field textarea{min-height:64px;resize:vertical}
+.out{background:var(--surface);border:1.5px solid var(--accent);border-radius:14px;padding:18px;display:flex;flex-direction:column}
+.out p{white-space:pre-wrap;margin:0 0 14px;flex:1;font-size:.96rem}
+.hint{font-size:.85rem;color:var(--muted);margin:10px 0 0}
+/* checklist */
+.prog{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:4px 0 16px}
+.prog i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
+.checks{list-style:none;margin:0;padding:0}
+.checks li{border-bottom:1px solid var(--line)}
+.checks label{display:flex;gap:12px;align-items:flex-start;padding:12px 2px;cursor:pointer}
+.checks input{width:20px;height:20px;accent-color:var(--accent);margin-top:2px;flex:none}
+.checks input:checked + span{color:var(--muted);text-decoration:line-through}
+.ready{font-weight:800;color:var(--ok)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+@media (max-width:720px){
+  .stepper,.trouble,.builder{grid-template-columns:1fr}
+  .rail{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+  .rail::before{display:none}
+  .rail li button{padding:0}
+  .rail li button .lbl{display:none}
+  .phase{display:none}
+  .rail li.ph{padding-top:0}
+  .facts{grid-template-columns:1fr}
+  .facts dt{border-bottom:0;padding-bottom:0}
+  .card{padding:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="post warn" id="disponibilidade-atual"><b>Disponibilidade atual · 20/10</b><p>A skill cria e revisa a peça; entregue HTML e texto para importar em Modelos. Remetente, Respostas para, teste e operação são configurados no CRM. Contato é somente Respostas para. O percurso de público, importação, campanha, teste, agenda e cancelamento foi conferido nas duas marcas. Em QA/Gestão, o CRM bloqueia script, redirecionamento e link fora da loja; os demais pontos aparecem como avisos por linha. Ajustar links usa a campanha já criada. Em QA/Gestão, a janela vai de 20 minutos a 7 dias, sem teto de 10 mil; editores mantêm seus limites. Abertura da ampliação e campanha comercial dependem de Felipe.</p></div><p class="hint" style="margin:16px 0">Guia vivo · atualizado em 20/10/2026 a partir do original. Acompanha cada função liberada. <a href="https://crm.shrigma.com.br/app/crm/" target="_blank" rel="noopener">Abrir o CRM</a>. A operação é no CRM; agenda e cancelamento nativos passaram em QA nas duas marcas. A skill permanece somente criadora de peças.</p>
+  <header>
+    <h1>Guia rápido do email-shrigma<small>A skill cria a peça. O CRM cuida da operação.</small></h1>
+    <div class="brand" role="group" aria-label="Sua marca">
+      <button type="button" data-brand="fish" aria-pressed="true">Fishermans</button>
+      <button type="button" data-brand="aristo" aria-pressed="false">O Aristocrata</button>
+    </div>
+  </header>
+
+
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="criar">Criar peça</button>
+    <button role="tab" aria-selected="false" data-tab="saude">Qualidade e conferência</button>
+    <button role="tab" aria-selected="false" data-tab="testar">Testar</button>
+    <button role="tab" aria-selected="false" data-tab="ruim">Deu ruim</button>
+    <button role="tab" aria-selected="false" data-tab="pedir">Pedir ao Claude</button>
+    <button role="tab" aria-selected="false" data-tab="check">Checklist</button>
+  </nav>
+
+  <!-- CRIAR -->
+  <section class="panel" id="criar" role="tabpanel">
+    <div class="choices">
+      <div class="seg" role="group" aria-label="Caminho">
+        <button type="button" data-path="portal" aria-pressed="true">Criar e importar no CRM</button>
+        <button type="button" data-path="claude" aria-pressed="false">Revisar só a peça</button>
+      </div>
+      <div class="seg" role="group" aria-label="Tipo de peça">
+        <button type="button" data-mode="nova" aria-pressed="true">Peça nova</button>
+        <button type="button" data-mode="editar" aria-pressed="false">Ajustar uma peça</button>
+      </div>
+    </div>
+    <div class="stepper">
+      <ol class="rail" id="rail"></ol>
+      <div class="card" id="stepCard" aria-live="polite"></div>
+    </div>
+    <div class="limits" id="limits"></div>
+  </section>
+
+  <!-- SAUDE -->
+  <section class="panel" id="saude" role="tabpanel" hidden>
+    <h2 class="sec">A peça da marca certa</h2>
+    <div class="senders" id="senders"></div>
+    <p class="hint" id="rampHint">Remetente, público, identidade do disparo e agenda são conferidos no CRM. A skill não altera configuração de envio.</p>
+    <h2 class="sec" id="healthTitle">Saúde: o que olhar e quando parar</h2>
+    <div class="health" id="health"></div>
+    <div class="post" id="post"></div>
+  </section>
+
+  <!-- TESTAR -->
+  <section class="panel" id="testar" role="tabpanel" hidden>
+    <div class="seg" role="group" aria-label="Tipo de teste">
+      <button type="button" data-test="tpl" aria-pressed="true">Prévia do modelo</button>
+      <button type="button" data-test="camp" aria-pressed="false">Teste no CRM</button>
+    </div>
+    <div class="card" id="testCard"></div>
+  </section>
+
+  <!-- DEU RUIM -->
+  <section class="panel" id="ruim" role="tabpanel" hidden>
+    <p class="rule1">Salvamento ou envio incerto: consulte a mesma tentativa. Leituras e conferências podem ser repetidas.</p>
+    <div class="trouble">
+      <div class="sits" id="sits" role="group" aria-label="O que aconteceu"></div>
+      <div class="card" id="sitCard" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- PEDIR -->
+  <section class="panel" id="pedir" role="tabpanel" hidden>
+    <div class="builder">
+      <div>
+        <div class="field"><label for="f-task">O que você quer</label>
+          <select id="f-task"><option value="nova">Criar uma peça</option><option value="revisar">Revisar uma peça</option><option value="ajustar">Ajustar uma peça</option><option value="replicar">Adaptar para a outra marca</option></select></div>
+        <div id="dyn"></div>
+      </div>
+      <div class="out">
+        <p id="promptOut"></p>
+        <div class="row"><button class="btn primary" id="copyBtn" type="button">Copiar pedido</button><span class="hint" id="copyMsg"></span></div>
+        <p class="hint">Cole no Claude com a skill ativa. Nunca cole contatos, senha ou chave.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHECKLIST -->
+  <section class="panel" id="check" role="tabpanel" hidden>
+    <div class="row"><strong id="checkCount">0 de 9</strong><button class="btn" id="resetChecks" type="button">Limpar</button></div>
+    <div class="prog"><i id="progBar"></i></div>
+    <ul class="checks" id="checks"></ul>
+  </section>
+</div>
+
+<script>
+(function(){
+  const root=document.documentElement;
+  let brand='fish';
+  const brandName=()=>brand==='fish'?'Fishermans':'O Aristocrata';
+  const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+  /* ---------- steps ---------- */
+  /* Cada passo: fase, rótulo curto, ação (h), uma frase (p), pronto quando (ok), nunca (no), detalhes recolhidos (d) */
+  const exportStep={"ph":"Preparar","t":"Pegar a atual","who":"Você","h":"Use o conteúdo de agora da peça","p":"Reabra o modelo no CRM e leve ao Claude o HTML e o texto que você quer ajustar, sem senha, contatos ou dados de cliente.","ok":"o conteúdo é o atual, e você guardou uma cópia para conferir o diff.","d":["Não use um JSON antigo de campanha.","A skill devolve outra peça; não salva nem altera o objeto no servidor."]};
+  const paths={"portal":[{"ph":"Criar","t":"Fazer o pedido","who":"Você + Claude","h":"Peça uma peça para a sua marca","p":"Informe objetivo, oferta verificável, destino e produtos. A skill faz copy, design, imagens de produto pela Shopify e conferência de qualidade.","ok":"marca, oferta e destino estão claros; nenhum dado foi inventado.","d":["A credencial Shopify fica no ambiente autorizado, nunca no pedido.","Não precisa criar ID, ler contatos ou agendar nada para criar a peça."]},{"ph":"Criar","t":"Revisar a peça","who":"Você","h":"Olhe como o cliente vai ver","p":"Confira assunto, preheader, blocos de largura total, imagens e links. Veja desktop, celular e dark mode.","ok":"a peça passou no seu olho e os avisos de qualidade foram decididos.","d":["Uma imagem de produto precisa corresponder ao produto da loja escolhida.","Não invente estoque, prazo, depoimento ou escassez."]},{"ph":"Entregar","t":"HTML e texto","who":"Claude","h":"Receba os dois arquivos prontos","p":"A entrega é o HTML e a versão em texto, com assunto, alterações e pendências. Use UTF-8, até 200 KB por arquivo para importar em Modelos.","ok":"o texto tem a mesma oferta, links e descadastro do HTML.","no":"aceitar entrega que depende de senha, lista de contatos ou endpoint antigo."},{"ph":"No CRM","t":"Importar","who":"Você","h":"Importe em Modelos e confira","p":"Abra Modelos → Importar peça pronta. Cole ou abra o arquivo correspondente e confira a prévia, marca e assunto.","ok":"o conteúdo bate com a entrega.","d":["HTML e texto são formatos separados.","A prévia bloqueia ações e carregamento externo; confira também os endereços originais das imagens."]},{"ph":"No CRM","t":"Salvar e reabrir","who":"Você","h":"Guarde a peça no servidor","p":"Confira a prévia, clique Salvar novo rascunho e aguarde a confirmação. Depois reabra a peça.","ok":"o conteúdo salvo voltou do servidor.","no":"repetir um save incerto: consulte a mesma tentativa."},{"ph":"No CRM","t":"Usar e testar","who":"Você","h":"Monte a campanha e teste no CRM","p":"Em Nova campanha, escolha o público e confira a contagem. Em 2. O quê, selecione a Peça e confira sua prévia. Salve o rascunho; em QA/Gestão, use Ajustar links depois da criação e salve novamente. Confira o remetente avisos da marca; contato é somente Respostas para. O TEST interno vai à caixa indicada; outro endereço interno só quando o campo estiver liberado, com [TESTE]. A skill entrega HTML e texto e não configura nem envia campanhas.","ok":"você abriu a mensagem recebida; a API sozinha não comprova entrega.","d":["Teste direto de Modelos ainda está em breve.","O CRM usa público congelado, agenda e cancelamento nativos do Listmonk. Editores: de 20 minutos a 2 horas, até 10 mil destinatários. Teste interno/Gestão: janela de 20 minutos a 7 dias, com destinatários e estimativa a 60 mil/h; agenda e cancelamento passaram em Aristo com 196.081 e Fish com sua base inteira de 82.206 elegíveis, restritos a QA/Gestão. A primeira campanha comercial depende do ok de Felipe. A skill entrega a peça; o analista opera o CRM."]}],"claude":[{"ph":"Criar","t":"Fazer o pedido","who":"Você + Claude","h":"Peça uma peça para a sua marca","p":"Informe objetivo, oferta verificável, destino e produtos. A skill faz copy, design, imagens de produto pela Shopify e conferência de qualidade.","ok":"marca, oferta e destino estão claros; nenhum dado foi inventado.","d":["A credencial Shopify fica no ambiente autorizado, nunca no pedido.","Não precisa criar ID, ler contatos ou agendar nada para criar a peça."]},{"ph":"Criar","t":"Revisar a peça","who":"Você","h":"Olhe como o cliente vai ver","p":"Confira assunto, preheader, blocos de largura total, imagens e links. Veja desktop, celular e dark mode.","ok":"a peça passou no seu olho e os avisos de qualidade foram decididos.","d":["Uma imagem de produto precisa corresponder ao produto da loja escolhida.","Não invente estoque, prazo, depoimento ou escassez."]},{"ph":"Entregar","t":"HTML e texto","who":"Claude","h":"Receba os dois arquivos prontos","p":"A entrega é o HTML e a versão em texto, com assunto, alterações e pendências. Use UTF-8, até 200 KB por arquivo para importar em Modelos.","ok":"o texto tem a mesma oferta, links e descadastro do HTML.","no":"aceitar entrega que depende de senha, lista de contatos ou endpoint antigo."}]};
+  const limitsTxt=["A skill só cria, adapta e confere peças; não opera API, público, campanha, teste ou agenda.","Só a marca escolhida: não misturar loja, imagens, identidade, rodapé ou links.","Oferta e imagem precisam de fonte verificável; falta de dado é pendência.","O CRM guarda a peça e cuida da operação. Nenhuma mensagem real é enviada pela skill."];
+  let path='portal', mode='nova', cur=0, steps=[];
+  function buildSteps(){
+    const base=paths[path];
+    steps=(path==='portal'&&mode==='editar')?[exportStep,...base]:base.slice();
+  }
+  buildSteps();
+  const rail=document.getElementById('rail'), card=document.getElementById('stepCard');
+  function renderRail(){
+    let last='';
+    rail.innerHTML=steps.map((s,i)=>{
+      const head=s.ph!==last?`<span class="phase">${s.ph}</span>`:'';last=s.ph;
+      return `<li class="${i<cur?'done':''} ${head?'ph':''}">${head}<button type="button" data-i="${i}" ${i===cur?'aria-current="step"':''} aria-label="Passo ${i+1}: ${s.t}"><span class="dot">${i+1}</span><span class="lbl">${s.t}</span></button></li>`;
+    }).join('');
+  }
+  function renderStep(){
+    const s=steps[cur];
+    const cmd='';
+    const det=(s.d&&s.d.length)||cmd?`<details><summary>Ver detalhes</summary>${s.d?`<ul>${s.d.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}${cmd}</details>`:'';
+    card.innerHTML=`<span class="step-of">${s.ph}, passo ${cur+1} de ${steps.length}</span> <span class="who">${s.who}</span>
+      <h2>${s.h}</h2><p>${s.p}</p>
+      <p class="done-when"><b>Pronto quando</b> ${s.ok}</p>${s.no?`<p class="never"><b>Nunca</b> ${s.no}</p>`:''}${det}
+      <div class="nav-btns"><button class="btn" type="button" id="prev" ${cur===0?'disabled':''}>Voltar</button>
+      <button class="btn primary" type="button" id="next" ${cur===steps.length-1?'disabled':''}>Próximo passo</button></div>`;
+    card.querySelector('#prev').onclick=()=>go(cur-1);
+    card.querySelector('#next').onclick=()=>go(cur+1);
+  }
+  function go(i){if(i<0||i>=steps.length)return;cur=i;renderRail();renderStep();}
+  function renderLimits(){
+    const el=document.getElementById('limits');
+    el.hidden=false;
+    el.innerHTML=`<h3>Escopo da skill</h3><ul>${limitsTxt.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+  }
+  function refresh(){
+    buildSteps();cur=0;renderRail();renderStep();renderLimits();
+    document.querySelectorAll('[data-path]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.path===path));
+    document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===mode));
+    document.querySelector('[aria-label="Tipo de peça"]').hidden=path!=='portal';
+  }
+  document.querySelectorAll('[data-path]').forEach(b=>b.onclick=()=>{path=b.dataset.path;refresh();});
+  document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;refresh();});
+  rail.addEventListener('click',e=>{const b=e.target.closest('button[data-i]');if(b)go(+b.dataset.i)});
+  document.addEventListener('keydown',e=>{if(document.getElementById('criar').hidden)return;if(/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;if(e.key==='ArrowRight')go(cur+1);if(e.key==='ArrowLeft')go(cur-1);});
+
+  /* ---------- senders & health ---------- */
+  function renderHealth(){
+    const name=brandName(),other=brand==='fish'?'O Aristocrata':'Fishermans';
+    document.getElementById('senders').innerHTML=[['Identidade',name+' usa suas cores, linguagem, loja e rodapé. Não herda a identidade da '+other+'.'],['Imagens Shopify','Confirme produto, foto, URL pública e texto alternativo. Não invente preço ou disponibilidade.']].map(x=>'<div class="sender"><span class="light go"></span><div><div class="addr">'+x[0]+'</div><p>'+x[1]+'</p></div><span class="tag go">Conferir</span></div>').join('');
+    document.getElementById('rampHint').hidden=false;
+    document.getElementById('healthTitle').textContent='Qualidade antes de importar';
+    document.getElementById('health').innerHTML=[['Copy','Oferta verdadeira','Objetivo, prazo, benefício e CTA claros. Sem urgência inventada.'],['Design','Desktop e celular','Blocos de largura total, leitura acessível, dark mode e imagens corretas.'],['Links','Loja da marca','Produto ou coleção correto, descadastro e nenhuma informação pessoal em URL.'],['Entrega','HTML + texto','Mesma oferta e links; UTF-8; pendências explícitas.']].map(x=>'<div class="metric"><b>'+x[0]+'</b><div class="lim">'+x[1]+'</div><p>'+x[2]+'</p></div>').join('');
+    const p=document.getElementById('post');p.hidden=false;p.className='post warn';p.innerHTML='<b>Conferência não é autorização de envio</b>Prévia e checklist local não comprovam público, entrega, remetente, consentimento nem liberação comercial. Isso é conferido no CRM; a primeira campanha real depende de Felipe.';
+  }
+  /* ---------- test ---------- */
+  const tests={"tpl":{"h":"Prévia do modelo","state":"Modelos no CRM","rows":[["Onde","Importar peça pronta → conferir prévia → salvar novo rascunho → reabrir."],["O que prova","O conteúdo importado e salvo; não entrega na caixa."],["Limite","Teste direto de modelo está em breve. A prévia bloqueia ações e recursos externos."]],"never":"chamar preview de teste recebido."},"camp":{"h":"Teste interno da campanha","state":"Pelo CRM, quando liberado para seu acesso","rows":[["Onde","Campanhas → revisão salva e reaberta → preparar e confirmar TEST uma vez."],["Para quem","Caixa indicada no CRM; outro endereço interno só com o campo liberado; assunto [TESTE]."],["O que conferir","Abra a mensagem na caixa e confira corpo e links. A confirmação do CRM sozinha não comprova recebimento."],["Se demorar","Consulte a mesma tentativa; aceite ou resultado incerto não se repete."]],"never":"pedir à skill para enviar, digitar cliente real ou usar endpoint antigo."}};
+  function renderTest(k){
+    const t=tests[k];
+    document.getElementById('testCard').innerHTML=`<span class="who">${t.state}</span><h2>${t.h}</h2>
+      <dl class="facts">${t.rows.map(r=>`<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join('')}</dl><p class="never"><b>Nunca</b> ${t.never}</p>`;
+    document.querySelectorAll('[data-test]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.test===k));
+  }
+  document.querySelectorAll('[data-test]').forEach(b=>b.onclick=()=>renderTest(b.dataset.test));
+
+  /* ---------- trouble ---------- */
+  const sits=[["A peça está errada","Peça um ajuste de conteúdo e confira o diff. Guarde a anterior.","alterar a campanha já enviada para corrigir histórico."],["Importação falhou","Confira formato, UTF-8 e limite de 200 KB no CRM; registre o aviso.","usar um endpoint antigo para contornar."],["Save ou TEST incerto","Consulte a mesma tentativa no CRM e registre o horário.","clicar de novo, mudar a identificação ou duplicar para repetir."],["A imagem não aparece na prévia","Confira a URL pública da Shopify e a peça final; a prévia bloqueia recursos externos.","concluir que houve entrega ou imagem quebrada só pela prévia."],["Função em breve","Continue a criação da peça. Operação pendente segue com o responsável no procedimento aprovado.","pedir SQL, n8n ou API à skill para liberar."],["Problema de envio ou saúde","Anote marca, campanha, horário e aviso; encaminhe ao responsável pela operação.","trocar remetente, DNS, SES, supressões ou reinscrever alguém."]];
+  const sitsEl=document.getElementById('sits'), sitCard=document.getElementById('sitCard');
+  sitsEl.innerHTML=sits.map((s,i)=>`<button type="button" data-s="${i}" aria-pressed="${i===0}">${s[0]}</button>`).join('');
+  function renderSit(i){
+    const s=sits[i];
+    sitCard.innerHTML=`<h2 style="margin-top:0">${s[0]}</h2><p class="done-when"><b>Faça</b> ${s[1]}</p><p class="never"><b>Nunca</b> ${s[2]}</p>
+      <p class="hint">No relato, separe "aceito", "enviado" e "entregue": são estados diferentes.</p>`;
+    sitsEl.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.s===i));
+  }
+  sitsEl.addEventListener('click',e=>{const b=e.target.closest('button[data-s]');if(b)renderSit(+b.dataset.s)});
+
+  /* ---------- prompt builder ---------- */
+  const forms={"nova":[["obj","Objetivo","Apresentar um produto da marca"],["oferta","Oferta e prazo verificados","Sem oferta nova"],["destino","Produto ou coleção da Shopify","Link da loja"],["peca","Referência de linguagem e visual","Peça aprovada da marca"]],"revisar":[["peca","Qual peça","Anexe o HTML e o texto"]],"ajustar":[["peca","Peça atual","HTML e texto reabertos agora"],["mud","O que mudar","Assunto e CTA principal"]],"replicar":[["peca","Peça de origem","HTML e texto da peça aprovada"]]};
+  const dyn=document.getElementById('dyn'), task=document.getElementById('f-task'), out=document.getElementById('promptOut');
+  function renderForm(){
+    dyn.innerHTML=forms[task.value].map(f=>`<div class="field"><label for="f-${f[0]}">${f[1]}</label><input id="f-${f[0]}" placeholder="${f[2]}"></div>`).join('');
+    dyn.querySelectorAll('input').forEach(i=>i.addEventListener('input',buildPrompt));
+    buildPrompt();
+  }
+  const v=(k,ph)=>{const el=document.getElementById('f-'+k);return el&&el.value.trim()?el.value.trim():'['+ph+']'};
+  function buildPrompt(){
+    const m=brandName(),other=brand==='fish'?'O Aristocrata':'Fishermans';
+    const scope='\n\nEntregue o HTML e a versão em texto, assunto, conferência de qualidade e pendências. Imagens de produto pela Shopify da marca. Eu importo em Modelos no CRM. Só crie a peça: não salve no servidor, não leia contatos, não teste, não agende nem envie.';
+    const t={nova:()=>m+', peça nova.\nObjetivo: '+v('obj','objetivo')+'.\nOferta e prazo: '+v('oferta','oferta verificada')+'.\nDestino: '+v('destino','produto ou coleção')+'.\nReferência: '+v('peca','referência')+'.'+scope,revisar:()=>'Revise esta peça da '+m+': '+v('peca','HTML e texto')+'. Aponte problemas de copy, design, imagens, links, descadastro e qualidade; não reescreva sem pedido. Só revisão local.',ajustar:()=>'Ajuste a peça da '+m+': '+v('peca','HTML e texto atuais')+'.\nMudar: '+v('mud','mudança')+'. Preserve o restante e mostre o diff.'+scope,replicar:()=>'Adapte a peça '+v('peca','peça')+' da '+m+' para a '+other+'. Troque linguagem, identidade, imagens, rodapé e links para a marca de destino e liste os endereços para conferência.'+scope};
+    out.textContent=t[task.value]();
+  }
+  task.addEventListener('change',renderForm);
+  document.getElementById('copyBtn').onclick=async()=>{
+    const msg=document.getElementById('copyMsg');
+    try{await navigator.clipboard.writeText(out.textContent);msg.textContent='Pedido copiado.';}
+    catch(e){const r=document.createRange();r.selectNodeContents(out);const s=getSelection();s.removeAllRanges();s.addRange(r);msg.textContent='Texto selecionado. Use Ctrl+C.';}
+  };
+
+  /* ---------- checklist ---------- */
+  const items=["Marca e loja certas; peça atual preservada","Oferta, prazo, estoque e prova social verificáveis","Imagens de produto conferidas na Shopify da marca","Assunto e preheader revisados","HTML legível no desktop, celular e dark mode","Links da loja corretos; sem dado pessoal na URL","HTML e texto com mesma oferta, links e descadastro","Arquivos UTF-8 até 200 KB e pendências explícitas","Prévia conferida, rascunho salvo e reaberto no CRM"];
+  const checksEl=document.getElementById('checks');
+  const key=()=>'guia-email-checks-v2-20261016-'+brand;
+  function loadChecks(){let s=[];try{s=JSON.parse(store.get(key())||'[]')}catch(e){s=[]}return Array.isArray(s)?s:[]}
+  function renderChecks(){
+    const st=loadChecks();
+    checksEl.innerHTML=items.map((t,i)=>`<li><label><input type="checkbox" data-c="${i}" ${st[i]?'checked':''}><span>${t}</span></label></li>`).join('');
+    updateProg();
+  }
+  function updateProg(){
+    const boxes=[...checksEl.querySelectorAll('input')], n=boxes.filter(b=>b.checked).length;
+    document.getElementById('progBar').style.width=(n/items.length*100)+'%';
+    const c=document.getElementById('checkCount');
+    c.textContent=n===items.length?'Pronta para importar':`${n} de ${items.length}`;c.className=n===items.length?'ready':'';
+  }
+  checksEl.addEventListener('change',()=>{store.set(key(),JSON.stringify([...checksEl.querySelectorAll('input')].map(b=>b.checked)));updateProg();});
+  document.getElementById('resetChecks').onclick=()=>{store.set(key(),'[]');renderChecks();};
+
+  /* ---------- tabs & brand ---------- */
+  document.querySelectorAll('[role=tab]').forEach(t=>t.onclick=()=>{
+    document.querySelectorAll('[role=tab]').forEach(x=>x.setAttribute('aria-selected',x===t));
+    document.querySelectorAll('.panel').forEach(p=>p.hidden=p.id!==t.dataset.tab);
+    store.set('guia-email-tab',t.dataset.tab);
+  });
+  function setBrand(b){
+    brand=b;root.dataset.brand=b;store.set('guia-email-brand',b);
+    document.querySelectorAll('[data-brand]').forEach(x=>{if(x.tagName==='BUTTON')x.setAttribute('aria-pressed',x.dataset.brand===b)});
+    renderStep();buildPrompt();renderChecks();renderHealth();
+  }
+  document.querySelectorAll('.brand button').forEach(b=>b.onclick=()=>setBrand(b.dataset.brand));
+
+  renderLimits();renderRail();renderTest('tpl');renderSit(0);renderForm();
+  setBrand(store.get('guia-email-brand')==='aristo'?'aristo':'fish');
+  const savedTab=store.get('guia-email-tab');
+  if(savedTab){const t=document.querySelector(`[role=tab][data-tab="${savedTab}"]`);if(t)t.click();}
+})();
+</script>
+</body>
+</html>

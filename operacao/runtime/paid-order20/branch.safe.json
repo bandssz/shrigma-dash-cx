@@ -1,0 +1,32 @@
+{
+  "revision": "90c77c17cbf91abb360e1796cddc99a645c439c9",
+  "branch": "codex/crm-shopify-paid-order-20261020",
+  "base": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+  "installed": false,
+  "routeActive": false,
+  "productionWrites": 0,
+  "linuxDocker": true,
+  "node": "22.23.3",
+  "uid": 1000,
+  "network": "none",
+  "tests": 10,
+  "failures": 0,
+  "files": [
+    {
+      "path": "services/dashboard-operational/shopify-paid-order.cjs",
+      "sha256": "9d87f3952b6d9049971193598d5f987c57de17c3716bbc791ac8bb79b5149230"
+    },
+    {
+      "path": "tests/shopify-paid-order.test.cjs",
+      "sha256": "62eca65925247e87fa28281502c5ed80d518a9309c1f3be518dbc79bdfa4ab42"
+    },
+    {
+      "path": "BRANCH.md",
+      "sha256": "ce190b5c37a1960a4aac9a07017ba2d6702a94d38fca8d808b8abb6334bb67bf"
+    }
+  ],
+  "initialTests": 8,
+  "additionalNegativeCases": 2,
+  "sameSecretCrossBrandDenied": true,
+  "calendarValidation": true
+}

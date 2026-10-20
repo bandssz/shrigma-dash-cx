@@ -1,0 +1,45 @@
+{
+  "atUtc": "2026-10-20T10:53:38.555Z",
+  "serial": true,
+  "linuxDocker": true,
+  "externalRequestsAllowed": 0,
+  "rows": [
+    {
+      "guide": "crm",
+      "width": 1440,
+      "capture": "guide-crm-1440.png",
+      "cssUnchanged": true,
+      "inlineScriptParsed": true,
+      "pageErrors": 0,
+      "sha256": "e2448cbe1ca79ce618e5188cef834de9e2f481cb5231f16a97639f91119d3e07"
+    },
+    {
+      "guide": "crm",
+      "width": 390,
+      "capture": "guide-crm-390.png",
+      "cssUnchanged": true,
+      "inlineScriptParsed": true,
+      "pageErrors": 0,
+      "sha256": "e2448cbe1ca79ce618e5188cef834de9e2f481cb5231f16a97639f91119d3e07"
+    },
+    {
+      "guide": "skill",
+      "width": 1440,
+      "capture": "guide-skill-1440.png",
+      "cssUnchanged": true,
+      "inlineScriptParsed": true,
+      "pageErrors": 0,
+      "sha256": "f5be1da29b6e32a37c6b4719a692e0e0c6a5f45534cd76393108a2061b270858"
+    },
+    {
+      "guide": "skill",
+      "width": 390,
+      "capture": "guide-skill-390.png",
+      "cssUnchanged": true,
+      "inlineScriptParsed": true,
+      "pageErrors": 0,
+      "sha256": "f5be1da29b6e32a37c6b4719a692e0e0c6a5f45534cd76393108a2061b270858"
+    }
+  ],
+  "ok": true
+}

@@ -1,0 +1,679 @@
+{
+  "schema": "shrigma-source-catalog-v1",
+  "checkedAtBrasilia": "2026-10-20T08:01-03:00",
+  "repository": "bandssz/shrigma-dash-cx",
+  "sourceRule": "installedGateway é a versão corrente; components[0].localSource é sua fonte curada. codigo-vigente e repo são históricos preservados; consultar somente referência necessária.",
+  "components": [
+    {
+      "component": "Gateway instalado e fonte curada",
+      "localSource": "operacao/runtime/sprint13-fixes/gateway",
+      "repository": "bandssz/shrigma-dash-cx",
+      "ref": "codex/crm-native-connection-20261007",
+      "commit": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+      "tree": "828cc547302c3fe28bd0c689fed6169c4e1c110f",
+      "imageDigest": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:289a63d988cb745d24f5e278d0d2c209f1e9b4415dc7ae9207373a752cad3c39",
+      "editableSource": true,
+      "completeRepository": false,
+      "baseVerifiedLocalFiles": 536,
+      "currentManifest": "operacao/runtime/sprint13-fixes/gateway/tools/crm-native-connection/affiliate-read-source.json",
+      "nativeManifest": "29f7c37107536d673d68546a31de74817ef2ff6c5a1d7b5f80882749b42fee9b",
+      "presentationManifest": "fcebaef430deaa3d6ae6b9321e8c25a3b1165282b14af7a3932063868ade3c72",
+      "localSourceHasCandidateChanges": false,
+      "classification": "Percurso inteiro do analista provado nas duas marcas, somenteQA/gerencial",
+      "historicalSource": "codigo-vigente permanece histórico17/10; não editar como corrente"
+    },
+    {
+      "component": "Candidato do reparo de agendamento",
+      "ref": "codex/crm-scheduler-repair-20261009",
+      "commit": "58d377ee5214911213df149a41a4820fe480f449",
+      "tree": "80f2e67bc27dd9765ad3193e23c9821752cf1fb8",
+      "pullRequest": 252,
+      "classification": "candidato; não declarar instalado",
+      "localEvidence": "arquivo/entregas/mvp-tres-frentes-cowork-20261006/p0-20261010",
+      "editableSource": false
+    },
+    {
+      "component": "Branch main / painéis públicos",
+      "ref": "main",
+      "commit": "59a402c4bd4b135e2263e0fa8687cb80f69281bb",
+      "classification": "OldPages unchanged exacttree restored afterremoving10previewfiles; PagesCI38924270125 success.",
+      "editableSource": false,
+      "tree": "363398d8be63a830fe8eb8ee3ef6044a89c3536d"
+    },
+    {
+      "component": "Checkout local anterior",
+      "localSource": "repo",
+      "ref": "codex/growth-reliability-20260924",
+      "commit": "552541830cf0c910725625c9f7fb76a2547d006f",
+      "trackedChanges": 0,
+      "untrackedChanges": 0,
+      "classification": "histórico; não editar como se fosse fonte atual",
+      "editableSource": false
+    },
+    {
+      "component": "Leitor original CRM",
+      "repository": "bandssz/shrigma-dash-cx",
+      "ref": "codex/crm-home-reader-20261016",
+      "commit": "cf05c4d0d9b68b99813de216af97416213c3b856",
+      "localSource": "operacao/runtime/crm-home-reader-source16/candidate/services/crm-panel-read",
+      "classification": "Native installed compatible HOME projection selected by authenticated gateway; full/identity and legacy HOME unchanged. Actual QA both brands and desktop/mobile.",
+      "editableSource": true,
+      "previousRef": "crm-panel-read-20260929-9bc7ee8",
+      "previousCommit": "ee9175ca9ae4a751a8a2a6eed2b92e499b4e99c8",
+      "returnCommit": "b1a948944130d701e94e2f80cf63dc3f96661562",
+      "nativeDigest": "sha256:69a4ec14fcef5609cea534c57b3a1abf1a845736c0a61d00f94939cb678d707d",
+      "receipt": "operacao/runtime/noite-20261016/home-source-receipt.json"
+    },
+    {
+      "component": "Fonte de públicos — catálogo retido autenticado e diagnóstico instalados",
+      "repository": "bandssz/shrigma-dash-cx",
+      "baseCommit": "35590f5b5ba22615de3205559c34cce0cfaf37b3",
+      "localSource": "operacao/runtime/audience35590f-source/candidate",
+      "immutableReference": "operacao/runtime/audience35590f-source/original",
+      "classification": "Restore exact archived definition through existing SAVE and immutable revisions; actual both-brand CRUD proved. No SQL migration or n8n change.",
+      "editableSource": true,
+      "installed": true,
+      "gatewayCandidateChanged": false,
+      "readActualSourceByNativeGithub": true,
+      "commit": "a31b3949a38923439fb21d0dba58bbcb69a9af84",
+      "tree": "edc8f8755c112204fdb458ac25a351370a453da9",
+      "ref": "codex/segmentacao-diagnostico-20261015",
+      "currentManifest": "operacao/runtime/audience35590f-source/manifest.json",
+      "installationProof": "operacao/runtime/noite-20261016/audience-native-final17.json",
+      "installedReference": {
+        "atUtc": "2026-10-17T06:16:49.069Z",
+        "readOnly": true,
+        "productionMutations": 0,
+        "id": "10020b6f16c25e334459fc1558379f2b9e001de573d5568bf1117886b7ac445c",
+        "imageId": "sha256:c53c94a91d96f41cc9e852d400cd972ea3533f20281df0466f66a4248e194e78",
+        "configuredRevision": "a31b3949a38923439fb21d0dba58bbcb69a9af84",
+        "healthy": true,
+        "sourceRef": "codex/segmentacao-diagnostico-20261015"
+      },
+      "rollbackCommit": "51adc276fa85fc31d4ad3df4c8752d5ab3599f7b",
+      "previousCommit": "488fa6bfcf6e94bdd0f14b2ee4f409cd4f51f7e3",
+      "generalProductCount": {
+        "status": "released-general-products-and-CRUD-both-brands",
+        "function": "crm_audience_v2.shopify_count_for_rule_flat_20261017",
+        "sourceImage": "sha256:c53c94a91d96f41cc9e852d400cd972ea3533f20281df0466f66a4248e194e78",
+        "localImageSmoke": "55/0 Node22 UID1000 AMD64",
+        "nativeMatrices": 12,
+        "pairedWithOriginal": 6,
+        "originalFunctionsChanged": 0,
+        "customerWrites": 0,
+        "proof": "operacao/runtime/noite-20261016/product-flat-install1.json",
+        "gatewayRelease": "5c841145f1b8ba5aed2024d1ffdb27212fd16a7c",
+        "latestGateway": "325ed322bcd06ffdd3c9dc567be6d3de75362de9"
+      },
+      "historicalInstalledReference": {
+        "id": "0893eeef9563b040088ac998daa123891e61809419c74e70f51b6a7c3f711025",
+        "imageId": "sha256:a292382557754b285d00023ba6998f352fdd3b91bb3b0ac1b76cba545bb6db98",
+        "configuredRevision": "488fa6bfcf6e94bdd0f14b2ee4f409cd4f51f7e3"
+      }
+    },
+    {
+      "component": "Conector MCP Listmonk para analistas de CRM",
+      "owner": "Felipe / infraestrutura",
+      "localSource": "conectores/listmonk-mcp",
+      "editableSource": true,
+      "classification": "Publicado; duas identidades próprias e listas separadas por marca comprovadas; autorização de testes internos vigente no status observado; operação comercial bloqueada.",
+      "productionMcpUrl": "https://listmonk-mcp.tazdb8.easypanel.host/mcp",
+      "testMcpUrl": "https://listmonk-mcp-teste.tazdb8.easypanel.host/mcp",
+      "upstream": "https://email.shrigma.com.br",
+      "sourceDockerfileSha256": "ce85a1427c86fdc066879e1f8df8c20e952c48030f7ad0c6a7879786beeaa0e9",
+      "nativeImages": [
+        {
+          "environment": "test",
+          "imageId": "sha256:fa0d9edc969e17ffcf4a94002328625747feb4ceb43371e61abb996fd89d6394",
+          "manifestDigest": "sha256:e7c0c0aba8e2b100e0e80aef985823de74cf373760ca12935a79c6e3a9a1dfad",
+          "healthy": true
+        },
+        {
+          "environment": "production",
+          "imageId": "sha256:1a01255ddb4c68c945272fdc5cd8105f95cc67fd580d6272d37b6715a9ce1927",
+          "manifestDigest": "sha256:e7c0c0aba8e2b100e0e80aef985823de74cf373760ca12935a79c6e3a9a1dfad",
+          "healthy": true
+        }
+      ],
+      "evidence": "conectores/listmonk-mcp/provas/resultado.json",
+      "deploymentEvidence": "conectores/listmonk-mcp/provas/implantacao.safe.json",
+      "firstRealUseApproved": false,
+      "productionApiBindings": 2,
+      "productCodeChanged": false,
+      "productionApiUserIds": [
+        23,
+        24
+      ],
+      "productionBrandBindings": [
+        {
+          "brand": "fish",
+          "apiUserId": 23,
+          "analyst": "Andre",
+          "listRoleId": 48,
+          "listCountObserved": 43
+        },
+        {
+          "brand": "aristo",
+          "apiUserId": 24,
+          "analyst": "Willians",
+          "listRoleId": 8,
+          "listCountObserved": 40
+        }
+      ],
+      "businessEnabled": false,
+      "commercialActionsEnabled": false,
+      "firstCommercialUseApproved": false,
+      "internalTestAuthorization": {
+        "observedAtUtc": "2026-10-17T00:46:37.561Z",
+        "active": true,
+        "expiresAtUtc": "2026-10-19T21:00:00.000Z",
+        "lostOnProcessRestart": true,
+        "automaticRenewalInstalled": false,
+        "warning48HoursInstalledProven": false
+      }
+    }
+  ],
+  "installedGateway": {
+    "head": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+    "revision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+    "tree": "828cc547302c3fe28bd0c689fed6169c4e1c110f",
+    "branch": "codex/crm-schedule-summary-fix-20261020",
+    "repositoryRefHead": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+    "artifactImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:569625f0a3cd578ebbce041a3b16f5538cc9bd2f8942c2e1ca8da017c80aa176",
+    "envelopeImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:289a63d988cb745d24f5e278d0d2c209f1e9b4415dc7ae9207373a752cad3c39",
+    "image": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:289a63d988cb745d24f5e278d0d2c209f1e9b4415dc7ae9207373a752cad3c39",
+    "manifestSha256": "29f7c37107536d673d68546a31de74817ef2ff6c5a1d7b5f80882749b42fee9b",
+    "presentationManifestSha256": "fcebaef430deaa3d6ae6b9321e8c25a3b1165282b14af7a3932063868ade3c72",
+    "installedAt": "2026-10-20T10:49:59.361Z",
+    "nativeContainer": "e0bf24a97bcb4356e0e424892ba26c830b09945672bc80c4bc30acd83d3c7410",
+    "nativeHealth": "healthy",
+    "ci": {
+      "run": 39409655632,
+      "job": 118583990175,
+      "status": "success",
+      "tests": 1673,
+      "fail": 0,
+      "actualImage": true
+    },
+    "proof": "operacao/runtime/sprint13-fixes/installed.safe.json",
+    "fourFrontReadProof": ".private/provas-sprint-curto-20261018/sprint13-summary-installed-20261020-0750.json",
+    "http8of8": true,
+    "acceptance": "operacao/runtime/freeze-scale20/analyst-acceptance-sprint13.safe.json",
+    "restricted": "QA/gerencial",
+    "editorRelease": false,
+    "rollback": {
+      "revision": "3f98dc0b58b1bfff35dc9249f1a3d42697d5c758",
+      "envelopeImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:0bc1030c3bcba0c5a897042574576f1579acde893d4f87100bf9d1ad36ae954f",
+      "ready": true,
+      "campaignSourceUnchanged": "c3448ea6073e761ca3f66032613bbef2c7b8c49c"
+    },
+    "legacyRegression": {
+      "run": 39409660810,
+      "priorRun": 39405628462,
+      "failures": 30,
+      "identicalFailureTitles": true,
+      "context": "generic PR merge checkout; canonical image gate green",
+      "changed": false
+    }
+  },
+  "readerContracts": [
+    {
+      "front": "CRM/Growth",
+      "source": "codigo-vigente/services/dashboard-operational/server.cjs",
+      "readers": [
+        "crm-read",
+        "campaigns",
+        "segments",
+        "templates",
+        "published journeys"
+      ],
+      "nextDelta": "Conferir uso individual e avançar escrita na data da frente, sem promover fonte READ.",
+      "currentGate": "Oito fontes READ reais 200 Fish/Aristo e recarga pelo Mestre em 12/10; uso individual ainda não aceito. WRITE separado e pendente.",
+      "proofMissing": "Aceite individual e escrita por frente; carrinho Fish restaurado com 89 dias e NULL explícito em sete."
+    },
+    {
+      "front": "Orgânico",
+      "source": "codigo-vigente/services/dashboard-operational/server.cjs",
+      "readers": [
+        "cx: painel=organico",
+        "cache: painel=organico"
+      ],
+      "knownRelations": [
+        "cx_social_post_final",
+        "cx_social_story_final",
+        "cx_social_conta_dia",
+        "crm_organico_utm"
+      ],
+      "nextDelta": "Conferir uso individual e avançar escrita na data da frente, sem promover fonte READ.",
+      "currentGate": "Oito fontes READ reais 200 Fish/Aristo e recarga pelo Mestre em 12/10; uso individual ainda não aceito. WRITE separado e pendente.",
+      "proofMissing": "Aceite do usuário individual; dados por marca/frescor/recarga já comprovados no Mestre. Escrita conforme escopo da frente."
+    },
+    {
+      "front": "Influs",
+      "source": "codigo-vigente/services/dashboard-operational/proxy.cjs",
+      "readers": [
+        "influ: listar",
+        "cache: painel=influs"
+      ],
+      "nextDelta": "Conferir uso individual e avançar escrita na data da frente, sem promover fonte READ.",
+      "currentGate": "Oito fontes READ reais 200 Fish/Aristo e recarga pelo Mestre em 12/10; uso individual ainda não aceito. WRITE separado e pendente.",
+      "proofMissing": "Aceite do usuário individual; dados por marca/frescor/recarga já comprovados no Mestre. Escrita conforme escopo da frente."
+    },
+    {
+      "front": "Afiliados/TikTok",
+      "source": "codigo-vigente/services/dashboard-operational/server.cjs",
+      "readers": [
+        "api/affiliate-read",
+        "tts-read original"
+      ],
+      "nextDelta": "Conferir uso individual e avançar escrita na data da frente, sem promover fonte READ.",
+      "currentGate": "Oito fontes READ reais 200 Fish/Aristo e recarga pelo Mestre em 12/10; uso individual ainda não aceito. WRITE separado e pendente.",
+      "proofMissing": "Primeira revisão de cadastro legítima persistida e relida; chave técnica já vinculada."
+    }
+  ],
+  "simpleLogin": {
+    "users": "email, hash, cargo, frentes, marcas, ativo/inativo no SQLite existente",
+    "newAccountHash": "bcrypt 12",
+    "legacyMasterHashPreservedForRollback": true,
+    "sessionDays": 7,
+    "adminActions": [
+      "criar com senha inicial",
+      "alterar frentes/marcas/cargo",
+      "resetar senha",
+      "desativar"
+    ],
+    "ownPasswordChange": true,
+    "attemptLimit": true,
+    "perUserSourceCredentials": false,
+    "newDatabaseOrService": false,
+    "excludedFromSimplePath": [
+      "MFA",
+      "custódia/envelopes por usuário",
+      "convites",
+      "brokers e journals de provisionamento por usuário",
+      "renovação/reconciliação de identidade remota"
+    ],
+    "status": "instalado",
+    "individualRealAccountAndDataAccepted": false,
+    "sourceDataAccepted": false,
+    "businessWritesEnabled": true,
+    "businessWritesEnabledForSimpleAccounts": false,
+    "navigationRemaining": "CRM: /app/crm/; Afiliados: /app/afiliados/ pelo host Influs e view=afiliados. Operações antigas preservadas por links legacy=1. Isolamento permanece por frente/marca.",
+    "nativeLegacyRosterRead": {
+      "measuredAtBrasilia": "2026-10-12T20:34:00-03:00",
+      "status": 200,
+      "records": 0,
+      "limit": "Consulta do conector original; não é prova da lista de contas novas do login simples nem da entrada do analista."
+    },
+    "sourceDataProvenByMaster": true,
+    "ownerNext": "Proprietário já cadastrou Afiliados e adiará os demais; cadastro não bloqueia a correção das funções.",
+    "ownerReportedAffiliatesAccountCreated": true,
+    "remainingAccountsDeferredByOwner": true,
+    "nativeAccountAggregate": {
+      "activeManagers": 2,
+      "byFront": {
+        "growth": 1,
+        "organico": 1,
+        "influs": 1,
+        "afiliados": 2
+      }
+    },
+    "nativeAccountProofLimit": "Contagens ativas por frente, sem recuperar senha ou provar sessão de cada pessoa.",
+    "simpleWritePermissionUiInstalled": true,
+    "morningReadReadiness": "Oito fontes reais 200 às 17:22:49 de 13/10; visual novo instalado. Conta Afiliados cadastrada pelo proprietário; sessão individual e revisão real aguardam primeiro uso. Públicos ainda sem vínculo.",
+    "businessWriteScope": "Somente revisão novo → em_analise em Afiliados, sujeita ao WRITE por frente. Nenhuma operação real confirmada."
+  },
+  "stagingCandidate": {
+    "classification": "Candidato testado localmente; serviço nativo parcialmente criado, sem runtime e sem aceite.",
+    "project": "shrigma-staging",
+    "service": "dashboards",
+    "sourceCommit": "078e38000d84ee7c6dd16255bbec931a7fc466cd",
+    "compose": "operacao/candidatos/staging-dashboard-compose.json",
+    "composeSha256": "de026e317a0f25a9dd277d80d11a7211f0774a1b1e51377d820d4f3e7c6bcf9f",
+    "profilesCopiedFromProduction": false,
+    "sourceVerification": [
+      "bootstrap.cjs:70730dd7776bbaea23fe6437b00a1e748ab588cc",
+      "canary-start.cjs:1265abe37aa2a9a492294c2a9f5bdb8b0bbe5797",
+      "canary-image.cjs:27d0a28d156963c4ae58c2bfa980dc69c26e315a",
+      "presentation release.cjs:6b55da6decca9efb8194ff7d91a08e56c4068cdd"
+    ],
+    "extraCuratedSourceFiles": 3
+  },
+  "localWhatsAppCsvCandidate": {
+    "source": "operacao/candidatos/whatsapp-csv-preview.cjs",
+    "ui": "operacao/candidatos/whatsapp-csv-import.js",
+    "classification": "Candidato local de formato/pre-visualizacao; sem envio ou elegibilidade comercial.",
+    "inputContract": "telefone,primeiro_nome,kit; kit apenas referencia; CSV UTF-8",
+    "productionInstalled": false,
+    "sourceOfTemplateRules": "GitHub ef81fa/growth-templates-api.js; obtido por conector, blob aa3bf7af0ddbd64b2ac68a8c18f44154372383f7; caminho WhatsApp nao inferido do contrato email."
+  },
+  "historicalCatalogue": ".private/reorganizacao-local-20261011/antes/login-instalado-20261012/operacao/FONTES.json",
+  "productionMutations": "Bootstrap único configurou tag/comando/healthcheck/pull_policy/marcadorAristo no gateway aprovado, preservando ambiente35/env_file3/volumes2; publicação seguinte pelo CI trocou imagem por tag. Somente rascunho campanha185/público TEST e nova sincronização Shopify Aristo autorizada. Nenhum envio nem mudança n8n/SES/DNS/Listmonk config.",
+  "sourceReadBinding": "operacao/candidatos/simple-source-read-binding.json",
+  "fourFrontRepair": {
+    "candidate": "operacao/candidatos/four-front-repair.json",
+    "ref": "codex/crm-native-connection-20261007",
+    "head": "4c315a74c6c8375ddb9780823e143ed965ec7608",
+    "tree": "55711eba022719095582880c052ad4a593268a85",
+    "classification": "Candidata final publicada; CI ativo, não instalada.",
+    "approval": "Pacote de 18 arquivos e instalação da imagem testada autorizados especificamente em 12/10",
+    "fixtureCandidate": "operacao/candidatos/four-front-fixture-fix.json",
+    "approvalExtended": "Tudo aprovado. Manda bala: pacote de fixture e ajustes equivalentes de testes/empacotamento para este reparo READ."
+  },
+  "localCandidate": {
+    "source": "codigo-vigente/services/dashboard-operational/public/afiliados-preview",
+    "candidate": "a55575fbc84db0195a08fb2ea33a99daa2f47e45",
+    "baseInstalledHead": "45c73c542bb011548373a11ae421c948d1949226",
+    "installed": false,
+    "classification": "branch-prepared-not-deployed-publication-hold"
+  },
+  "pendingLocalCandidate": null,
+  "currentCodeCandidate": null,
+  "n8nOfficialAccess": {
+    "id": "bandeira-n8n-official-read-v1",
+    "status": "verified-and-designated-by-felipe",
+    "adoptedAtBrasilia": "2026-10-13T17:33:24.214-03:00",
+    "entrypoint": "operacao/n8n-client.cjs",
+    "credentialSource": "arquivo privado único .private/n8n-codex/credencial.json; consumir por código sem exibir valores",
+    "privateReader": ".private/n8n-codex/acesso.cjs",
+    "origin": "https://n8n.shrigma.com.br",
+    "scope": "consultas administrativas n8n em todos os chats do projeto; não altera integrações de produto",
+    "allowedMethods": [
+      "GET"
+    ],
+    "alternateCredentialFallback": false,
+    "existingKeysRevoked": false,
+    "oldConnectorsDisabled": false,
+    "authenticatedWorkflowsRead": true,
+    "authenticatedExecutionsRead": true,
+    "nativeMcpInstalled": false,
+    "commands": [
+      "status",
+      "inventario",
+      "workflow <id>",
+      "execucoes <workflowId>",
+      "execucao <executionId>"
+    ],
+    "legacyReader": {
+      "path": "operacao/wa-avulso-executor.py",
+      "usesKeychain": true,
+      "policy": "Não invocar o carregador antigo de credencial n8n; migração de eventual uso no caminho WA exige coordenação própria, sem alterar envio neste turno."
+    },
+    "runtime": [
+      "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node",
+      "--openssl-config=/dev/null"
+    ],
+    "credentialExpiresAtUtc": null,
+    "expirationVerified": false,
+    "otherChatsAcknowledged": false,
+    "metadataOutputPolicy": "Não imprimir parâmetros/pinData/payload de execução/mensagens de erro brutas; usar saídas saneadas do cliente oficial.",
+    "pendingNarrowException": {
+      "workflowIds": [
+        "4YidT1MdzugL4wWB",
+        "EfSf4rTJb3krbBV2"
+      ],
+      "purpose": "Somente troca de duas URLs Fish e teste interno autorizado",
+      "implemented": false,
+      "executed": false,
+      "status": "authorized-not-implemented",
+      "ownerApproval": "Plano aprovado13/10 com migração das duas URLsFish e segurança até15/10; cliente oficial permanece único."
+    },
+    "currentOwnerAuthorization": {
+      "authorizedAtUtc": "2026-10-14T15:38:39.087Z",
+      "scope": "Only CRM campaigns/publics/automations/internalTEST workflows",
+      "platformInfraOnly": true,
+      "doNotRestart": true,
+      "exportBeforeChange": true,
+      "officialClientOnly": true,
+      "writeExtensionNeeded": true,
+      "retiredTemplateEndpointDoNotCall": true
+    },
+    "currentInfrastructureAuthorization": {
+      "authorizedOn": "2026-10-14",
+      "authority": "Felipe afternoon sprint13h-19h: repair post-sale first; critical changes require backups/tests/return outsidecampaign",
+      "scope": "Only ecK2wke9fKnO3mfy terminal diagnostic tx-input-probe-aristo-sql inertcatch correction",
+      "officialEntryPoint": "operacao/n8n-client.cjs",
+      "existingProductMethodsPreserved": true,
+      "currentVersionId": "c71ab450-64b9-4059-88e3-cf39d76e2f4d",
+      "currentGraphSha256": "1fb6e4834117811fc00514d85ebc7d3a8f84a5e6ecde3e29f8af92bfb70e2991",
+      "productionRestarted": false,
+      "customerSendOrReplayAuthorized": false,
+      "generalWriteAuthorized": false,
+      "oneRecordedIntentOnly": true,
+      "criticalProtectionFromUtc": "2026-10-14T20:00:00Z",
+      "status": "applied-readback-verified; keep; post-sale-template-receipts-observed-after-fix",
+      "sharedRegister": "operacao/MUDANCAS-COMPARTILHADAS.json",
+      "latestPostSaleReceiptCutoffUtc": "2026-10-14T20:20:44.157813Z",
+      "realDiagnosticLeafSuccessProven": false,
+      "criticalWritesWindowClosed": true,
+      "bulkReplayOrNewCleanupExecuted": false
+    },
+    "morningTestCapture": {
+      "onlyWorkflow": "nFlCQOnI86ixZj7v",
+      "onlyNode": "Envelope",
+      "activeVersion": "1b035e66-6c6c-43d2-81ec-26a2a7c0e530",
+      "proof": "operacao/runtime/morning15-test-capture.json",
+      "noSend": true,
+      "officialClientOnly": true
+    },
+    "currentAttributionInfrastructureAuthorization20261016": {
+      "authority": "Felipe16/10 priority: hardquerydeadline now, incrementalstoredresult next",
+      "entrypoint": "operacao/n8n-client.cjs",
+      "modelSha256": "26f6fb8c8b4876bc549e0f3975a3528f72bfb33853d7560245ff0c6d7bfb6e01",
+      "workflowId": "lBFjfaxs7i1FMheW",
+      "nodeId": "8bfedf49-043b-4321-8e7a-46959c36d6a4",
+      "installedVersionId": "d6143b2c-278b-41a6-aa3d-94ef91a501e2",
+      "scope": "Only boundattribution SQLdeadline/transaction andtemporaryerrorcapture/return; no generalwrites",
+      "statementTimeoutMs": 30000,
+      "lockTimeoutMs": 250,
+      "activeAndPublishedVerified": true,
+      "restart": false,
+      "customerMessages": 0,
+      "sharedRegister": "operacao/MUDANCAS-COMPARTILHADAS.json",
+      "temporaryErrorCapture": false,
+      "captureClosedAtUtc": "2026-10-16T10:40:10.045Z",
+      "naturalTimingStillPending": false,
+      "naturalMeasurement": {
+        "workflowId": "lBFjfaxs7i1FMheW",
+        "scope": "Onlytwo settings captureone naturalboolresult; noSQL/node/credentialchanges",
+        "modelSha256": "ee6d0ef78a5217d8fbaba7ff6bf3df73613e488b08c86a2d61346adb6fe563ed",
+        "intentExpiresAtUtc": "2026-10-16T11:05:00.000Z",
+        "officialClientSha256": "83d7fd69552d1ebbb1c77c10bda18bffa40f418b28785351bdf03b97b97443c8",
+        "captureUntilUtc": "2026-10-16T10:59:00Z",
+        "nodeOrPlatformRestart": false,
+        "phase": "closed-runtime-timeout-proven",
+        "claimReleasedAtUtc": "2026-10-16T11:00:52.276Z",
+        "settingsCaptureActive": false,
+        "proofPath": ".private/infra-day-20261016/attribution-timeout/natural-runtime-verified.safe.json",
+        "proofSha256": "257961c35d593497a0049f6a9c118b3c890e40917b33f3b94f437a8306d13a1d"
+      },
+      "realServerTimeoutVerified": true,
+      "naturalExecutionId": "3089784",
+      "realDurationMs": 30202
+    },
+    "currentTagOnlyInfrastructureAuthorization20261017": {
+      "authority": "Felipe night17 reversible organization; official connector only; protect28critical",
+      "defaultMethodsRemain": [
+        "GET"
+      ],
+      "entrypoint": "operacao/n8n-client.cjs",
+      "canonicalSha256": "e0cb69020378af793e7379ce8973bd739a4eb4fc18e76a20cac0635eeb84acba",
+      "modelSha256": "39301ae812a17066c235ced3cc61695542acc07b678f89219e4de7d4591a3053",
+      "scope": "Fixed ten inactive,unarchived Shrigma workflows; add only CRM tag. No graph/name/activation/credential changes; no delete/archive fallback",
+      "targetIds": [
+        "39dGdMssDpABAgI4",
+        "5FPLbg9qOhXUWfhE",
+        "7ZMgUe4ZcSwg5C3A",
+        "CjkWIaFhGo16Vbc0",
+        "CNdkblFf4kkOF0DZ",
+        "cyqVDcErrbp85M2M",
+        "DfEBbSZuFyeWrGBO",
+        "Ekgh7j0M8K3C7YHU",
+        "F2DuJKmiGLYGyDxn",
+        "g976EeZW4tqmmGtT"
+      ],
+      "tag": {
+        "id": "WqQqrIqHH6jfFsP9",
+        "name": "CRM"
+      },
+      "applyDeadlineUtc": "2026-10-17T07:50:00Z",
+      "rollback": "night17TagsRestore(id); journal/CAS/export required; available after deadline",
+      "exports": [
+        "night17TagsPlan",
+        "night17TagsApply",
+        "night17TagsStatus",
+        "night17TagsRestore"
+      ],
+      "closure": ".private/infra-night-20261017/n8n-read/tag-only-client-v1/lot-closure.safe.json",
+      "archives": 0
+    },
+    "currentFixed39DeletionAuthorization20261017": {
+      "authority": "Felipe17/10explicit39inactiveworkflowsdeleteafterR2verified",
+      "entrypoint": "operacao/n8n-client.cjs",
+      "defaultMethodsRemain": [
+        "GET"
+      ],
+      "canonicalSha256": "e0cb69020378af793e7379ce8973bd739a4eb4fc18e76a20cac0635eeb84acba",
+      "modelSha256": "15adab81179e5ca72976f3f1c4f62d3a84fe386eb10f2ff370f84075d2492df9",
+      "scopeSha256": "8bf2290a7384292cad3a797780113eb600a2a263a8ffc749471a593990a4aad2",
+      "onlyFixedIds": 39,
+      "criticalProtected": 28,
+      "expiresAtUtc": "2026-10-17T13:00:00.000Z",
+      "exports": [
+        "morning17PrepareFixed39Deletion",
+        "morning17DeleteFixed39One",
+        "morning17Fixed39DeletionStatus"
+      ],
+      "requiredBeforeEachDelete": [
+        "verifiedoffsiteencryptedexport+recovery39",
+        "literalactiveandprotecteddependencyguard",
+        "freshinactive/version/graphCAS",
+        "durableoneattemptclaim"
+      ],
+      "afterEveryDelete": "GET404+28criticalactive/versionCAS",
+      "automaticRetry": false,
+      "restoreRequiresNewWorkflowId": true,
+      "offsiteProof": ".private/infra-morning-20261017/n8n-fixed39-delete-v1/r2-backup.result.safe.json",
+      "noCredentialFallback": true,
+      "status": "completed39deleted-capabilityretired",
+      "completedAtUtc": "2026-10-17T12:34:49.768Z",
+      "retiredAtUtc": "2026-10-17T12:37:04.472Z",
+      "retiredCanonicalSha256": "d0a6f0e8bb71457e8632aaa149e241ee564703c5e98a93eeaa34bd3b5b46cfa8",
+      "exportsAvailable": false,
+      "localResult": ".private/infra-morning-20261017/n8n-fixed39-delete-v1/delete-run.safe.json"
+    }
+  },
+  "updatedAtBrasilia": "2026-10-20T08:09-03:00",
+  "executionStatus": "restricted-core-installed-proven",
+  "pauseState": {
+    "active": false,
+    "historical": "ESTADO.json.executionPause preservado; retomada20/10 no chat prevalece"
+  },
+  "localCandidateStatus": "20b instalada e conferida; consulta disponível, envio e públicos com lacunas explícitas",
+  "currentPlan": "operacao/PLANO.md",
+  "historicalCodeCandidateBeforeNight": {
+    "path": "operacao/candidatos/product-operational-promotion.json",
+    "head": "87e72bad8aeb73a730d3ce4f01666feb92b4d6f1",
+    "tree": "31df173b4affc8bc982a1be0667a7a18d9083de5",
+    "files": 18,
+    "bytes": 573030,
+    "localTests": {
+      "cases": 86,
+      "failed": 0
+    },
+    "published": true,
+    "imageInstalled": true,
+    "realSending": false,
+    "image": "e2b5ffbfcbb57cd746dca48fbd0c00f62f9fd648caf1ac03dbc7708b911c0ea9",
+    "ci": {
+      "run": 38461550579,
+      "job": 115517713591,
+      "cases": 619,
+      "failed": 0,
+      "node": "22.23.3",
+      "uid": 1000,
+      "conclusion": "success",
+      "manualRerun": false
+    },
+    "assetsVerified": 30,
+    "publication": "explicitly approved, published and installed"
+  },
+  "listmonkInfrastructureReadAccess": {
+    "consumer": "infrastructure inventory and campaign protection",
+    "username": "bandeira-infra-leitura",
+    "apiUserId": 21,
+    "roleId": 5,
+    "reader": ".private/listmonk-infra-leitura-recovery-20261014/client.cjs",
+    "credentialPath": ".private/listmonk-infra-leitura-20261014/credencial.json",
+    "credentialValueRecorded": false,
+    "permissions": [
+      "users:get",
+      "roles:get",
+      "templates:get",
+      "campaigns:get_all",
+      "bounces:get"
+    ],
+    "officialReaderForThisConsumer": true,
+    "sharedAdministratorFallback": false,
+    "otherConsumersPreserved": true,
+    "custodyAndFiveGetEndpointsVerified": true
+  },
+  "updatedAtUtc": "2026-10-20T11:09:40.583Z",
+  "morningInstalledGateway": {
+    "head": "20b63d42e0fe5677a2bc51f6d0309075ffaae065",
+    "sourceRevision": "20b63d42e0fe5677a2bc51f6d0309075ffaae065",
+    "tree": "82a3400d2461d6a6c65a0dff9dd1d1ee068e8b08",
+    "artifactImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:b4a474640d28164a22bf0c5939065bb34c0ea49c3be9449e950fb8b8ba87dd04",
+    "envelopeImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:a37d6755ffdfc45719ea823aaf595361407593bd81913cc31313f1510c947cea",
+    "image": "b4a474640d28164a22bf0c5939065bb34c0ea49c3be9449e950fb8b8ba87dd04",
+    "imageDigest": "b4a474640d28164a22bf0c5939065bb34c0ea49c3be9449e950fb8b8ba87dd04",
+    "nativeManifest": "dd8653a7d737fdd37157b554f90900627472a360a9d184ba2b574f9ef1e5daae",
+    "presentationManifest": "ccd51533d7e2690b33ecaa2fca60a3176faceb4f0d3cc13e82afc678e8b54152",
+    "containerId": "ff8d80d9355724de83081b39e3c4d6bb59701e5909c5e1fc0ab7eb2bc30098d2",
+    "containerHealthy": true,
+    "ci": {
+      "run": 38719618792,
+      "job": 116370673020,
+      "cases": 995,
+      "failed": 0
+    },
+    "runtimeProof": "995 testesCI; digest, revisão e contêiner saudável conciliados; conferência real quatro frentes em andamento"
+  },
+  "n8nOfficialCredentialLifetimeMetadata": {
+    "officialEntryPoint": "operacao/n8n-client.cjs",
+    "export": "apiCredentialLifetimeMetadataV1",
+    "atUtc": "2026-10-17T00:57:18.162Z",
+    "state": "jwt-expiry-claim-absent-lifetime-unknown",
+    "expiresAtUtc": null,
+    "expiryClaimKnown": false,
+    "noExpiryProven": false,
+    "credentialChanged": false,
+    "proof": ".private/infra-night-20261017/n8n-read/official-credential-lifetime.live.safe.json",
+    "sourceInterpretation": {
+      "interpretation": "No exp claim in current official JWT; upstream exact2.0.2 implementation has no separate API expiry field or maxAge. Remains revocable and dependent on active user/signingkey. Not independent signature verification.",
+      "proof": ".private/infra-night-20261017/n8n-read/credential-expiry-primary-source.safe.json",
+      "sha256": "30601772512745da13afe69a7004370f01923d4fc6f9ae708be6f31c92123aee"
+    },
+    "genericParserNoExpiryProvenRemainsFalse": true
+  },
+  "branchOnlyWork": {
+    "shopifyPaid": {
+      "revision": "90c77c17cbf91abb360e1796cddc99a645c439c9",
+      "branch": "codex/crm-shopify-paid-order-20261020",
+      "installed": false,
+      "linuxCases": 10,
+      "persistenceReady": false,
+      "reason": "single-order write contract and shop binding not proven"
+    },
+    "masterAttestation": {
+      "revision": "c73a258e77939cae669ea9223ce126b47715c9a3",
+      "branch": "codex/crm-master-attestation-no-expiry-20261020",
+      "installed": false,
+      "linuxMasterCases": 13,
+      "linuxContinuityCases": 14,
+      "productionCredentialChanged": false,
+      "shortProofExpiryPreserved": true
+    }
+  },
+  "candidateGateway": null
+}

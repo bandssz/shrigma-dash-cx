@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guia do analista de CRM · O Aristocrata</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF2F1;--surface:#FFFFFF;--ink:#15231F;--ink-2:#4B5B56;--line:#D2DCD9;
+  --accent:#0F5E57;--accent-soft:#DCEBE8;--on-accent:#FFFFFF;
+  --ok:#1C7148;--ok-bg:#DFF1E6;--prep:#8F5A0E;--prep-bg:#FAEBD1;--pend:#5E626B;--pend-bg:#E7E8EB;
+  --warn:#9B2C24;--warn-bg:#F8E3E0;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1715;--surface:#16211E;--ink:#E4EDEA;--ink-2:#9DB0AA;--line:#2A3A36;--accent:#5EC2B5;--accent-soft:#1B3531;--on-accent:#0F1715;
+  --ok:#74D3A1;--ok-bg:#16301F;--prep:#E9B460;--prep-bg:#372913;--pend:#AAAEB7;--pend-bg:#24272C;--warn:#F2897A;--warn-bg:#3A1D19}}
+:root[data-theme="dark"]{
+  --bg:#0F1715;--surface:#16211E;--ink:#E4EDEA;--ink-2:#9DB0AA;--line:#2A3A36;--accent:#5EC2B5;--accent-soft:#1B3531;--on-accent:#0F1715;
+  --ok:#74D3A1;--ok-bg:#16301F;--prep:#E9B460;--prep-bg:#372913;--pend:#AAAEB7;--pend-bg:#24272C;--warn:#F2897A;--warn-bg:#3A1D19}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:calc(env(safe-area-inset-top,0px) + 16px)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px}
+code{font-size:.9em;background:var(--accent-soft);padding:1px 6px;border-radius:4px}
+
+.shell{display:grid;grid-template-columns:240px minmax(0,1fr)}
+aside{position:sticky;top:env(safe-area-inset-top,0px);height:100vh;height:100dvh;overflow-y:auto;padding:28px 18px;border-right:1px solid var(--line);background:var(--surface)}
+.bm{font-family:var(--display);font-weight:800;font-size:1.05rem;margin:0}
+.bs{color:var(--ink-2);font-size:.85rem;margin:2px 0 20px}
+#toc{list-style:none;margin:0;padding:0}
+#toc a{display:flex;gap:10px;padding:7px 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:.95rem}
+#toc a:hover{background:var(--accent-soft)}
+#toc a.active{background:var(--accent);color:var(--on-accent)}
+#toc .n{font-family:var(--display);font-weight:700;font-size:.8rem;opacity:.7;min-width:1em}
+.prog{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-size:.85rem;color:var(--ink-2)}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:8px 0}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.lk{background:none;border:0;padding:0;color:var(--accent);font:inherit;text-decoration:underline;cursor:pointer}
+
+main{padding:0 clamp(18px,4vw,56px) 72px;max-width:980px}
+section{padding-top:52px}
+h1,h2,h3{font-family:var(--display);line-height:1.12;margin:0}
+h1{font-size:clamp(2.1rem,5vw,3.3rem);font-weight:800;letter-spacing:-.02em;max-width:15ch}
+h2{font-size:clamp(1.5rem,3vw,1.95rem);font-weight:800;margin-bottom:6px;display:flex;gap:12px;align-items:baseline}
+h2 .n{font-size:.85rem;color:var(--accent);border:2px solid var(--accent);border-radius:99px;width:2em;height:2em;display:inline-grid;place-items:center;flex:none;transform:translateY(-3px)}
+h3{font-size:1.1rem;font-weight:700;margin:24px 0 8px}
+p{margin:0 0 10px;max-width:66ch}
+.sub{color:var(--ink-2)}
+
+.hero{padding-top:44px}
+.hero .lead{font-size:1.1rem;color:var(--ink-2);margin-top:14px}
+.cta{display:inline-block;margin-top:14px;background:var(--accent);color:var(--on-accent);text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px}
+
+.route{margin:30px 0 0;padding:22px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.route b{font-family:var(--display)}
+.route ol{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:repeat(8,1fr);position:relative}
+.route ol::before{content:"";position:absolute;left:6%;right:6%;top:17px;height:4px;border-radius:4px;background:var(--accent)}
+.route a{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;text-decoration:none;color:var(--ink);font-size:.85rem;line-height:1.25;padding:0 3px}
+.dot{width:38px;height:38px;border-radius:50%;background:var(--surface);border:4px solid var(--accent);display:grid;place-items:center;font-family:var(--display);font-weight:800;color:var(--accent);position:relative;z-index:1}
+.route a:hover .dot,.route li:last-child .dot{background:var(--accent);color:var(--on-accent)}
+
+.rules{display:grid;grid-template-columns:repeat(3,1fr);margin-top:14px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
+.rules div{padding:16px 18px;font-size:.93rem;color:var(--ink-2)}
+.rules div+div{border-left:1px solid var(--line)}
+.rules strong{display:block;font-family:var(--display);font-size:1.02rem;color:var(--ink);margin-bottom:2px}
+
+.badge{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:.8rem;padding:2px 10px;border-radius:99px;white-space:nowrap}
+.badge::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.ok{color:var(--ok);background:var(--ok-bg)}
+.prep{color:var(--prep);background:var(--prep-bg)}
+.pend{color:var(--pend);background:repeating-linear-gradient(135deg,var(--pend-bg) 0 6px,transparent 6px 9px),var(--pend-bg)}
+
+.ui{display:inline-block;font-weight:700;font-size:.86em;padding:0 7px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:var(--surface);white-space:nowrap;line-height:1.55}
+.sep{color:var(--ink-2);font-weight:700;margin:0 2px}
+
+.steps{list-style:none;margin:8px 0 14px;padding:0;counter-reset:s;max-width:72ch}
+.steps li{counter-increment:s;position:relative;padding:11px 14px 11px 50px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:7px}
+.steps li::before{content:counter(s);position:absolute;left:13px;top:11px;width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-family:var(--display);font-weight:800;font-size:.85rem;display:grid;place-items:center}
+.steps li.done{opacity:.6}
+.steps li.done::before{content:"✓";background:var(--accent);color:var(--on-accent)}
+.steps label{display:flex;gap:12px;align-items:flex-start;cursor:pointer}
+.steps input{order:2;margin:6px 0 0 auto;width:18px;height:18px;accent-color:var(--accent);flex:none}
+.steps small{display:block;color:var(--ink-2);font-size:.88rem;margin-top:2px}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:540px;font-size:.94rem}
+th,td{text-align:left;padding:11px 16px;border-top:1px solid var(--line);vertical-align:top}
+thead th{border-top:0;font-family:var(--display);font-size:.88rem;color:var(--ink-2);background:var(--bg)}
+tr.grp td{background:var(--bg);font-family:var(--display);font-weight:700;font-size:.88rem;color:var(--ink-2);padding:7px 16px}
+td.st{white-space:nowrap}
+
+.box{border-radius:6px;padding:12px 16px;margin:12px 0;max-width:72ch;font-size:.95rem}
+.box p{margin:0}.box p+p{margin-top:6px}
+.note{background:var(--accent-soft);border-left:4px solid var(--accent)}
+.warn{background:var(--warn-bg);border-left:4px solid var(--warn)}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;font-size:.95rem}
+.card h3{margin:0 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.card p{margin:0}
+
+.vs{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
+.vs div{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;padding:11px 18px;align-items:center;font-size:.95rem}
+.vs div+div{border-top:1px solid var(--line)}
+.vs .x{font-family:var(--display);font-weight:800;color:var(--warn);font-size:.85rem;white-space:nowrap}
+.vs .r{color:var(--ink-2)}
+
+.help{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;margin-top:14px;align-items:start}
+pre{margin:8px 0 12px;background:var(--bg);border-radius:8px;padding:12px 14px;font-family:var(--body);font-size:.92rem;white-space:pre-wrap}
+.btn{font:inherit;font-weight:700;padding:8px 16px;border-radius:9px;border:2px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer}
+.btn:hover{background:var(--accent);color:var(--on-accent)}
+footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--ink-2);font-size:.86rem}
+
+.mnav{display:none}
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  aside{display:none}
+  .mnav{display:flex;position:sticky;top:0;z-index:10;gap:6px;overflow-x:auto;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0px));margin-top:calc(-1 * env(safe-area-inset-top,0px));background:var(--surface);border-bottom:1px solid var(--line);scrollbar-width:none}
+  .mnav a{flex:none;text-decoration:none;color:var(--ink);font-size:.88rem;font-weight:700;padding:6px 12px;border-radius:99px;border:1px solid var(--line)}
+  .mnav a.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+  html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
+  .route ol{grid-template-columns:1fr;gap:10px}
+  .route ol::before{left:17px;right:auto;top:10px;bottom:10px;width:4px;height:auto}
+  .route a{flex-direction:row;text-align:left;gap:14px;font-size:.95rem}
+  .rules,.two,.help{grid-template-columns:1fr}
+  .rules div+div{border-left:0;border-top:1px solid var(--line)}
+  .vs div{grid-template-columns:1fr;gap:2px}
+  .vs .x{display:none}
+  .vs .r::before{content:"não é: ";font-weight:700;color:var(--warn)}
+  .ui,.badge{white-space:normal}
+}
+
+.steps .res{display:block;margin-top:4px;font-size:.88rem;color:var(--ok);font-weight:700}
+.steps .res::before{content:"→ ";}
+.tabs{display:inline-flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+td .mini{display:block;color:var(--ink-2);font-size:.85rem;margin-top:2px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:16px;font-size:.86rem;color:var(--ink-2)}
+.chain{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 4px}
+.chain span{padding:5px 11px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-weight:700;font-size:.86rem}
+.chain i{color:var(--ink-2);font-style:normal}
+.chain .end{border-color:var(--accent);color:var(--accent)}
+.chain .off{color:var(--ink-2);font-weight:400}
+</style>
+</head>
+<body>
+<nav class="mnav" id="mnav" aria-label="Seções"></nav>
+<div class="shell">
+<aside>
+  <p class="bm">Guia do analista de CRM</p>
+  <p class="bs">O Aristocrata</p>
+  <nav aria-label="Seções do guia"><ol id="toc">
+    <li><a href="#entrar"><span class="n">0</span>Entrar</a></li>
+    <li><a href="#publico"><span class="n">1</span>Público</a></li>
+    <li><a href="#mensagem"><span class="n">2</span>Modelos</a></li>
+    <li><a href="#campanha"><span class="n">3</span>Campanha</a></li>
+    <li><a href="#automacao"><span class="n">4</span>Automação e resultado</a></li>
+    <li><a href="#travou"><span class="n">?</span>Se travar</a></li>
+  </ol></nav>
+  <div class="prog" aria-live="polite">
+    <span id="pt">0 passos marcados</span>
+    <div class="bar"><i id="pb"></i></div>
+    <button class="lk" id="reset" type="button">Desmarcar tudo</button>
+  </div>
+</aside>
+
+<main>
+<header class="hero">
+  <h1>Seu primeiro dia no CRM da marca O Aristocrata</h1>
+  <p class="lead">O Início guia o trabalho: Público → Mensagem → Campanha → Automação → Resultado. Mensagem abre Modelos. Este guia segue a mesma ordem, com o que está instalado e foi conferido nas duas marcas, atualizado em 19/10.</p>
+  <a class="cta" href="https://crm.shrigma.com.br/app/crm/?brand=aristo&view=home" target="_blank" rel="noopener">Abrir o painel CRM</a>
+  <div class="rules">
+    <div><strong>Salvar não envia</strong>Rascunho, público e modelo não disparam. Teste interno é uma ação separada. Agendar e cancelar são ações separadas no CRM.</div>
+    <div><strong>Na dúvida, consulte</strong>Resultado incerto? <span class="ui">Consultar tentativa</span>. Acompanhe o mesmo teste; não envie outra cópia enquanto estiver pendente.</div>
+    <div><strong>A tela manda</strong>Confira a marca e aguarde a confirmação de cada gravação antes de sair.</div>
+  </div>
+</header><div class="box warn" id="disponibilidade-atual"><b>Disponibilidade atual · 20/10</b><p>Públicos: criar, contar, editar, salvar, reabrir, arquivar e restaurar. Destinatários mostra a última contagem confirmada; Atualizar reconta os públicos exibidos. Mostrar testes revela registros internos.</p><p>Campanhas: público e contagem, conteúdo e prévia, teste na própria caixa e agendamento em quatro passos. Agendar e Cancelar agendamento estão liberados para acessos com edição de CRM. Editores: de 20 minutos a 2 horas à frente, até 10 mil destinatários. Em Teste interno/Gestão, a janela ampliada é de 20 minutos a 7 dias, sem o teto de 10 mil, com estimativa a 60 mil destinatários por hora. Agenda nativa e dois cancelamentos foram conferidos com 196.081 elegíveis Aristo e a base inteira Fish de 82.206. As campanhas QA terminaram em Rascunho, sem data nem envio. A ampliação segue restrita a QA/Gestão; campanha comercial depende do ok de Felipe. O percurso completo de público, importação, campanha, teste, agenda e cancelamento passou nas duas marcas. Em QA/Gestão, os bloqueios da peça são script, redirecionamento e destino de link fora da loja; os demais pontos viram avisos por linha.</p><p>Jornadas: criar, salvar, editar, testar HTML na própria caixa e pedir avaliação em Gestão. A ativação comercial permanece bloqueada.</p></div>
+
+<section id="entrar">
+<h2><span class="n">0</span>Entrar</h2><ol class="steps"><li><label><input type="checkbox" data-k="novo-e1"><span>Abra o painel pelo botão acima. Entre com seu <b>e-mail e senha pessoais</b>. Os dois acessos dos analistas já foram criados no painel.<span class="res">o CRM abre com suas permissões</span></span></label></li><li><label><input type="checkbox" data-k="novo-e2"><span>Em <span class="ui">Marca de trabalho</span>, no cabeçalho único do CRM, escolha <span class="ui">O Aristocrata</span>. Na Fishermans, o percurso é o mesmo. Só aparecem as marcas permitidas para você.</span></label></li><li><label><input type="checkbox" data-k="novo-e3"><span>Escolha o período no alto da tela. Ele acompanha a troca de marca e de frente e continua no reload. Datas explícitas no link prevalecem.<small>Brasília; semana de segunda a domingo. A comparação usa o período anterior equivalente.</small></span></label></li></ol><div class="box note"><p><b>Seu login é individual.</b> Consultar e “Permitir alterações” são permissões diferentes. A senha do CRM não é a do Listmonk. Nunca compartilhe senha, chave ou sessão.</p></div>
+</section>
+
+<section id="publico">
+<h2><span class="n">1</span>Público <span class="badge ok" style="font-family:var(--body)">Disponível, com limites</span></h2><p class="sub"><a href="https://crm.shrigma.com.br/app/crm/?brand=aristo&amp;view=audiences" target="_blank" rel="noopener">Abrir Públicos</a></p><ol class="steps"><li><label><input type="checkbox" data-k="novo-p1"><span>Abra <span class="ui">Públicos</span> → <span class="ui">Novo público</span>. Dê um nome que explique a decisão e escolha a lista da marca.</span></label></li><li><label><input type="checkbox" data-k="novo-p2"><span>Combine listas, quantidade de pedidos, valor gasto, última compra e engajamento de e-mail, conforme os critérios disponíveis. Escolha <b>todas as condições</b> ou <b>qualquer condição</b>.<small>Para uma compra conhecida, use a confirmação da fonte. Dado desconhecido não é “nunca comprou”.</small></span></label></li><li><label><input type="checkbox" data-k="novo-p3"><span>Clique <span class="ui">Contar agora</span>. Confira a quantidade elegível, a marca e o horário da fonte. Se a contagem estiver indisponível, não assuma zero e não a use para liberar envio.</span></label></li><li><label><input type="checkbox" data-k="novo-p4"><span>Clique <span class="ui">Salvar público</span>, aguarde a confirmação e reabra. Para editar, altere as regras, confira a contagem e clique <span class="ui">Salvar alterações</span>.<span class="res">o mesmo público reabre com uma nova revisão; as anteriores ficam preservadas</span></span></label></li></ol><div class="box note"><p><b>Atualização Shopify:</b> confira o horário de sincronização no cabeçalho. Contagem elegível inclui consentimento e lista; não é o total bruto de clientes da Shopify.</p></div><div class="box warn"><p><b>Produto:</b> escolha <b>Comprou</b> ou <b>Não comprou</b> e um produto do catálogo. Acrescente outros produtos e combine com <b>Todos os critérios (E)</b> ou <b>Qualquer critério (OU)</b>. Contar, criar, editar, reabrir, arquivar e restaurar passaram nas duas marcas. O catálogo reúne produtos presentes nos pedidos da captura Shopify; não representa produtos que nunca foram comprados. A confirmação Shopify deixa de fora pessoas sem prova daquele critério; dado desconhecido nunca significa “não comprou”.</p><p><b>Arquivar e restaurar:</b> feche ou descarte alterações locais antes de arquivar. O público sai de Ativos e da seleção da campanha. Clique <b>Fechar</b> para voltar à lista, escolha <b>Arquivados</b>, abra o público e use <b>Restaurar público</b>. A definição arquivada volta intacta, com nova revisão; edite depois de restaurar. Fonte ou versão alterada exige reabrir e conferir. Algumas combinações de compra e engajamento ainda podem recusar a contagem. A lista VIP pode reunir linhas distintas: não presuma separação por produto.</p></div>
+</section>
+
+<section id="mensagem">
+<h2><span class="n">2</span>Modelos <span class="badge ok" style="font-family:var(--body)">Importação disponível</span></h2><p class="sub"><a href="https://crm.shrigma.com.br/app/crm/?brand=aristo&amp;view=templates" target="_blank" rel="noopener">Abrir Modelos</a></p><ol class="steps"><li><label><input type="checkbox" data-k="novo-m1"><span>Peça à skill <b>email-shrigma</b> o assunto, o HTML e a versão em texto. Ela cria e confere a peça; público, campanha, teste e operação ficam no CRM.</span></label></li><li><label><input type="checkbox" data-k="novo-m2"><span>Em <span class="ui">Modelos</span> → <span class="ui">Importar peça pronta</span>, cole o conteúdo ou abra um arquivo UTF-8 de até 200 KB. HTML e texto são formatos separados; importe a versão correspondente.</span></label></li><li><label><input type="checkbox" data-k="novo-m3"><span>Confira marca, assunto, links, imagens e descadastro na prévia. A prévia bloqueia ações e recursos externos; uma imagem ausente ali não prova que o endereço está quebrado. Em Teste interno/Gestão, confira também os avisos por linha: scripts, redirecionamentos e links para fora da loja impedem salvar.</span></label></li><li><label><input type="checkbox" data-k="novo-m4"><span>Clique <span class="ui">Salvar novo rascunho</span>, espere a confirmação e use <span class="ui">Reabrir</span>.<span class="res">o conteúdo salvo volta do servidor</span></span></label></li></ol><div class="box note"><p><b>Imagens:</b> a skill usa as imagens de produto da Shopify, com URL pública correta e texto alternativo. A biblioteca integral de imagens não é requisito para montar a peça.</p><p><b>Usar na campanha:</b> em <b>2. O quê → Peça</b>, escolha a peça compatível. A prévia aparece na mesma página e o conteúdo entra na campanha ao salvar. Expressões transacionais <code>.Tx</code> não viram campanha automaticamente.</p></div><div class="box warn"><p><b>Testar a peça:</b> salve a campanha e use <b>Preparar teste → Enviar teste</b>. Registro A/B é planejamento; não executa um envio A/B.</p></div>
+</section>
+
+<section id="campanha">
+<h2><span class="n">3</span>Campanha <span class="badge ok" style="font-family:var(--body)">Rascunho, teste e agenda</span></h2><p class="sub"><a href="https://crm.shrigma.com.br/app/crm/?brand=aristo&amp;view=campaigns" target="_blank" rel="noopener">Abrir Campanhas</a></p><ol class="steps"><li><label><input type="checkbox" data-k="novo-c1"><span><b>1. Para quem.</b> Em <span class="ui">Nova campanha</span>, escolha o público salvo e aguarde a contagem. Confira a marca antes de continuar.</span></label></li><li><label><input type="checkbox" data-k="novo-c2"><span><b>2. O quê.</b> Preencha <b>Nome da campanha</b> e <b>Assunto</b>. Escolha <b>Peça</b> e confira a prévia na mesma página. Em Teste interno/Gestão, depois do primeiro salvamento use <b>Ajustar links</b> e salve novamente: os links passam a usar a identificação da campanha criada, preservando os demais parâmetros. Layout e remetente usam os padrões da marca; <b>Respostas para</b> é fixo. Clique <b>Salvar rascunho</b> e aguarde <b>Rascunho salvo</b>. Durante <b>Salvando…</b>, permaneça na página.<span class="res">o mesmo rascunho volta depois de recarregar</span></span></label></li><li><label><input type="checkbox" data-k="novo-c3"><span><b>3. Teste.</b> Depois de salvar, use <b>Preparar teste → Enviar teste</b>. Confira o destinatário e a mensagem recebida, com <b>[TESTE]</b> no assunto. Quando o campo estiver liberado, escolha um endereço de domínio interno; quando estiver somente para leitura, use a caixa indicada. Mantenha nome e assunto do rascunho neutros: o teste acrescenta o prefixo. Se ficar pendente, use <b>Consultar tentativa</b> para acompanhar o mesmo teste. Não envie outra cópia enquanto estiver pendente nem repita um teste já confirmado.</span></label></li><li><label><input type="checkbox" data-k="novo-c4"><span><b>4. Quando.</b> Preencha <b>Horário de envio · Brasília</b>. Editores: entre 20 minutos e 2 horas à frente, até 10 mil destinatários. Teste interno/Gestão: entre 20 minutos e 7 dias. Confira o nome do público, destinatários, duração estimada, marca e assunto antes de agendar. Último teste interno mostra se o envio ocorreu antes das últimas alterações; confira o conteúdo nesse caso. O ciclo agendar → cancelar → reagendar → cancelar passou em Aristo com 196.081 e Fish com sua base inteira elegível de 82.206. A contagem é conferida de novo antes de cada agenda. Clique <b>Agendar</b> e confira <b>Agendada</b> com o horário. Para desistir antes do início, clique <b>Cancelar agendamento</b> e confira <b>Rascunho</b>, sem data de envio.</span></label></li></ol><div class="box note"><p><b>Continuar uma campanha:</b> em <b>Campanhas → Rascunhos</b>, escolha <b>Abrir</b>. Marque <b>Mostrar testes</b> para ver registros internos. A campanha conserva o público escolhido na criação. Se a confirmação do público ficar pendente, use <b>Consultar tentativa</b> para acompanhar o mesmo pedido; não crie outra campanha para contornar a pendência. O descadastro é replicado nas listas de origem em ciclos de dez minutos, sem reinscrição automática.</p><p><b>Resultados:</b> escolha o período; <b>Receita atualizada em…</b> mostra a última atualização válida. Passe sobre <b>Parcial</b> para entender o subtotal. <b>—</b> indica informação indisponível.</p></div><div class="box warn"><p>A primeira campanha comercial depende do ok de Felipe. Teste interno aceita a caixa indicada; outro endereço interno pode ser escolhido quando o campo estiver liberado. Campanhas existentes e tentativas incertas ficam preservadas.</p></div>
+</section>
+
+<section id="automacao">
+<h2><span class="n">4</span>Automação e resultado</h2><p class="sub"><a href="https://crm.shrigma.com.br/app/crm/?brand=aristo&amp;view=journeys" target="_blank" rel="noopener">Abrir Jornadas</a></p><div class="two"><div class="card"><h3>Jornadas <span class="badge ok" style="font-family:var(--body)">Somente teste</span></h3><p>Em <b>Jornadas</b>, consulte as sete definições existentes. Em <b>Abrir editor → Criar jornada</b>, monte do zero ou copie um modelo; com um rascunho aberto, a criação aparece como <b>Criar em teste</b>. configure entrada, público de referência, esperas e e-mails. Salve no servidor e reabra antes de executar. Em <b>Atualizar teste</b>, consulte suas peças; escolha o HTML de <b>Modelos</b> em cada etapa e clique <b>Salvar jornada → Reabrir salvo</b>. A escolha fica salva com a revisão e volta ao reabrir. Se o modelo não aparecer na primeira lista, a peça salva é consultada pelo próprio vínculo. Confira a prévia antes de iniciar.</p></div><div class="card"><h3>Executar e acompanhar</h3><p>O teste usa apenas a caixa corporativa atual. Confira as etapas, execute uma vez e acompanhe o relatório. Pausar e retomar passaram nas duas marcas, com dois e-mails recebidos por marca no ensaio. “Aceito” por etapa não significa entrega na caixa.</p></div></div><div class="box note"><p>As esperas do teste contam desde a entrada. O teste interno padrão continua em <b>texto</b>; nele, o modelo é referência. O HTML congelado foi recebido e conferido na homologação interna das duas marcas, incluindo as imagens da Fishermans. O percurso com HTML está liberado para usuários corporativos com edição de CRM, sempre para a própria caixa. Escolha o modelo final de cada etapa, salve, reabra, confira a prévia e use <b>Ativar teste com HTML</b>. O assunto deve começar com <b>[TESTE]</b>; o texto da etapa é a alternativa ao HTML. A peça deve estar finalizada, sem variáveis pendentes. <b>A primeira jornada real só poderá ser ativada reproduzindo o HTML do modelo, com recebimento e conferência na caixa interna nas duas marcas.</b> O critério de HTML passou na homologação interna. A operação comercial continua desligada: ainda faltam entrada automática, compra real, frequência global, exclusividade com as sete jornadas e aprovação de Felipe. O rascunho pode ser preparado; não edite nem inicie outra revisão com execução ativa ou incerta. A execução já iniciada mantém sua revisão congelada.</p><p><b>Horário de envio:</b> na entrada, escolha dias e horas de Brasília e salve antes de iniciar. O padrão é <b>09h–19h</b>, todos os dias. Nos testes de jornadas, o remetente é avisos do domínio principal da marca e o Reply-To é contato da mesma marca. A escolha entre os dois remetentes na jornada ainda não está disponível. Fora da janela, o teste espera a próxima abertura; isso foi provado com recebimento físico nas duas marcas. Alterar o rascunho depois não muda o horário nem o HTML de um teste já iniciado. Pausar e retomar conserva a execução original.</p></div><div class="box warn"><p><b>Ativação comercial bloqueada.</b> Saída por compra real, teto compartilhado com campanhas e exclusividade com as sete jornadas ainda precisam de fonte recente e prova integrada. Flags do teste não comprovam compra real. Depois de salvar e reabrir, clique <b>Pedir ativação</b>. O pedido conserva essa revisão e chega à caixa de solicitações de Felipe, em <b>Gerenciar acessos → Solicitações de jornadas</b>. Use <b>Consultar pedido</b> para confirmar; se a resposta falhar, não repita a solicitação. O pedido não ativa, agenda nem inscreve clientes. A ativação comercial continua desligada até todas as proteções passarem e Felipe aprovar.</p></div><h3>Resultados</h3><p>Abra <a href="https://crm.shrigma.com.br/app/crm/?brand=aristo&amp;view=results" target="_blank" rel="noopener">Resultados</a>, escolha marca, canal e período. Em <b>Campanha acumulada</b>, cada identificação de campanha nos links reúne seus disparos disponíveis. Clique <b>Ver disparos</b> para conferir envios, entregas, aberturas, cliques, taxas ponderadas, pedidos, receita e cada disparo. A busca também recorta o CSV. Envios acumulam o histórico disponível; pedidos e receita respeitam período, canal e modelo de atribuição. A etiqueta <b>Parcial</b> indica cobertura incompleta: um subtotal conhecido não equivale ao total. Leia também a evolução, onde a venda fecha e a tabela por peça. O Início reúne a visão resumida e próximas campanhas.</p><div class="box note"><p>Confira origem, horário e cobertura. Sem fonte aparece indisponível, nunca zero. A tela avisa quando usa a última janela disponível; sua seleção permanece. Receita assistida não se soma à atribuída, e atribuição não é receita incremental. Abertura, CTR, CTOR, conversão e peso no total só valem quando a fonte e o denominador estão disponíveis.</p></div>
+</section>
+
+<section id="travou">
+  <h2><span class="n">?</span>Se travar</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>A tela diz</th><th>Faça</th></tr></thead>
+    <tbody>
+      <tr><td>Resultado incerto ou pendente</td><td><span class="ui">Consultar tentativa</span>. Nunca repita.</td></tr>
+      <tr><td>A conferência venceu</td><td>Confira conteúdo e público de novo.</td></tr>
+      <tr><td>Mudou em outra aba</td><td>Feche as outras abas e reabra.</td></tr>
+      <tr><td>Aguarda liberação / acesso não permite</td><td>Registre o aviso; continue as funções disponíveis. Liberação comercial espera o responsável.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="help">
+    <div class="card">
+      <b>Pedir ajuda: copie, preencha e mande</b>
+      <pre id="ht">Tela:
+Nome da campanha/público/template:
+Horário:
+Texto do aviso:</pre>
+      <button class="btn" id="cp" type="button">Copiar modelo</button>
+    </div>
+    <div class="box warn" style="margin:0"><p><b>Nunca mande</b> senha, chave de acesso ou dado de cliente, nem pedindo ajuda.</p></div>
+  </div>
+</section>
+
+<footer>Guia vivo · atualizado em 19/10/2026 a partir do original e das provas nas duas marcas. Acompanha cada função liberada. Use somente as funções disponíveis para seu acesso. Se algum nome mudar, vale o que está na tela.</footer>
+</main>
+</div>
+<script>
+(function(){
+  var K='crm-onboarding-aristo-v4-20261016',st={};
+  try{st=JSON.parse(localStorage.getItem(K)||'{}')||{};}catch(e){st={};}
+  var bx=[].slice.call(document.querySelectorAll('.steps input'));
+  function sv(){try{localStorage.setItem(K,JSON.stringify(st));}catch(e){}}
+  function pt(){var d=0;bx.forEach(function(b){var on=!!st[b.dataset.k];b.checked=on;b.closest('li').classList.toggle('done',on);if(on)d++;});
+    document.getElementById('pt').textContent=d+' de '+bx.length+' passos marcados';
+    document.getElementById('pb').style.width=(d/bx.length*100)+'%';}
+  bx.forEach(function(b){b.addEventListener('change',function(){st[b.dataset.k]=b.checked;sv();pt();});});
+  document.getElementById('reset').addEventListener('click',function(){st={};sv();pt();});
+  pt();
+  document.getElementById('cp').addEventListener('click',function(){
+    var b=this,t=document.getElementById('ht');
+    function ok(){b.textContent='Modelo copiado';setTimeout(function(){b.textContent='Copiar modelo';},1800);}
+    function fb(){var r=document.createRange();r.selectNodeContents(t);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selecionado: Ctrl/Cmd+C';}
+    try{navigator.clipboard.writeText(t.textContent).then(ok,fb);}catch(e){fb();}
+  });
+  var toc=[].slice.call(document.querySelectorAll('#toc a')),mn=document.getElementById('mnav');
+  toc.forEach(function(a){var m=document.createElement('a');m.href=a.getAttribute('href');m.textContent=a.textContent.replace(/^\d+/,'').trim();mn.appendChild(m);});
+  var all=toc.concat([].slice.call(mn.querySelectorAll('a')));
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var id='#'+e.target.id;
+      all.forEach(function(a){var on=a.getAttribute('href')===id;a.classList.toggle('active',on);if(on&&a.parentNode===mn){mn.scrollLeft=a.offsetLeft-(mn.clientWidth-a.offsetWidth)/2;}});});},{rootMargin:'-30% 0px -60% 0px'});
+    document.querySelectorAll('main section[id]').forEach(function(s){io.observe(s);});
+  }
+})();
+</script>
+</body>
+</html>

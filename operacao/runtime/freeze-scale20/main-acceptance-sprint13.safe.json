@@ -1,0 +1,96 @@
+{
+  "atUtc": "2026-10-20T09:23:33.831Z",
+  "mainInstalled": "aac3168ead636e420f7cc95dfd28742acbf34fb4",
+  "originalReconciled": true,
+  "aristo": {
+    "ok": true,
+    "campaignId": 271,
+    "recipients": 196081,
+    "scheduledNativeReads": 2,
+    "validations": 2,
+    "final": {
+      "status": "draft",
+      "send_at": null,
+      "sent": 0,
+      "started_at": null,
+      "independentCrmSourceRead": true,
+      "pending": false,
+      "nativeRead": {
+        "source": "Listmonk API16 original GET",
+        "readStartedAt": "2026-10-20T09:16:02.663Z",
+        "readFinishedAt": "2026-10-20T09:16:02.985Z",
+        "brand": "aristo",
+        "id": 271,
+        "uuid": "20049564-4b5b-454b-a614-d4c08b307451",
+        "listIds": [
+          249
+        ],
+        "status": "draft",
+        "send_at": null,
+        "sent": 0,
+        "started_at": null,
+        "to_send": 0,
+        "recipients": 196081,
+        "countSource": "GET /api/subscribers?list_id=:id total; exact campaign list binding",
+        "physicalListCount": true
+      }
+    }
+  },
+  "fish": {
+    "ok": true,
+    "criterion": "entire eligible base",
+    "humanDecisionBaseline": 82205,
+    "recipients": 82206,
+    "campaignId": 272,
+    "listId": 251,
+    "publicId": "57400341-8b5c-4518-9990-2f23ab707434",
+    "validations": 2,
+    "scheduledNativeReads": 2,
+    "confirmation": {
+      "recipients": 82206,
+      "estimatedMinutes": 83,
+      "durationText": "83 min · 60 mil destinatários/h"
+    },
+    "final": {
+      "status": "draft",
+      "send_at": null,
+      "sent": 0,
+      "started_at": null,
+      "independentCrmSourceRead": true,
+      "pending": false,
+      "nativeRead": {
+        "source": "Listmonk API16 original GET",
+        "readStartedAt": "2026-10-20T09:46:21.956Z",
+        "readFinishedAt": "2026-10-20T09:46:22.158Z",
+        "brand": "fish",
+        "id": 272,
+        "uuid": "ca548442-3967-49db-a3e2-7ac57e59b326",
+        "listIds": [
+          251
+        ],
+        "status": "draft",
+        "send_at": null,
+        "sent": 0,
+        "started_at": null,
+        "to_send": 0,
+        "recipients": 82206,
+        "countSource": "GET /api/subscribers?list_id=:id total; exact campaign list binding",
+        "physicalListCount": true
+      }
+    },
+    "knownResegmentationSummaryUntouched": true
+  },
+  "allQaCreatedFinalDraft": true,
+  "oldPostRepeats": 0,
+  "restricted": true,
+  "ok": true,
+  "allCurrentIntentionsTerminal": true,
+  "failedCiCreate": {
+    "key": "efd41182-ce9f-48ec-a358-7534375f7569",
+    "state": "rejected",
+    "campaignId": null,
+    "confirmedByGet": true,
+    "replayedPost": false
+  },
+  "finishedAtUtc": "2026-10-20T09:47:36.044Z"
+}
