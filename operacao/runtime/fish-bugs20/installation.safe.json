@@ -1,0 +1,102 @@
+{
+  "revision": "209c87ae6d223238f194baac411b14ca6ceea7de",
+  "approvedFunctionalRevision": "084805fb57aa00782a75c20d8fbe5e976ff6ef7e",
+  "tree": "5683f74c2548fa57b00c2ad9afcf56873455358a",
+  "ciRun": 39446516851,
+  "ciJob": 118709763459,
+  "ciConclusion": "failure",
+  "tests": {
+    "tests": 1682,
+    "pass": 1682,
+    "fail": 0
+  },
+  "receipts": [
+    {
+      "schema": "shrigma-ci-live-qa-v1",
+      "ok": true,
+      "candidateRevision": "209c87ae6d223238f194baac411b14ca6ceea7de",
+      "installedBackendRevision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+      "installedBackendManifest": "29f7c37107536d673d68546a31de74817ef2ff6c5a1d7b5f80882749b42fee9b",
+      "serial": true,
+      "linuxDocker": true,
+      "mockedResponses": false,
+      "screenshots": false,
+      "customerData": false,
+      "brands": 2,
+      "qaAccounts": 4,
+      "readonlyServerDenials": 4,
+      "internalTestsAccepted": 2,
+      "scheduledAndCancelled": 2,
+      "sentCommercial": 0,
+      "candidateImageContracts": "separate preceding Docker image steps",
+      "campaigns": [
+        {
+          "brand": "aristo",
+          "id": 285,
+          "listId": 265,
+          "finalStatus": "draft",
+          "sent": 0
+        },
+        {
+          "brand": "fish",
+          "id": 286,
+          "listId": 266,
+          "finalStatus": "draft",
+          "sent": 0
+        }
+      ]
+    },
+    {
+      "schema": "shrigma-production-receipt-v1",
+      "revision": "209c87ae6d223238f194baac411b14ca6ceea7de",
+      "action": "publish",
+      "artifactImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:909b6909eb9b2e55aa9b55b0396bb8390404ad3966ded3420baaeda1f9003f29",
+      "envelopeImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:8c3891ee87fe0bc4be1ffebca2b426e01da021d086fdacc9b055455ed4fe1324",
+      "previousEnvelopeImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:289a63d988cb745d24f5e278d0d2c209f1e9b4415dc7ae9207373a752cad3c39",
+      "previousArtifactImage": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:569625f0a3cd578ebbce041a3b16f5538cc9bd2f8942c2e1ca8da017c80aa176",
+      "manifestSha256": "df28f00a5d224064f1272305e7e819703edfaba0a8268d96a22832acf2b2cf2d",
+      "presentationManifestSha256": "62a9ebc8aad3d2427356e7c24dc3ac3c4e745a7d3d3b6ae6aa0dc93f7df64c30",
+      "sourceRevision": "209c87ae6d223238f194baac411b14ca6ceea7de",
+      "checkedAt": "2026-10-20T15:26:40.888Z",
+      "status": "rollback-unconfirmed",
+      "productionVerified": false,
+      "deployAttempted": true,
+      "rollbackAttempted": true,
+      "rollbackVerified": false,
+      "previousHealthObserved": false,
+      "requiresNativeDeploymentReconciliation": true,
+      "errorCode": "PRODUCTION_NOT_CONFIRMED"
+    }
+  ],
+  "installed": false,
+  "nativeRunningContainers": 0,
+  "configurationPreserved": true,
+  "candidateDeployment": "cmvgu6ag206wg07nc49rkh2fe",
+  "automaticReturnDeployment": "cmvgubky106x507nc53zh3n2z",
+  "returnVerified": false,
+  "returnRevision": "e9ab89fd4cea0a3ba717663e97eba8512e4c7d9d",
+  "returnCommit": "adf0545a79b2274bd623f8ececbd655e7055e586",
+  "currentHttp": 502,
+  "nativeLogsHttp": 400,
+  "causeProven": false,
+  "attestationRefusalProven": false,
+  "noCredentialChanges": true,
+  "newCodeInstalledConfirmed": false,
+  "editorLimitsChanged": false,
+  "ciCreatedQaCampaigns": [
+    285,
+    286
+  ],
+  "ciFinalDrafts": true,
+  "connectorTest20": "done-human-receipt-confirmed",
+  "httpProof": ".private/provas-sprint-curto-20261018/fish209c-return-http-20261020-1236.json",
+  "httpSerial": {
+    "linuxDocker": true,
+    "serial": true,
+    "completedReads": 0,
+    "loginStatus": 502,
+    "loginMs": 93,
+    "businessWrites": 0
+  },
+  "nativeCheckedAtUtc": "2026-10-20T15:35:42Z"
+}

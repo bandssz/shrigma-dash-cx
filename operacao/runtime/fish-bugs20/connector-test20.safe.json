@@ -1,0 +1,55 @@
+{
+  "authority": "Felipe no chat20/10: reabrirTESTAPIs23–24, um teste real Willians pela rotaMCP e conferirOutlook; nada além disso",
+  "atUtc": "2026-10-20T15:22:42.635Z",
+  "grant": {
+    "reopened": true,
+    "apiUserIds": [
+      23,
+      24
+    ],
+    "expiresAtUtc": "2026-10-24T17:55:53.181Z",
+    "expiryUnchanged": true,
+    "targetsUnchanged": true,
+    "smtpConfirmed": true,
+    "businessEnabled": false,
+    "commercialActionsEnabled": false,
+    "nonce": "403c58d6-0b99-40be-a617-90602eba8797"
+  },
+  "test": {
+    "brand": "aristo",
+    "apiUserId": 24,
+    "campaignId": 284,
+    "revision": "7533fac6-ccf5-4545-8ba2-2923256d0c78",
+    "operationId": "29ed75d6-4db3-4224-b735-2ac807c2efa0",
+    "state": "succeeded",
+    "posts": 1,
+    "createdQaDrafts": 1,
+    "final": {
+      "status": "draft",
+      "send_at": null,
+      "sent": 0
+    },
+    "route": "/mcp → listmonk_campaign_test → originalAPI24",
+    "physicalReceiptConfirmed": true,
+    "physicalReceiptEvidence": "Felipe confirmou no chat: Chegou lá. Ele vai fazer os testes, voce so precisa destravar o SMTP",
+    "receiptConfirmedBy": "Felipe no chat20/10/2026"
+  },
+  "outlook": {
+    "sharedMessagesHttp": 404,
+    "sharedRootHttp": 404,
+    "directoryIdentityConfirmed": true,
+    "connectedSearchMatches": 0,
+    "readStateChanged": false,
+    "blocker": null,
+    "owner": null,
+    "confirmationMethod": "Confirmação humana de Felipe; Outlook conectado sem delegação preservado, sem nova consulta"
+  },
+  "noRetry": true,
+  "apiKeysChanged": false,
+  "accountsOrRolesChanged": false,
+  "sesDnsSendersSuppressionChanged": false,
+  "newServices": false,
+  "privateEvidence": ".private/connector-test-reopen-20261020/",
+  "status": "done-human-receipt-confirmed",
+  "nextTestsOwner": "Willians"
+}

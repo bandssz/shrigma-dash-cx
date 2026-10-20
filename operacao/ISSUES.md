@@ -9,11 +9,11 @@
 - **Data:** 20/10/2026.
 - **Tela:** Fish → Campanhas → Agendar.
 - **Relato:** A fatia Contato não aparece para agendar; só Avisos.
-- **Causa:** Felipe confirmou Contato reservado; falta reproduzir a indisponibilidade como editor.
-- **Correção + hash:** Regra com aviso e confirmação em branch, não instalada; teto intocado. `084805fb57aa00782a75c20d8fbe5e976ff6ef7e`.
+- **Causa:** Felipe definiu Contato reservado; falta confirmar a indisponibilidade na conta do editor.
+- **Correção + hash:** Avisos padrão e Contato com aviso/confirmar em branch; instalação não confirmada. `209c87ae6d223238f194baac411b14ca6ceea7de`.
 
 - **Data:** 20/10/2026.
 - **Tela:** Fish → Modelos → Teste interno.
 - **Relato:** O sistema impede personalizar a peça com o nome do cliente.
 - **Causa:** O importador recusa os campos nativos de primeiro nome e sobrenome.
-- **Correção + hash:** Campos aceitos em branch; não instalado porque o CI recusou o pacote anterior. `084805fb57aa00782a75c20d8fbe5e976ff6ef7e`.
+- **Correção + hash:** Campos aceitos em branch; instalação e teste pelo editor ainda pendentes. `209c87ae6d223238f194baac411b14ca6ceea7de`.
