@@ -109,9 +109,19 @@
       "sha256": "727eba4b0892348b247ba9a6c5faf45c019269e69ebbafb2f20a1b0595ee8be3"
     },
     {
+      "path": "growth-drafts.js",
+      "bytes": 12675,
+      "sha256": "a67554a073b0b6df8b1044d7430188a3cb99e55cfe67c1ef60cc842c0981eec6"
+    },
+    {
       "path": "growth-email-contract.js",
       "bytes": 14151,
       "sha256": "6efc40d8dfc6a91a60944105a97d2b79cb3c69566045510164ab55d4a923bbd5"
+    },
+    {
+      "path": "growth-email-expressions.js",
+      "bytes": 20687,
+      "sha256": "1e4fa68645c291b41c58e3d95169cd0a01a043d2a3c9c1e93227f9688b56ad8c"
     },
     {
       "path": "growth-email-native-ui.js",
@@ -2626,7 +2636,7 @@
     {
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 3028,
-      "sha256": "dc026ebfd8c45b1e8f8fb928420bc8ab9bc8d28316ff9d21684d6e6cd3c6d31b"
+      "sha256": "01908a8269466dd1930866453ac128ea2fd07cf6bc85079d64d85d48a796bf8e"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
@@ -2693,5 +2703,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Analyst bug fixes only: existing native first/last-name expression parser and same-brand previously sent sender options. Editor schedule limits and QA releases unchanged."
+  "candidatePurpose": "Complete inventory of approved084805fb native-personalization/reserved-sender code; no historical custody or base repin; editor audience limits unchanged."
 }
