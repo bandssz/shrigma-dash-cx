@@ -2715,8 +2715,8 @@
     },
     {
       "path": "tools/crm-qa/editor-objects.cjs",
-      "bytes": 4405,
-      "sha256": "031adef2347319cd3b0e27dbacc21395fb63fb265f22db21367d8f45fae2494a"
+      "bytes": 4404,
+      "sha256": "acec8dc5bcbacb933df86a84eb7dc1732f1e5a0e974081922c11ae5d8ad935b3"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
