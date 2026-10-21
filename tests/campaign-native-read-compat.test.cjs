@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),a=require('node:assert/strict');
-const {createNativeRead,version}=require('../services/crm-campaign/native-read.cjs');
+const {createNativeRead,version,project}=require('../services/crm-campaign/native-read.cjs');
 const {createNativeReadTransport}=require('../services/crm-campaign/native-read-transport.cjs');
 const {createNativeExecutor}=require('../services/crm-campaign/native-executor.cjs');
 function campaign(id=1,brand='fish'){
@@ -17,7 +17,7 @@ function fixture({brand='fish',caps=['read_content','list_history','submission']
  return {calls,auth,adapter,execute:command=>adapter.execute({key:'synthetic-original-key',auth,command:{brand,acao:'campanha_obter',id:1,...command}})};
 }
 for(const brand of ['aristo','fish'])test(brand+': original READ identity and full DTO preserved with no writer capability',async()=>{
- const f=fixture({brand}),r=await f.execute();a.equal(r.status,200);a.equal(r.body.campaign.definition.html,'<p>Synthetic body</p>');a.equal(r.body.campaign.definition.template_id,1);a.equal(r.body.campaign.definition.brand,brand);a.match(r.body.campaign.version,/^[a-f0-9]{32}$/);a.deepEqual(f.auth.caps,['read_content','list_history','submission']);a(!f.auth.caps.includes('submit'));a.equal(f.calls.filter(c=>c.path).length,2);a.equal(f.calls.filter(c=>c.auth).length,1);
+ const f=fixture({brand}),r=await f.execute();a.equal(r.status,200);a.equal(r.body.campaign.definition.html,'<p>Synthetic body</p>');a.equal(r.body.campaign.definition.template_id,1);a.equal(r.body.campaign.definition.brand,brand);a.match(r.body.campaign.version,/^[a-f0-9]{32}$/);a.deepEqual(f.auth.caps,['read_content','list_history','submission']);a(!f.auth.caps.includes('submit'));a.equal(f.calls.filter(c=>c.path).length,1);a.equal(f.calls.filter(c=>c.auth).length,1);
 });
 test('submission never authorizes READ and missing READ makes no API request',async()=>{
  const f=fixture({caps:['submission']});await a.rejects(f.execute(),e=>e.status===403&&e.body.error==='CAPABILITY_MISSING');a.deepEqual(f.calls,[]);
@@ -25,8 +25,17 @@ test('submission never authorizes READ and missing READ makes no API request',as
 for(const after of [null,{actor:'panel:other-actor',caps:['read_content','list_history','submission']},{actor:'panel:synthetic-read-original',caps:[]}])test('revocation or principal change during native reads prevents disclosure '+JSON.stringify(after),async()=>{
  const f=fixture({after});await a.rejects(f.execute(),e=>[401,403].includes(e.status));
 });
-test('foreign brand, unclassified lists and missing layouts never become guessed DTOs',async()=>{
- for(const change of [c=>c.attribs.crm.brand='aristo',c=>c.lists=[{id:16}],c=>c.lists=[{id:99}],c=>c.template_id=null,c=>delete c.body]){const row=campaign();change(row);const f=fixture({row});await a.rejects(f.execute(),e=>[404,503].includes(e.status));}
+test('foreign brand and incomplete content never become guessed DTOs',async()=>{
+ for(const change of [c=>c.attribs.crm.brand='aristo',c=>c.template_id=null,c=>delete c.body]){const row=campaign();change(row);const f=fixture({row});await a.rejects(f.execute(),e=>[404,503].includes(e.status));}
+});
+test('historical campaigns remain readable when a list is retired, reclassified or absent',async()=>{
+ const row={...campaign(),status:'finished',sent:7,lists:[{id:17},{id:99}]};
+ const f=fixture({row}),detail=await f.execute();a.deepEqual(detail.body.campaign.definition.list_ids,[17,99]);a.equal(f.calls.some(c=>c.path?.startsWith('/api/lists')),false);
+ const listing=fixture({pages:()=>({total:2,results:[row,campaign(2)]})}),r=await listing.execute({acao:'campanha_listar'});a.equal(r.body.campaigns.length,2);a.equal(r.body.campaigns[0].status,'finished');
+});
+test('unordered list/media relations do not change optimistic version; header precedence is preserved',()=>{
+ const one={...campaign(),lists:[{id:17},{id:284}],media:[{id:3,filename:'b'},{id:2,filename:'a'}]},two={...one,lists:[...one.lists].reverse(),media:[...one.media].reverse()};
+ a.deepEqual(project(one,'fish'),project(two,'fish'));const three={...one,headers:[{'Reply-To':'first@synthetic.invalid'},{'Reply-To':'second@synthetic.invalid'}]};a.equal(project(three,'fish').definition.reply_to,'first@synthetic.invalid');a.notEqual(project(three,'fish').version,project({...three,headers:[...three.headers].reverse()},'fish').version);
 });
 test('legacy list reads every page with bodies and filters the original CRM policy',async()=>{
  const first=Array.from({length:100},(_,i)=>campaign(i+1));first[1]=campaign(2,'aristo');first[2].attribs.crm.policy='other-policy';

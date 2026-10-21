@@ -1,0 +1,45 @@
+name: API16 preparation image and compatibility
+'on':
+  push:
+    branches: [codex/crm-api16-compat-20261021]
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: crm-api16-preparation-20261021
+  cancel-in-progress: false
+jobs:
+  prepared-image:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'prep:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Private registry session
+        shell: bash
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          registry_dir="$(mktemp -d "$RUNNER_TEMP/api16-registry.XXXXXX")"
+          printf 'DOCKER_CONFIG=%s\n' "$registry_dir" >> "$GITHUB_ENV"
+          export DOCKER_CONFIG="$registry_dir"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build on the immutable original service
+        run: docker build --pull --platform linux/amd64 --tag api16-prepared --file ops/releases/s23-api16-compat/Dockerfile .
+      - name: Serial compatibility tests in Node22 UID1000 with no network
+        run: docker run --rm --network none --read-only --user 1000:1000 --memory 512m --mount "type=bind,src=$GITHUB_WORKSPACE/tests,dst=/app/tests,readonly" --entrypoint node api16-prepared --test --test-concurrency=1 /app/tests/campaign-native-read-compat.test.cjs /app/tests/campaign-native-history.test.cjs /app/tests/campaign-native-catalog.test.cjs
+      - name: Original startup with synthetic identity and sealed files
+        run: docker run --rm --network none --read-only --user 1000:1000 --memory 256m --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/s23-api16-compat/source-smoke.cjs,dst=/app/source-smoke.cjs,readonly" --entrypoint node api16-prepared /app/source-smoke.cjs
+      - name: Close registry session
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${DOCKER_CONFIG:-}" == "$RUNNER_TEMP"/api16-registry.* ]]; then
+            rm -rf -- "$DOCKER_CONFIG"
+          fi
