@@ -34,6 +34,6 @@ function verifyPaidOrder({rawBody,headers,shops,receivedAt}){
   return {itemId:gid('LineItem',item.id),productId:item.product_id==null?null:gid('Product',item.product_id),variantId:item.variant_id==null?null:gid('ProductVariant',item.variant_id),title:item.title,quantity:item.quantity};
  });
  if(new Set(products.map(p=>p.itemId)).size!==products.length)refuse('SHOPIFY_ORDER_INVALID');
- return Object.freeze({schema:'crm-shopify-paid-order-fact-v1',brand:binding.brand,orderId,customerId,createdAt,sourceUpdatedAt,observedAt,currency:order.currency,total:amount(order.current_total_price),financialStatus:'paid',test:order.test,products,deliveryId:deliveryId.toLowerCase(),orderKey:binding.brand+':'+orderId});
+ return Object.freeze({schema:'crm-shopify-paid-order-fact-v1',brand:binding.brand,orderId,customerId,createdAt,sourceUpdatedAt,observedAt,currency:order.currency,total:amount(order.current_total_price),financialStatus:'paid',test:order.test,products,deliveryId:deliveryId.toLowerCase(),orderKey:binding.brand+':'+orderId,acquisition:require('./crm-paid-acquisition.cjs').webhook(order,observedAt)});
 }
 module.exports=Object.freeze({verifyPaidOrder});

@@ -14,16 +14,29 @@ const WEBHOOK_CREATE='mutation PaidFactsSubscribe($input:WebhookSubscriptionInpu
 const WEBHOOK_DELETE='mutation PaidFactsUnsubscribe($id:ID!){ webhookSubscriptionDelete(id:$id){ deletedWebhookSubscriptionId userErrors { field message } } }';
 // A fact-only row has no attribution observation. Its true dates live in paid_fact;
 // an attribution collection already in flight must still be able to fill payload.
-const UPSERT=`INSERT INTO public.crm_attribution_order_v2(brand,order_id,payload,source_updated_at,checked_at,paid_fact)
- VALUES($1,$2,'{}'::jsonb,'-infinity'::timestamptz,'-infinity'::timestamptz,$3::jsonb)
- ON CONFLICT(brand,order_id) DO UPDATE SET paid_fact=EXCLUDED.paid_fact
- WHERE crm_attribution_order_v2.paid_fact IS NULL OR
+const PURCHASE_ADVANCES=`crm_attribution_order_v2.paid_fact IS NULL OR
  crm_attribution_order_v2.paid_fact->>'sourceUpdatedAt'<EXCLUDED.paid_fact->>'sourceUpdatedAt' OR
  (crm_attribution_order_v2.paid_fact->>'sourceUpdatedAt'=EXCLUDED.paid_fact->>'sourceUpdatedAt' AND (
  (EXCLUDED.paid_fact->>'financialStatus' IN ('cancelled','refunded','partially_refunded','voided') AND
  crm_attribution_order_v2.paid_fact->>'financialStatus' NOT IN ('cancelled','refunded','partially_refunded','voided')) OR
  (EXCLUDED.paid_fact->>'financialStatus'='paid' AND
- crm_attribution_order_v2.paid_fact->>'financialStatus' IN ('pending','authorized','partially_paid'))))
+ crm_attribution_order_v2.paid_fact->>'financialStatus' IN ('pending','authorized','partially_paid'))))`;
+const ACQUISITION_MERGE=`CASE
+ WHEN jsonb_typeof(crm_attribution_order_v2.paid_fact->'acquisition')='object' AND
+  (crm_attribution_order_v2.paid_fact->'acquisition'->'journey'->>'complete'='true' OR jsonb_typeof(EXCLUDED.paid_fact->'acquisition') IS DISTINCT FROM 'object')
+ THEN jsonb_build_object('acquisition',(crm_attribution_order_v2.paid_fact->'acquisition') ||
+  CASE WHEN EXCLUDED.paid_fact->'acquisition' ? 'webhook' THEN jsonb_build_object('webhook',EXCLUDED.paid_fact->'acquisition'->'webhook') ELSE '{}'::jsonb END)
+ WHEN jsonb_typeof(EXCLUDED.paid_fact->'acquisition')='object' THEN jsonb_build_object('acquisition',EXCLUDED.paid_fact->'acquisition')
+ ELSE '{}'::jsonb END`;
+const UPSERT=`INSERT INTO public.crm_attribution_order_v2(brand,order_id,payload,source_updated_at,checked_at,paid_fact)
+ VALUES($1,$2,'{}'::jsonb,'-infinity'::timestamptz,'-infinity'::timestamptz,$3::jsonb)
+ ON CONFLICT(brand,order_id) DO UPDATE SET paid_fact=
+ (CASE WHEN ${PURCHASE_ADVANCES} THEN EXCLUDED.paid_fact ELSE crm_attribution_order_v2.paid_fact END) || ${ACQUISITION_MERGE}
+ WHERE ${PURCHASE_ADVANCES} OR
+ (crm_attribution_order_v2.paid_fact->>'sourceUpdatedAt'=EXCLUDED.paid_fact->>'sourceUpdatedAt' AND
+ jsonb_typeof(EXCLUDED.paid_fact->'acquisition')='object' AND
+ (crm_attribution_order_v2.paid_fact->'acquisition' IS NULL OR
+ coalesce(crm_attribution_order_v2.paid_fact->'acquisition'->'webhook'->>'observedAt','')<coalesce(EXCLUDED.paid_fact->'acquisition'->'webhook'->>'observedAt','')))
  RETURNING brand,order_id,paid_fact->>'observedAt' AS observed_at`;
 function configuration(file){
  if(typeof file!=='string'||!file.startsWith('/'))fail('PAID_FACTS_CONFIG_UNAVAILABLE',503);
@@ -61,7 +74,7 @@ async function streamBackfill(res,work){
  catch(e){write({type:'error',error:/^PAID_[A-Z0-9_]+$/.test(e.code||'')?e.code:'PAID_FACTS_UPDATE_UNCONFIRMED'});}
  if(!res.destroyed)res.end();
 }
-function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now}){
+function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,backupDirectory}){
  const tokens=new Map();let config;
  const cfg=()=>config||=(configuration(file));
  const authorize=(context,brand,write=false,workspace=false)=>{if(!BRANDS.includes(brand))fail('PAID_FACTS_BRAND_INVALID');const user=auth.authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},brand);if(!workspace&&!canUse(user))fail('RESTRICTED_AREA_REQUIRED',403);if(write&&(user.permissions?.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))fail('PRODUCT_WRITE_DENIED',403);return user;};
@@ -107,6 +120,8 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now}){
  }
  async function subscriptions(context,brand){authorize(context,brand);const rows=[];let after=null;do{const d=await graphql(brand,WEBHOOKS_QUERY,{after}),v=d.webhookSubscriptions;rows.push(...v.nodes);after=v.pageInfo.hasNextPage?v.pageInfo.endCursor:null;if(rows.length>500)fail('PAID_FACTS_SUBSCRIPTIONS_UNAVAILABLE',503);}while(after);return rows;}
  async function subscribe(context,brand){authorize(context,brand,true);const uri='https://crm.shrigma.com.br/webhooks/shopify/orders-paid',existing=await subscriptions(context,brand),same=existing.filter(x=>x.uri===uri);if(same.length)return {brand,existing:true,subscriptions:same};const d=await graphql(brand,WEBHOOK_CREATE,{input:{uri,format:'JSON'}}),r=d.webhookSubscriptionCreate;if(r.userErrors?.length||!r.webhookSubscription)fail('PAID_FACTS_SUBSCRIPTION_REFUSED',409);return {brand,existing:false,subscription:r.webhookSubscription};}
- return {ingest,status,publics,products,count,save,backfill,subscribe,subscriptions,authorize};
+ const origin=require('./crm-paid-acquisition-service.cjs').create({authorize,database,graphql,now,openBackup:brand=>require('./crm-paid-acquisition-backup.cjs').open(backupDirectory,brand)});
+ const acquisitionBackup=async(context,brand,input)=>{authorize(context,brand);const result=await require('./crm-paid-acquisition-backup.cjs').read(backupDirectory,brand,input.name,input.offset??0);authorize(context,brand);return result;};
+ return {ingest,status,publics,products,count,save,backfill,subscribe,subscriptions,authorize,acquisitionBackup,...origin};
 }
 module.exports={create,streamBackfill,canUse,fromGraphql,period,rule,audienceSql,UPSERT,ORDERS_QUERY,ITEMS_QUERY,WEBHOOKS_QUERY,WEBHOOK_CREATE,WEBHOOK_DELETE};
