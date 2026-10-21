@@ -2924,6 +2924,11 @@
       "sha256": "dd9f767b1b93791af8768e825b408586c8c1e75a11ced653da019b33ddb1da31"
     },
     {
+      "path": "tools/crm-qa/four-front.cjs",
+      "bytes": 5126,
+      "sha256": "e08602b70136e664771806ca3bb112a2deaf218fa64696d13b25591e539bbec8"
+    },
+    {
       "path": "tools/crm-qa/journey.cjs",
       "bytes": 216,
       "sha256": "2d9d502926add15ec30a8a176597b3723c62c0d97de910d6718e2e436253aea1"
@@ -2950,8 +2955,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 8822,
-      "sha256": "96b4a7e833111985b24750f40c0f87b7c4b347b618f75c95024c835922c1906a"
+      "bytes": 9345,
+      "sha256": "ec1aee4201d3ce358303e6d950d5fa5e24453c3bf1a63080be3ec82d6f396842"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",

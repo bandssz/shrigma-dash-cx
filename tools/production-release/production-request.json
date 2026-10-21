@@ -1,5 +1,4 @@
 {
   "schema": "shrigma-production-request-v1",
-  "action": "rollback",
-  "image": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:81f7bb7c1105d8f500586111c8409d57d9c49819147b406c9a7d699bbf8ecd67"
+  "action": "publish"
 }
