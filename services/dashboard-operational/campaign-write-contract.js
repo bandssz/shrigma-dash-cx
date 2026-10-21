@@ -36,7 +36,9 @@ const CampaignContract=(()=>{
   if(!catalog||catalog.brand!==d.brand||catalog.current!==true)error('CATALOG_UNAVAILABLE','Consulte o catálogo atual da marca antes de salvar.');
   const lists=array(catalog.lists),templates=array(catalog.templates);
   if(d.list_ids.some(id=>!lists.some(l=>l.id===id&&l.brand===d.brand&&l.available===true)))error('LIST_SCOPE','Uma lista não está disponível para esta marca.','list_ids');
-  if(!templates.some(t=>t.id===d.template_id&&t.type==='campaign'&&t.available===true))error('TEMPLATE_SCOPE','Template de campanha não disponível.','template_id');
+  // The native operator validates an explicit imported layout on Save; its
+  // default-layout descriptor is not a catalog of readable template IDs.
+  if(!templates.some(t=>t.native_default===true&&t.id===null)&&!templates.some(t=>t.id===d.template_id&&t.type==='campaign'&&t.available===true))error('TEMPLATE_SCOPE','Template de campanha não disponível.','template_id');
   const mapping=array(catalog.initiatives).find(i=>i.utm_campaign===d.utm_campaign);
   if(mapping&&mapping.key!==d.initiative.key)error('INITIATIVE_CONFLICT','Esta UTM já pertence a outra iniciativa.','initiative.key');
  }

@@ -1431,12 +1431,12 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "6de71ff3646086f8ceb79a753891ef55beb956fe6fab181afeedf763f9bb56d1"
+      "sha256": "cc12bdbb3eeee999036a964cf3473f196ea116a51572be48236b1feb3601e92f"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
-      "bytes": 13985,
-      "sha256": "e2e7f25f0b1e79757faf0a2cf5e9e55b94b6d25d494a9b78f74718f6d32739e2"
+      "bytes": 14193,
+      "sha256": "f0c916b427363149891286b94d14fe133570d9f4d9ccba60df28190dad264934"
     },
     {
       "path": "services/dashboard-operational/campaign-write-tracking.js",
@@ -1690,8 +1690,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 212278,
-      "sha256": "4b63915e3bba58e93c07da7e2699c1392e86ff7c5e6cea36f3b852f48686f51c"
+      "bytes": 212328,
+      "sha256": "6649ffc83af2f22755ca8b213e23f3e5c846d15819a777c81f81c2ea41cf65c1"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -1710,8 +1710,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 154600,
-      "sha256": "d8c2dcdfe7a2673ec9b66fb9d3bd8baa6e18344893b5a231a70c02409c46a04b"
+      "bytes": 154890,
+      "sha256": "4092761c1282db9e5082aebbe7b3a0f84de9410c54ac97169e3a27941189a3f3"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -2115,8 +2115,8 @@
     },
     {
       "path": "tests/crm-campaign-import.test.cjs",
-      "bytes": 4674,
-      "sha256": "2e859d513d3f179b6f8ae7ccb2f6e02368012c8898f11e3db45f4fce6d7b4696"
+      "bytes": 5384,
+      "sha256": "c0dc601256ac53d93b3a295b8047492336f483eb62dae17a7ef6de19c9ac8df8"
     },
     {
       "path": "tests/crm-campaign-link-receipts.test.cjs",
@@ -2720,8 +2720,8 @@
     },
     {
       "path": "tests/simple-crm-native-direct-ui.test.cjs",
-      "bytes": 11657,
-      "sha256": "654b1cc5dea45458d24746b07d19806fed7b9ed92767a39e8e99b2270e032f1d"
+      "bytes": 13351,
+      "sha256": "d174717d1d5e5dae1b858debca2f0bcd30ff2b72bcc7550da43cf3f88d29e8ae"
     },
     {
       "path": "tests/simple-crm-native-direct.test.cjs",
