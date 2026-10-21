@@ -135,7 +135,7 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   if(method!==(write?'POST':'GET'))throw error(405,'METHOD_DENIED');
   if(action==='campanha_capacidade')return {status:200,body:{schema:'crm-listmonk-direct-v1',brand,read:true,draft:released&&allowedEditor(user),send:false,native_direct:true}};
   if(action==='campanha_catalogo'){
-   const data=await request(brand,'GET','/lists?minimal=true'),rows=Array.isArray(data)?data:data.results;
+   const data=await request(brand,'GET','/lists?minimal=true&per_page=all'),rows=Array.isArray(data)?data:data.results;
    if(!Array.isArray(rows))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
    const lists=rows.filter(list=>binding(brand).listIds.includes(list.id)).map(list=>({id:list.id,name:list.name,brand,available:list.status==='active'}));
    const nativeTemplates=await request(brand,'GET','/templates?no_body=true');

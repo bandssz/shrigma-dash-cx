@@ -63,7 +63,7 @@ for(const brand of ['aristo','fish'])test(brand+': catalog reads native lists an
  const f=fixture(brand),r=await f.adapter.handle({},'GET',{acao:'campanha_catalogo',brand});
  a.equal(r.status,200);a.equal(r.body.brand,brand);a.deepEqual(r.body.lists,[{id:f.id,name:brand==='aristo'?'Aristo':'Fish',brand,available:true}]);
  a.equal(r.body.templates.length,1);a.equal(r.body.templates[0].id,1);a.equal(r.body.templates[0].name,'Default campaign template');
- a.equal(new URL(f.calls[0].url).searchParams.get('minimal'),'true');
+ a.equal(new URL(f.calls[0].url).searchParams.get('minimal'),'true');a.equal(new URL(f.calls[0].url).searchParams.get('per_page'),'all');
  a.equal(new URL(f.calls[1].url).searchParams.get('no_body'),'true');
  a.deepEqual(f.calls.map(x=>[x.method,new URL(x.url).pathname]),[['GET','/api/lists'],['GET','/api/templates']]);
 });
