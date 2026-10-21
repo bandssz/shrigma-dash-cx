@@ -2747,6 +2747,211 @@
       "path": "tools/crm-qa/editor-tracking.cjs",
       "bytes": 1420,
       "sha256": "dd9f767b1b93791af8768e825b408586c8c1e75a11ced653da019b33ddb1da31"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/SKILL.md",
+      "bytes": 10958,
+      "sha256": "8400b37aba61448b950a79cb07bfe33a4794d4468e0022000fdc6ba881cc2222"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/assets/base-aristocrata.html",
+      "bytes": 14078,
+      "sha256": "8cfa52d70483ffc117a2c77c537026d25a70c4ac5a4254a90411be4ef7979664"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/aprendizados.md",
+      "bytes": 20994,
+      "sha256": "45d236bca69b204f0f9d28f547ead4d03579e270dd47ef3ef0115fd83a848b34"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/conversao.md",
+      "bytes": 4130,
+      "sha256": "34cc16eeeeea0c8baa2fffb22e2b28f7888e983a4e379bd2b172eb54fca6c8c0"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/crm.md",
+      "bytes": 2962,
+      "sha256": "7d06908660cf6cf9bfbaa61e07de64ee644af4da3943759812f062f54b228fa3"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/entregabilidade.md",
+      "bytes": 11971,
+      "sha256": "03fcdf849e53a70c5ea8b353ffc26181f6f96be4dcef60e6a5c2ddb0f7c62216"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/medicao.md",
+      "bytes": 5405,
+      "sha256": "0543468c9dd9031ca72eb2febf5f69082852f1d43cf81a93a8f3ee61043d1277"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/operacao-crm.md",
+      "bytes": 5229,
+      "sha256": "98f714c47130ef76b284778c787e7492732fb8315c9bd3f039215a428f5f67cc"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/ponte-listmonk.md",
+      "bytes": 10051,
+      "sha256": "7e529fcca0411ade21f0f5ae1c09bd8ef4d31fed94a0945817d61df73512990f"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/qualidade-ui.md",
+      "bytes": 4394,
+      "sha256": "1fc613df4c4ca5662294c3cfe0938a488cfcf4bb3fb70f26563fa848e3f16f3f"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/rastreamento.md",
+      "bytes": 4499,
+      "sha256": "b5444c290a9b2fa0d987d329eb5105fe97db25526a35e5da2fb015264945df58"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/references/teste-controlado.md",
+      "bytes": 1435,
+      "sha256": "96e7f7795c476dc66fe4aaf7b9132891728e1d221ed7303b91964feb2e49203c"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/campaign_cli.cjs",
+      "bytes": 4757,
+      "sha256": "bd2bf68fefb00d58d1a5823bdd0adc48dcba656c32cb6977d67dc6da6aa7750e"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/checklist.py",
+      "bytes": 12390,
+      "sha256": "4fc454386d41fc4c440b227455eaf48774efaad8497db4a44ca2cd87e29f666a"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/lib/campaign-contract.js",
+      "bytes": 12470,
+      "sha256": "34c4f0e5a8b4512b255ee2deb6636d53a1a6051e74c0f9586e87f987fb8b2390"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/lib/campaign-tracking.js",
+      "bytes": 4294,
+      "sha256": "78f82b5411d35fde0c3104855f7b104751e5fa15312cbeed617e6573d5b94b63"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/lib/source.json",
+      "bytes": 632,
+      "sha256": "2dc96b812fd315162440e752868fe6951cfe553dd9ba360079330e3d2771d435"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/mcp_campaign_cli.cjs",
+      "bytes": 7290,
+      "sha256": "7324f9d9bfefdebdaefa691762ab5a4938dea8465c1a2c1511e7057ab9d6440c"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/package.json",
+      "bytes": 35,
+      "sha256": "7d38de102f9d211b8a221ab5943610473c4b23aeee36e9a9cf0e22848e04b9d4"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/test_campaign_cli.cjs",
+      "bytes": 6767,
+      "sha256": "d31330e3d8f3822044659372a243937d94346445da640c60307624a369f4b383"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/test_checklist.py",
+      "bytes": 5493,
+      "sha256": "0cf1dea8c579dc5369af7443ae50445407bd1d28fcaa899093ea984cbe7c7b54"
+    },
+    {
+      "path": "ops/releases/connector-crm20/email-shrigma/scripts/test_mcp_campaign_cli.cjs",
+      "bytes": 6943,
+      "sha256": "6f0627379b6abea702b350a7c7f6e8cd6fa45ca7f555f2d4a7224bb243e4c1ee"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/Dockerfile",
+      "bytes": 760,
+      "sha256": "0aaf8e2dc96fda5b7b27628bd8e12bddc06f22fbd0d33d99de1797521734947e"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/package.json",
+      "bytes": 580,
+      "sha256": "ef54adb80d001e952cf6e9e4d2827025946aea6d9b47fbc3b41f1ed1c9467dd7"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/pnpm-lock.yaml",
+      "bytes": 27392,
+      "sha256": "3f0227372f35666391edca3298e2364c693079122c626f8186eaff12bf3a1bd1"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/admin.mjs",
+      "bytes": 9706,
+      "sha256": "28d4ce662122f8ec2e695e1fac8f2b999bbf49bb25fe25d3f523d4a1e692f72f"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/auth.mjs",
+      "bytes": 14159,
+      "sha256": "6f214f5022c773fe58e9621e87c09b026acec6455917f2956e6264bbb08b629b"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/campaigns.mjs",
+      "bytes": 19574,
+      "sha256": "320b4ac5c5c56c8bd0eaa0a01325a910e33f761f9d35255fc756efb6cb0005db"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/config.mjs",
+      "bytes": 3450,
+      "sha256": "396831bf6be350eedc0421e756057095b63aa35492f96f781477aa983be5ae9a"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/crm.mjs",
+      "bytes": 8089,
+      "sha256": "a70cb2f01a52c6db7a540ec0c5fdeb4140d343412db62204670bc3bcc936de4a"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/listmonk.mjs",
+      "bytes": 4356,
+      "sha256": "f92976c06ecf83497731f352009c07225e865d809db2a07d585da2d1872da76e"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/policy.mjs",
+      "bytes": 8691,
+      "sha256": "4705850c035dad278db573f1445eae6110a01eeb09068b8c198375ef1d33cd5c"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/server.mjs",
+      "bytes": 9405,
+      "sha256": "6695faa338415d33f7a66a5c41605242fd5d05ba6dd8cec2135c31324e310361"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/store.mjs",
+      "bytes": 13255,
+      "sha256": "773fb1ecef97a7456f6599d0988c5c946314a33bc2dbfe2e904574805c37c487"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/src/test-fixture.mjs",
+      "bytes": 5327,
+      "sha256": "b0a42248f58a1e7e011529924be3fabc200d2fcb0b3898b5babead83a9427f6a"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/test/crm-model-contract.test.mjs",
+      "bytes": 2457,
+      "sha256": "0f0e072ddd56197a1e5205f31437ab0b25293d2285b784f623237468361306e5"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/test/crm-oauth.test.mjs",
+      "bytes": 9128,
+      "sha256": "9ef64c97bdc07f397d774f6a01ebbeb32a5018e821fe4383a5579e335c15e4ef"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/test/crm.test.mjs",
+      "bytes": 5411,
+      "sha256": "dba067742c5fc586755f5c8fb256577de936ee0184a79e9cb024b8a716f88e4d"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/test/oauth.test.mjs",
+      "bytes": 16551,
+      "sha256": "70d20e12522ad2ce2a103699daef6619290140405a2909d14f4d4718ce56aeac"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/tools/crm-chat-qa.mjs",
+      "bytes": 10144,
+      "sha256": "5c563b4425cf089be1e164b37c0b183ba59e510182408c3c26ed0476ae8559d3"
+    },
+    {
+      "path": "ops/releases/connector-crm20/source/tools/package.mjs",
+      "bytes": 2541,
+      "sha256": "3a5efae96653f340722e1eccf7ba0258223031f568ed3866893eb34b6ff4680c"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
