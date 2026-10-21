@@ -1945,8 +1945,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 154934,
-      "sha256": "a5343b7bb51638ae2f6c4ac270fbedb2eec3de61f1e8a5dd22130e71b4efd843"
+      "bytes": 155067,
+      "sha256": "a1c56f1c66ac37ea7d9d05db868e50ab84ef195a460359cdcd4fb1be41f402ca"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -2825,8 +2825,8 @@
     },
     {
       "path": "tests/simple-crm-native-direct-ui.test.cjs",
-      "bytes": 13376,
-      "sha256": "c661cc1e9830f42cf810e7d01dce6b39aef0badb196a96b2b03b2b041b922279"
+      "bytes": 16289,
+      "sha256": "0de1a3d242392b6000d5e9b70da4281239119ddfc11ece84026952153a2448ec"
     },
     {
       "path": "tests/simple-crm-native-direct.test.cjs",
