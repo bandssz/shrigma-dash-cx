@@ -53,10 +53,30 @@ function verifyIdentity(value,expected,master,storedMaster=false){
  return Object.freeze({owner:expected.owner,principalId,caps:Object.freeze([...CAPS])});
 }
 
+// The original campaign endpoint used this same issuer for actor/caps. Its
+// identity has no brand grant; native list bindings enforce the brand scope.
+function originalCampaignIdentity(value){
+ const identity=snapshot(value,['schema','role','panel','owner','allowedPanels','permissions']);
+ const master=identity.role==='master';
+ if(identity.schema!=='shrigma_access_identity_v1'||!['master','manager'].includes(identity.role)||!ownerValid(identity.owner)||identity.panel!==(master?'todos':'growth')||!arrayEquals(identity.allowedPanels,master?['cx','growth','organico','influs']:['growth']))refuse();
+ const permissions=snapshot(identity.permissions,['growth','influs']);
+ const grant=snapshot(permissions.growth,['who','label','caps']);
+ // Original campaign auth preserves the issuer's strings, including legitimate
+ // READ list_history/submission. Each action must check its own exact cap;
+ // attestation never substitutes the writer-only CAPS or adds permissions.
+ if(typeof grant.who!=='string'||!/^panel:[a-z0-9-]{8,128}$/.test(grant.who)||grant.label!==identity.owner||!Array.isArray(grant.caps)||new Set(grant.caps).size!==grant.caps.length||grant.caps.some(c=>typeof c!=='string'))refuse();
+ if(permissions.influs!==null){
+  if(!master)refuse();
+  const other=snapshot(permissions.influs,['who','label','caps']);
+  if(other.who!==grant.who||other.label!==identity.owner||!Array.isArray(other.caps)||other.caps.length>64||new Set(other.caps).size!==other.caps.length||other.caps.some(c=>typeof c!=='string'||!/^[a-z_]{1,40}$/.test(c)))refuse();
+ }
+ return Object.freeze({actor:grant.who,owner:identity.owner,role:identity.role,caps:Object.freeze([...grant.caps])});
+}
+
 // input is EXACT {bearer,owner,principalId}; owner is the already normalized
 // corporate email from the identity store. Its domain policy belongs to that
 // store/issuer. This proof cannot add a domain, grant, area or backend slot.
-async function verifyCredential(input,options,master,storedMaster=false){
+async function verifyCredential(input,options,master,storedMaster=false,originalBearer=false){
  let controller,timer,response,reader,cancelled=false;
  const cancel=()=>{
   if(cancelled)return;
@@ -66,8 +86,9 @@ async function verifyCredential(input,options,master,storedMaster=false){
   }catch{cancelled=true;}
  };
  try{
-  const expected=snapshot(input,storedMaster?['bearer','owner']:['bearer','owner','principalId']);
-  if(typeof expected.bearer!=='string'||!(master?/^[a-z0-9-]{8,128}$/:/^[a-f0-9]{64}$/).test(expected.bearer)||!ownerValid(expected.owner)||!storedMaster&&(typeof expected.principalId!=='string'||!(master?/^[a-z0-9-]{8,128}$/:/^dcrmw-[a-f0-9]{32}$/).test(expected.principalId)))refuse();
+  const expected=snapshot(input,originalBearer?['bearer']:storedMaster?['bearer','owner']:['bearer','owner','principalId']);
+  const bearerPattern=originalBearer?/^[a-z0-9-]{8,128}$/:master?/^[a-z0-9-]{8,128}$/:/^[a-f0-9]{64}$/;
+  if(typeof expected.bearer!=='string'||!bearerPattern.test(expected.bearer)||!originalBearer&&(!ownerValid(expected.owner)||!storedMaster&&(typeof expected.principalId!=='string'||!(master?/^[a-z0-9-]{8,128}$/:/^dcrmw-[a-f0-9]{32}$/).test(expected.principalId))))refuse();
   const supplied=snapshot(options,Object.hasOwn(options,'fetchImpl')?['fetchImpl']:[]),fetchImpl=Object.hasOwn(supplied,'fetchImpl')?supplied.fetchImpl:globalThis.fetch;
   if(typeof fetchImpl!=='function')refuse();
   const pinned=new URL(IDENTITY_URL);if(pinned.protocol!=='https:'||pinned.username||pinned.password||pinned.port||pinned.hash||pinned.href!==IDENTITY_URL)refuse();
@@ -98,7 +119,7 @@ async function verifyCredential(input,options,master,storedMaster=false){
    }
    if(length!==null&&Number(length)!==bytes)refuse();
    const body=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));
-   const identity=JSON.parse(body),proof=verifyIdentity(identity,expected,master,storedMaster);if(expired())refuse();return proof;
+   const identity=JSON.parse(body),proof=originalBearer?originalCampaignIdentity(identity):verifyIdentity(identity,expected,master,storedMaster);if(expired())refuse();return proof;
   })();
   const proof=await Promise.race([work,deadline]);if(expired())refuse();return proof;
  }catch{try{controller?.abort();}catch{}throw new CampaignWriterAttestationError();}
@@ -109,4 +130,5 @@ async function verifyCredential(input,options,master,storedMaster=false){
 const verifyCampaignWriterCredential=(input,options={})=>verifyCredential(input,options,false);
 const verifyMasterCampaignWriterCredential=(input,options={})=>verifyCredential(input,options,true);
 const verifyStoredMasterCampaignWriterCredential=(input,options={})=>verifyCredential(input,options,true,true);
-module.exports={verifyCampaignWriterCredential,verifyMasterCampaignWriterCredential,verifyStoredMasterCampaignWriterCredential,CampaignWriterAttestationError,IDENTITY_URL,MAX_RESPONSE_BYTES,TIMEOUT_MS};
+const verifyOriginalCampaignBearer=(input,options={})=>verifyCredential(input,options,false,false,true);
+module.exports={verifyCampaignWriterCredential,verifyMasterCampaignWriterCredential,verifyStoredMasterCampaignWriterCredential,verifyOriginalCampaignBearer,CampaignWriterAttestationError,IDENTITY_URL,MAX_RESPONSE_BYTES,TIMEOUT_MS};

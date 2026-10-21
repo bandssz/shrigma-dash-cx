@@ -109,7 +109,11 @@ function crmCampaignsCandidate(){
 const crmAudienceCatalogReady=window.ShrigmaCrmRelease?.audienceCatalog===true; // Retained catalog reader installed; Shopify source freshness remains independent.
 const crmAudienceCountReady=window.ShrigmaCrmDrafts?.availability?.audienceCount===true;
 function crmProductHeld(rule){const has=r=>r?.field==='purchase.product'||!!r?.rule&&has(r.rule)||Array.isArray(r?.rules)&&r.rules.some(has);return window.ShrigmaCrmRelease?.audienceProducts!==true&&has(rule)&&!(window.ShrigmaCrmRelease?.audienceProductPositive===true&&window.ShrigmaCrmDrafts?.productRuleAllowed(rule)===true);}
-function crmCountCell(s){const c=crmState.audienceCounts[s.id];return c?.source_confirmed===true&&c.version===s.version&&c.catalogHash===crmState.audiences?.catalog.catalog_hash?'<strong title="'+crmEsc(crmFreshness(c.checked_at))+'">'+crmNumber(c.eligible_count)+'</strong>':'<span title="'+crmEsc(c?.busy?'Contagem em andamento':c?.error||'Contagem indisponível desde esta consulta')+'">—</span>';}
+function crmCountCell(s){
+ const c=crmState.audienceCounts[s.id],checked=Date.parse(c?.checked_at);
+ if(c?.source_confirmed===true&&c.version===s.version&&c.catalogHash===crmState.audiences?.catalog.catalog_hash&&Number.isSafeInteger(c.eligible_count)&&c.eligible_count>=0&&Number.isFinite(checked)&&checked<=Date.now())return '<strong title="'+crmEsc(crmFreshness(c.checked_at))+'">'+crmNumber(c.eligible_count)+'</strong><span class="small text-secondary d-block">Estatística · '+crmEsc(crmShortWhen(c.checked_at))+'</span>';
+ return '<span title="'+crmEsc(c?.busy?'Contagem em andamento':c?.error||'Contagem indisponível desde esta consulta')+'">—</span>';
+}
 async function crmCountAudience(id){
  if(!crmAudienceCountReady)return;const d=crmState.audiences,s=d?.segments.find(s=>s.id===id),brand=crmState.brand,ticket=crmState.ticket,catalogHash=d?.catalog.catalog_hash,version=s?.version;if(!s||s.archived||crmProductHeld(s.definition?.rule)||!s.semantic_context.current||crmState.audienceCounts[id]?.busy)return;
  const pending={busy:true,version,catalogHash},same=()=>{const current=crmState.audiences?.segments.find(v=>v.id===id);return ticket===crmState.ticket&&brand===crmState.brand&&crmState.audiences?.catalog.catalog_hash===catalogHash&&current?.version===version&&!current.archived&&current.semantic_context?.current&&crmState.audienceCounts[id]===pending;};crmState.audienceCounts[id]=pending;crmAudiences();
