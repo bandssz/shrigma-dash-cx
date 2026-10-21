@@ -16,7 +16,7 @@ async function fixture({broken=false,recovery,terminalError=false}={}){
   for(let n=0;n<wire.length;n+=3)chunks.push(wire.subarray(n,n+3));let next=0;
   return{ok:true,headers:new Headers({'content-type':'application/x-ndjson'}),body:{getReader:()=>({read:async()=>{if(broken&&next>=Math.ceil(Buffer.byteLength(first)/3))throw new TypeError('synthetic connection reset');return next<chunks.length?{done:false,value:chunks[next++]}:{done:true};},releaseLock(){}})}};
  };
- vm.runInContext(JS,vm.createContext({document,window,location:{search:'?brand=fish',origin:'https://synthetic.invalid'},URLSearchParams,fetch:fetchImpl,TextDecoder,AbortSignal,setTimeout:resolve=>{setImmediate(resolve);return 0;}}));
+ vm.runInContext(JS,vm.createContext({document,window,location:{search:'?brand=fish',origin:'https://synthetic.invalid'},URLSearchParams,fetch:fetchImpl,TextDecoder,AbortSignal,AbortController,setTimeout:resolve=>{setImmediate(resolve);return 0;}}));
  const settle=async predicate=>{for(let n=0;n<600;n++){await new Promise(setImmediate);if(predicate())return;}throw Error('PURCHASE_UI_NOT_SETTLED');};
  await settle(()=>calls.some(x=>x.action==='products')&&!document.getElementById('refresh').disabled);
  const click=()=>document.getElementById('refresh').click(),idle=()=>settle(()=>!document.getElementById('refresh').disabled);

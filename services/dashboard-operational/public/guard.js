@@ -1,6 +1,6 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['crm-features','cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces']);
+ const ROUTES=new Set(['crm-purchases','crm-features','cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces']);
  const nativeFetch=window.fetch.bind(window);
  // A release flag is independent from WRITE permission or source capability.
  // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
@@ -171,6 +171,11 @@
    }
   }
   let body;try{body=await cleanBody(input,init,method,headers);}catch(_){return reject(415);}
+  if(route==='crm-purchases'){
+   let command;try{command=method==='GET'?Object.fromEntries(url.searchParams):JSON.parse(body);}catch{return reject(400);}
+   if(!['GET','POST'].includes(method)||method==='GET'&&(url.searchParams.size!==2||!['interface','publics','products'].includes(command.action))||method==='POST'&&(url.search||!['count','save','backfill'].includes(command.action)))return reject(400);
+   const scope=window.ShrigmaBrandAccess;if(!scope?.brands.includes(command.brand)||headers.has('X-Shrigma-View-Brand')&&headers.get('X-Shrigma-View-Brand')!==command.brand)return reject();headers.set('X-Shrigma-View-Brand',command.brand);
+  }
   if(route==='segments'&&method==='POST'&&!crmRelease.audienceUpdates){
    let command;try{command=JSON.parse(body);}catch{return reject(400);}
    if(['segmento_salvar','segmento_arquivar'].includes(command?.acao))return new Response(JSON.stringify({error:'CRM_OPERATION_COMING_SOON'}),{status:403,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});

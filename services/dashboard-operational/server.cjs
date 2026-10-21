@@ -940,6 +940,21 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const browserReadOrigin=req.method==='GET'&&req.headers.origin===undefined&&req.headers['sec-fetch-site']==='same-origin'&&['cors','same-origin'].includes(req.headers['sec-fetch-mode'])&&req.headers['sec-fetch-dest']==='empty'&&typeof req.headers['x-csrf-token']==='string'?origin:undefined;
       if(!nativeContext&&nativeMcp&&await nativeMcp.handle(req,res,url))return;
       const ctx=nativeContext||{cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
+      if(url.pathname==='/app/crm/purchase-audiences.js'){
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET'||url.search)throw jsonError(404,'NOT_FOUND');
+        auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});
+        res.setHeader('Content-Type','text/javascript; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(require('./crm-paid-facts-ui.cjs').WORKSPACE_JS);return;
+      }
+      if(url.pathname==='/api/crm-purchases'){
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext)throw jsonError(404,'NOT_FOUND');
+        let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
+        paidFacts.authorize(ctx,q.brand,req.method==='POST'&&q.action!=='count',true);
+        if(req.method==='GET'&&q.action==='interface')return sendJson(req,res,200,{brand:q.brand,html:require('./crm-paid-facts-ui.cjs').FRAGMENT});
+        if(req.method==='GET'&&['publics','products'].includes(q.action)){const result=await paidFacts[q.action](ctx,q.brand,true);paidFacts.authorize(ctx,q.brand,false,true);return sendJson(req,res,200,result);}
+        if(req.method==='POST'&&q.action==='backfill'&&q.progress===true)return require('./crm-paid-facts.cjs').streamBackfill(res,onProgress=>paidFacts.backfill(ctx,q.brand,q.days,{onProgress,workspace:true}));
+        if(req.method==='POST'&&['count','save'].includes(q.action)){const result=await paidFacts[q.action](ctx,q.brand,q,true);paidFacts.authorize(ctx,q.brand,q.action==='save',true);return sendJson(req,res,200,result);}
+        throw jsonError(400,'PAID_FACTS_ACTION_INVALID');
+      }
       if(url.pathname==='/api/crm-restricted/compras'||['/app/crm/restrito/compras/','/app/crm/restrito/compras.js'].includes(url.pathname)){
         if(!paidFacts||host!==s.areaHosts.growth||nativeContext)throw jsonError(404,'NOT_FOUND');
         if(url.pathname!=='/api/crm-restricted/compras'){
