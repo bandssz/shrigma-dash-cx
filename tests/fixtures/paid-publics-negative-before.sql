@@ -1,0 +1,4 @@
+WITH buyers AS (SELECT DISTINCT paid_fact->>'customerId' customer_id FROM public.crm_attribution_order_v2 WHERE brand=$1 AND paid_fact->>'financialStatus'='paid' AND (paid_fact->>'createdAt')>=$2 AND (paid_fact->>'createdAt')<$3 AND ($5::boolean OR paid_fact->>'test'='false') AND ($4::text IS NULL OR EXISTS(SELECT 1 FROM jsonb_array_elements(paid_fact->'products') p WHERE p->>'productId'=$4)))
+ SELECT count(DISTINCT s.id)::int count FROM crm_audience_v2.shopify_identity i JOIN public.subscribers s ON s.id=i.subscriber_id AND s.uuid=i.subscriber_uuid JOIN public.subscriber_lists sl ON sl.subscriber_id=s.id AND sl.list_id=$6 JOIN public.lists l ON l.id=sl.list_id
+ WHERE i.brand=$1 AND s.status='enabled' AND sl.status<>'unsubscribed' AND (l.optin='single' OR sl.status='confirmed') AND l.status='active' AND
+ NOT EXISTS(SELECT 1 FROM buyers b WHERE b.customer_id=i.customer_gid)
