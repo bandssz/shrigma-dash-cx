@@ -1,0 +1,20 @@
+name: Shrigma connector API rotation
+on:
+  push:
+    branches: [codex/crm-api-rotation-20261021]
+permissions:
+  contents: read
+jobs:
+  connector-image:
+    if: startsWith(github.event.head_commit.message, 'affiliate-read:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Build the actual Node24 connector image
+        run: docker build --platform linux/amd64 --tag shrigma-connector-rotation:qa ops/releases/connector-crm20/source
+      - name: Prove credential replacement and existing CRM and OAuth in UID1000 image
+        run: docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,nosuid,mode=1777,size=128m --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/connector-crm20/source/test,dst=/app/test,readonly" shrigma-connector-rotation:qa node --test test/admin.test.mjs test/crm.test.mjs test/oauth.test.mjs

@@ -43,6 +43,24 @@ export function mountAdmin(app,{store,secret,config,service,json}){
     const user=store.addUser({login:a.login.toLowerCase(),brand:a.brand,passwordHash:await hashPassword(a.password),credential,...binding});
     a.token='';a.password='';credential.token='';return{analyst:sanitizeUser(user)};
   }));
+  app.post('/owner/analyst-credential',json,action(async raw=>{
+    const p=z.strictObject({id:z.uuid(),apiUserId:z.number().int().min(2),username:z.string().min(1).max(100),token:z.string().min(16).max(512)}).parse(raw);
+    const user=store.user(p.id);
+    if(!user?.active||user.crm===true)deny('API_ANALYST_REQUIRED','Selecione a identidade API ativa existente.');
+    const credential={username:p.username,token:p.token},candidate={...user,apiUserId:p.apiUserId};
+    const client=new Listmonk({origin:config.upstream,environment:config.environment,credentials:()=>({...credential})});
+    await client.verify(candidate);
+    const previous=new Listmonk({origin:config.upstream,environment:config.environment,credentials:()=>store.credentials(p.id)});
+    const before=await previous.get('/api/profile'),after=await client.get('/api/profile');
+    if(canonical(before.user_role)!==canonical(after.user_role)||canonical(before.list_role)!==canonical(after.list_role))deny('API_ROLE_CHANGED','A nova chave precisa conservar os mesmos papéis e listas.');
+    const row=store.db.prepare('SELECT config FROM analysts WHERE id=? AND active=1').get(p.id),binding=JSON.parse(row.config);
+    binding.apiUserId=p.apiUserId;
+    store.tx(()=>{
+      store.db.prepare('UPDATE analysts SET config=?,credential=? WHERE id=? AND active=1').run(canonical(binding),store.seal(credential,p.id),p.id);
+      store.audit('administrator',user.brand,'analyst_credential_update',null,'succeeded',{analystId:p.id,previousApiUserId:user.apiUserId,apiUserId:p.apiUserId});
+    });
+    p.token='';credential.token='';return{analyst:sanitizeUser(store.user(p.id)),credential_updated:true};
+  }));
   app.post('/owner/crm-analysts',json,action(async raw=>{
     const a=z.strictObject({login:z.email(),brand:z.enum(['aristo','fish'])}).parse(raw);
     // This sprint enrolls only the two existing QA editor identities. Their
