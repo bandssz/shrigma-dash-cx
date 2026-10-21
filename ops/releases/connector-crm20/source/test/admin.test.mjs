@@ -6,7 +6,7 @@ import path from 'node:path';
 import crypto,{randomBytes} from 'node:crypto';
 import {initialize,open} from '../src/config.mjs';
 import {buildApp} from '../src/server.mjs';
-import {fixturePolicy,createFixture,fakeProfile} from './fixture.mjs';
+import {fixturePolicy,createFixture,fakeProfile} from '../src/test-fixture.mjs';
 
 test('admin cria identidade individual, recusa reuso e revoga sem expor chave',async t=>{
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mcp-admin-')),owner=randomBytes(32).toString('base64url'),fixture=createFixture(),upstream=await fixture.listen();
