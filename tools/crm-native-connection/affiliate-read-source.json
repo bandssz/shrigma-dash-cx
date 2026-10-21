@@ -31,7 +31,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 47358,
-      "sha256": "4e923e13cd8c72a8041eb4f671cbcf4c8e0e3873b5522275841458dacefe3a85"
+      "sha256": "0bd73ce0774178b1eb5ecf79d1ca6cd982dd30055c72d203d1daffa752f41750"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
