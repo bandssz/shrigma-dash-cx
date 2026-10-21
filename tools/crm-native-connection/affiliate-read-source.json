@@ -2960,8 +2960,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 15194,
-      "sha256": "e83c51f970d4870e04ac32d0a5df21eb150d8f55493f1f62e950bd22db725849"
+      "bytes": 15580,
+      "sha256": "a70a7c0552962da808591fe25904ed60ed384eca7f5c50719763c0708c77dc7b"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-store.cjs",
