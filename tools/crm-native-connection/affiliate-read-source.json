@@ -2720,8 +2720,8 @@
     },
     {
       "path": "tests/simple-crm-native-direct-ui.test.cjs",
-      "bytes": 13351,
-      "sha256": "d174717d1d5e5dae1b858debca2f0bcd30ff2b72bcc7550da43cf3f88d29e8ae"
+      "bytes": 13376,
+      "sha256": "c661cc1e9830f42cf810e7d01dce6b39aef0badb196a96b2b03b2b041b922279"
     },
     {
       "path": "tests/simple-crm-native-direct.test.cjs",

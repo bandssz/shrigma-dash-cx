@@ -22,7 +22,7 @@ async function fixture(brand,{lost=false,pages=false,countLost=false,recipientCo
   }
  };
  const feature=key=>['campaignAdvanced','campaignScheduleSummary',...(importing?['campaignJsonImport']:[])].includes(key);
- window.ShrigmaCrmCampaignImport=require(runtime+'/public/crm-preview/campaign-import.js');window.ShrigmaCrmFeatureEnabled=feature;window.ShrigmaCrmModels={isolate:html=>html};
+ window.ShrigmaCrmCampaignImport=require('../services/dashboard-operational/public/crm-preview/campaign-import.js');window.ShrigmaCrmFeatureEnabled=feature;window.ShrigmaCrmModels={isolate:html=>html};
  vm.runInContext(source,vm.createContext({window,document,sessionStorage:{getItem:k=>{storage.push(['get',k]);return null;},setItem:(...v)=>storage.push(['set',...v]),removeItem:k=>storage.push(['remove',k])},crypto:crypto.webcrypto,URLSearchParams,Intl,Date,DOMParser:window.DOMParser,Uint8Array,TextDecoder,TextEncoder}));
  const editor=window.ShrigmaCrmDrafts.create({feature,availability:{audienceCount:true},state:()=>state,read,session:async()=>({authenticated:true,user:{id:'ordinary-editor',email:'editor-qa-'+brand+'@shrigma.com.br',role:'manager',permissions:{growth:{read:true,edit:true}},productWriteFronts:['growth']}}),esc:v=>String(v??'').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'),when:String,number:String,reload:()=>{},campaignSelected:id=>state.campaignId=id});
  const settle=async predicate=>{for(let i=0;i<500;i++){await new Promise(setImmediate);if(predicate()){await new Promise(setImmediate);return;}}throw Error('UI_NOT_SETTLED');};
