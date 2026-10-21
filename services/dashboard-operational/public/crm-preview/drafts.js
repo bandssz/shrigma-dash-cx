@@ -402,7 +402,7 @@ async function sendCampaignTestBaseline(){if(!release.internalTest||dirty||pendi
  function renderDirectWhen(host,editable){
   const heading=host.querySelector('h3');host.replaceChildren(...(heading?[heading]:[]));const label=document.createElement('label');label.className='form-label';label.htmlFor='native-send-at';label.textContent='Horário de envio · Brasília';const field=document.createElement('input');field.id='native-send-at';field.type='datetime-local';field.className='form-control mb-3';field.readOnly=!editable;
   if(campaign?.send_at){const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(campaign.send_at)).map(p=>[p.type,p.value]));field.value=parts.year+'-'+parts.month+'-'+parts.day+'T'+parts.hour+':'+parts.minute;}
-  const hint=document.createElement('p');hint.className='form-hint';hint.textContent='Salvar rascunho guarda este horário. O envio começa somente depois de Agendar.';host.append(label,field,hint);
+  const hint=document.createElement('p');hint.className='form-hint';hint.textContent='Agende entre 20 minutos e 7 dias à frente. Salvar rascunho guarda este horário. O envio começa somente depois de Agendar.';host.append(label,field,hint);
  }
  function baseRule(rule){if(rule?.op==='and'&&rule.rules?.length===1)return baseRule(rule.rules[0]);return rule?.op==='in_list'&&rule.list_id===(scope.brand==='aristo'?16:17)?rule.list_id:null;}
  function renderDirectAudience(host){
