@@ -122,6 +122,7 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  async function subscribe(context,brand){authorize(context,brand,true);const uri='https://crm.shrigma.com.br/webhooks/shopify/orders-paid',existing=await subscriptions(context,brand),same=existing.filter(x=>x.uri===uri);if(same.length)return {brand,existing:true,subscriptions:same};const d=await graphql(brand,WEBHOOK_CREATE,{input:{uri,format:'JSON'}}),r=d.webhookSubscriptionCreate;if(r.userErrors?.length||!r.webhookSubscription)fail('PAID_FACTS_SUBSCRIPTION_REFUSED',409);return {brand,existing:false,subscription:r.webhookSubscription};}
  const origin=require('./crm-paid-acquisition-service.cjs').create({authorize,database,graphql:(brand,q,v)=>require('./crm-paid-acquisition.cjs').pacedRead(()=>graphql(brand,q,v,{withCost:true})),now,openBackup:brand=>require('./crm-paid-acquisition-backup.cjs').open(backupDirectory,brand)});
  const acquisitionBackup=async(context,brand,input)=>{authorize(context,brand);const result=await require('./crm-paid-acquisition-backup.cjs').read(backupDirectory,brand,input.name,input.offset??0);authorize(context,brand);return result;};
- return {ingest,status,publics,products,count,save,backfill,subscribe,subscriptions,authorize,acquisitionBackup,...origin};
+ const acquisitionBackupFile=(context,brand,input)=>require('./crm-paid-acquisition-backup.cjs').file(backupDirectory,brand,input.name,()=>authorize(context,brand));
+ return {ingest,status,publics,products,count,save,backfill,subscribe,subscriptions,authorize,acquisitionBackup,acquisitionBackupFile,...origin};
 }
 module.exports={create,streamBackfill,canUse,fromGraphql,period,rule,audienceSql,UPSERT,ORDERS_QUERY,ITEMS_QUERY,WEBHOOKS_QUERY,WEBHOOK_CREATE,WEBHOOK_DELETE};

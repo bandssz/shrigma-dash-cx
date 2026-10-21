@@ -21,6 +21,7 @@ function create({authorize,database,graphql,openBackup,now=Date.now}){
   authorize(context,brand,true);const p=range(now()),selected=ids(input.ids);if(typeof openBackup!=='function')fail('PAID_ACQUISITION_BACKUP_UNAVAILABLE');
   const backup=openBackup(brand);let after='',pages=0,orders=0,stored=0,skipped=0,complete=0,incomplete=0;
   try{
+   onProgress({brand,...p,backup:backup.name,pages,orders,stored,skipped,complete,incomplete});
    for(;;){
     authorize(context,brand,true);const rows=await database(async c=>(await c.query(SELECT,[brand,p.from,p.until,after,selected])).rows);if(!rows.length)break;
     if(++pages>5000)fail('PAID_ACQUISITION_RANGE_TOO_LARGE');
@@ -44,7 +45,7 @@ function create({authorize,database,graphql,openBackup,now=Date.now}){
      for(const {row,value}of writes){const result=await c.query(UPDATE,[brand,row.order_id,JSON.stringify(value),row.base_hash,JSON.stringify(row.prior_acquisition??null)]);if(result.rowCount===1){stored++;if(value.journey.complete)complete++;}else skipped++;}
      authorize(context,brand,true);
     },true);
-    after=rows.at(-1).order_id;onProgress({brand,...p,pages,orders,stored,skipped,complete,incomplete});
+    after=rows.at(-1).order_id;onProgress({brand,...p,backup:backup.name,pages,orders,stored,skipped,complete,incomplete});
    }
    authorize(context,brand,true);return {ok:true,brand,period:p,pages,orders,stored,skipped,complete,incomplete,backup:backup.name,checkedAt:new Date(now()).toISOString()};
   }finally{backup.close();}

@@ -963,6 +963,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }
         let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
         paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&q.action==='acquisition-backup-file'){
+          const file=paidFacts.acquisitionBackupFile(ctx,q.brand,{name:q.name});
+          res.writeHead(200,{'Content-Type':'application/x-ndjson','Content-Disposition':'attachment; filename="'+file.name+'"','Content-Length':String(file.size),'Cache-Control':'no-store'});
+          require('node:stream').pipeline(file.stream,res,()=>{});return;
+        }
         if(req.method==='GET'&&q.action==='acquisition-backup')return sendJson(req,res,200,await paidFacts.acquisitionBackup(ctx,q.brand,{name:q.name,offset:Number(q.offset||0)}));
         if(req.method==='GET'&&q.action==='acquisition')return sendJson(req,res,200,await paidFacts.acquisition(ctx,q.brand,q.ids?{ids:JSON.parse(q.ids)}:{}));
         if(req.method==='POST'&&q.action==='enrich'&&q.progress===true)return require('./crm-paid-facts.cjs').streamBackfill(res,onProgress=>paidFacts.enrich(ctx,q.brand,q,onProgress));

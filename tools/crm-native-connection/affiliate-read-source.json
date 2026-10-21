@@ -31,7 +31,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 48223,
-      "sha256": "1df2eabcf16cb47701e2b56ce91e9ad87d83e1a0d7642568f987ad4bd90ea3b1"
+      "sha256": "53ac24555baf1f4f3800ec4a4483988aeceb53156a24419f662152028bfabaa6"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1700,13 +1700,13 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition-backup.cjs",
-      "bytes": 3341,
-      "sha256": "b900374cee143bfa04243466a451d0dcc899a7fdd128d04af68636f34ec8fe07"
+      "bytes": 4756,
+      "sha256": "acca441237591c5cd0002e28218217f9198d633eb7af72641cb25e79ac838517"
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition-service.cjs",
-      "bytes": 5868,
-      "sha256": "4b5899bac4f6183120a429fc7d098accf6e3576e93217401364ea6cc48034955"
+      "bytes": 5983,
+      "sha256": "0c53277666fa9832e2e970f66f7424c3a92152c32e2a6c258cb51cfd47d93118"
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition-ui.cjs",
@@ -1730,8 +1730,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 18786,
-      "sha256": "c9909a79b2dfb2324a65e37529bf74d789ca3c238e184a5e38e59b5882157683"
+      "bytes": 18974,
+      "sha256": "cc441312de7fe01c77b4569df862ab5d02f3c591b11f51653b39a8ce555a22b9"
     },
     {
       "path": "services/dashboard-operational/crm-payload-shape.cjs",
@@ -2080,8 +2080,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 232700,
-      "sha256": "e3cc255ba1bc6f0c92111c0943ae7991b6d62c768afeb955b64f5070e88bd56d"
+      "bytes": 233128,
+      "sha256": "1d4253d7918ddb29bd86c971fa1ae2e647f4130ae0ca646e73a1bcd2d0989ac6"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2455,8 +2455,8 @@
     },
     {
       "path": "tests/crm-paid-acquisition.test.cjs",
-      "bytes": 12310,
-      "sha256": "b1b88bea98ee0cddc8e3d08b4994c237d5a51e95d99afc8de617c003888b94e9"
+      "bytes": 15561,
+      "sha256": "d9409b772cde8d6cf47aa5f8420687170cc023aa440a56afcec8f4063de30c04"
     },
     {
       "path": "tests/crm-paid-facts-ui.test.cjs",
