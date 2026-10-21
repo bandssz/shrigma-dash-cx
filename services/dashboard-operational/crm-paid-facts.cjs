@@ -91,9 +91,9 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
   if(r.status!==200)fail('PAID_FACTS_SHOPIFY_AUTH_UNAVAILABLE',503);const v=await r.json();if(typeof v.access_token!=='string'||!Number.isFinite(v.expires_in))fail('PAID_FACTS_SHOPIFY_AUTH_UNAVAILABLE',503);
   const value={value:v.access_token,until:now()+v.expires_in*1000,scopes:String(v.scope||'').split(/[ ,]+/)};tokens.set(brand,value);return value;
  }
- async function graphql(brand,query,variables){
+ async function graphql(brand,query,variables,{withCost=false}={}){
   const c=cfg().brands[brand],t=await token(brand),r=await fetchImpl('https://'+c.shop+'/admin/api/2026-10/graphql.json',{method:'POST',redirect:'error',signal:AbortSignal.timeout(30000),headers:{'Content-Type':'application/json','X-Shopify-Access-Token':t.value},body:JSON.stringify({query,variables})});
-  if(r.status!==200)fail('PAID_FACTS_SHOPIFY_UNAVAILABLE',503);const text=await r.text();if(text.length>4*1024*1024)fail('PAID_FACTS_SHOPIFY_RESPONSE_TOO_LARGE',503);const v=JSON.parse(text);if(v.errors?.length)fail('PAID_FACTS_SHOPIFY_QUERY_REFUSED',503);return v.data;
+  if(r.status!==200)fail('PAID_FACTS_SHOPIFY_UNAVAILABLE',503);const text=await r.text();if(text.length>4*1024*1024)fail('PAID_FACTS_SHOPIFY_RESPONSE_TOO_LARGE',503);const v=JSON.parse(text);if(v.errors?.length&&!withCost)fail('PAID_FACTS_SHOPIFY_QUERY_REFUSED',503);return withCost?v:v.data;
  }
  async function ingest(rawBody,headers){const fact=verifyPaidOrder({rawBody,headers,shops:cfg().shops,receivedAt:new Date(now()).toISOString()});const changed=await database(async c=>(await c.query(UPSERT,[fact.brand,fact.orderId,JSON.stringify(fact)])).rowCount,true);return {ok:true,brand:fact.brand,orderId:fact.orderId,stored:changed===1};}
  async function status(context,brand){authorize(context,brand);return database(async c=>{
@@ -120,7 +120,7 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  }
  async function subscriptions(context,brand){authorize(context,brand);const rows=[];let after=null;do{const d=await graphql(brand,WEBHOOKS_QUERY,{after}),v=d.webhookSubscriptions;rows.push(...v.nodes);after=v.pageInfo.hasNextPage?v.pageInfo.endCursor:null;if(rows.length>500)fail('PAID_FACTS_SUBSCRIPTIONS_UNAVAILABLE',503);}while(after);return rows;}
  async function subscribe(context,brand){authorize(context,brand,true);const uri='https://crm.shrigma.com.br/webhooks/shopify/orders-paid',existing=await subscriptions(context,brand),same=existing.filter(x=>x.uri===uri);if(same.length)return {brand,existing:true,subscriptions:same};const d=await graphql(brand,WEBHOOK_CREATE,{input:{uri,format:'JSON'}}),r=d.webhookSubscriptionCreate;if(r.userErrors?.length||!r.webhookSubscription)fail('PAID_FACTS_SUBSCRIPTION_REFUSED',409);return {brand,existing:false,subscription:r.webhookSubscription};}
- const origin=require('./crm-paid-acquisition-service.cjs').create({authorize,database,graphql,now,openBackup:brand=>require('./crm-paid-acquisition-backup.cjs').open(backupDirectory,brand)});
+ const origin=require('./crm-paid-acquisition-service.cjs').create({authorize,database,graphql:(brand,q,v)=>require('./crm-paid-acquisition.cjs').pacedRead(()=>graphql(brand,q,v,{withCost:true})),now,openBackup:brand=>require('./crm-paid-acquisition-backup.cjs').open(backupDirectory,brand)});
  const acquisitionBackup=async(context,brand,input)=>{authorize(context,brand);const result=await require('./crm-paid-acquisition-backup.cjs').read(backupDirectory,brand,input.name,input.offset??0);authorize(context,brand);return result;};
  return {ingest,status,publics,products,count,save,backfill,subscribe,subscriptions,authorize,acquisitionBackup,...origin};
 }

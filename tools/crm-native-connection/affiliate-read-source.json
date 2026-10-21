@@ -1715,8 +1715,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition.cjs",
-      "bytes": 7171,
-      "sha256": "f01f2266a9ec2340df3b610163db37e08ecc5f4e42bf10c2d288d5653b04df7a"
+      "bytes": 8434,
+      "sha256": "93d4dccb0b482060c396083e28028f7a70fb92df06ce30e86c02d8f4aa9ea49d"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-store.cjs",
@@ -1730,8 +1730,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 18643,
-      "sha256": "71392d0b9824927a82aa6b6f76ad5cb28c2504dca711275f13f19092900cd537"
+      "bytes": 18786,
+      "sha256": "c9909a79b2dfb2324a65e37529bf74d789ca3c238e184a5e38e59b5882157683"
     },
     {
       "path": "services/dashboard-operational/crm-payload-shape.cjs",
@@ -2455,8 +2455,8 @@
     },
     {
       "path": "tests/crm-paid-acquisition.test.cjs",
-      "bytes": 10927,
-      "sha256": "5b13e865bc90554b915032e9dee62c016711012b658d9cd1c88dfa52e9f57d17"
+      "bytes": 12310,
+      "sha256": "b1b88bea98ee0cddc8e3d08b4994c237d5a51e95d99afc8de617c003888b94e9"
     },
     {
       "path": "tests/crm-paid-facts-ui.test.cjs",

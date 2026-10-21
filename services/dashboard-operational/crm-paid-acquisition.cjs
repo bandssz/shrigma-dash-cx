@@ -52,4 +52,19 @@ async function completeJourney(order,{read,shop,maxPages=40}){
  if(expected!==null&&expected!==j.moments.nodes.length)return {order:current,complete:false,reason:'count_mismatch'};
  return {order:current,complete:true,reason:null};
 }
-module.exports={ORDERS_QUERY,MOMENTS_QUERY,UTMS,POLICY,acquisition,completeJourney,classify,webhook};
+// Follow the app/store budget returned by Shopify. Only these read-only
+// metadata queries use this path; permission errors and mutations never retry.
+async function pacedRead(send,{sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={}){
+ const refuse=()=>{throw Object.assign(Error('PAID_ACQUISITION_SOURCE_UNAVAILABLE'),{code:'PAID_ACQUISITION_SOURCE_UNAVAILABLE',status:503});};
+ for(let attempt=0;attempt<3;attempt++){
+  const value=await send(),cost=value?.extensions?.cost,budget=cost?.throttleStatus;
+  const known=Number.isFinite(cost?.requestedQueryCost)&&cost.requestedQueryCost>=0&&Number.isFinite(budget?.currentlyAvailable)&&budget.currentlyAvailable>=0&&Number.isFinite(budget?.restoreRate)&&budget.restoreRate>0;
+  if(known&&Number.isFinite(budget.maximumAvailable)&&cost.requestedQueryCost>budget.maximumAvailable)refuse();
+  const wait=known?Math.max(0,Math.ceil((cost.requestedQueryCost-budget.currentlyAvailable)*1000/budget.restoreRate)):0;
+  if(wait>30000)refuse();
+  if(value?.errors?.length){if(!known||!value.errors.every(e=>e.extensions?.code==='THROTTLED')||attempt===2)refuse();await sleep(Math.max(100,wait+100));continue;}
+  if(!value?.data)refuse();if(wait>0)await sleep(wait+100);return value.data;
+ }
+ refuse();
+}
+module.exports={ORDERS_QUERY,MOMENTS_QUERY,UTMS,POLICY,acquisition,completeJourney,classify,webhook,pacedRead};
