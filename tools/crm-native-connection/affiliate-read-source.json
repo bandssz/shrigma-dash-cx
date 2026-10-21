@@ -31,7 +31,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 47787,
-      "sha256": "747876d890c9f9ed91db8d8308fab45125e9c07d8c5aa580c00b43affcacb16e"
+      "sha256": "78bc09155306fe247a29a1d94d72e4a68cb0091dc77b60b0e50310c09fbde2e2"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -2960,8 +2960,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 15580,
-      "sha256": "a70a7c0552962da808591fe25904ed60ed384eca7f5c50719763c0708c77dc7b"
+      "bytes": 15612,
+      "sha256": "7d14c49295fdbfef8c0091adcced719461e8b32061513dc071654919acacd7fd"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-store.cjs",
