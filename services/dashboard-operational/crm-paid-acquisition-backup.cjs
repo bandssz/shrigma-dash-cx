@@ -4,9 +4,9 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 function open(directory,brand){
  if(typeof directory!=='string'||!path.isAbsolute(directory)||!['aristo','fish'].includes(brand))throw Object.assign(Error('PAID_ACQUISITION_BACKUP_UNAVAILABLE'),{code:'PAID_ACQUISITION_BACKUP_UNAVAILABLE',status:503});
  fs.mkdirSync(directory,{recursive:true,mode:0o700});const st=fs.lstatSync(directory);if(!st.isDirectory()||st.isSymbolicLink()||(st.mode&0o077))throw Error('PAID_ACQUISITION_BACKUP_UNAVAILABLE');
- const name=brand+'-'+crypto.randomUUID()+'.jsonl',fd=fs.openSync(path.join(directory,name),fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);let closed=false;
+ const name=brand+'-'+crypto.randomUUID()+'.jsonl',fd=fs.openSync(path.join(directory,name),fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);let closed=false,bytes=0;
  const directoryFd=fs.openSync(directory,fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);try{fs.fsyncSync(directoryFd);}finally{fs.closeSync(directoryFd);}
- return {name,append(rows){if(closed)throw Error('PAID_ACQUISITION_BACKUP_CLOSED');for(const row of rows)fs.writeFileSync(fd,JSON.stringify(row)+'\n');fs.fsyncSync(fd);},close(){if(!closed){closed=true;fs.closeSync(fd);}}};
+ return {name,append(rows){if(closed)throw Error('PAID_ACQUISITION_BACKUP_CLOSED');for(const row of rows){const line=JSON.stringify(row),size=Buffer.byteLength(line);if(size>4*1024*1024||bytes+size+1>1024*1024*1024)throw Object.assign(Error('PAID_ACQUISITION_BACKUP_LIMIT'),{code:'PAID_ACQUISITION_BACKUP_LIMIT',status:409});fs.writeFileSync(fd,line+'\n');bytes+=size+1;}fs.fsyncSync(fd);},close(){if(!closed){closed=true;fs.closeSync(fd);}}};
 }
 function rollback(row){
  if(!['aristo','fish'].includes(row?.brand)||!/^gid:\/\/shopify\/Order\/[1-9][0-9]{0,19}$/.test(row?.orderId)||!row.after||row.after.schema!=='crm-shopify-acquisition-v1')throw Error('PAID_ACQUISITION_BACKUP_INVALID');
@@ -16,7 +16,7 @@ async function read(directory,brand,name,offset=0){
  if(typeof directory!=='string'||!path.isAbsolute(directory)||!['aristo','fish'].includes(brand)||typeof name!=='string'||!new RegExp('^'+brand+'-[a-f0-9-]{36}\\.jsonl$').test(name)||!Number.isSafeInteger(offset)||offset<0||offset>50000)throw Error('PAID_ACQUISITION_BACKUP_INVALID');
  const fd=fs.openSync(path.join(directory,name),fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);const st=fs.fstatSync(fd);if(!st.isFile()||(st.mode&0o077)||st.size>1024*1024*1024){fs.closeSync(fd);throw Error('PAID_ACQUISITION_BACKUP_INVALID');}
  const stream=fs.createReadStream(null,{fd,autoClose:true}),lines=require('node:readline').createInterface({input:stream,crlfDelay:Infinity});let at=0,bytes=0,more=false;const rows=[];
- try{for await(const line of lines){if(at++<offset)continue;if(rows.length===10){more=true;break;}bytes+=Buffer.byteLength(line);if(bytes>4*1024*1024)throw Error('PAID_ACQUISITION_BACKUP_LIMIT');const row=JSON.parse(line);if(row.brand!==brand)throw Error('PAID_ACQUISITION_BACKUP_INVALID');rows.push(row);}}finally{lines.close();stream.destroy();}
+ try{for await(const line of lines){if(at++<offset)continue;const size=Buffer.byteLength(line);if(size>4*1024*1024)throw Error('PAID_ACQUISITION_BACKUP_LIMIT');if(rows.length===10||bytes+size>4*1024*1024){more=true;break;}bytes+=size;const row=JSON.parse(line);if(row.brand!==brand)throw Error('PAID_ACQUISITION_BACKUP_INVALID');rows.push(row);}}finally{lines.close();stream.destroy();}
  return {brand,name,rows,more,nextOffset:offset+rows.length};
 }
 module.exports={open,rollback,read};

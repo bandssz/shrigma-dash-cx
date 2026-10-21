@@ -31,7 +31,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 48223,
-      "sha256": "31ff7c2a8d21cbc82adef327c8c91b9bd9cc0a016e39fb8477d39db85aeac24f"
+      "sha256": "1df2eabcf16cb47701e2b56ce91e9ad87d83e1a0d7642568f987ad4bd90ea3b1"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1700,8 +1700,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition-backup.cjs",
-      "bytes": 3074,
-      "sha256": "650c3d21dc85c16b5d12fa434a9344740f6a7fe17347353b889a729a0ebbb7d0"
+      "bytes": 3341,
+      "sha256": "b900374cee143bfa04243466a451d0dcc899a7fdd128d04af68636f34ec8fe07"
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition-service.cjs",
@@ -2455,8 +2455,8 @@
     },
     {
       "path": "tests/crm-paid-acquisition.test.cjs",
-      "bytes": 9472,
-      "sha256": "9c61b921b644a5c4a7669433b3cd72cf2ad57e9f54096cf88324c181b9d264f2"
+      "bytes": 10927,
+      "sha256": "5b13e865bc90554b915032e9dee62c016711012b658d9cd1c88dfa52e9f57d17"
     },
     {
       "path": "tests/crm-paid-facts-ui.test.cjs",
