@@ -117,7 +117,7 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   if(!require('./campaign-editorial-policy.cjs').review({html:d.html,text:d.text||'',brand,campaign:d.utm_campaign}).ok)throw error(400,'CAMPAIGN_CONTENT_INVALID');
   const headers=(q.headers||[]).map(h=>Object.fromEntries(Object.entries(h).filter(([k])=>k.toLowerCase()!=='reply-to'&&(q.acao!=='campanha_teste'||!['to','cc','bcc'].includes(k.toLowerCase()))))).filter(h=>Object.keys(h).length);headers.push({'Reply-To':d.reply_to});
   const tracked=require('./campaign-write-tracking.js').prepareNative({status:'draft',sent:0,started_at:null,content_type:'html',lists:d.list_ids,body:d.html,altbody:d.text||''},{brand,campaign:d.utm_campaign||'campanha'});
-  return {name:d.name.trim(),subject:d.subject,from_email:d.from_email,body:tracked.body,altbody:tracked.altbody,content_type:'html',type:'regular',messenger:'email',lists:d.list_ids,template_id:d.template_id,headers,tags:d.tags||[],send_at:d.send_at??null,media:q.media||[],attribs:{...(q.attribs||{}),shrigma:{...(q.attribs?.shrigma||{}),brand,initiative:d.initiative,utm_campaign:d.utm_campaign,audience_id:q.audience_id??q.attribs?.shrigma?.audience_id??null,audience_name:q.audience_name??q.attribs?.shrigma?.audience_name??null}}};
+  return {name:d.name.trim(),subject:d.subject,from_email:d.from_email,body:tracked.body,altbody:tracked.altbody,content_type:'html',type:'regular',messenger:'email',lists:d.list_ids,...(d.template_id===null?{}:{template_id:d.template_id}),headers,tags:d.tags||[],send_at:d.send_at??null,media:q.media||[],attribs:{...(q.attribs||{}),shrigma:{...(q.attribs?.shrigma||{}),brand,initiative:d.initiative,utm_campaign:d.utm_campaign,audience_id:q.audience_id??q.attribs?.shrigma?.audience_id??null,audience_name:q.audience_name??q.attribs?.shrigma?.audience_name??null}}};
  }
  async function request(brand,method,path,body){
   const secret=binding(brand);let r;
@@ -138,9 +138,9 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
    const data=await request(brand,'GET','/lists?minimal=true&per_page=all'),rows=Array.isArray(data)?data:data.results;
    if(!Array.isArray(rows))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
    const lists=rows.filter(list=>binding(brand).listIds.includes(list.id)).map(list=>({id:list.id,name:list.name,brand,available:list.status==='active'}));
-   const nativeTemplates=await request(brand,'GET','/templates?no_body=true');
-   if(!Array.isArray(nativeTemplates))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
-   const templates=nativeTemplates.filter(t=>t.is_default&&t.type==='campaign').map(t=>({id:t.id,name:t.name,brand,type:t.type,available:true}));
+   // A null layout delegates selection to Listmonk when the campaign is
+   // created. The existing campaign role does not read the template catalog.
+   const templates=[{id:null,name:'Padrão do Listmonk',brand,type:'campaign',available:true,native_default:true}];
    return {status:200,body:{brand,current:true,read_at:new Date(now()).toISOString(),lists,templates,initiatives:[]}};
   }
   if(action==='campanha_listar'){

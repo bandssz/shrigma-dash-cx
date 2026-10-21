@@ -9,13 +9,12 @@ function fixture(brand,{released=true,edit=true,fail=false,boolStatus=false}={})
  const adapter=createDirect({now:()=>now,credentials,admitted:()=>released,authorize:(_ctx,b,write)=>{a.equal(b,brand);if(write&&!edit)throw Object.assign(Error('PRODUCT_WRITE_DENIED'),{code:'PRODUCT_WRITE_DENIED',status:403});return{id:'synthetic-editor',role:'manager',permissions:{growth:{read:true,edit}}};},fetchImpl:async(url,options)=>{
   calls.push({url,method:options.method,body:options.body&&JSON.parse(options.body)});a.equal(options.headers.Authorization,'Basic '+Buffer.from(credentials[brand].username+':'+credentials[brand].token).toString('base64'));if(fail)throw Error('A private upstream error must never be returned');
   const u=new URL(url),q=calls.at(-1).body;let result;
-  if(options.method==='POST'&&u.pathname==='/api/campaigns'){const row={...q,id:700,lists:q.lists.map(id=>({id})),status:'draft',sent:0,started_at:null,updated_at:'2026-10-20T18:00:00Z'};source.set(row.id,row);result=row;}
+  if(options.method==='POST'&&u.pathname==='/api/campaigns'){const row={...q,template_id:q.template_id??1,id:700,lists:q.lists.map(id=>({id})),status:'draft',sent:0,started_at:null,updated_at:'2026-10-20T18:00:00Z'};source.set(row.id,row);result=row;}
   else if(options.method==='POST'&&u.pathname==='/api/campaigns/700/test')result=true;
   else if(options.method==='PUT'&&u.pathname==='/api/campaigns/700/status'){const row=source.get(700);row.status=q.status;result=boolStatus?true:row;}
   else if(options.method==='PUT'&&u.pathname==='/api/campaigns/700'){const row=source.get(700);Object.assign(row,q,{lists:q.lists.map(id=>({id}))});if(row.status==='scheduled'&&q.send_at===null)row.status='draft';result=row;}
   else if(options.method==='GET'&&u.pathname==='/api/campaigns/700')result=source.get(700);
   else if(options.method==='GET'&&u.pathname==='/api/lists')result={total:2,results:[{id:16,name:'Aristo',status:'active'},{id:17,name:'Fish',status:'active'}]};
-  else if(options.method==='GET'&&u.pathname==='/api/templates')result=[{id:1,name:'Default campaign template',type:'campaign',is_default:true},{id:14,name:'Outra marca transacional',type:'tx',is_default:false}];
   else throw Error('UNEXPECTED_NATIVE_CALL');
   return Response.json({data:structuredClone(result)});
  }});
@@ -59,13 +58,12 @@ test('Save preserves native attributes, attachments and ordinary headers; TEST s
 test('an unexpected native status boolean does not invent a campaign or trigger another call',async()=>{
  const f=fixture('fish',{boolStatus:true});await f.adapter.handle({},'POST',{acao:'campanha_criar',brand:'fish',definition:f.definition});await a.rejects(f.adapter.handle({},'POST',{acao:'campanha_agendar',brand:'fish',id:700,confirm:'agendar',send_at:sendAt}),e=>e.code==='LISTMONK_RESPONSE_UNCONFIRMED');a.equal(f.calls.length,3);
 });
-for(const brand of ['aristo','fish'])test(brand+': catalog reads native lists and template without the SQL catalog or foreign lists',async()=>{
+for(const brand of ['aristo','fish'])test(brand+': catalog delegates default layout without template permissions, SQL catalog or foreign lists',async()=>{
  const f=fixture(brand),r=await f.adapter.handle({},'GET',{acao:'campanha_catalogo',brand});
  a.equal(r.status,200);a.equal(r.body.brand,brand);a.deepEqual(r.body.lists,[{id:f.id,name:brand==='aristo'?'Aristo':'Fish',brand,available:true}]);
- a.equal(r.body.templates.length,1);a.equal(r.body.templates[0].id,1);a.equal(r.body.templates[0].name,'Default campaign template');
+ a.equal(r.body.templates.length,1);a.equal(r.body.templates[0].id,null);a.equal(r.body.templates[0].native_default,true);a.equal(r.body.templates[0].name,'Padrão do Listmonk');
  a.equal(new URL(f.calls[0].url).searchParams.get('minimal'),'true');a.equal(new URL(f.calls[0].url).searchParams.get('per_page'),'all');
- a.equal(new URL(f.calls[1].url).searchParams.get('no_body'),'true');
- a.deepEqual(f.calls.map(x=>[x.method,new URL(x.url).pathname]),[['GET','/api/lists'],['GET','/api/templates']]);
+ a.deepEqual(f.calls.map(x=>[x.method,new URL(x.url).pathname]),[['GET','/api/lists']]);
 });
 test('opening and saving an older native campaign retains its existing initiative and UTM identity',async()=>{
  const f=fixture('fish');await f.adapter.handle({},'POST',{acao:'campanha_criar',brand:'fish',definition:f.definition});
@@ -77,9 +75,9 @@ test('opening and saving an older native campaign retains its existing initiativ
 });
 test('a campaign with the native null layout keeps Listmonk default selection on Save',async()=>{
  const f=fixture('aristo');await f.adapter.handle({},'POST',{acao:'campanha_criar',brand:'aristo',definition:{...f.definition,template_id:null}});
- const c=(await f.adapter.handle({},'GET',{acao:'campanha_obter',brand:'aristo',id:700})).body.campaign;a.equal(c.definition.template_id,null);
+ const c=(await f.adapter.handle({},'GET',{acao:'campanha_obter',brand:'aristo',id:700})).body.campaign;a.equal(c.definition.template_id,1);a.equal(Object.hasOwn(f.calls[0].body,'template_id'),false);
  const saved=await f.adapter.handle({},'POST',{acao:'campanha_salvar',brand:'aristo',id:700,definition:c.definition,attribs:c.attribs,headers:c.headers,media:c.media});
- a.equal(saved.body.campaign.definition.template_id,null);a.equal(f.calls.at(-1).body.template_id,null);a.equal(f.calls.length,4);
+ a.equal(saved.body.campaign.definition.template_id,1);a.equal(f.calls.at(-1).body.template_id,1);a.equal(f.calls.length,4);
 });
 
 for(const action of ['campanha_salvar','campanha_teste','campanha_agendar','campanha_cancelar'])test('shared API16 refuses a foreign campaign ID before '+action,async()=>{const f=fixture('fish');await f.adapter.handle({},'POST',{acao:'campanha_criar',brand:'fish',definition:f.definition});const before=structuredClone(f.source.get(700));f.source.get(700).lists=[{id:16}];const calls=f.calls.length;await a.rejects(f.adapter.handle({},'POST',{acao:action,brand:'fish',id:700,definition:f.definition,attribs:{},headers:[],media:[],recipient:'felipebandeira+codex@oaristocrata.com',send_at:sendAt,confirm:action==='campanha_cancelar'?'cancelar':'agendar',list_ids:[17]}),e=>e.code==='CAMPAIGN_BRAND_REFUSED');a.deepEqual(f.calls.slice(calls).map(c=>c.method),['GET']);a.equal(f.source.get(700).status,before.status);});
