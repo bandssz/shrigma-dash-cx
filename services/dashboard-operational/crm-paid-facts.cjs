@@ -16,7 +16,9 @@ const UPSERT=`INSERT INTO public.crm_attribution_order_v2(brand,order_id,payload
  VALUES($1,$2,'{}'::jsonb,$3::timestamptz,$4::timestamptz,$5::jsonb)
  ON CONFLICT(brand,order_id) DO UPDATE SET paid_fact=EXCLUDED.paid_fact
  WHERE crm_attribution_order_v2.paid_fact IS NULL OR
- crm_attribution_order_v2.paid_fact->>'sourceUpdatedAt'<EXCLUDED.paid_fact->>'sourceUpdatedAt'
+ crm_attribution_order_v2.paid_fact->>'sourceUpdatedAt'<EXCLUDED.paid_fact->>'sourceUpdatedAt' OR
+ (crm_attribution_order_v2.paid_fact->>'sourceUpdatedAt'=EXCLUDED.paid_fact->>'sourceUpdatedAt' AND
+ crm_attribution_order_v2.paid_fact->>'financialStatus'='paid' AND EXCLUDED.paid_fact->>'financialStatus'<>'paid')
  RETURNING brand,order_id,paid_fact->>'observedAt' AS observed_at`;
 function configuration(file){
  if(typeof file!=='string'||!file.startsWith('/'))fail('PAID_FACTS_CONFIG_UNAVAILABLE',503);
@@ -26,12 +28,13 @@ function configuration(file){
  if(typeof raw.PGPASSWORD!=='string'||!raw.PGPASSWORD)fail('PAID_FACTS_CONFIG_UNAVAILABLE',503);
  return {shops,brands,pg:{host:'comunicacao_postgres',port:5432,database:'listmonk',user:'crm_shopify_sync',password:raw.PGPASSWORD}};
 }
-function fromGraphql(brand,o,observedAt){
- if(!o||o.cancelledAt!==null||o.displayFinancialStatus!=='PAID'||o.lineItems?.pageInfo?.hasNextPage)fail('PAID_ORDER_INCOMPLETE',409);
+function fromGraphql(brand,o,observedAt,currentState=false){
+ const paid=o?.cancelledAt===null&&o?.displayFinancialStatus==='PAID';
+ if(!o||(!currentState&&!paid)||(paid&&o.lineItems?.pageInfo?.hasNextPage))fail('PAID_ORDER_INCOMPLETE',409);
  const decimal=o.currentTotalPriceSet?.shopMoney?.amount;
  if(typeof decimal!=='string'||!/^\d{1,12}(?:\.\d{1,2})?$/.test(decimal))fail('PAID_ORDER_INCOMPLETE',409);
  const total=decimal.includes('.')?decimal.padEnd(decimal.indexOf('.')+3,'0'):decimal+'.00';
- return {schema:'crm-shopify-paid-order-fact-v1',brand,orderId:o.id,customerId:o.customer?.id||null,createdAt:new Date(o.createdAt).toISOString(),sourceUpdatedAt:new Date(o.updatedAt).toISOString(),observedAt,currency:o.currencyCode,total,financialStatus:'paid',test:o.test,products:o.lineItems.nodes.map(p=>({itemId:p.id,productId:p.product?.id||null,variantId:p.variant?.id||null,title:p.title,quantity:p.quantity})),deliveryId:null,orderKey:brand+':'+o.id};
+ return {schema:'crm-shopify-paid-order-fact-v1',brand,orderId:o.id,customerId:o.customer?.id||null,createdAt:new Date(o.createdAt).toISOString(),sourceUpdatedAt:new Date(o.updatedAt).toISOString(),observedAt,currency:o.currencyCode,total,financialStatus:paid?'paid':o.cancelledAt?'cancelled':String(o.displayFinancialStatus).toLowerCase(),test:o.test,products:o.lineItems.nodes.map(p=>({itemId:p.id,productId:p.product?.id||null,variantId:p.variant?.id||null,title:p.title,quantity:p.quantity})),deliveryId:null,orderKey:brand+':'+o.id};
 }
 function period(days,now=Date.now()){
  if(!Number.isInteger(days)||days<1||days>365)fail('PAID_PUBLIC_DAYS_INVALID');
@@ -84,7 +87,7 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now}){
  async function backfill(context,brand,days){authorize(context,brand,true);const p=period(days,now()),t=await token(brand);if(days>60&&!t.scopes.includes('read_all_orders'))fail('PAID_FACTS_HISTORY_SCOPE_REQUIRED',403);const filter='created_at:>='+p.from+' created_at:<'+p.until;let after=null,pages=0,read=0,buyers=new Set();store.setCoverage(brand,null);
   do{const data=await graphql(brand,ORDERS_QUERY,{after,filter});if(data.shop?.myshopifyDomain!==SHOPS[brand])fail('PAID_FACTS_SHOP_MISMATCH',503);const page=data.orders;if(!page||!Array.isArray(page.nodes))fail('PAID_FACTS_SHOPIFY_UNAVAILABLE',503);
    for(const order of page.nodes.filter(o=>o.displayFinancialStatus==='PAID'&&o.cancelledAt===null)){let itemPages=0;while(order.lineItems.pageInfo.hasNextPage){const cursor=order.lineItems.pageInfo.endCursor;if(!cursor||++itemPages>50)fail('PAID_ORDER_INCOMPLETE',409);const next=(await graphql(brand,ITEMS_QUERY,{id:order.id,after:cursor})).order;if(!next||next.id!==order.id)fail('PAID_ORDER_INCOMPLETE',409);order.lineItems.nodes.push(...next.lineItems.nodes);order.lineItems.pageInfo=next.lineItems.pageInfo;}}
-   const observedAt=new Date(now()).toISOString(),facts=page.nodes.filter(o=>o.displayFinancialStatus==='PAID'&&o.cancelledAt===null).map(o=>fromGraphql(brand,o,observedAt));await database(async c=>{for(const f of facts)await c.query(UPSERT,[brand,f.orderId,f.sourceUpdatedAt,f.observedAt,JSON.stringify(f)]);for(const o of page.nodes.filter(o=>o.displayFinancialStatus!=='PAID'||o.cancelledAt!==null))await c.query("UPDATE public.crm_attribution_order_v2 SET paid_fact=paid_fact||jsonb_build_object('financialStatus',$3::text,'sourceUpdatedAt',$4::text,'observedAt',$5::text) WHERE brand=$1 AND order_id=$2 AND paid_fact IS NOT NULL AND paid_fact->>'sourceUpdatedAt'<=$4",[brand,o.id,o.cancelledAt?'cancelled':String(o.displayFinancialStatus).toLowerCase(),new Date(o.updatedAt).toISOString(),observedAt]);},true);read+=page.nodes.length;for(const f of facts){if(!f.test&&f.customerId)buyers.add(f.customerId);}pages++;if(pages>4000)fail('PAID_FACTS_SHOPIFY_RANGE_TOO_LARGE',409);if(page.pageInfo?.hasNextPage&&!page.pageInfo.endCursor)fail('PAID_FACTS_SHOPIFY_PAGINATION_INCOMPLETE',503);after=page.pageInfo.hasNextPage?page.pageInfo.endCursor:null;
+   const observedAt=new Date(now()).toISOString(),facts=page.nodes.map(o=>fromGraphql(brand,o,observedAt,true));await database(async c=>{for(const f of facts)await c.query(UPSERT,[brand,f.orderId,f.sourceUpdatedAt,f.observedAt,JSON.stringify(f)]);},true);read+=page.nodes.length;for(const f of facts){if(f.financialStatus==='paid'&&!f.test&&f.customerId)buyers.add(f.customerId);}pages++;if(pages>4000)fail('PAID_FACTS_SHOPIFY_RANGE_TOO_LARGE',409);if(page.pageInfo?.hasNextPage&&!page.pageInfo.endCursor)fail('PAID_FACTS_SHOPIFY_PAGINATION_INCOMPLETE',503);after=page.pageInfo.hasNextPage?page.pageInfo.endCursor:null;
   }while(after);
   const eligible=await database(async c=>(await c.query("SELECT count(DISTINCT s.id)::int count FROM crm_audience_v2.shopify_identity i JOIN public.subscribers s ON s.id=i.subscriber_id AND s.uuid=i.subscriber_uuid JOIN public.subscriber_lists sl ON sl.subscriber_id=s.id AND sl.list_id=$2 JOIN public.lists l ON l.id=sl.list_id WHERE i.brand=$1 AND i.customer_gid=ANY($3::text[]) AND s.status='enabled' AND sl.status<>'unsubscribed' AND (l.optin='single' OR sl.status='confirmed') AND l.status='active'",[brand,brand==='aristo'?16:17,[...buyers]])).rows[0].count);
   const coverage={...p,checkedAt:new Date(now()).toISOString(),pages,orders:read,shopifyDistinctBuyers:buyers.size,shopifyEligibleBuyers:eligible};store.setCoverage(brand,coverage);return {ok:true,brand,coverage};

@@ -31,7 +31,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 47787,
-      "sha256": "818e241d9ebc9a56f64ecf907ec7893f2309f6ea18cd8118f9eccf0c2569be9b"
+      "sha256": "747876d890c9f9ed91db8d8308fab45125e9c07d8c5aa580c00b43affcacb16e"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -2960,8 +2960,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 15365,
-      "sha256": "3a9d4d0b16caadc53efab6ae15ada4612e1a3df17388e9c6b2ff0ee25513d77e"
+      "bytes": 15194,
+      "sha256": "e83c51f970d4870e04ac32d0a5df21eb150d8f55493f1f62e950bd22db725849"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-store.cjs",
@@ -2980,8 +2980,8 @@
     },
     {
       "path": "tests/crm-paid-facts.test.cjs",
-      "bytes": 2804,
-      "sha256": "d8b98a58b0a9f7fe7bf47f8549746aba5673b07b63360518aceae2c03e9e5dc0"
+      "bytes": 3221,
+      "sha256": "cb9df7fc1678e9592cdca01be467a2ac630d57f331a0c6e80b5040636fa1795b"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
