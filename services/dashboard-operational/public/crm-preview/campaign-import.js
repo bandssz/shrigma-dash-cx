@@ -10,7 +10,7 @@ const CampaignImport=(()=>{
   if(raw?.brand!==brand)fail('IMPORT_BRAND','O arquivo pertence a outra marca.');
   const d=C.preflight(raw,{catalog,tracking:T,editorialMode}),domain=C.BRANDS[brand],mail=d.from_email.match(/<([^<>]+)>$/)?.[1]||d.from_email;
   if(mail.toLowerCase()!=='avisos@'+domain||d.reply_to!=='contato@'+domain)fail('IMPORT_SENDER','Use o remetente confirmado e o endereço de respostas desta marca.');
-  const matches=audiences.filter(x=>x.brand===brand&&!x.archived&&Number.isSafeInteger(x.version)&&x.version>0&&x.semantic_context?.current!==false&&JSON.stringify(listUnion(x.definition?.rule))===JSON.stringify(d.list_ids));
+  const matches=audiences.filter(x=>x.source==='listmonk'?x.brand===brand&&x.available===true&&d.list_ids.length===1&&d.list_ids[0]===x.listId&&catalog.lists.some(l=>l.id===x.listId&&l.brand===brand&&l.available===true):x.brand===brand&&!x.archived&&Number.isSafeInteger(x.version)&&x.version>0&&x.semantic_context?.current!==false&&JSON.stringify(listUnion(x.definition?.rule))===JSON.stringify(d.list_ids));
   const match=matches.length===1?matches[0]:matches.find(x=>x.id===audienceId);
   if(!match)fail('IMPORT_AUDIENCE',matches.length?'Mais de um público salvo corresponde às listas. Escolha o público no passo 1 e importe novamente.':'Nenhum público salvo corresponde exatamente às listas do arquivo. Crie ou ajuste esse público antes de importar.');
   return Object.freeze({definition:d,audienceId:match.id,audienceVersion:match.version});

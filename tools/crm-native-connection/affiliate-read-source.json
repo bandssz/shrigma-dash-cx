@@ -1651,7 +1651,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "03e1823bbfc6a70657e41490f342caf8a0c9496d60298f3b89f71fb0036a0eed"
+      "sha256": "22ae56dd9be9800d6dab81c6d8ac1f310cbd94a346b8dc5de9f9355a7e3ae473"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1925,8 +1925,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 212328,
-      "sha256": "6649ffc83af2f22755ca8b213e23f3e5c846d15819a777c81f81c2ea41cf65c1"
+      "bytes": 212499,
+      "sha256": "8bd49cf0d36d2cf7d0a3a12ca6208e876d7db1ba309b1214cb42fb85ec672d42"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -1940,13 +1940,13 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
-      "bytes": 2427,
-      "sha256": "99bb43a4814843c4d961d909dee0a2f0769a9d2a21a7d7aef492ac733bf2407e"
+      "bytes": 2611,
+      "sha256": "92c31fdad453508150bee813360fd5f1ffbdaedc7023d3c944222080468c3a10"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 155067,
-      "sha256": "a1c56f1c66ac37ea7d9d05db868e50ab84ef195a460359cdcd4fb1be41f402ca"
+      "bytes": 157059,
+      "sha256": "14cebfd68ccd15b31370d63c7ab394ff2c2058b3c947035fea33cdcf98a03865"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -2060,8 +2060,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 230985,
-      "sha256": "b52e4183eb4cd531f64c70006b88f6fdf7b744dabc36106180437cadb70f72af"
+      "bytes": 231130,
+      "sha256": "710b38e5a45971eee5f27566531b68e6f4e47dc4164666ca6652116b575c6069"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2095,8 +2095,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 23296,
-      "sha256": "f7eb6c0e490631bcf85c47a0e39dd60a74a86201ee34710a317291e5acc0ad53"
+      "bytes": 23985,
+      "sha256": "4ef5704c32ac04637baead7c85061a051a4623bec0e6c798d7a93d5a2ff8bc94"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -2365,8 +2365,8 @@
     },
     {
       "path": "tests/crm-campaign-import.test.cjs",
-      "bytes": 5384,
-      "sha256": "c0dc601256ac53d93b3a295b8047492336f483eb62dae17a7ef6de19c9ac8df8"
+      "bytes": 6133,
+      "sha256": "77130d97e570e9c471862fec82051fe6bc58629c77a9587ae7522858990adc83"
     },
     {
       "path": "tests/crm-campaign-link-receipts.test.cjs",
@@ -2830,13 +2830,13 @@
     },
     {
       "path": "tests/simple-crm-native-direct-ui.test.cjs",
-      "bytes": 16289,
-      "sha256": "0de1a3d242392b6000d5e9b70da4281239119ddfc11ece84026952153a2448ec"
+      "bytes": 18469,
+      "sha256": "88763999ca5f5a0dbee1331219d9c96f6669b1ea03e369673738575f16f01bec"
     },
     {
       "path": "tests/simple-crm-native-direct.test.cjs",
-      "bytes": 13652,
-      "sha256": "385d3cdd42f8da51c87b92559d46e85f96caac39ce2fa8076eab030271bae2a9"
+      "bytes": 15530,
+      "sha256": "00502fffa4850a4689ec08b7d9f778a5f23cf1317a91557a8dc855c827f1b153"
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
@@ -2950,8 +2950,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 16669,
-      "sha256": "7aa547438002299ae7c64338498285dc24af496d9e6a1cd060e484cce9050a63"
+      "bytes": 16695,
+      "sha256": "d9b1f3101f90d235f7e25cd2d100c8334937066a986108885b83c8cef49e8d08"
     },
     {
       "path": "tools/crm-qa/paid-publics-sql.cjs",
@@ -2965,8 +2965,8 @@
     },
     {
       "path": "tools/crm-qa/read-policy.cjs",
-      "bytes": 3212,
-      "sha256": "aded9222814c2ebd79989702a18fd74c5be0bc161aaf631fdac2920787ea1041"
+      "bytes": 3409,
+      "sha256": "59d369a13c351967e162c5f834b296a85f8753b18f825bf3532b0e67b0eb4141"
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",

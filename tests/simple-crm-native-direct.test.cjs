@@ -3,6 +3,18 @@ const test=require('node:test'),a=require('node:assert/strict'),path=require('no
 const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
 const {createDirect}=require(runtime+'/simple-crm-native-internal.cjs');
 const now=Date.UTC(2026,9,20,18),sendAt='2026-10-21T13:00:00.000Z';
+test('native list count reads actual membership only after brand admission and never returns subscribers',async()=>{
+ for(const total of [12437,0,null]){
+  const calls=[],adapter=createDirect({now:()=>now,authorize:()=>({role:'manager'}),admitted:()=>false,credentials:{fish:{username:'synthetic',token:'synthetic',listIds:[17,284]}},fetchImpl:async(url,options)=>{calls.push({url,method:options.method});const u=new URL(url);return Response.json({data:u.pathname==='/api/lists/284'?{id:284,status:'active'}:{total,results:[{email:'private@example.invalid'}]}});}});
+  for(const list_id of [16,283,'284']){await a.rejects(adapter.handle({},'GET',{acao:'campanha_lista_contagem',brand:'fish',list_id}),e=>e.code==='CAMPAIGN_BRAND_REFUSED');a.equal(calls.length,0);}
+  const read=()=>adapter.handle({},'GET',{acao:'campanha_lista_contagem',brand:'fish',list_id:284});
+  if(total===null)await a.rejects(read,e=>e.code==='LISTMONK_RESPONSE_UNCONFIRMED');else{const r=await read();a.deepEqual(r.body,{brand:'fish',list_id:284,member_count:total,checked_at:new Date(now).toISOString(),source:'listmonk'});a(!JSON.stringify(r).includes('private@example.invalid'));a(!Object.hasOwn(r.body,'eligible_count'));}
+  a(calls.every(c=>c.method==='GET'));a.equal(calls.length,2);a.equal(new URL(calls[1].url).searchParams.get('list_id'),'284');a.equal(new URL(calls[1].url).searchParams.get('per_page'),'1');
+ }
+});
+test('inactive native list cannot be counted',async()=>{
+ let calls=0;const adapter=createDirect({authorize:()=>({role:'manager'}),admitted:()=>false,credentials:{fish:{username:'synthetic',token:'synthetic',listIds:[17,284]}},fetchImpl:async()=>{calls++;return Response.json({data:{id:284,status:'archived'}});}});await a.rejects(adapter.handle({},'GET',{acao:'campanha_lista_contagem',brand:'fish',list_id:284}),e=>e.code==='CAMPAIGN_LIST_UNAVAILABLE');a.equal(calls,1);
+});
 function fixture(brand,{released=true,edit=true,fail=false,boolStatus=false}={}){
  const id=brand==='aristo'?16:17,domain=brand==='aristo'?'oaristocrata.com':'fishermans.com.br',calls=[],source=new Map();
  const credentials={aristo:{username:'synthetic-aristo',token:'synthetic-aristo-token',listIds:[16]},fish:{username:'synthetic-fish',token:'synthetic-fish-token',listIds:[17]}};

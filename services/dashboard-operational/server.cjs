@@ -1475,6 +1475,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           const fields=req.method==='POST'?body:Object.fromEntries(url.searchParams),brand=fields?.brand;
           if(!nativeContext&&req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'CAMPAIGN_BRAND_REFUSED');
           if(req.method==='GET'&&fields.id!==undefined)fields.id=/^[1-9][0-9]{0,9}$/.test(fields.id)?Number(fields.id):null;
+          if(req.method==='GET'&&fields.list_id!==undefined)fields.list_id=/^[1-9][0-9]{0,9}$/.test(fields.list_id)?Number(fields.list_id):null;
           if(directCampaigns.actions.has(fields?.acao)){const result=await directCampaigns.handle(ctx,req.method,fields);return sendJson(req,res,result.status,result.body);}
           if(fields?.acao!=='campanha_catalogo')throw jsonError(410,'CAMPAIGN_NATIVE_ACTION_REQUIRED');
         }

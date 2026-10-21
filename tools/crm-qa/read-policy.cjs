@@ -13,7 +13,7 @@ function allow(method,address,body){
   if(u.pathname==='/api/crm-ab-plans')return u.searchParams.size===1&&['fish','aristo'].includes(u.searchParams.get('brand'));
   if(u.pathname==='/api/segments')return ['fish','aristo'].includes(u.searchParams.get('brand'))&&['segmentos_listar','segmento_obter','segmento_capacidade','segmento_operacao'].includes(u.searchParams.get('acao'));
   if(u.pathname==='/api/campaign_audience')return ['fish','aristo'].includes(u.searchParams.get('brand'))&&['campanha_publico_obter','campanha_publico_operacao'].includes(u.searchParams.get('acao'));
-  if(u.pathname==='/api/campaigns')return campaignActions.has(u.searchParams.get('acao'));
+  if(u.pathname==='/api/campaigns')return u.searchParams.get('acao')==='campanha_lista_contagem'?u.searchParams.size===3&&['fish','aristo'].includes(u.searchParams.get('brand'))&&/^[1-9][0-9]{0,9}$/.test(u.searchParams.get('list_id')||''):campaignActions.has(u.searchParams.get('acao'));
   if(u.pathname==='/api/templates')return modelActions.has(u.searchParams.get('acao'));
   if(u.pathname==='/api/journey-lab'||u.pathname==='/api/journey-test')return u.searchParams.size===1&&['fish','aristo'].includes(u.searchParams.get('brand'));
   if(u.pathname==='/api/tts-manual')return ['capabilities','attempts'].includes(u.searchParams.get('action'))&&u.searchParams.size===2&&['fish','aristo'].includes(u.searchParams.get('brand'));

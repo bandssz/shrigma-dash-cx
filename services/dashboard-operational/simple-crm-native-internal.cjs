@@ -94,7 +94,7 @@ module.exports={allowedOperator,allowedEditor,create,requireCouponDestinations,E
 // action makes one native write. Existing campaign reads preserve brand authorization; no local attempt is reserved.
 function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.now}){
  const bases={aristo:16,fish:17},domains={aristo:'oaristocrata.com',fish:'fishermans.com.br'};
- const actions=new Set(['campanha_capacidade','campanha_catalogo','campanha_listar','campanha_obter','campanha_criar','campanha_salvar','campanha_teste','campanha_agendar','campanha_cancelar']);
+ const actions=new Set(['campanha_capacidade','campanha_catalogo','campanha_lista_contagem','campanha_listar','campanha_obter','campanha_criar','campanha_salvar','campanha_teste','campanha_agendar','campanha_cancelar']);
  const writing=action=>['campanha_criar','campanha_salvar','campanha_teste','campanha_agendar','campanha_cancelar'].includes(action);
  const future=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&Date.parse(value)>=now()+20*60000&&Date.parse(value)<=now()+7*86400000;
  const address=value=>String(value||'').match(/<([^<>]+)>$/)?.[1]||String(value||'');
@@ -142,6 +142,13 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
    // created. The existing campaign role does not read the template catalog.
    const templates=[{id:null,name:'Padrão do Listmonk',brand,type:'campaign',available:true,native_default:true}];
    return {status:200,body:{brand,current:true,read_at:new Date(now()).toISOString(),lists,templates,initiatives:[]}};
+  }
+  if(action==='campanha_lista_contagem'){
+   if(!idOk(q.list_id)||!binding(brand).listIds.includes(q.list_id))throw error(403,'CAMPAIGN_BRAND_REFUSED');
+   const list=await request(brand,'GET','/lists/'+q.list_id);if(list.id!==q.list_id||list.status!=='active')throw error(409,'CAMPAIGN_LIST_UNAVAILABLE');
+   const members=await request(brand,'GET','/subscribers?list_id='+q.list_id+'&per_page=1&page=1');
+   if(!Number.isSafeInteger(members?.total)||members.total<0)throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
+   return {status:200,body:{brand,list_id:q.list_id,member_count:members.total,checked_at:new Date(now()).toISOString(),source:'listmonk'}};
   }
   if(action==='campanha_listar'){
    const data=await request(brand,'GET','/campaigns?no_body=true&per_page=100&page='+Math.max(1,Number(q.page)||1));
