@@ -2480,8 +2480,8 @@
     },
     {
       "path": "tests/crm-ui-features.test.cjs",
-      "bytes": 14404,
-      "sha256": "55318130270ff8266de15294cc3056a09d48527d54af5dd3d5d4d42c50fba053"
+      "bytes": 14374,
+      "sha256": "ccd205bcd36c5e83785213c81334f730333b5341429b4bb23b7c121f84fd82dc"
     },
     {
       "path": "tests/crm-ui-independent-boundaries.fixture.json",
