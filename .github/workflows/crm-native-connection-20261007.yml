@@ -364,6 +364,8 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/afiliados-native-consent.test.cjs /source/tests/afiliados-native-source.test.cjs /source/tests/afiliados-read-contract.test.cjs /source/tests/afiliados-read-gateway.test.cjs /source/tests/afiliados-session-read.test.cjs /source/tests/afiliados-panel-read.test.cjs /source/tests/afiliados-creator-share.test.cjs /source/tests/product-front-split.test.cjs
+      - name: Prove restricted paid-order admission in the actual image
+        run: docker run --rm --network none --read-only --user 1000:1000 --memory 256m --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/shopify-paid-order.test.cjs /source/tests/crm-paid-facts.test.cjs
       - name: Prove Master delegation and compiled four-front signup in Node22 UID1000
         shell: bash
         run: |
@@ -404,8 +406,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 1b89fa7564f28f80451d53e00a83e8861457e016
-          CRM_QA_EXPECT_MANIFEST: dc98beb93c31ce84b94a62d35300299b3d715c08123c479735547255ac1d2112
+          CRM_QA_EXPECT_REVISION: 4af39e8c3315d0e9e9155aa38c60c16675bb754c
+          CRM_QA_EXPECT_MANIFEST: eef089d45fe88c515f873c4e2f10f72c007f003fec3700c4ef8b53eb9c409de7
         shell: bash
         run: |
           set -euo pipefail

@@ -3,7 +3,7 @@ USER 0:0
 WORKDIR /source
 ARG GIT_SHA
 COPY services/dashboard-operational/campaign-editorial-policy.cjs services/dashboard-operational/crm-campaign-editorial-admission.cjs services/dashboard-operational/crm-payload-shape.cjs ./services/dashboard-operational/
-COPY services/dashboard-operational/crm-ui-features.cjs ./services/dashboard-operational/
+COPY services/dashboard-operational/crm-ui-features.cjs services/dashboard-operational/shopify-paid-order.cjs services/dashboard-operational/crm-paid-facts.cjs services/dashboard-operational/crm-paid-facts-store.cjs services/dashboard-operational/crm-paid-facts-ui.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/campaign-consent-task.cjs services/dashboard-operational/campaign-consent-store.cjs services/dashboard-operational/campaign-consent-broker.cjs services/dashboard-operational/campaign-consent-service-binding.cjs services/dashboard-operational/campaign-consent-policy.json ./services/dashboard-operational/
 COPY services/dashboard-operational/simple-crm-native-internal.cjs services/dashboard-operational/native-internal-release.json ./services/dashboard-operational/
 COPY services/dashboard-operational/campaign-write-contract.js services/dashboard-operational/campaign-write-tracking.js ./services/dashboard-operational/

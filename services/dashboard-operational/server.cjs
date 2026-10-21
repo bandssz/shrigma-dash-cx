@@ -64,6 +64,8 @@ function settingsFromEnv(env=process.env){
   let listmonkBindings;
   if(simpleReadMode&&env.DASHBOARD_LISTMONK_BINDINGS)try{listmonkBindings=JSON.parse(env.DASHBOARD_LISTMONK_BINDINGS);}catch{process.emitWarning('Conexão do Listmonk indisponível.',{code:'LISTMONK_BINDINGS_UNAVAILABLE'});}
   const simpleReadSources=simpleReadMode?require('./simple-dashboard-read.cjs').sourceKeysFromEnv(env):undefined;
+  const paidFactsFile=env.DASHBOARD_SHOPIFY_PAID_FACTS_FILE;
+  if(paidFactsFile!==undefined&&(!simpleReadMode||paidFactsFile!=='/run/secrets/crm-shopify-paid-facts.json'))throw Error('Paid facts configuration invalid');
   const simpleAffiliateWriteKey=simpleReadMode?require('./simple-dashboard-read.cjs').affiliateWriteKeyFromEnv(env):undefined;
   const crmNativeMode=env.DASHBOARD_NATIVE_MCP||'disabled';
   if(!['disabled','enabled'].includes(crmNativeMode))throw Error('Native MCP mode invalid');
@@ -157,7 +159,7 @@ function settingsFromEnv(env=process.env){
   const port=Number(env.PORT||3000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
   if(typeof process.getuid==='function'&&env.DASHBOARD_EXPECT_UID&&process.getuid()!==Number(env.DASHBOARD_EXPECT_UID))throw Error('Unexpected runtime UID');
-  return {mode,...(listmonkBindings?{listmonkBindings}:{}),...(simpleReadMode?{simpleReadMode:true,simpleReadSources,simpleAffiliateWriteKey}:{}),...(dashboardAffiliateRead?{dashboardAffiliateRead:true}:{}),...(dashboardIndividualRead?{dashboardIndividualRead:true}:{}),...(crmIndividualCoexistence?{crmIndividualCoexistence:true}:{}),...(crmNativeMode==='enabled'?{crmNativeEnabled:true}:{}),...(crmNativeSourceSyncEnabled?{crmNativeSourceSyncEnabled:true,...(crmNativeSourceFreshReadRequest?{crmNativeSourceFreshReadRequest}:{})}:{}),...(crmNativeSourceDiagnosticsEnabled?{crmNativeSourceDiagnosticsEnabled:true}:{}),...(crmNativeDeliveryHealthEnabled?{crmNativeDeliveryHealthEnabled:true}:{}),...(crmNativeSchedulerBindingEnabled?{crmNativeSchedulerBindingEnabled:true}:{}),...(crmNativeSchedulerStateEnabled?{crmNativeSchedulerStateEnabled:true}:{}),upstreamProfile,crmPublishedJourneyRead,crmMasterTemplateRead,crmDraftWrite,crmAudienceDraft,crmMasterAudienceRead,crmMasterAudienceWrite,crmMasterAudienceCount,crmMasterAudienceContextReview,crmCampaignSubmitWrite,crmCorporateCreate,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmCampaignWriterProfile?{crmCampaignWriterProfile}:{}),...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
+  return {mode,...(paidFactsFile?{paidFactsFile}:{}),...(listmonkBindings?{listmonkBindings}:{}),...(simpleReadMode?{simpleReadMode:true,simpleReadSources,simpleAffiliateWriteKey}:{}),...(dashboardAffiliateRead?{dashboardAffiliateRead:true}:{}),...(dashboardIndividualRead?{dashboardIndividualRead:true}:{}),...(crmIndividualCoexistence?{crmIndividualCoexistence:true}:{}),...(crmNativeMode==='enabled'?{crmNativeEnabled:true}:{}),...(crmNativeSourceSyncEnabled?{crmNativeSourceSyncEnabled:true,...(crmNativeSourceFreshReadRequest?{crmNativeSourceFreshReadRequest}:{})}:{}),...(crmNativeSourceDiagnosticsEnabled?{crmNativeSourceDiagnosticsEnabled:true}:{}),...(crmNativeDeliveryHealthEnabled?{crmNativeDeliveryHealthEnabled:true}:{}),...(crmNativeSchedulerBindingEnabled?{crmNativeSchedulerBindingEnabled:true}:{}),...(crmNativeSchedulerStateEnabled?{crmNativeSchedulerStateEnabled:true}:{}),upstreamProfile,crmPublishedJourneyRead,crmMasterTemplateRead,crmDraftWrite,crmAudienceDraft,crmMasterAudienceRead,crmMasterAudienceWrite,crmMasterAudienceCount,crmMasterAudienceContextReview,crmCampaignSubmitWrite,crmCorporateCreate,crmManagedReadUi,crmManagedAudienceRead,crmManagedTemplateRead,managerHost,areaHosts,allowedEmailDomains:domains,upstreams,allowedUpstreamHosts:allowedHosts,dynamicRouteManifest,port,host:env.HOST||'127.0.0.1',publicDir:path.resolve(env.DASHBOARD_PUBLIC_DIR||path.join(__dirname,'public')),dbPath:env.DASHBOARD_DB_PATH,bootstrapAdminEmail:env.DASHBOARD_ADMIN_EMAIL,bootstrapTokenSha256:env.DASHBOARD_BOOTSTRAP_SHA256,encryptionKey:env.DASHBOARD_ENCRYPTION_KEY,...(crmCampaignWriterProfile?{crmCampaignWriterProfile}:{}),...(crmManagedRead?{crmManagedRead}:{}),...(crmManagedWriter?{crmManagedWriter}:{})};
 }
 // Apply the new bounded READ projection AFTER the immutable existing-grant
 // verifier. Its historical pins/controller/consumed operation stay untouched.
@@ -719,6 +721,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   if(s.mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
   const affiliateReader=dashboardAffiliateRead?AffiliateRead.createReader({auth,upstreams,fetchImpl}):null;
   const simpleReader=s.simpleReadMode===true?require('./simple-dashboard-read.cjs').createReader({auth,upstreams,keys:s.simpleReadSources||{},fetchImpl,projectGrowth:projectBrandCache,growthDiagnostics:cartContractSummary,timings:true,onReadFailure:row=>process.stderr.write(JSON.stringify(row)+'\n')}):null;
+  const paidFacts=s.paidFactsFile?require('./crm-paid-facts.cjs').create({file:s.paidFactsFile,auth,store:auth.restrictedPurchaseStore(),fetchImpl}):null;
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
   const simpleCampaignTests=simpleReader?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
   const simpleCampaignAudiences=simpleReader?auth.simpleCampaignAudienceFactory?.({fetchImpl}):null;
@@ -909,6 +912,11 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const host=String(req.headers.host||'').toLowerCase();
       if(!allowedHosts.has(host))throw jsonError(421,'HOST_DENIED');
       const url=safeRequestPath(req.url),origin='https://'+host;
+      if(url.pathname==='/webhooks/shopify/orders-paid'){
+        if(!paidFacts||host!==s.areaHosts.growth||req.method!=='POST'||url.search||req.headers['content-encoding'])throw jsonError(404,'NOT_FOUND');
+        const chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>2*1024*1024)throw jsonError(413,'SHOPIFY_BODY_INVALID');chunks.push(chunk);}
+        return sendJson(req,res,200,await paidFacts.ingest(Buffer.concat(chunks),req.headers));
+      }
       if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method)){
         const journeyPublicFiles=s.crmJourneyPresentationManifestSha256?['growth.html','assets/panels/growth.js',...(s.crmPresentationStyle?['assets/panels/growth.css']:[])].map(file=>{
           if(file==='assets/panels/growth.css'){const b=presentationStyle(s);return {path:file,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')};}
@@ -932,6 +940,18 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const browserReadOrigin=req.method==='GET'&&req.headers.origin===undefined&&req.headers['sec-fetch-site']==='same-origin'&&['cors','same-origin'].includes(req.headers['sec-fetch-mode'])&&req.headers['sec-fetch-dest']==='empty'&&typeof req.headers['x-csrf-token']==='string'?origin:undefined;
       if(!nativeContext&&nativeMcp&&await nativeMcp.handle(req,res,url))return;
       const ctx=nativeContext||{cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
+      if(url.pathname==='/api/crm-restricted/compras'||['/app/crm/restrito/compras/','/app/crm/restrito/compras.js'].includes(url.pathname)){
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext)throw jsonError(404,'NOT_FOUND');
+        if(url.pathname!=='/api/crm-restricted/compras'){
+          if(req.method!=='GET')throw jsonError(405,'METHOD_DENIED');const session=auth.session(ctx);if(!session.authenticated||!require('./crm-paid-facts.cjs').canUse(session.user))throw jsonError(403,'RESTRICTED_AREA_REQUIRED');
+          const ui=require('./crm-paid-facts-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:ui.HTML);return;
+        }
+        let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
+        paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&['status','products','subscriptions'].includes(q.action))return sendJson(req,res,200,await paidFacts[q.action](ctx,q.brand));
+        if(req.method==='POST'&&['count','save','backfill','subscribe'].includes(q.action))return sendJson(req,res,200,await paidFacts[q.action](ctx,q.brand,q.action==='backfill'?q.days:q));
+        throw jsonError(400,'PAID_FACTS_ACTION_INVALID');
+      }
       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./crm-native-operator.cjs').handleOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
       if(dashboardAffiliateRead&&!nativeContext&&await require('./afiliados-source-operator.cjs').handleAffiliateSourceOperator({req,res,url,ctx,auth,managerHost:s.managerHost,fetchImpl}))return;
        if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-database-operator.cjs').handleDatabaseOperator({req,res,url,ctx,auth,managerHost:s.managerHost,nativeInstaller}))return;
