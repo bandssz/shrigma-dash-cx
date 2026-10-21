@@ -91,7 +91,7 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editor
 module.exports={allowedOperator,allowedEditor,create,requireCouponDestinations,EMAIL,IDS};
 
 // Current campaign operator. Listmonk owns the campaign and its state. Each
-// action makes exactly one native HTTP request; no local attempt is reserved.
+// action makes one native write. Existing campaign reads preserve brand authorization; no local attempt is reserved.
 function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.now}){
  const bases={aristo:16,fish:17},domains={aristo:'oaristocrata.com',fish:'fishermans.com.br'};
  const actions=new Set(['campanha_capacidade','campanha_catalogo','campanha_listar','campanha_obter','campanha_criar','campanha_salvar','campanha_teste','campanha_agendar','campanha_cancelar']);
@@ -154,20 +154,22 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   if(action==='campanha_obter')return {status:200,body:{campaign:campaign(await request(brand,'GET','/campaigns/'+q.id),brand)}};
   if(['campanha_salvar','campanha_cancelar'].includes(action)&&(!q.attribs||typeof q.attribs!=='object'||Array.isArray(q.attribs)||!Array.isArray(q.media)||q.acao==='campanha_salvar'&&!Array.isArray(q.headers)))throw error(400,'CAMPAIGN_INPUT');
   let data;
-  if(action==='campanha_criar'||action==='campanha_salvar')data=await request(brand,action==='campanha_criar'?'POST':'PUT','/campaigns'+(action==='campanha_criar'?'':'/'+q.id),payload(q.definition,brand,q));
+  const existing=async()=>campaign(await request(brand,'GET','/campaigns/'+q.id),brand);
+  if(action==='campanha_criar'||action==='campanha_salvar'){const body=payload(q.definition,brand,q);if(action==='campanha_salvar')await existing();data=await request(brand,action==='campanha_criar'?'POST':'PUT','/campaigns'+(action==='campanha_criar'?'':'/'+q.id),body);}
   else if(action==='campanha_teste'){
    const target=String(q.recipient||'').trim().toLowerCase();
    if(target.length>254||target.includes('..')||!/^[a-z0-9][a-z0-9._+\-]*@(oaristocrata\.com|fishermans\.com\.br|shrigma\.com\.br)$/.test(target))throw error(400,'CAMPAIGN_TEST_RECIPIENT');
    const body=payload(q.definition,brand,q);body.subject='[TESTE] '+body.subject.replace(/^(?:\[TESTE\] )+/,'');body.subscribers=[target];delete body.send_at;
-   data=await request(brand,'POST','/campaigns/'+q.id+'/test',body);if(data!==true)throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
+   await existing();data=await request(brand,'POST','/campaigns/'+q.id+'/test',body);if(data!==true)throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
    return {status:200,body:{accepted:true,brand,campaign_id:q.id,recipient:target,subject:body.subject}};
   }else if(action==='campanha_agendar'){
    if(q.confirm!=='agendar')throw error(400,'CAMPAIGN_INPUT');
    if(!future(q.send_at))throw error(400,'NATIVE_INTERNAL_DATE');
+   const current=await existing();if(!future(current.send_at)||Date.parse(current.send_at)!==Date.parse(q.send_at))throw error(400,'NATIVE_INTERNAL_DATE');
    data=await request(brand,'PUT','/campaigns/'+q.id+'/status',{status:'scheduled'});
   }else if(action==='campanha_cancelar'){
    if(q.confirm!=='cancelar'||!Array.isArray(q.list_ids)||!q.list_ids.length||q.list_ids.some(id=>!binding(brand).listIds.includes(id)))throw error(400,'CAMPAIGN_INPUT');
-   data=await request(brand,'PUT','/campaigns/'+q.id,{lists:q.list_ids,send_at:null,attribs:q.attribs??{},media:q.media||[]});
+   await existing();data=await request(brand,'PUT','/campaigns/'+q.id,{lists:q.list_ids,send_at:null,attribs:q.attribs??{},media:q.media||[]});
   }
   if(!data||typeof data!=='object')throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
   return {status:action==='campanha_criar'?201:200,body:{campaign:campaign(data,brand)}};

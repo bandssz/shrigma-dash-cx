@@ -722,7 +722,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
   const simpleCampaignTests=simpleReader?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
   const simpleCampaignAudiences=simpleReader?auth.simpleCampaignAudienceFactory?.({fetchImpl}):null;
-  const directCampaignAdmitted=(context,brand,user)=>require('./crm-ui-features.cjs').restrictedUser(user)||auth.uiFeatures.releasedToAccount(context,brand,'campaignScheduleSummary');
+  const directCampaignAdmitted=(context,brand,user)=>require('./crm-ui-features.cjs').restrictedUser(user)||auth.uiFeatures.read(context,brand).flags.campaignScheduleSummary===true;
   const directCampaignAuthor=(context,brand,write)=>{
     // POST still verifies Origin/CSRF. Individual application permissions own
     // this API path; the legacy Master-only source writer is not its operator.
@@ -731,7 +731,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     return user;
   };
   const directCampaigns=simpleReader&&s.listmonkBindings?require('./simple-crm-native-internal.cjs').createDirect({credentials:s.listmonkBindings,fetchImpl,authorize:directCampaignAuthor,admitted:directCampaignAdmitted}):null;
-  // Enrollment selects one operator. Accounts outside the rollout retain their prior operator.
+  // The existing per-brand release flag selects the native operator; unreleased accounts retain their prior operator.
   const directCampaignFor=(context,brand)=>!!directCampaigns&&directCampaignAdmitted(context,brand,auth.authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},brand));
   const simpleAffiliateEditor=simpleReader?require('./simple-dashboard-read.cjs').createAffiliateEditor({auth,upstreams,readKey:s.simpleReadSources?.afiliados,writeKey:s.simpleAffiliateWriteKey,otherReadKeys:Object.values(s.simpleReadSources||{}),fetchImpl}):null;
   // The production constructor closes decisions until commercial policy and
