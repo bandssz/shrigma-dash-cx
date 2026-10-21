@@ -11,7 +11,7 @@
     },
     {
       "path": "src/admin.mjs",
-      "sha256": "5c3d8effbd8ca29bf454fe3de1cc5b54ef8f86692e30f7b8b5535bec5adce6d2"
+      "sha256": "ee63b771137a0a2deba9599400fecf6faf57df79bea0d49ee6be7ee6ec5cfb4c"
     },
     {
       "path": "src/auth.mjs",
@@ -50,10 +50,10 @@
       "sha256": "b0a42248f58a1e7e011529924be3fabc200d2fcb0b3898b5babead83a9427f6a"
     }
   ],
-  "bundle_sha256": "6ca9e431260e184bde7d228759b66005401e7a26b4e7118e806c1e543721ef4a",
-  "dockerfile_sha256": "5fe18a2b050ad1800e1a81cfaa564f3a4d7812f54c597d3aa817352e5ae87e6f",
-  "bundle_bytes": 61124,
-  "inline_dockerfile_bytes": 83559,
+  "bundle_sha256": "d63d04d738270fbc6c79f974e92d217a8742e467fc8274fd96773d31d20cdb89",
+  "dockerfile_sha256": "b86767c072079b7e9625c7562f88f7d391ef41f93636c9f61a786f25d23a6356",
+  "bundle_bytes": 61207,
+  "inline_dockerfile_bytes": 83671,
   "secrets_included": false,
   "production_mutations": 0
 }

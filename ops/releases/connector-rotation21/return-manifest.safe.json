@@ -1,0 +1,59 @@
+{
+  "schema": "listmonk-mcp-source-package-v1",
+  "files": [
+    {
+      "path": "package.json",
+      "sha256": "ef54adb80d001e952cf6e9e4d2827025946aea6d9b47fbc3b41f1ed1c9467dd7"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "3f0227372f35666391edca3298e2364c693079122c626f8186eaff12bf3a1bd1"
+    },
+    {
+      "path": "src/admin.mjs",
+      "sha256": "6f2f4e97c5b327ae45c68261bc6ffa57dcb8ebc943f4fddddd386f5c373503f7"
+    },
+    {
+      "path": "src/auth.mjs",
+      "sha256": "6f214f5022c773fe58e9621e87c09b026acec6455917f2956e6264bbb08b629b"
+    },
+    {
+      "path": "src/campaigns.mjs",
+      "sha256": "320b4ac5c5c56c8bd0eaa0a01325a910e33f761f9d35255fc756efb6cb0005db"
+    },
+    {
+      "path": "src/config.mjs",
+      "sha256": "396831bf6be350eedc0421e756057095b63aa35492f96f781477aa983be5ae9a"
+    },
+    {
+      "path": "src/crm.mjs",
+      "sha256": "a70cb2f01a52c6db7a540ec0c5fdeb4140d343412db62204670bc3bcc936de4a"
+    },
+    {
+      "path": "src/listmonk.mjs",
+      "sha256": "f92976c06ecf83497731f352009c07225e865d809db2a07d585da2d1872da76e"
+    },
+    {
+      "path": "src/policy.mjs",
+      "sha256": "4705850c035dad278db573f1445eae6110a01eeb09068b8c198375ef1d33cd5c"
+    },
+    {
+      "path": "src/server.mjs",
+      "sha256": "6695faa338415d33f7a66a5c41605242fd5d05ba6dd8cec2135c31324e310361"
+    },
+    {
+      "path": "src/store.mjs",
+      "sha256": "773fb1ecef97a7456f6599d0988c5c946314a33bc2dbfe2e904574805c37c487"
+    },
+    {
+      "path": "src/test-fixture.mjs",
+      "sha256": "b0a42248f58a1e7e011529924be3fabc200d2fcb0b3898b5babead83a9427f6a"
+    }
+  ],
+  "bundle_sha256": "e036e752890cd310548a4b0a47d07c8b8f76157913cc91edfa1f636fe4559a97",
+  "dockerfile_sha256": "af893597b2d9b95a5fd663a1b63146b5d25a8348ea33d1aa248ac3e33ad76482",
+  "bundle_bytes": 60386,
+  "inline_dockerfile_bytes": 82575,
+  "secrets_included": false,
+  "production_mutations": 0
+}

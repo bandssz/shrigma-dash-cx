@@ -15,6 +15,10 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - name: Build the actual Node24 connector image
-        run: docker build --platform linux/amd64 --tag shrigma-connector-rotation:qa ops/releases/connector-crm20/source
+        run: docker build --platform linux/amd64 --tag shrigma-connector-rotation:qa --file ops/releases/connector-rotation21/Dockerfile.inline .
       - name: Prove credential replacement and existing CRM and OAuth in UID1000 image
-        run: docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,nosuid,mode=1777,size=128m --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/connector-crm20/source/test,dst=/app/test,readonly" shrigma-connector-rotation:qa node --test test/admin.test.mjs test/crm.test.mjs test/oauth.test.mjs
+        run: docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,nosuid,mode=1777,size=128m --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/connector-crm20/source/test,dst=/app/test,readonly" shrigma-connector-rotation:qa node --test test/admin.test.mjs test/admin-grant-return.test.mjs test/internal-access.test.mjs test/crm.test.mjs test/oauth.test.mjs
+      - name: Build the compatible previous connector image
+        run: docker build --platform linux/amd64 --tag shrigma-connector-rotation:return --file ops/releases/connector-rotation21/return.Dockerfile.inline .
+      - name: Prove original grant restoration and existing OAuth and CRM in return image
+        run: docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,nosuid,mode=1777,size=128m --mount "type=bind,src=$GITHUB_WORKSPACE/ops/releases/connector-crm20/source/test,dst=/app/test,readonly" shrigma-connector-rotation:return node --test test/admin-grant-return.test.mjs test/internal-access.test.mjs test/crm.test.mjs test/oauth.test.mjs

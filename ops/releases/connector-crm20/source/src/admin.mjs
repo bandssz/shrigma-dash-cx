@@ -77,7 +77,7 @@ export function mountAdmin(app,{store,secret,config,service,json}){
     const head=store.db.prepare('SELECT sha FROM audit ORDER BY seq DESC LIMIT 1').get()?.sha;
     if(p.ledger_id!==store.meta('ledger_id')||p.audit_head!==head||store.db.prepare('SELECT count(*) n FROM locks').get().n!==0)deny('LEDGER_REVIEW_REQUIRED','Ledger mudou ou há operação incerta; nenhuma liberação.');
     const grant=await service.prepareInternalAccess(p.grants,p.expires_at),observed=p.smtp_confirmation?Date.parse(p.smtp_confirmation.observed_at):null;
-    if(observed!==null&&(observed>service.now()||service.now()-observed>86400000))deny('SMTP_EVIDENCE_REFUSED','A confirmação SMTP precisa vir de observação natural das últimas24 horas.');
+    if(observed!==null&&observed>service.now())deny('SMTP_EVIDENCE_REFUSED','A confirmação SMTP precisa vir de uma observação natural já realizada.');
     if(p.audit_head!==store.db.prepare('SELECT sha FROM audit ORDER BY seq DESC LIMIT 1').get()?.sha||store.db.prepare('SELECT count(*) n FROM locks').get().n!==0)deny('LEDGER_REVIEW_REQUIRED','Ledger mudou durante a validação; nenhuma liberação.');
     policy(store);store.audit('administrator',null,'internal_test_access_enable',null,'succeeded',{ledgerId:p.ledger_id,grant,smtpConfirmation:p.smtp_confirmation??null,businessEnabled:false});
     service.internalAccess=grant;service.smtpConfirmed=!!p.smtp_confirmation;
