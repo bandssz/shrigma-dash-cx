@@ -949,6 +949,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
         paidFacts.authorize(ctx,q.brand,req.method==='POST');
         if(req.method==='GET'&&['status','products','subscriptions'].includes(q.action))return sendJson(req,res,200,await paidFacts[q.action](ctx,q.brand));
+        if(req.method==='POST'&&q.action==='backfill'&&q.progress===true)return require('./crm-paid-facts.cjs').streamBackfill(res,onProgress=>paidFacts.backfill(ctx,q.brand,q.days,{onProgress}));
         if(req.method==='POST'&&['count','save','backfill','subscribe'].includes(q.action))return sendJson(req,res,200,await paidFacts[q.action](ctx,q.brand,q.action==='backfill'?q.days:q));
         throw jsonError(400,'PAID_FACTS_ACTION_INVALID');
       }

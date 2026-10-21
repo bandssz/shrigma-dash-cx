@@ -30,8 +30,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 47913,
-      "sha256": "c9724375e45ae639afa2041c7d34d23ad091bd75e5aed74c6d965fd925002b1a"
+      "bytes": 47954,
+      "sha256": "a8194733a73ae923f6dca7c20e0ffbabb9bc2d93076324807c6ee3aa19c045d6"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1705,13 +1705,13 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-ui.cjs",
-      "bytes": 6948,
-      "sha256": "067d952e3797805d04a47f92f81ae41607d69f4e112488c3007fb7125ce8fba0"
+      "bytes": 9994,
+      "sha256": "7f49a24869831feea964a69c94e2cc715352efdcf4f6e815caba830ef86d7478"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 15720,
-      "sha256": "2863063410943c801d2dcaebabec5bd503d8d7a3552d00198d4f8c9bc43fee51"
+      "bytes": 16412,
+      "sha256": "a50dff97eb4807bfebfcc1692fa6b5be7fcc41d23070fb0f24d4a4d8f65ca195"
     },
     {
       "path": "services/dashboard-operational/crm-payload-shape.cjs",
@@ -2060,8 +2060,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 228932,
-      "sha256": "5f03089b66300df7383517f09b8d776f4a47d0456a35770a6750da064e076d24"
+      "bytes": 229129,
+      "sha256": "cdd67f60e525044cfec8cf27aacfc0879678634ecfddff91f93092f075acee95"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2434,9 +2434,14 @@
       "sha256": "65b4cc9a8463febec5becd35240e713f32b6c326661483d93b6ab3d974b0f53b"
     },
     {
+      "path": "tests/crm-paid-facts-ui.test.cjs",
+      "bytes": 5561,
+      "sha256": "e62f7b757efafaa65e312f28019962a44ede70e50db36919fd569d1d8331ba27"
+    },
+    {
       "path": "tests/crm-paid-facts.test.cjs",
-      "bytes": 3221,
-      "sha256": "cb9df7fc1678e9592cdca01be467a2ac630d57f331a0c6e80b5040636fa1795b"
+      "bytes": 7539,
+      "sha256": "e848cc32c7bea01a35f29b90bf2b6ffe6b2d500d4913c2c6d3888810d9884f95"
     },
     {
       "path": "tests/crm-payload-shape-proxy.test.cjs",
