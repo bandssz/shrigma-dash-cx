@@ -2,7 +2,7 @@
 const test=require('node:test'),a=require('node:assert/strict');
 const {createNativeRead,version}=require('../services/crm-campaign/native-read.cjs');
 const {createNativeReadTransport}=require('../services/crm-campaign/native-read-transport.cjs');
-const {createExecutor}=require('../services/crm-campaign/transport.cjs');
+const {createNativeExecutor}=require('../services/crm-campaign/native-executor.cjs');
 function campaign(id=1,brand='fish'){
  return {id,created_at:'2026-10-20T13:00:00Z',updated_at:'2026-10-21T13:00:00Z',name:'Synthetic campaign',subject:'Synthetic subject',body:'<p>Synthetic body</p>',altbody:'Synthetic text',from_email:'avisos@'+(brand==='fish'?'fishermans.com.br':'oaristocrata.com'),template_id:1,status:'draft',sent:0,started_at:null,send_at:null,lists:[{id:brand==='fish'?17:16}],tags:[],headers:[{'Reply-To':'internal@synthetic.invalid'}],media:[{id:42}],attribs:{crm:{policy:'crm-campaign-v1',brand,initiative_key:'synthetic',initiative_name:'Synthetic',utm_campaign:'synthetic'},external:{retained:true}}};
 }
@@ -44,8 +44,13 @@ test('unsupported mutations, validation, history and recovery remain explicit de
 });
 test('original transport dispatch retains the verified actor and does not enter SQL effect runtime',async()=>{
  const auth={actor:'template:synthetic-original',caps:['read_content']};let entered=0;
- const executor=createExecutor({pool:{query:async()=>({rows:[{auth}]})},native:()=>a.fail('native write'),nativeReads:{supports:()=>true,execute:async input=>{a.equal(input.auth,auth);a.equal(input.key,'synthetic-template-key');entered++;return {status:200,body:{campaigns:[]}};}},runtimeFactory:()=>a.fail('legacy runtime must not create claims')});
+ const executor=createNativeExecutor({enabled:true,pool:{query:async()=>({rows:[{auth}]})},native:()=>a.fail('native write'),nativeReads:{supports:()=>true,execute:async input=>{a.equal(input.auth,auth);a.equal(input.key,'synthetic-template-key');entered++;return {status:200,body:{campaigns:[]}};}},runtimeFactory:()=>a.fail('legacy runtime must not create claims')});
  a.deepEqual(await executor({key:'synthetic-template-key',command:{acao:'campanha_listar',brand:'fish'}}),{status:200,body:{campaigns:[]}});a.equal(entered,1);
+});
+test('default disabled composition preserves the original runtime without native reads',async()=>{
+ let original=0;const auth={actor:'template:synthetic-original',caps:['read_content']};
+ const executor=createNativeExecutor({pool:{query:async()=>({rows:[{auth}]})},native:()=>a.fail('native write'),nativeReads:{supports:()=>a.fail('disabled adapter'),execute:()=>a.fail('disabled adapter')},runtimeFactory:()=>({start:async()=>{original++;return {kind:'response',response:{status:200,body:{original:true}}};}})});
+ a.deepEqual(await executor({key:'synthetic-key',command:{acao:'campanha_obter',brand:'fish',id:1}}),{status:200,body:{original:true}});a.equal(original,1);
 });
 test('GET-only API16 transport rejects arbitrary paths before I/O and never retries',async()=>{
  let calls=0;const read=createNativeReadTransport({origin:'https://email.shrigma.com.br/',username:'synthetic-api16',token:'synthetic-token',fetchFn:async(_url,q)=>{calls++;a.equal(q.method,'GET');throw Error('private upstream details');}});

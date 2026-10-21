@@ -33,19 +33,13 @@ function nativeTransport({origin,username,token,fetchFn=fetch,timeoutMs=20000,ma
   }finally{clearTimeout(timer);controller.abort();}
  };
 }
-function createExecutor({pool,native,nativeReads=null,runtimeFactory=createRuntime,executionId=randomUUID}){
+function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=randomUUID}){
  return async({key,command,interrupted=()=>false})=>{
   const verified=(await pool.query(AUTH_SQL,[key]))?.rows;
   if(verified?.length!==1)throw Error('AUTH_RESPONSE_INVALID');
   const auth=verified[0].auth;
   if(!auth||typeof auth.actor!=='string'||!auth.actor.trim()||!Array.isArray(auth.caps)||auth.caps.some(c=>typeof c!=='string'))return {status:401,body:{error:'UNAUTHORIZED',message:'Autenticação necessária.'}};
   if(Object.hasOwn(auth,'brand')&&(!['fish','aristo'].includes(auth.brand)||auth.brand!==command.brand))return {status:403,body:{error:'BRAND_DENIED',message:'Acesso não autorizado para esta marca.'}};
-  // Explicit preparation port. No production bootstrap enables this until the
-  // native mutations, history and version consumers have compatible contracts.
-  if(nativeReads?.supports(command)){
-   try{return await nativeReads.execute({key,auth,command,interrupted});}
-   catch(e){return e.status&&e.body?{status:e.status,body:e.body}:unavailable();}
-  }
   if(command.acao==='campanha_acesso'){
    if(Object.keys(command).sort().join(',')!=='acao,brand'||!['fish','aristo'].includes(command.brand)||interrupted())return unavailable();
    try{const result=await pool.query(CONTENT_AUTHORITY_SQL,[key,command.brand]);return result?.rows?.length===1&&result.rows[0].result?{status:200,body:result.rows[0].result}:{status:503,body:{error:'CONTENT_AUTHORITY_NOT_READY'}};}catch{return {status:503,body:{error:'CONTENT_AUTHORITY_NOT_READY'}};}
