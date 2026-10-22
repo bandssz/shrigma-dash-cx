@@ -1,0 +1,82 @@
+/* ShrigmaAffiliatesV2 — CSS isolado sob .saf2. Consome tokens de marca injetados pelo painel
+   (--ui, --texto, --mudo, --rotulo, --borda, --borda-forte, --card, --card-2, --neutro-bg,
+   --marca, --marca-texto, --marca-fraca, --bom, --bom-bg, --ruim, --ruim-bg) com fallback neutro.
+   Nenhum seletor global, de body ou do painel legado. */
+.saf2{--saf2-gap:14px;font:400 13.5px/1.45 var(--ui,system-ui,sans-serif);color:var(--texto,#1d1d1f);display:grid;grid-template-columns:minmax(0,1fr);gap:var(--saf2-gap);min-width:0}
+.saf2 *,.saf2 *::before,.saf2 *::after{box-sizing:border-box}
+.saf2>*,.saf2 .saf2-body>*{min-width:0}
+.saf2 h2,.saf2 h3,.saf2 h4,.saf2 p,.saf2 ul,.saf2 dl{margin:0}
+.saf2 .saf2-title{font:700 18px/1.2 var(--ui,system-ui,sans-serif)}
+.saf2 h3{font:700 15px/1.3 var(--ui,system-ui,sans-serif)}
+.saf2 h4{font:600 13.5px/1.3 var(--ui,system-ui,sans-serif)}
+.saf2 .saf2-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.saf2 .saf2-muted{color:var(--mudo,#6b6b70)}
+.saf2 .saf2-head{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-start;justify-content:space-between}
+.saf2 .saf2-meta{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--mudo,#6b6b70);font-size:12.5px}
+.saf2 .saf2-refresh{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:12px}
+.saf2 .saf2-status:empty{display:none}
+.saf2 .saf2-status:focus{outline:none}
+.saf2 .saf2-notice{padding:8px 12px;border-radius:8px;background:var(--neutro-bg,#f2f2f4);border:1px solid var(--borda,#e3e3e6)}
+.saf2 .saf2-notice--bad{background:var(--ruim-bg,#fdecec);border-color:var(--ruim,#c0392b)}
+.saf2 .saf2-notice--warn{border-color:var(--borda-forte,#c9c9ce)}
+.saf2 .saf2-btn{font:600 13px/1 var(--ui,system-ui,sans-serif);padding:8px 12px;border-radius:8px;border:1px solid var(--borda-forte,#c9c9ce);background:var(--card,#fff);color:var(--texto,#1d1d1f);cursor:pointer;min-height:34px}
+.saf2 .saf2-btn:hover:not([disabled]){border-color:var(--texto,#1d1d1f)}
+.saf2 .saf2-btn--primary{background:var(--marca,#1d1d1f);border-color:var(--marca,#1d1d1f);color:var(--marca-texto,#fff)}
+.saf2 .saf2-btn--ghost{background:transparent}
+.saf2 .saf2-btn[disabled]{opacity:.5;cursor:not-allowed}
+.saf2 .saf2-btn:focus-visible,.saf2 .saf2-input:focus-visible,.saf2 .saf2-select:focus-visible,.saf2 [tabindex]:focus-visible,.saf2 .saf2-link:focus-visible{outline:2px solid var(--marca,#1d1d1f);outline-offset:2px}
+.saf2 .saf2-input,.saf2 .saf2-select{font:400 13px/1.2 var(--ui,system-ui,sans-serif);padding:7px 9px;border-radius:8px;border:1px solid var(--borda-forte,#c9c9ce);background:var(--card,#fff);color:var(--texto,#1d1d1f);min-height:34px;max-width:100%}
+.saf2 .saf2-tag{display:inline-block;padding:1px 8px;border-radius:20px;font:600 11px/1.7 var(--ui,system-ui,sans-serif);background:var(--neutro-bg,#f2f2f4);color:var(--texto,#1d1d1f);margin:2px 4px 2px 0}
+.saf2 .saf2-tag--warn{background:var(--marca-fraca,#fff4d6)}
+.saf2 .saf2-tag--bad{background:var(--ruim-bg,#fdecec);color:var(--ruim,#c0392b)}
+.saf2 .saf2-tag--good{background:var(--bom-bg,#e7f6ec);color:var(--bom,#1e7e34)}
+.saf2 .saf2-source{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:center;font-size:12px;color:var(--mudo,#6b6b70)}
+.saf2 .saf2-state{padding:10px 12px;border-radius:8px;background:var(--neutro-bg,#f2f2f4)}
+.saf2 .saf2-state--warn{background:var(--marca-fraca,#fff4d6)}
+.saf2 .saf2-state--bad{background:var(--ruim-bg,#fdecec);color:var(--ruim,#c0392b)}
+.saf2 .saf2-closed{font-size:12px;color:var(--mudo,#6b6b70)}
+.saf2 .saf2-closed--compact{margin-top:6px}
+.saf2 .saf2-warn{font-size:12.5px;padding:6px 10px;border-left:3px solid var(--borda-forte,#c9c9ce);background:var(--card-2,#fafafa)}
+.saf2 .saf2-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.saf2 .saf2-tabs{display:inline-flex;border:1px solid var(--borda,#e3e3e6);border-radius:8px;overflow:hidden}
+.saf2 .saf2-tabs [role=tab]{border:0;background:transparent;padding:8px 14px;font:600 13px/1 var(--ui,system-ui,sans-serif);color:var(--mudo,#6b6b70);cursor:pointer;min-height:34px}
+.saf2 .saf2-tabs [role=tab][aria-selected=true]{background:var(--texto,#1d1d1f);color:var(--card,#fff)}
+.saf2 .saf2-filters{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 320px}
+.saf2 .saf2-filters .saf2-input{flex:1 1 180px}
+.saf2 .saf2-body{display:grid;gap:var(--saf2-gap);grid-template-columns:minmax(0,1fr)}
+.saf2 .saf2-crm,.saf2 .saf2-profile,.saf2 .saf2-perf,.saf2 .saf2-ops{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;padding:14px;border:1px solid var(--borda,#e3e3e6);border-radius:12px;background:var(--card,#fff)}
+.saf2 .saf2-table-wrap{overflow-x:auto;max-width:100%}
+.saf2 .saf2-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.saf2 .saf2-table th{font:600 11.5px/1.3 var(--ui,system-ui,sans-serif);color:var(--rotulo,#86868b);text-align:left;padding:8px;border-bottom:1px solid var(--borda,#e3e3e6);white-space:nowrap}
+.saf2 .saf2-table td{padding:8px;border-bottom:1px solid var(--borda,#e3e3e6);vertical-align:top}
+.saf2 .saf2-name{display:block}
+.saf2 .saf2-table td .saf2-btn,.saf2 .saf2-table td .saf2-tag{white-space:nowrap}
+.saf2 .saf2-kanban{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(230px,1fr);gap:10px;overflow-x:auto;padding-bottom:4px}
+.saf2 .saf2-col{background:var(--neutro-bg,#f2f2f4);border-radius:10px;padding:10px;display:grid;gap:8px;align-content:start}
+.saf2 .saf2-cards{list-style:none;padding:0;display:grid;gap:8px}
+.saf2 .saf2-card{background:var(--card,#fff);border:1px solid var(--borda,#e3e3e6);border-radius:10px;padding:10px;display:grid;gap:6px}
+.saf2 .saf2-card-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.saf2 .saf2-next{font-size:12.5px}
+.saf2 .saf2-profile-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.saf2 .saf2-profile-head h3:focus{outline:none}
+.saf2 .saf2-dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;font-size:13px}
+.saf2 .saf2-dl dt{color:var(--mudo,#6b6b70)}
+.saf2 .saf2-dl dd{margin:0;overflow-wrap:anywhere}
+.saf2 .saf2-actions{display:flex;flex-wrap:wrap;gap:8px}
+.saf2 .saf2-sub{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding-top:8px;border-top:1px solid var(--borda,#e3e3e6)}
+.saf2 .saf2-list{list-style:none;padding:0;display:grid;gap:6px}
+.saf2 .saf2-list li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.saf2 .saf2-form{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:12px;border:1px solid var(--borda-forte,#c9c9ce);border-radius:10px;background:var(--card-2,#fafafa)}
+.saf2 .saf2-fields{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.saf2 .saf2-field{display:grid;gap:4px}
+.saf2 .saf2-field label{font:600 12px/1.3 var(--ui,system-ui,sans-serif)}
+.saf2 .saf2-stats{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.saf2 .saf2-stat{display:grid;gap:4px;padding:10px;border-radius:10px;border:1px solid var(--borda,#e3e3e6)}
+.saf2 .saf2-stat-label{font:600 11.5px/1.3 var(--ui,system-ui,sans-serif);color:var(--rotulo,#86868b);text-transform:uppercase;letter-spacing:.02em}
+.saf2 .saf2-stat-value{font:700 17px/1.2 var(--ui,system-ui,sans-serif);font-variant-numeric:tabular-nums}
+.saf2 [data-saf2-value-kind=missing] .saf2-stat-value,.saf2 [data-saf2-value-kind=malformed] .saf2-stat-value,.saf2 [data-saf2-value-kind=nocurrency] .saf2-stat-value{font-size:13px;color:var(--mudo,#6b6b70)}
+.saf2 .saf2-ops ul{list-style:none;padding:0;display:grid;gap:6px}
+.saf2 .saf2-ops li{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+@media (min-width:1100px){.saf2 .saf2-body--profile{grid-template-columns:minmax(0,1fr) minmax(320px,420px);align-items:start}}
+@media (max-width:640px){.saf2{--saf2-gap:10px}.saf2 .saf2-refresh{align-items:flex-start}.saf2 .saf2-crm,.saf2 .saf2-profile,.saf2 .saf2-perf,.saf2 .saf2-ops{padding:10px}.saf2 .saf2-dl{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.saf2 *{transition:none!important;animation:none!important}}

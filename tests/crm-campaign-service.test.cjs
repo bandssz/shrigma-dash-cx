@@ -76,7 +76,7 @@ test('native transport restricts paths, sends exact form/JSON, refuses redirects
 });
 test('native response body is bounded and provider errors expose only deterministic allowlist',async()=>{
  const native=nativeTransport({origin:'https://listmonk.example',username:'x',token:'y',maxResponseBytes:10,fetchFn:async()=>new Response('x'.repeat(11))});await assert.rejects(native({kind:'preview',idCampaign:1,payload:{}}));
- assert.deepEqual(safeError({code:'P0001',message:'AB_V2_CAMPAIGN_FROZEN'}),{code:'P0001',message:'AB_V2_CAMPAIGN_FROZEN'});assert.deepEqual(safeError({code:'P0001',message:'secret SQL'}),{message:'Resultado do serviço não confirmado.'});
+ assert.deepEqual(safeError({code:'P0001',message:'AB_V2_CAMPAIGN_FROZEN'}),{code:'P0001',message:'AB_V2_CAMPAIGN_FROZEN'});assert.deepEqual(safeError({code:'P0001',message:'SEGMENT_CAMPAIGN_SELECTOR_REQUIRED'}),{code:'P0001',message:'SEGMENT_CAMPAIGN_SELECTOR_REQUIRED'});assert.deepEqual(safeError({code:'P0001',message:'secret SQL'}),{message:'Resultado do serviço não confirmado.'});
  const c=config({CRM_CAMPAIGN_REVISION:'a'.repeat(40),PGUSER:'crm_campaign_api',PGDATABASE:'listmonk',PGHOST:'internal',PGPASSWORD:'synthetic'});assert.equal(c.pg.max,4);assert.equal(c.enabled,false);assert.equal(c.mediaEnabled,false);assert.ok(c.pg.statement_timeout<c.pg.query_timeout);
  assert.equal(config({CRM_CAMPAIGN_REVISION:'a'.repeat(40),PGUSER:'crm_campaign_api',PGDATABASE:'listmonk',PGHOST:'internal',PGPASSWORD:'synthetic',CRM_CAMPAIGN_MEDIA_ENABLED:'true'}).mediaEnabled,true);
  assert.throws(()=>config({CRM_CAMPAIGN_REVISION:'a'.repeat(40),PGUSER:'crm_campaign_api',PGDATABASE:'listmonk',PGHOST:'internal',PGPASSWORD:'synthetic',CRM_CAMPAIGN_MEDIA_ENABLED:'yes'}));

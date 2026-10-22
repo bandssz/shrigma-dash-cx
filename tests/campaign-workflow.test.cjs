@@ -69,7 +69,7 @@ test('dispatcher refuses invalid internal effects; receipts only use context fro
 
 test('trusted PostgreSQL rollback codes survive; HTTP/network errors never pretend nothing changed or leak raw errors',async()=>{
  const w=buildWorkflow(options()),own=receiptSource();
- for(const [codeValue,message] of [['P0001','VERSION_CONFLICT'],['40001','anything'],['55P03','anything']]){
+ for(const [codeValue,message] of [['P0001','VERSION_CONFLICT'],['P0001','SEGMENT_CAMPAIGN_SELECTOR_REQUIRED'],['40001','anything'],['55P03','anything']]){
   const out=await code(w,'Recibo erro PG',{error:{code:codeValue,message,headers:{authorization:'synthetic-secret'}}},{linked:{Despacha:own}});
   assert.equal(out[0].json.receipt.error.code,codeValue);assert.ok(!JSON.stringify(out).includes('synthetic-secret'));assert.equal(out[0].json.receipt.error.nothingChanged,undefined);
  }

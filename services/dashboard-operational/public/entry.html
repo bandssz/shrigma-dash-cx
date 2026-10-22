@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="referrer" content="no-referrer">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+ <title>__LABEL__ · Shrigma — Painel</title>
+ <link rel="stylesheet" href="/entry.css">
+</head>
+<body data-access-panel="__PANEL__">
+ <section id="entry-login" class="login-screen">
+  <aside class="login-intro" aria-label="Shrigma">
+   <div class="login-mark" aria-hidden="true">S</div>
+   <p class="eyebrow">A operação, no mesmo lugar</p>
+   <h2>Dados claros.<br>Próxima ação à vista.</h2>
+   <p>CRM, Orgânico, Influs e Afiliados. Cada pessoa acessa as frentes e marcas que precisa para trabalhar.</p>
+   <div class="login-fronts"><span>CRM</span><span>Orgânico</span><span>Influs</span><span>Afiliados</span></div>
+  </aside>
+  <div class="login-card">
+   <div class="brand">Shrigma</div>
+   <p class="eyebrow">Acesso à operação</p>
+   <h1>__LABEL__</h1>
+   <p>Entre com seu e-mail corporativo e senha.</p>
+   <form id="login-form" method="post" action="/auth/login">
+    <label for="login-email">E-mail corporativo</label>
+    <input id="login-email" name="email" type="email" autocomplete="username" inputmode="email" required>
+    <div class="password-label"><label for="login-password">Senha</label><button id="login-password-toggle" type="button" aria-controls="login-password" aria-pressed="false">Mostrar</button></div>
+    <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">Entrar</button>
+   </form>
+   <form id="invite-form" method="post" action="/auth/invite/accept" hidden>
+    <p>Seu convite está pronto. Crie uma senha para ativar o acesso.</p>
+    <label for="invite-password">Nova senha</label>
+    <input id="invite-password" type="password" autocomplete="new-password" minlength="12" required>
+    <label for="invite-confirm">Confirmar senha</label>
+    <input id="invite-confirm" type="password" autocomplete="new-password" minlength="12" required>
+   <button type="submit">Criar acesso</button>
+   </form>
+   <form id="bootstrap-form" method="post" action="/auth/bootstrap/complete" hidden>
+    <p>Crie sua senha para ativar o acesso superior. Não é preciso confirmar o e-mail.</p>
+    <label for="bootstrap-email">Seu e-mail corporativo</label><input id="bootstrap-email" type="email" autocomplete="username" required>
+    <label for="bootstrap-password">Nova senha</label><input id="bootstrap-password" type="password" autocomplete="new-password" minlength="12" required>
+    <label for="bootstrap-confirm">Confirmar senha</label><input id="bootstrap-confirm" type="password" autocomplete="new-password" minlength="12" required>
+    <button type="submit">Ativar acesso superior</button>
+   </form>
+   <p id="entry-message" role="status" aria-live="polite"></p>
+  </div>
+ </section>
+ <section id="entry-shell" hidden>
+  <header class="topbar">
+   <div class="topbar-brand">Shrigma <small id="entry-area"></small><small id="entry-brand"></small></div>
+   <nav id="entry-nav" aria-label="Áreas" hidden></nav>
+   <div class="topbar-account"><span id="entry-owner"></span><button id="entry-password" type="button" hidden>Trocar senha</button><button id="entry-campaign-open" type="button" hidden>Campanhas</button><button id="entry-manage" type="button" hidden>Acessos do time</button><button id="entry-logout" type="button">Sair</button></div>
+  </header>
+  <main>
+   <div id="entry-frame"></div>
+   <section id="admin-panel" class="admin-panel" hidden aria-label="Gestão de acessos">
+    <div class="admin-heading"><h2>Acessos do time</h2><p>Escolha o e-mail corporativo, o setor, a marca e o nível de acesso. Cada pessoa verá somente a marca cadastrada. O convite permite criar a própria senha.</p></div>
+    <form id="simple-user-form" method="post" action="/auth/simple/users" hidden>
+     <div class="admin-field"><label for="simple-email">E-mail</label><input id="simple-email" type="email" autocomplete="off" required></div>
+     <div class="admin-field"><label for="simple-title">Cargo</label><input id="simple-title" maxlength="100" required></div>
+     <div class="admin-field"><label for="simple-password">Senha inicial</label><input id="simple-password" type="password" minlength="12" maxlength="72" autocomplete="new-password" required><small>A pessoa poderá trocar a senha ao entrar.</small></div>
+     <fieldset id="simple-fronts"><legend>Frentes liberadas para leitura</legend><label><input type="checkbox" value="growth"> CRM</label><label><input type="checkbox" value="organico"> Orgânico</label><label><input type="checkbox" value="influs"> Influs</label><label><input type="checkbox" value="afiliados"> Afiliados</label></fieldset>
+     <fieldset id="simple-write-fronts"><legend>Permitir alterações</legend><label><input type="checkbox" value="growth" disabled> CRM</label><label><input type="checkbox" value="organico" disabled> Orgânico</label><label><input type="checkbox" value="influs" disabled> Influs</label><label><input type="checkbox" value="afiliados" disabled> Afiliados</label></fieldset>
+     <fieldset id="simple-brands"><legend>Marcas liberadas</legend><label><input type="checkbox" value="fish"> Fishermans</label><label><input type="checkbox" value="aristo"> O Aristocrata</label><label><input type="checkbox" value="olivas"> Olivas do Campo</label></fieldset>
+     <button type="submit">Criar usuário</button>
+    </form>
+    <form id="admin-invite-form" method="post" action="/auth/users">
+     <div class="admin-field"><label for="admin-email">E-mail corporativo</label><input id="admin-email" type="email" autocomplete="off" required></div>
+     <div class="admin-field"><label for="admin-area">Setor</label><select id="admin-area"><option value="growth">CRM</option><option value="organico">Orgânico</option><option value="influs">Influs</option><option value="afiliados">Afiliados / TikTok</option></select></div>
+     <div class="admin-field"><label for="admin-brand">Marcas — uma ou várias</label><select id="admin-brand" multiple size="4" required aria-describedby="admin-brand-help"><option value="" selected disabled>Selecione as marcas</option><option value="fish">Fishermans</option><option value="aristo">O Aristocrata</option><option value="olivas">Olivas do Campo</option></select><button id="admin-brand-all" type="button">Selecionar todas</button><small id="admin-brand-help">Use Cmd/Ctrl para selecionar mais de uma ou selecione todas.</small></div>
+     <div class="admin-field"><label for="admin-access">Nível de acesso</label><select id="admin-access"><option value="read">Leitura</option><option value="edit">Edição</option></select></div>
+     <button type="submit">Criar convite</button>
+    </form>
+    <p class="admin-access-note">Ao escolher Edição, você autoriza a configuração do acesso. A edição fica disponível após a confirmação da integração, mostrada no estado do acesso. Alterar e-mail, setor ou marca encerra o acesso anterior e exige um novo convite.</p>
+    <div id="admin-invite-result" hidden><label for="admin-invite-link">Link de convite</label><input id="admin-invite-link" type="text" readonly><button id="admin-copy" type="button">Copiar link</button><button id="admin-invite-hide" type="button">Ocultar link</button></div>
+    <p id="admin-message" role="status" aria-live="polite"></p>
+    <button id="admin-crm-reconcile" type="button" hidden>Conferir acessos CRM pendentes</button>
+    <button id="admin-journey-reviews" type="button" hidden>Solicitações de jornadas</button>
+    <section id="admin-journey-inbox" hidden aria-label="Solicitações de ativação de jornadas" aria-live="polite"></section>
+    <div id="admin-users" class="user-list"></div>
+   </section>
+  </main>
+ </section>
+ <dialog id="simple-password-dialog" aria-labelledby="simple-password-heading">
+  <form id="simple-password-form" method="post" action="/auth/password">
+   <h2 id="simple-password-heading">Trocar minha senha</h2>
+   <label for="simple-current-password">Senha atual</label><input id="simple-current-password" type="password" autocomplete="current-password" required>
+   <label for="simple-new-password">Nova senha</label><input id="simple-new-password" type="password" minlength="12" maxlength="72" autocomplete="new-password" required>
+   <p id="simple-password-message" role="status" aria-live="polite"></p>
+   <button type="submit">Salvar nova senha</button><button id="simple-password-close" type="button">Fechar</button>
+  </form>
+ </dialog>
+ <dialog id="entry-campaign-dialog" hidden aria-labelledby="campaign-heading">
+  <header><h2 id="campaign-heading">Campanhas</h2><button id="campaign-close" type="button" aria-label="Fechar editor">Fechar</button></header>
+  <p>Salvar conserva o rascunho. O envio só será agendado após conferir o público e confirmar o horário.</p>
+  <div class="campaign-picker"><label>Marca<select id="campaign-brand"><option value="fish">Fishermans</option><option value="aristo">O Aristocrata</option></select></label><label>Campanha<select id="campaign-select"></select></label><button id="campaign-new" type="button" disabled>Novo rascunho</button><button id="campaign-refresh" type="button">Atualizar leitura</button></div>
+  <p id="campaign-state"></p><p id="campaign-status" role="status" aria-live="polite"></p>
+  <form id="campaign-form"><fieldset id="campaign-fields" disabled>
+   <fieldset id="campaign-create-details" hidden><legend>Novo rascunho, sem agendamento</legend><label>Chave da iniciativa<input id="campaign-initiative-key" maxlength="100"></label><label>Nome da iniciativa<input id="campaign-initiative-name" maxlength="160"></label><label>Identificador UTM da campanha<input id="campaign-utm" maxlength="100"></label></fieldset>
+   <label>Nome<input id="campaign-name" maxlength="200" required></label><label>Assunto<input id="campaign-subject" maxlength="250" required></label>
+   <label>Remetente<input id="campaign-from" maxlength="254" required></label><label>Responder para<input id="campaign-reply" type="email" maxlength="254" required></label>
+   <label>Horário planejado (horário deste computador)<input id="campaign-time" type="datetime-local"></label><label>Template<select id="campaign-template"></select></label>
+   <fieldset><legend>Listas da marca</legend><div id="campaign-lists"></div></fieldset>
+   <label>Conteúdo HTML<textarea id="campaign-html" rows="8" required></textarea></label><label>Conteúdo em texto<textarea id="campaign-text" rows="4" required></textarea></label>
+  </fieldset></form>
+  <p id="campaign-review"></p><label class="campaign-confirm"><input id="campaign-confirm" type="checkbox">Confirmo a ação de agendamento ou cancelamento desta campanha e deste horário.</label>
+  <footer><button id="campaign-create" type="button" hidden disabled>Criar rascunho</button><button id="campaign-save" type="button" disabled>Salvar rascunho</button><button id="campaign-validate" type="button" disabled>Conferir público</button><button id="campaign-schedule" type="button" disabled>Agendar</button><button id="campaign-cancel" type="button" disabled>Cancelar agendamento</button><button id="campaign-consult" type="button" disabled>Consultar tentativa</button></footer>
+ </dialog>
+ <script src="/campaign-bff-client.js"></script><script src="/campaign-edit.js"></script><script src="/entry.js?v=crm-seguro-20261015"></script>
+</body>
+</html>

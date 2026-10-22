@@ -29,7 +29,7 @@ for(const brand of ['fish','aristo'])test(brand+' native gallery → confirmed n
 test('strict capability and journals block derivation; wrong-brand and stale preview cannot unlock a local copy',async()=>{
  const off=setup({capsPatch:{native_email_derive:false}});await off.GENU.open();assert.equal(off.calls.length,1);assert.equal(off.GR.lista().length,0);assert.match(off.GENU.session.error,/indisponíveis|disponíveis/);
  const missing=setup({key:''});await missing.GENU.open();assert.equal(missing.calls.length,0);
- const blocked=setup();blocked.values.set('shrigma_crm_template_operations_v1','{broken');blocked.GRU.journal=()=>({inspect:()=>({blocked:true,operations:[]})});await blocked.GENU.open();assert.equal(blocked.calls.length,0);
+ const blocked=setup();blocked.values.set(blocked.GR.CHAVE,'{broken');await blocked.GENU.open();assert.equal(blocked.calls.length,0);
  const wrong=setup({previewPatch:{brand:'aristo'}});await wrong.GENU.open();await wrong.GENU.select(101);await wrong.GENU.review();assert.equal(wrong.GENU.session.preview,null);wrong.GENU.session.confirmed=true;wrong.GENU.create();assert.equal(wrong.GR.lista().length,0);
  let release;const gate=new Promise(r=>release=r),stale=setup({wait:gate});await stale.GENU.open();await stale.GENU.select(101);const p=stale.GENU.review();stale.GENU.session.draft.preheader='Mudou durante consulta';release();await p;assert.equal(stale.GENU.session.preview,null);assert.match(stale.GENU.session.error,/mudou/);
 });

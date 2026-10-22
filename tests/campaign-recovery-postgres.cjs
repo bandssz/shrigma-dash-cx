@@ -5,7 +5,7 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 (async()=>{
  const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite'),db=new PGlite();
  try{
-  for(const file of ['tests/campaign-provider-schema.sql','tests/fixtures/campaign-store-pre-recovery.sql','tests/fixtures/campaign-provider-pre-recovery.sql','n8n/growth/campaign-write-guard.sql'])await db.exec(read(file));
+  for(const file of ['tests/campaign-provider-schema.sql','tests/fixtures/campaign-store-pre-recovery.sql','tests/fixtures/campaign-provider-pre-recovery.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-write-guard.sql'])await db.exec(read(file));
   const q=async(sql,p=[])=>(await db.query(sql,p)).rows;
   const call=async(a,p)=>(await q('SELECT shrigma_campaign_store($1,$2::jsonb) r',[a,JSON.stringify(p)]))[0].r;
   const provider=async(a,p)=>(await q('SELECT shrigma_campaign_provider($1,$2::jsonb) r',[a,JSON.stringify(p)]))[0].r;
@@ -15,10 +15,15 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
   await call('finish',{id:source.id,lease:source.lease,providerId:100,state:'outcome_unknown',response:{status:502,body:{error:'OUTCOME_UNKNOWN',provider_id:100,operation_id:source.id}}});
   const snapshot=async()=>({campaigns:await q('SELECT * FROM campaigns ORDER BY id'),ops:await q('SELECT * FROM shrigma_campaign_operation ORDER BY id'),subscribers:await q('SELECT * FROM subscribers ORDER BY id'),links:await q('SELECT * FROM subscriber_lists ORDER BY subscriber_id,list_id')});
   const before=await snapshot();const migration=read('n8n/growth/campaign-recovery-install.sql');await db.exec(migration);await db.exec(migration);assert.deepEqual(await snapshot(),before,'upgrade and replay preserve all historical data');
+  // Recovery's versioned migration deliberately preserves its historical provider.
+  // The separately reviewed ownership upgrade installs the current provider in
+  // the same transaction before comparing it with a fresh current installation.
+  await db.exec('BEGIN');await db.exec(read('n8n/growth/campaign-provider.sql'));await db.exec('COMMIT');
+  assert.deepEqual(await snapshot(),before,'current ownership provider preserves historical data');
   const functions=await q("SELECT proname,prosrc FROM pg_proc WHERE proname IN ('shrigma_campaign_store','shrigma_campaign_provider','shrigma_campaign_recovery') ORDER BY proname");
-  const fresh=new PGlite();try{for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-provider.sql'])await fresh.exec(read(f));assert.deepEqual((await fresh.query("SELECT proname,prosrc FROM pg_proc WHERE proname IN ('shrigma_campaign_store','shrigma_campaign_provider','shrigma_campaign_recovery') ORDER BY proname")).rows,functions);}finally{await fresh.close();}
+  const fresh=new PGlite();try{for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql'])await fresh.exec(read(f));assert.deepEqual((await fresh.query("SELECT proname,prosrc FROM pg_proc WHERE proname IN ('shrigma_campaign_store','shrigma_campaign_provider','shrigma_campaign_recovery') ORDER BY proname")).rows,functions);}finally{await fresh.close();}
   for(const ddl of ["ALTER TABLE shrigma_campaign_recovery_receipt ADD COLUMN unexpected text", "ALTER TABLE shrigma_campaign_recovery_receipt DROP CONSTRAINT shrigma_campaign_recovery_receipt_pkey", "ALTER TABLE shrigma_campaign_recovery_receipt ALTER COLUMN provider_id DROP NOT NULL", "ALTER TABLE shrigma_campaign_recovery_receipt ALTER COLUMN created_at SET DEFAULT now()"]){
-   const bad=new PGlite();try{for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-provider.sql'])await bad.exec(read(f));await bad.exec(ddl);await assert.rejects(bad.exec(migration),/RECOVERY_TABLE_DRIFT/);await bad.exec('ROLLBACK');}finally{await bad.close();}
+   const bad=new PGlite();try{for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-recovery.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql'])await bad.exec(read(f));await bad.exec(ddl);await assert.rejects(bad.exec(migration),/RECOVERY_TABLE_DRIFT/);await bad.exec('ROLLBACK');}finally{await bad.close();}
   }
   const inspect=actor=>provider('recovery_inspect',{sourceOperationId:source.id,actor});
   assert.equal(await inspect('other-manager'),null);const proof=await inspect('synthetic-manager');assert.equal(proof.source_operation_id,source.id);assert.equal(proof.campaign.id,100);assert.equal(proof.frozen,false);

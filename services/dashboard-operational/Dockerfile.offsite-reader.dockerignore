@@ -1,0 +1,5 @@
+# Deny by default: no Git, env, database, key, asset, test or document.
+**
+!services/
+!services/dashboard-operational/
+!services/dashboard-operational/cipher-reader.cjs

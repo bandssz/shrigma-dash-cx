@@ -1,0 +1,118 @@
+name: CRM presentation release 20261006
+on:
+  push:
+    branches: [codex/crm-ui-final-release-20261006]
+  pull_request:
+    branches: [codex/dashboard-candidate-crm-fix-20261002]
+permissions:
+  contents: read
+jobs:
+  verify-and-publish:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && (github.event_name == 'push' || github.head_ref == 'codex/crm-ui-final-release-20261006')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      RELEASE: ops/releases/crm-presentation-20261006
+      IMAGE: ghcr.io/bandssz/shrigma-dash-crm-presentation
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - name: Conferir fonte e contratos imutaveis
+        run: |
+          node -e "if(process.version!=='v22.23.3')throw Error('NODE_VERSION_REFUSED')"
+          python3 - <<'PY'
+          import hashlib, pathlib
+          pins = {
+            'services/dashboard-operational/public/entry.js': 'e3dd53afd7ab70d71c4b82478829c8edd99eb08894837d51f98f5068d92959eb',
+            'services/dashboard-operational/public/entry.compiled.js': 'ea5fcc300ad9e0ebcc24058a30b0d5c1f00184addf43d0fa8bfab14becce7913',
+            'services/dashboard-operational/campaign-ui-assets.json': '1eb6f35a3ee5684eebfb8c225a597cf9f0908ccc4b55e7a77365479740a14752',
+            'tests/dashboard-operational-user-confirmation-ui.test.cjs': '5a089133f393804380985aa003642e78e0b553ecb1c082d6b0f4fd18e58aa8a9',
+            'growth-audience.js': '46174f4c5f2c619ea28e1c3bc20a53ed2130e3cc7181448431aec6c728fa10d4',
+            'tests/growth-audience-source-state.test.cjs': 'a25352a229a200be6f953ac3517badb6720aea3f3184c3d5bab060ef3c5d89d3',
+            'growth-flows-ui.js': 'f7ac18de1bb5823a90564a0f137e3cb5961c2295c43d0dcaf909cbb5f60c1cb9',
+            'assets/panels/growth.js': '611a9ef3765c75e164ea7e548fb3a8c0edbd1b70c05e1d84b5bf02c55c2fa461',
+            'growth.html': 'ff7d397a77c3387100cbe30f08c4fdfc8995973160e0c1a5769639636278596b',
+            'tests/dashboard-operational-managed-ui.test.cjs': 'e599f72fad66bc646b13593b077349be34cd57ef73de2613f485a694f0d565db',
+            'tests/dashboard-operational-content-access-ui.test.cjs': '1140f387d837dce4b2a28766182c8258b9e2510159780ff502115d1ac8a08e6b',
+            'tests/growth-campaign-catalog-ui.test.cjs': '1bdc609a49dde37e68a85474b388fa12af5c13d3a330bc4b8e6e4c7b5ed42060',
+            'services/dashboard-operational/build.cjs': '4bb955d96644f1a4472a81210a644cbd4a0b15e23d67c614e78062c2d2b99c2c',
+            'ops/releases/crm-presentation-20261006/release.cjs': 'bb2c6f0adb4c05a1e2ee5148395795ace48a657dab4e9ea5108232736d58ffd2',
+            'ops/releases/crm-presentation-20261006/build-release.cjs': 'c3d5aab3ed989010085a927cc0568e588bc50b1a228fdbb7aedfb56f0829540c',
+            'ops/releases/crm-presentation-20261006/presentation-release.test.cjs': '4883923f08dee7365b3a540d5dc38485f5bb73bf86cffa93cef42fe38eed54ea',
+            'ops/releases/crm-presentation-20261006/default-smoke.cjs': '545c6759853e3deb76a8db92cefe43533a0b17541785bf3e745bf8b178b49e2e',
+          }
+          for file, pin in pins.items():
+              assert hashlib.sha256(pathlib.Path(file).read_bytes()).hexdigest() == pin, file
+          print('PUBLIC_SOURCE_PINS_CONFIRMED', len(pins))
+          PY
+      - name: Instalar ferramentas fixadas somente no runner
+        run: |
+          npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/crm-ui-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12
+      - name: Conferir compilacao dos dois percursos afetados
+        run: |
+          node tools/panel-build/build.cjs --panel=growth --check
+          node tools/dashboard-campaign-ui-build.cjs --check
+      - name: Testar contas, publicos e jornadas
+        env:
+          NODE_PATH: ${{ runner.temp }}/crm-ui-tools/node_modules
+        run: >-
+          node --test --test-concurrency=2 --test-timeout=120000
+          tests/dashboard-operational-user-confirmation-ui.test.cjs
+          tests/dashboard-operational-user-profile-update-ui.test.cjs
+          tests/growth-audience.test.cjs
+          tests/growth-audience-source-state.test.cjs
+          tests/growth-flows-ui.test.cjs
+          tests/growth-flows-unavailable-ui.test.cjs
+          tests/dashboard-operational-managed-ui.test.cjs
+          tests/dashboard-operational-content-access-ui.test.cjs
+          tests/growth-campaign-catalog-ui.test.cjs
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Exportar seis arquivos publicos da base admitida
+        run: docker buildx build --target public-base-export --output "type=local,dest=$RUNNER_TEMP/admitted-image" -f "$RELEASE/Dockerfile" .
+      - name: Produzir pacote de apresentacao pelo transform original
+        run: |
+          node "$RELEASE/build-release.cjs" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/admitted-image" "$GITHUB_WORKSPACE/$RELEASE/payload"
+          python3 - <<'PY'
+          import hashlib, pathlib
+          assert hashlib.sha256(pathlib.Path('ops/releases/crm-presentation-20261006/payload/manifest.json').read_bytes()).hexdigest() == 'c8de73c9f4afcc31eb9040f44850ad07dd8de3ca7ed8af95a5daf10b7df1aa1b'
+          print('CANONICAL_PRESENTATION_MANIFEST_CONFIRMED')
+          PY
+      - name: Testar socket HTTP, CSP e falhas durante a publicacao
+        env:
+          PRESENTATION_RELEASE_TEST_IMAGE_DIR: ${{ runner.temp }}/admitted-image
+        run: node --test --test-concurrency=1 --test-timeout=120000 "$RELEASE/presentation-release.test.cjs"
+      - name: Construir filha com os seis arquivos originais intactos
+        run: docker buildx build --load --platform linux/amd64 --build-arg "GIT_SHA=$GITHUB_SHA" --tag "$IMAGE:ci-$GITHUB_SHA" -f "$RELEASE/Dockerfile" .
+      - name: Comprovar startup e READY reais sob UID1000 sem rede externa
+        run: >-
+          docker run --rm --network none --read-only --memory 512m
+          --tmpfs /tmp:rw,noexec,nosuid,mode=1777
+          --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/default-smoke.cjs,dst=/tmp/default-smoke.cjs,readonly"
+          --env PRESENTATION_RELEASE_SMOKE=synthetic-new-volume-v1
+          --entrypoint node "$IMAGE:ci-$GITHUB_SHA" /tmp/default-smoke.cjs
+      - name: Publicar apenas depois de todas as verificacoes
+        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/crm-ui-final-release-20261006'
+        run: |
+          docker buildx build --push --platform linux/amd64 --build-arg "GIT_SHA=$GITHUB_SHA" --tag "$IMAGE:$GITHUB_SHA" --metadata-file "$RUNNER_TEMP/presentation-publish.json" -f "$RELEASE/Dockerfile" .
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          m=json.loads(pathlib.Path(os.environ['RUNNER_TEMP'],'presentation-publish.json').read_text())
+          digest=m['containerimage.digest']
+          assert re.fullmatch(r'sha256:[0-9a-f]{64}', digest)
+          print('PRESENTATION_PUBLISH_DIGEST='+digest)
+          print('PRESENTATION_SOURCE_REVISION='+os.environ['GITHUB_SHA'])
+          PY

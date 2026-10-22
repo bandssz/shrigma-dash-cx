@@ -2,6 +2,8 @@
 -- Never apply this file to a live database.
 CREATE TABLE lists(id integer PRIMARY KEY,name text,tags varchar(100)[],status text);
 CREATE TABLE templates(id integer PRIMARY KEY,name text,type text,body text,updated_at timestamptz DEFAULT now());
+-- Disposable fixture rows mirror the real exclusive (template_id,brand) registry.
+CREATE TABLE shrigma_template_email_registry(template_id integer,brand text);
 CREATE TABLE campaigns(id integer PRIMARY KEY,name text,subject text,from_email text,body text,altbody text,body_source text,
  content_type text,send_at timestamptz,headers jsonb,status text,tags varchar(100)[],type text,messenger text,template_id integer,
  sent integer,started_at timestamptz,updated_at timestamptz DEFAULT now(),attribs jsonb,archive boolean DEFAULT false);
@@ -13,7 +15,8 @@ CREATE TABLE crm_familia_campanha(marca text,utm_campaign text,familia text,cria
 INSERT INTO lists VALUES(3,'Fish',ARRAY['fishermans'],'active'),(7,'Aristo',ARRAY['aristocrata'],'active'),
  (9,'Cross',ARRAY['fishermans','aristocrata'],'active'),(10,'Unknown',NULL,'active'),(11,'Archived',ARRAY['fishermans'],'archived'),
  (12,'Cross campaign',ARRAY['fish','cross'],'active'),(16,'Base Aristo',NULL,'active'),(17,'Base Fish',NULL,'active');
-INSERT INTO templates(id,name,type,body) VALUES(1,'Campaign','campaign','{{ template "content" . }}'),(2,'Transactional','tx','body');
+INSERT INTO templates(id,name,type,body) VALUES(1,'Campaign','campaign','{{ template "content" . }}'),(2,'Transactional','tx','body'),(3,'Aristo campaign','campaign','{{ template "content" . }}');
+INSERT INTO shrigma_template_email_registry VALUES(1,'fish'),(3,'aristo');
 INSERT INTO campaigns(id,name,subject,from_email,body,altbody,content_type,headers,status,tags,type,messenger,template_id,sent,attribs,send_at)
  VALUES(100,'Draft','Subject','contato@fishermans.com.br','<p>Original</p>','Original','html',
  '[{"Reply-To":"old@fishermans.com.br","X-SES-CONFIGURATION-SET":"cs-fishermans-mkt"},{"X-Other":"keep"}]',
@@ -22,7 +25,7 @@ INSERT INTO campaigns(id,name,subject,from_email,body,altbody,content_type,heade
 INSERT INTO campaign_lists(campaign_id,list_id,list_name) VALUES(100,3,'Fish');
 INSERT INTO campaign_media(campaign_id,media_id,filename) VALUES(100,1,'attachment.pdf');
 INSERT INTO campaigns(id,name,subject,from_email,body,altbody,content_type,headers,status,tags,type,messenger,template_id,sent,attribs,send_at)
- SELECT 200,name,subject,'contato@oaristocrata.com',body,altbody,content_type,'[{"Reply-To":"contato@oaristocrata.com"}]',status,tags,type,messenger,template_id,sent,
+ SELECT 200,name,subject,'contato@oaristocrata.com',body,altbody,content_type,'[{"Reply-To":"contato@oaristocrata.com"}]',status,tags,type,messenger,3,sent,
  jsonb_set(attribs,'{crm,brand}','"aristo"'),send_at FROM campaigns WHERE id=100;
 INSERT INTO campaign_lists(campaign_id,list_id,list_name) VALUES(200,7,'Aristo');
 

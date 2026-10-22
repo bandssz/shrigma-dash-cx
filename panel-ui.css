@@ -118,4 +118,5 @@ body[data-marca] .kpi:not(.kpi-falha) .kpi-val:not(.vazio-val),body[data-marca] 
 .six2.ativo{background:var(--marca-fraca);box-shadow:inset 0 -3px var(--marca)}
 .six2.ativo .six2-val{color:var(--marca-texto,var(--texto))}
 .btn:not(.sec),.ce-primary,.btn-aplicar{background:var(--marca-texto,var(--texto));border-color:var(--marca-texto,var(--texto));color:#fff}
+
 .periodo .presets button.ativo{background:var(--marca-fraca);color:var(--marca-texto,var(--texto))}

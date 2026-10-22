@@ -5,7 +5,7 @@ const fs=require('node:fs'),path=require('node:path');
 (async()=>{
  const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'@electric-sql/pglite');const db=new PGlite();
  try{
-  for(const file of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql','tests/campaign-provider.sql','n8n/growth/campaign-write-guard.sql','tests/campaign-write-guard.sql'])await db.exec(fs.readFileSync(path.join(__dirname,'..',file),'utf8'));
+  for(const file of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql','tests/campaign-provider.sql','n8n/growth/campaign-write-guard.sql','tests/campaign-write-guard.sql'])await db.exec(fs.readFileSync(path.join(__dirname,'..',file),'utf8'));
   const assert=require('node:assert/strict');
   const {createService}=require('../n8n/growth/campaign-service');
   const {createStore}=require('../n8n/growth/campaign-store');

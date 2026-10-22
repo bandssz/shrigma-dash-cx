@@ -1,0 +1,39 @@
+# First step of a synthetic-only shadow update. Pin the reviewed *new* app
+# image digest. This job never starts the HTTP server or opens SQLite.
+services:
+  shadow_seed:
+    image: REPLACE_WITH_NEW_CANARY_IMAGE_AT_SHA256
+    user: "1000:1000"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    entrypoint:
+      - node
+      - -e
+      - >-
+        const fs=require('node:fs');
+        const dir='/dashboard-data';
+        if(fs.readdirSync(dir).length)throw Error('SHADOW_VOLUME_NOT_EMPTY');
+        const result=require('/app/canary-start.cjs').seedVolume();
+        if(!result.seeded||fs.readdirSync(dir).join(',')!=='runtime-pack.json')
+        throw Error('SHADOW_SEED_INVALID');
+        console.log('Synthetic shadow pack seeded.');
+    volumes:
+      - type: volume
+        source: shadow_identity
+        target: /dashboard-data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: none
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+volumes:
+  shadow_identity:
+    name: dashboard-canary-shadow-update-drill-20260930-01

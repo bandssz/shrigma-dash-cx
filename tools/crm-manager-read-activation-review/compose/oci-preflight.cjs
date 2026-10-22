@@ -1,0 +1,205 @@
+'use strict';
+// Public proposal. Import/pure tests do not use Docker, PG, env or a socket.
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
+const BUILDER_SHA='0be6f7b41433eab086a4a9f1fb5bf4e49cc611f9d257d7c9dfc27067571a00ea';
+const IMAGE='ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:5ca20e4ea134b7a1a139b80c74a65573a4386d9584fcac40aeedaeb9cf8fe815';
+const IMAGE_CONFIG_SHA='sha256:ca74c58437bc63601444e8f5a8137a0777b70270bf99c3642e5cd15dd7084a40';
+const PURPOSE='read-stage-isolated-review',FAIL='READ_COMPOSE_OCI_PREFLIGHT_REFUSED';
+const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
+const copy=x=>JSON.parse(JSON.stringify(x));
+const CHECKS=Object.freeze(['unspecified','unexpected_exception','platform_opt_in','builder_pin','source_pin','probe_size','resource_policy','execution_command','health_disabled','capabilities','mount_policy','secret_env','container_state','name_collision','image_volume','image_identity','compose_shape','container_ids','exit_code','docker_command','resource_inventory','json_reply','cleanup']);
+const PHASES=Object.freeze(['entrypoint','requirements','source_admission','prepare_config','collision_check','image_pull','image_admission','compose_parse','compose_create','inspect_created_init','inspect_created_gateway','start_init','wait_init','inspect_exited_init','start_gateway','wait_gateway','inspect_exited_gateway','cleanup']);
+const failures=new WeakMap(),reported=new WeakSet();
+function refuse(check='unspecified'){const e=Error(FAIL);failures.set(e,CHECKS.includes(check)?check:'unspecified');throw e;}
+function failureEnvelope(phase,check,cleanup){
+ if(!PHASES.includes(phase)||!CHECKS.includes(check)||!['not_needed','verified','refused'].includes(cleanup))refuse();
+ return Object.freeze({schema:'shrigma-read-compose-oci-refusal-v1',phase,check,cleanup});
+}
+function emitFailure(phase,error,cleanup){
+ process.stderr.write(JSON.stringify(failureEnvelope(phase,failures.get(error)||'unexpected_exception',cleanup))+'\n');
+ if(error&&typeof error==='object')reported.add(error);
+}
+function dockerOutput(reply){if(reply.status!==0||typeof reply.stdout!=='string')refuse('docker_command');return reply.stdout.trim();}
+function listedOwn(raw,exact){
+ if(typeof raw!=='string'||raw.length>128)refuse('resource_inventory');
+ const names=raw===''?[]:raw.split('\n');if(names.length>1||names.some(x=>x!==exact))refuse('resource_inventory');return names.length===1;
+}
+function assertImage(value){
+ if(value?.Id!==IMAGE_CONFIG_SHA)refuse('image_identity');
+ if(JSON.stringify(Object.keys(value.Config?.Volumes||{}).sort())!==JSON.stringify([]))refuse('image_volume');
+ return true;
+}
+function pinsMatch(builder){if(sha(fs.readFileSync(path.join(__dirname,'build-compose.cjs')))!==BUILDER_SHA||builder.IMAGE!==IMAGE||Object.keys(builder.PINS).length!==9)refuse('builder_pin');}
+function sourceInputs(builder){return Object.fromEntries(Object.keys(builder.PINS).map(name=>{const p=path.join(__dirname,'../runtime',name),s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1)refuse('source_pin');const bytes=fs.readFileSync(p);if(sha(bytes)!==builder.PINS[name])refuse('source_pin');return[name,bytes.toString('utf8')];}));}
+function probeRuntime(PINS){
+ const fs=require('node:fs'),crypto=require('node:crypto');
+ const reject=()=>{throw 0;};
+ try{
+  if(process.getuid()!==1000||process.getgid()!==1000||!process.versions.node.startsWith('22.')||JSON.stringify(fs.readdirSync('/sys/class/net').sort())!==JSON.stringify(['lo']))reject();
+  for(const name of ['PG_ADMIN_PASSWORD','READ_SERVICE_SCRAM','PGPASSWORD','READ_RUNTIME_ACTION','READ_RUNTIME_OPERATION_ID'])if(process.env[name]!==undefined)reject();
+  const status=new Map(fs.readFileSync('/proc/self/status','utf8').split('\n').filter(x=>x.includes(':')).map(x=>{const i=x.indexOf(':');return[x.slice(0,i),x.slice(i+1).trim()];}));
+  if(status.get('NoNewPrivs')!=='1'||['CapInh','CapPrm','CapEff','CapBnd','CapAmb'].some(k=>status.get(k)!=='0000000000000000'))reject();
+  const mounts=fs.readFileSync('/proc/self/mountinfo','utf8').split('\n').map(x=>x.split(' ')),mount=p=>mounts.find(x=>x[4]===p)?.[5]?.split(',');
+  if(!mount('/')?.includes('ro')||!mount('/review')?.includes('ro')||!mount('/runtime-proof')?.includes('rw'))reject();
+  const temporary=fs.lstatSync('/tmp'),tmpOptions=mount('/tmp');if(!temporary.isDirectory()||temporary.isSymbolicLink()||(temporary.mode&0o7777)!==0o1777||!tmpOptions||['rw','nosuid','nodev','noexec'].some(x=>!tmpOptions.includes(x)))reject();
+  const directories=[['/review',0,0,0o555],['/runtime-proof',1000,1000,0o700]];
+  const stats=directories.map(([p,uid,gid,mode])=>{const s=fs.lstatSync(p);if(!s.isDirectory()||s.isSymbolicLink()||s.uid!==uid||s.gid!==gid||(s.mode&0o7777)!==mode||fs.realpathSync(p)!==p)reject();return s;});
+  if(stats[0].dev===stats[1].dev&&stats[0].ino===stats[1].ino||fs.readdirSync('/runtime-proof').length)reject();
+  if(JSON.stringify(fs.readdirSync('/review').sort())!==JSON.stringify(Object.keys(PINS).sort()))reject();
+  for(const[name,pin]of Object.entries(PINS)){
+   const p='/review/'+name,s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||s.nlink!==1||(s.mode&0o7777)!==0o444||s.size<1||s.size>20000||crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')!==pin)reject();
+  }
+  // The mountinfo/Docker readback establishes RO; these attempts prove refusal.
+  for(const p of ['/review/oci-write-refused','/oci-root-write-refused']){
+   let denied=false,fd;try{fd=fs.openSync(p,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);}catch(e){denied=e?.code==='EROFS'||e?.code==='EACCES';}finally{if(fd!==undefined)fs.closeSync(fd);}if(!denied)reject();
+  }
+  const p='/runtime-proof/oci-write-probe',fd=fs.openSync(p,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);
+  try{fs.writeFileSync(fd,'public-oci-write-probe');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+  const s=fs.lstatSync(p);if(s.uid!==1000||s.gid!==1000||s.nlink!==1||(s.mode&0o7777)!==0o600)reject();fs.unlinkSync(p);
+  const d=fs.openSync('/runtime-proof',fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);try{fs.fsyncSync(d);}finally{fs.closeSync(d);}
+  if(fs.readdirSync('/runtime-proof').length)reject();
+ }catch{process.stderr.write('READ_COMPOSE_OCI_PROBE_REFUSED\n');process.exitCode=1;}
+}
+function probeSource(pins){const source="'use strict';("+probeRuntime.toString()+')('+JSON.stringify(pins)+');';if(source.includes('$')||Buffer.byteLength(source)>16000)refuse('probe_size');return source;}
+function preflightCompose(plan){
+ const compose=copy(plan.compose),g=compose.services.gateway;
+ // Exact explicit CI deltas: inactive probe command, network none, no env file,
+ // disabled application healthcheck, and no external Easypanel network entry.
+ g.entrypoint=['node'];g.command=['--max-old-space-size=96','-e',probeSource(plan.sourcePins)];
+ delete g.env_file;delete g.networks;g.network_mode='none';g.healthcheck={disable:true};delete compose.networks;
+ return compose;
+}
+function owned(labels,suffix,project){return labels?.['com.shrigma.read-runtime-plan']===suffix&&labels?.['com.shrigma.read-runtime-purpose']===PURPOSE&&labels?.['com.docker.compose.project']===project;}
+function tmpfsPolicy(host,init){
+ const tmpfs=host.Tmpfs||{},keys=Object.keys(tmpfs);if(init)return keys.length===0;
+ if(keys.length!==1||keys[0]!=='/tmp'||typeof tmpfs['/tmp']!=='string')return false;
+ const options=tmpfs['/tmp'].split(',');if(options.length!==6||new Set(options).size!==6||['rw','nosuid','nodev','noexec'].some(x=>!options.includes(x)))return false;
+ return options.filter(x=>['size=16m','size=16777216'].includes(x)).length===1&&options.filter(x=>['mode=1777','mode=01777'].includes(x)).length===1;
+}
+function assertContainer(value,kind,plan,project){
+ const c=value.Config,h=value.HostConfig,init=kind==='init-volumes',service=plan.compose.services[kind],net=value.NetworkSettings;
+ if(!owned(c?.Labels,plan.serviceName.slice(-12),project)||c.Image!==IMAGE||c.User!==service.user||h.ReadonlyRootfs!==true||h.NetworkMode!=='none'||Object.keys(h.PortBindings||{}).length||h.PublishAllPorts!==false||h.Privileged!==false||h.NanoCpus!==(init?100000000:350000000)||h.Memory!==service.mem_limit||h.MemorySwap!==service.memswap_limit||h.PidsLimit!==service.pids_limit||!Array.isArray(h.SecurityOpt)||h.SecurityOpt.length!==1||!['no-new-privileges','no-new-privileges:true'].includes(h.SecurityOpt[0])||h.RestartPolicy?.Name!=='no'||Object.keys(net?.Networks||{}).some(k=>k!=='none')||!tmpfsPolicy(h,init))refuse('resource_policy');
+ const added=h.CapAdd||[];if(JSON.stringify(h.CapDrop)!==JSON.stringify(['ALL'])||!Array.isArray(added)||(init?added.length!==1||!['CHOWN','CAP_CHOWN'].includes(added[0]):added.length!==0))refuse('capabilities');
+ const expected=init?service:preflightCompose(plan).services.gateway;
+ if(JSON.stringify(c.Entrypoint)!==JSON.stringify(expected.entrypoint)||JSON.stringify(c.Cmd)!==JSON.stringify(expected.command)||!init&&h.Init!==true)refuse('execution_command');
+ if(expected.healthcheck?.disable!==true||JSON.stringify(c.Healthcheck?.Test)!==JSON.stringify(['NONE']))refuse('health_disabled');
+ const mounts=value.Mounts;if(!Array.isArray(mounts)||mounts.filter(x=>x.Type==='volume').length!==2||h.Mounts?.length!==2||JSON.stringify(Object.keys(c.Volumes||{}).sort())!==JSON.stringify([]))refuse('mount_policy');
+ const extra=mounts.filter(x=>x.Type!=='volume');if(init&&extra.length||!init&&(extra.length>1||extra.some(x=>x.Type!=='tmpfs'||x.Destination!=='/tmp'||x.RW!==true)))refuse('mount_policy');
+ for(const m of expected.volumes){const actual=mounts.find(x=>x.Destination===m.target),requested=h.Mounts?.find(x=>x.Target===m.target),name=plan.compose.volumes[m.source].name;if(!actual||actual.Type!=='volume'||actual.Name!==name||actual.RW!==(m.read_only!==true)||!requested||requested.Type!=='volume'||requested.Source!==name||requested.VolumeOptions?.NoCopy!==true||(requested.ReadOnly??false)!==(m.read_only===true))refuse('mount_policy');}
+ if((c.Env||[]).some(x=>/^(PG_ADMIN_PASSWORD|READ_SERVICE_SCRAM|PGPASSWORD|READ_RUNTIME_ACTION|READ_RUNTIME_OPERATION_ID)=/.test(x)))refuse('secret_env');
+ if(value.State?.OOMKilled||value.State?.Dead)refuse('container_state');
+ return true;
+}
+function runOci(){
+ let phase='requirements';
+ if(process.platform!=='linux'||process.versions.node.split('.')[0]!=='22'||process.env.READ_COMPOSE_OCI_PREFLIGHT!=='1'||!fs.statSync('/var/run/docker.sock').isSocket())refuse('platform_opt_in');
+ phase='source_admission';const builder=require('./build-compose.cjs');pinsMatch(builder);
+ const suffix=crypto.randomBytes(6).toString('hex'),project='read-stage-oci-'+suffix,plan=builder.buildCompose({suffix,sources:sourceInputs(builder)}),compose=preflightCompose(plan);
+ phase='prepare_config';const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'read-compose-oci-')),config=path.join(temporary,'docker-config'),file=path.join(temporary,'compose.json');fs.chmodSync(temporary,0o700);fs.mkdirSync(config,{mode:0o700});fs.writeFileSync(file,JSON.stringify(compose),{mode:0o600,flag:'wx'});
+ const {spawnSync}=require('node:child_process');
+ const docker=(args,timeout=30000)=>{const r=spawnSync('/usr/bin/docker',['--config',config,'--host','unix:///var/run/docker.sock',...args],{env:{PATH:'/usr/bin:/bin',LANG:'C'},encoding:'utf8',maxBuffer:262144,timeout});return dockerOutput(r);};
+ const parse=x=>{try{return JSON.parse(x);}catch{refuse('json_reply');}},inspect=id=>parse(docker(['container','inspect',id]))[0];
+ const cc=(args,...tail)=>docker(['compose','--project-name',project,'--file',file,...args],...tail);
+ // A nonzero inspect/list response never proves absence. These own-ID/name
+ // filtered lists must exit zero before their empty result is admitted.
+ const containerExists=id=>listedOwn(docker(['container','ls','--all','--no-trunc','--filter','id='+id,'--format','{{.ID}}']),id);
+ const volumeExists=name=>listedOwn(docker(['volume','ls','--filter','name='+name,'--format','{{.Name}}']),name);
+
+ const ids={};let completed=false,createAttempted=false,failure;
+ const capture=()=>{for(const name of ['init-volumes','gateway']){const id=cc(['ps','--all','--quiet',name]);if(!id)continue;if(!/^[a-f0-9]{64}$/.test(id))refuse('container_ids');const v=inspect(id);if(!owned(v.Config?.Labels,suffix,project))refuse('container_ids');ids[name]=id;}};
+ try{
+  phase='collision_check';for(const name of Object.values(compose.volumes).map(x=>x.name))if(volumeExists(name))refuse('name_collision');
+  if(cc(['ps','--all','--quiet']))refuse('name_collision');
+  phase='image_pull';docker(['pull','--quiet',IMAGE],180000);
+  phase='image_admission';assertImage(parse(docker(['image','inspect',IMAGE]))[0]);
+  // Parsing alone is reported separately; no claim of OCI execution here.
+  phase='compose_parse';const normalized=parse(cc(['config','--format','json']));if(Object.keys(normalized.services).sort().join(',')!=='gateway,init-volumes'||normalized.networks&&Object.keys(normalized.networks).length)refuse('compose_shape');
+  phase='compose_create';createAttempted=true;cc(['create','--no-build','--pull','never']);capture();if(Object.keys(ids).length!==2||ids.gateway===ids['init-volumes'])refuse('container_ids');
+  for(const name of ['init-volumes','gateway']){phase=name==='init-volumes'?'inspect_created_init':'inspect_created_gateway';const v=inspect(ids[name]);assertContainer(v,name,plan,project);if(v.State?.Status!=='created')refuse('container_state');}
+  const exits=[];
+  for(const name of ['init-volumes','gateway']){
+   phase=name==='init-volumes'?'start_init':'start_gateway';docker(['start',ids[name]]);phase=name==='init-volumes'?'wait_init':'wait_gateway';const exit=docker(['wait',ids[name]],45000);if(exit!=='0')refuse('exit_code');
+   phase=name==='init-volumes'?'inspect_exited_init':'inspect_exited_gateway';const v=inspect(ids[name]);assertContainer(v,name,plan,project);if(v.State.Status!=='exited'||v.State.ExitCode!==0||!v.State.FinishedAt||v.State.FinishedAt.startsWith('0001-'))refuse('container_state');exits.push(v.State.ExitCode);
+  }
+  completed=true;
+  return Object.freeze({schema:'shrigma-read-compose-oci-preflight-v1',composeParsed:true,initializerExitCode:exits[0],probeExitCode:exits[1],sourceFilesVerified:9,sourceReadOnlyVerified:true,sourceModeVerified:true,ledgerPrivateWritableVerified:true,uid1000Verified:true,networkNoneVerified:true,resourcePolicyVerified:true,applicationStarted:false,postgresConnected:false});
+ }catch(e){failure=e;throw e;}finally{
+  let cleanupOk=true;
+  if(createAttempted){
+   try{capture();}catch{cleanupOk=false;}
+   for(const id of Object.values(ids)){try{const v=inspect(id);if(!owned(v.Config?.Labels,suffix,project))refuse('cleanup');docker(['rm','--force','--volumes',id]);if(containerExists(id))cleanupOk=false;}catch{cleanupOk=false;}}
+   for(const name of Object.values(compose.volumes).map(x=>x.name)){try{if(volumeExists(name)){const v=parse(docker(['volume','inspect',name]))[0];if(!owned(v?.Labels,suffix,project))refuse('cleanup');docker(['volume','rm',name]);if(volumeExists(name))cleanupOk=false;}}catch{cleanupOk=false;}}
+  }
+  try{fs.rmSync(temporary,{recursive:true,force:true});}catch{cleanupOk=false;}
+  // Never print container logs, config, argv, IDs, environment or raw errors.
+  if(!cleanupOk){const e=Error(FAIL);failures.set(e,'cleanup');emitFailure('cleanup',e,'refused');throw e;}
+  if(!completed)emitFailure(phase,failure,createAttempted?'verified':'not_needed');
+ }
+}
+function pureTests(){
+ const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),builder=require('./build-compose.cjs');
+ test('CI changes only declared gateway execution/network/env/health fields; initializer and all resources remain exact',()=>{
+  pinsMatch(builder);const p=builder.buildCompose({suffix:'0123456789ab',sources:sourceInputs(builder)}),c=preflightCompose(p),original=copy(p.compose.services.gateway),g=copy(c.services.gateway);
+  assert.deepEqual(c.services['init-volumes'],p.compose.services['init-volumes']);assert.deepEqual(c.volumes,p.compose.volumes);assert.equal(c.networks,undefined);
+  for(const x of [original,g])for(const key of ['entrypoint','command','env_file','networks','network_mode','healthcheck'])delete x[key];assert.deepEqual(g,original);
+  assert.equal(c.services.gateway.network_mode,'none');assert.deepEqual(c.services.gateway.healthcheck,{disable:true});assert.equal(c.services.gateway.env_file,undefined);assert.equal(c.services.gateway.networks,undefined);
+  assert.deepEqual(c.services.gateway.entrypoint,['node']);assert.equal(c.services.gateway.command[0],'--max-old-space-size=96');new vm.Script(c.services.gateway.command[2]);assert.equal(c.services.gateway.command[2].includes('$'),false);
+ });
+ test('container readback rejects wrong ownership, limits, mounts, network and capabilities',()=>{
+  const p=builder.buildCompose({suffix:'0123456789ab',sources:sourceInputs(builder)}),g=preflightCompose(p).services.gateway,project='read-stage-oci-0123456789ab';
+  const v={Config:{Image:IMAGE,User:g.user,Labels:{'com.shrigma.read-runtime-plan':'0123456789ab','com.shrigma.read-runtime-purpose':PURPOSE,'com.docker.compose.project':project},Entrypoint:g.entrypoint,Cmd:g.command,Healthcheck:{Test:['NONE']},Env:['NODE_PATH=/app/node_modules'],Volumes:{}},HostConfig:{ReadonlyRootfs:true,NetworkMode:'none',PortBindings:{},PublishAllPorts:false,Privileged:false,NanoCpus:350000000,Memory:335544320,MemorySwap:335544320,PidsLimit:64,CapDrop:['ALL'],CapAdd:null,SecurityOpt:['no-new-privileges:true'],RestartPolicy:{Name:'no'},Init:true,Tmpfs:{'/tmp':'rw,nosuid,nodev,noexec,size=16m,mode=1777'},Mounts:g.volumes.map(x=>({Target:x.target,Type:'volume',Source:p.compose.volumes[x.source].name,ReadOnly:x.read_only===true,VolumeOptions:{NoCopy:true}}))},NetworkSettings:{Networks:{none:{}}},Mounts:[...g.volumes.map(x=>({Destination:x.target,Type:'volume',Name:p.compose.volumes[x.source].name,RW:x.read_only!==true}))],State:{Status:'created',OOMKilled:false,Dead:false}};
+  assert.equal(assertContainer(v,'gateway',p,project),true);
+  for(const change of [x=>x.Config.User='0:0',x=>x.Config.Labels['com.shrigma.read-runtime-plan']='other',x=>x.Config.Env.push('PGPASSWORD=SYNTHETIC'),x=>x.HostConfig.ReadonlyRootfs=false,x=>x.HostConfig.NetworkMode='easypanel',x=>x.HostConfig.NanoCpus=1000000000,x=>x.HostConfig.MemorySwap=-1,x=>x.HostConfig.CapAdd=['CHOWN'],x=>x.HostConfig.PidsLimit=128,x=>x.HostConfig.Mounts[0].VolumeOptions.NoCopy=false,x=>x.Mounts[0].RW=true,x=>x.Mounts[0].Name='unowned',x=>x.Mounts.push({Type:'volume',Destination:'/dashboard-data',Name:'preexisting-identity',RW:true}),x=>x.Config.Volumes['/other']={},x=>x.Config.Cmd=['/review/cli.cjs']]){const bad=copy(v);change(bad);assert.throws(()=>assertContainer(bad,'gateway',p,project),new RegExp(FAIL));}
+  const tmp=copy(v);tmp.HostConfig.Tmpfs['/tmp']='mode=01777,noexec,size=16777216,nodev,nosuid,rw';tmp.Mounts.push({Type:'tmpfs',Destination:'/tmp',RW:true});assert.equal(assertContainer(tmp,'gateway',p,project),true);
+  for(const change of [x=>x.HostConfig.Tmpfs={},x=>x.HostConfig.Tmpfs['/other']='rw',x=>x.HostConfig.Tmpfs['/tmp']='rw,nosuid,nodev,exec,size=16m,mode=1777',x=>x.HostConfig.Tmpfs['/tmp']='rw,nosuid,nodev,noexec,size=32m,mode=1777',x=>x.HostConfig.Tmpfs['/tmp']='rw,nosuid,nodev,noexec,size=16m,mode=777',x=>x.Mounts[2].Destination='/other',x=>x.Mounts.push({Type:'tmpfs',Destination:'/tmp',RW:true})]){const bad=copy(tmp);change(bad);assert.throws(()=>assertContainer(bad,'gateway',p,project),new RegExp(FAIL));}
+  assert.equal(tmpfsPolicy({},true),true);assert.equal(tmpfsPolicy({Tmpfs:{'/tmp':'rw'}},true),false);
+  // The initializer uses the same strict disabled Docker Test as the probe.
+  // No inherited application healthcheck may run before initializer exit.
+  const initializer=p.compose.services['init-volumes'],iv=copy(v);
+  Object.assign(iv.Config,{User:initializer.user,Entrypoint:initializer.entrypoint,Cmd:initializer.command,Healthcheck:{Test:['NONE']},Env:[]});
+  Object.assign(iv.HostConfig,{NanoCpus:100000000,Memory:initializer.mem_limit,MemorySwap:initializer.memswap_limit,PidsLimit:16,CapAdd:['CHOWN'],Init:false,Tmpfs:{},Mounts:initializer.volumes.map(x=>({Target:x.target,Type:'volume',Source:p.compose.volumes[x.source].name,ReadOnly:false,VolumeOptions:{NoCopy:true}}))});
+  iv.Mounts=[...initializer.volumes.map(x=>({Destination:x.target,Type:'volume',Name:p.compose.volumes[x.source].name,RW:true}))];
+  assert.deepEqual(initializer.healthcheck,{disable:true});assert.equal(assertContainer(iv,'init-volumes',p,project),true);
+  for(const health of [undefined,{Test:['CMD','node','/app/health.cjs']},{Test:['NONE','extra']}]){const bad=copy(iv);bad.Config.Healthcheck=health;let caught;try{assertContainer(bad,'init-volumes',p,project);}catch(e){caught=e;}assert.equal(failures.get(caught),'health_disabled');}
+  const cap=copy(iv);cap.HostConfig.CapAdd=['CAP_CHOWN'];assert.equal(assertContainer(cap,'init-volumes',p,project),true);
+  for(const added of [[],['CHOWN','CHOWN'],['CHOWN','CAP_CHOWN'],['CAP_CHOWN','SYS_ADMIN'],['SYS_ADMIN']]){const bad=copy(iv);bad.HostConfig.CapAdd=added;let capError;try{assertContainer(bad,'init-volumes',p,project);}catch(e){capError=e;}assert.equal(failures.get(capError),'capabilities');}
+
+ });
+ test('closed diagnostics contain only fixed enum stage/check/cleanup without error values',()=>{
+  const result=failureEnvelope('inspect_created_init','health_disabled','verified');
+  assert.deepEqual(result,{schema:'shrigma-read-compose-oci-refusal-v1',phase:'inspect_created_init',check:'health_disabled',cleanup:'verified'});assert.ok(Object.isFrozen(result));
+  const sentinels=['RAW_ENV_SENTINEL','RAW_ARGV_SENTINEL','RAW_DOCKER_ERROR_SENTINEL'];
+  assert.equal(listedOwn('','owned-resource'),false);assert.equal(listedOwn('owned-resource','owned-resource'),true);for(const raw of [null,'other','owned-resource\nowned-resource'])assert.throws(()=>listedOwn(raw,'owned-resource'),new RegExp(FAIL));
+  for(const x of sentinels){assert.throws(()=>failureEnvelope(x,'health_disabled','verified'),new RegExp(FAIL));assert.throws(()=>failureEnvelope('inspect_created_init',x,'verified'),new RegExp(FAIL));assert.throws(()=>failureEnvelope('inspect_created_init','health_disabled',x),new RegExp(FAIL));assert.equal(JSON.stringify(result).includes(x),false);}
+ });
+ test('positive CLI fixture proves absence only after status-zero own resource list',()=>{
+  assert.equal(listedOwn(dockerOutput({status:0,stdout:'',stderr:'SYNTHETIC_IGNORED_STDERR'}),'owned-resource'),false);
+  assert.equal(listedOwn(dockerOutput({status:0,stdout:'owned-resource\n',stderr:''}),'owned-resource'),true);
+ });
+ test('negative CLI fixture never projects failed or timed-out command as verified absence',()=>{
+  for(const reply of [{status:1,stdout:'',stderr:'RAW_DOCKER_ERROR_SENTINEL'},{status:null,stdout:'',error:Error('RAW_TIMEOUT_SENTINEL')},{status:0,stdout:null}]){
+   let caught;try{listedOwn(dockerOutput(reply),'owned-resource');}catch(e){caught=e;}assert.equal(failures.get(caught),'docker_command');
+   const result=failureEnvelope('cleanup',failures.get(caught),'refused');assert.equal(result.cleanup,'refused');assert.doesNotMatch(JSON.stringify(result),/SENTINEL/);
+  }
+ });
+ test('fixed image config digest admits only exact empty volume declaration',()=>{
+  assert.equal(assertImage({Id:IMAGE_CONFIG_SHA,Config:{Volumes:null}}),true);
+  assert.equal(assertImage({Id:IMAGE_CONFIG_SHA,Config:{Volumes:{}}}),true);
+  for(const value of [{Id:'sha256:'+'a'.repeat(64),Config:{Volumes:{}}},{Id:IMAGE_CONFIG_SHA,Config:{Volumes:{'/dashboard-data':{}}}},{Id:IMAGE_CONFIG_SHA,Config:{Volumes:{'/other':{}}}}])assert.throws(()=>assertImage(value),new RegExp(FAIL));
+ });
+ test('both containers have exactly two own no-copy named volumes; no unknown anonymous or named volume',()=>{
+  const p=builder.buildCompose({suffix:'0123456789ab',sources:sourceInputs(builder)});
+  for(const kind of ['init-volumes','gateway'])assert.equal(p.compose.services[kind].volumes.length,2);
+  const source=probeSource(builder.PINS);assert.doesNotMatch(source,/dashboard-data/);new vm.Script(source);
+ });
+ test('legacy portal-volume assumption cannot reappear in image admission',()=>{
+  let caught;try{assertImage({Id:IMAGE_CONFIG_SHA,Config:{Volumes:{'/dashboard-data':{}}}});}catch(e){caught=e;}
+  assert.equal(failures.get(caught),'image_volume');assert.deepEqual(failureEnvelope('image_admission',failures.get(caught),'not_needed'),{schema:'shrigma-read-compose-oci-refusal-v1',phase:'image_admission',check:'image_volume',cleanup:'not_needed'});
+ });
+ test('no opt-in refuses before Docker; probe never imports application or PG',()=>{
+  if(process.env.READ_COMPOSE_OCI_PREFLIGHT==='1')refuse();assert.throws(runOci,new RegExp(FAIL));
+  const source=probeSource(builder.PINS);assert.doesNotMatch(source,/require\(['"](?:\.\/|\/review|pg|https|http|net|tls)/);assert.match(source,/sourceFiles|Object\.entries\(PINS\)/);assert.match(source,/O_NOFOLLOW/);assert.match(source,/fsyncSync/);
+ });
+}
+module.exports=Object.freeze({preflightCompose,probeSource,assertContainer,owned,failureEnvelope,assertImage});
+if(require.main===module){try{if(process.argv.length!==3)refuse();if(process.argv[2]==='--pure')pureTests();else if(process.argv[2]==='--oci')process.stdout.write(JSON.stringify(runOci())+'\n');else refuse();}catch(e){if(!reported.has(e))emitFailure('entrypoint',e,'not_needed');process.exitCode=1;}}

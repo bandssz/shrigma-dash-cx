@@ -44,6 +44,8 @@ Configuration: `CRM_CAMPAIGN_REVISION` (40-character source commit),
 `PGDATABASE=listmonk`, `PGUSER=crm_campaign_api`, `PGPASSWORD`,
 `LISTMONK_ORIGIN`, `LISTMONK_USERNAME`, `LISTMONK_TOKEN`. Provision secrets
 directly in the service environment. Startup defaults to disabled.
+`CRM_CAMPAIGN_ABANDON_ENABLED` (default off) enables `campanha_operacao_abandonar`;
+see `docs/crm/RECUPERACAO-TENTATIVAS-PENDENTES-20261003.md` before turning it on.
 
 The same service can expose `GET|POST <campaign path>/media` when
 `CRM_CAMPAIGN_MEDIA_ENABLED=true`; it is off by default. `GET` requires the

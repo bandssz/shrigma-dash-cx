@@ -3,9 +3,12 @@ const GrowthAccess=(()=>{
  'use strict';
  let active=null;
  const validKey=v=>typeof v==='string'&&v.trim().length>0&&v.trim().length<=2048&&!/[\x00-\x20\x7f]/.test(v.trim());
+ // Portal: a conta existe, mas a credencial individual de leitura do CRM ainda não vale (preparação, confirmação
+ // pendente ou expiração). Não promete prazo nem acesso.
+ const ACESSO_CRM_PENDENTE='Seu acesso ao CRM ainda não está liberado: ele pode estar em preparação, aguardando confirmação ou expirado. Nenhum dado do CRM está sendo exibido. Peça ao administrador para conferir o acesso em Gestão geral.';
  function readError(e){
   if(['TimeoutError','AbortError'].includes(e?.name))return 'A consulta demorou além do esperado.';
-  const allowed=['Acesso recusado. Informe uma chave válida no formulário.','Esta chave não retornou os dados do CRM.','O servidor demorou para responder. Tente atualizar novamente.','Os dados atualizados do CRM ainda não estão disponíveis. Tente atualizar novamente em alguns minutos.'];
+  const allowed=[ACESSO_CRM_PENDENTE,'Acesso recusado. Informe uma chave válida no formulário.','Esta chave não retornou os dados do CRM.','O servidor demorou para responder. Tente atualizar novamente.','Os dados atualizados do CRM ainda não estão disponíveis. Tente atualizar novamente em alguns minutos.'];
   if(allowed.includes(e?.message)||/^Consulta indisponível \(HTTP [1-5][0-9]{2}\)\.$/.test(e?.message||''))return e.message;
   return 'A consulta falhou. Confira a conexão e tente novamente.';
  }
@@ -36,6 +39,6 @@ const GrowthAccess=(()=>{
   };
   active={current,show,reject,isSession:k=>!!session&&k===session};return active;
  }
- return {bind,validKey,readError,ready:()=>!!active,current:()=>active?.current()||'',isSession:k=>active?.isSession(k)===true};
+ return {ACESSO_CRM_PENDENTE,bind,validKey,readError,ready:()=>!!active,current:()=>active?.current()||'',isSession:k=>active?.isSession(k)===true};
 })();
 if(typeof module!=='undefined')module.exports=GrowthAccess;

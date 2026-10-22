@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>CRM · Grupo Shrigma</title>
+
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=9204151c4c38">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-U7XivHuoP9X0lUsxdRzdSfGqSRCuGbIy5F5cArlTi4A='; default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://cdn.shopify.com/s/files/ https://email.shrigma.com.br/uploads/ https://cdninstagram.com/ https://*.cdninstagram.com/ https://fbcdn.net/ https://*.fbcdn.net/ https://*.ibyteimg.com/ https://*.tiktokcdn.com/ https://*.tiktokcdn-us.com/ https://*.byteimg.com/ https://*.ttwstatic.com/; connect-src 'self'; font-src 'self'; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'">
+<style id="crm-configured-journeys-read">
+#control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
+#control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
+#control-fluxos .gjr-source, #control-fluxos .gjr-card { background: #fff; border: 1px solid #d1dce3; border-radius: 14px; padding: 1rem; }
+#control-fluxos .gjr-card header > span, #control-fluxos .gjr-card footer { color: #496270; font-size: .85rem; }
+#control-fluxos .gjr-read-badge { border: 1px solid #aac2ce; border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; display: inline-block; }
+#control-fluxos .gjr-toolbar, #control-fluxos .gjr-view { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+#control-fluxos .gjr-toolbar label { display: grid; gap: .3rem; }
+#control-fluxos .gjr-toolbar input, #control-fluxos .gjr-toolbar select, #control-fluxos .gjr-toolbar button { font: inherit; border: 1px solid #9fb4c0; border-radius: 8px; padding: .55rem .75rem; background: #fff; color: #182a36; }
+#control-fluxos .gjr-toolbar button[aria-pressed="true"] { background: #e8f2f7; border-color: #356d86; }
+#control-fluxos .gjr-toolbar button:disabled { opacity: .5; }
+#control-fluxos .gjr-only :focus-visible { outline: 3px solid #226c96; outline-offset: 3px; }
+#control-fluxos .gjr-caution, #control-fluxos .gjr-warning { background: #fff6e6; padding: .65rem; border-radius: 8px; }
+#control-fluxos .gjr-stages { list-style: none; padding: 0; display: grid; gap: .65rem; }
+#control-fluxos .gjr-stages > li { border: 1px solid #d1dce3; border-radius: 8px; padding: .75rem; }
+#control-fluxos .gjr-stages > li > span { display: block; margin-top: .35rem; color: #496270; }
+#control-fluxos .gjr-links { margin-top: .5rem; }
+#control-fluxos .gjr-diagram { overflow: auto; max-height: 48rem; border: 1px solid #d1dce3; border-radius: 10px; background: #f7fafc; }
+#control-fluxos .gjr-diagram svg { display: block; visibility: visible; width: min(100%, 480px); min-width: 340px; height: auto; margin: auto; }
+#control-fluxos .gjr-node rect { fill: #fff; stroke: #7896a7; stroke-width: 1.5; }
+#control-fluxos .gjr-type-condicao rect { fill: #fff4db; }
+#control-fluxos .gjr-type-espera rect { fill: #eef2fc; }
+#control-fluxos .gjr-type-fim rect { fill: #e9f1f2; }
+#control-fluxos .gjr-node text { fill: #182a36; font: 13px system-ui, sans-serif; }
+#control-fluxos .gjr-node .gjr-node-key { fill: #496270; font-size: 11px; }
+#control-fluxos .gjr-edges > g > path { fill: none; stroke: #356d86; stroke-width: 1.6; }
+#control-fluxos .gjr-edges marker path, #control-fluxos .gjr-diagram marker path { fill: #356d86; }
+#control-fluxos .gjr-edge-label { fill: #496270; font: 10px system-ui, sans-serif; }
+#control-fluxos .gjr-accessible-list { padding: .75rem 0; }
+#control-fluxos .gjr-accessible-list summary { cursor: pointer; }
+#control-fluxos .gjr-history { border-top: 1px solid #d1dce3; padding-top: 1rem; }
+#control-fluxos .gjr-empty { color: #496270; }
+@media (max-width: 640px) { #control-fluxos .gjr-toolbar { align-items: stretch; } #control-fluxos .gjr-toolbar label { width: 100%; } }
+</style>
+<style id="dashboard-operational-readonly">body #growth-acesso,body #organico-acesso-bar,body #organico-acesso,body #influ-access,body #ab-acesso-legado,body #ab-consultar,body #btn-novo,body #form-teste,body .e-salvar,body #ab-experiment-panel,body #control-tab-graph,body #control-graph,body #control-drafts #drafts-create,body #control-drafts #drafts-importar,body #control-drafts #drafts-arquivo,body #control-drafts #drafts-native-email,body #control-drafts .drafts-key,body #control-drafts #drafts-acesso,body #control-drafts #draft-editor,body #control-drafts [data-draft-edit],body #control-drafts [data-draft-dup],body #control-drafts [data-draft-delete],body #control-drafts [data-email-replicate],body #crm-segments-panel .gs-shell > header > p,body #crm-segments-panel [data-gs="count"],body #crm-media-library-load,body #crm-media .crm-media-integrated,body [data-crm-go="templates"],body [data-crm-open-tab="control-tab-drafts"],body #crm-campaign-open,body #campaign-composer .ce-import,body #campaign-composer [data-ce-access-open],body #campaign-composer [data-ce-access-form],body #campaign-composer [data-ce-new],body #campaign-composer [data-ce-recover],body #campaign-composer [data-ce-save],body #campaign-composer [data-ce-validate],body #campaign-composer [data-ce-schedule],body #campaign-composer [data-ce-cancel],body #campaign-composer [data-ce-saved-audience]{display:none!important}body:not(.dashboard-audience-draft-ready) #crm-segments-panel .gs-shortcuts,body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs="new"],body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs-fields],body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs="save"],body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs="archive"],body:not(.dashboard-audience-draft-ready) #crm-segments-panel [data-gs-dialog],body:not(.dashboard-audience-draft-ready) #crm-audience-create,body:not(.dashboard-audience-draft-ready) #crm-audience-brand-choices,body:not(.dashboard-audience-draft-ready) #area-arvore .ga-rfm-create{display:none!important}</style><script src="/guard.js"></script></head>
+<body data-panel="growth" data-crm-view="manager">
+<a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+<aside class="crm-sidebar" aria-label="Navegação do CRM"><div class="crm-wordmark">Shrigma <span>CRM</span></div><details id="crm-brand-picker"><summary><span class="crm-sidebar-label">Marca</span><strong id="crm-brand-label">Todas as marcas</strong></summary><nav class="filtros" aria-label="Selecionar marca">
+    <div class="seg" role="group" aria-label="Marca" id="seg-marca">
+      <button data-marca="todas" class="ativo"><span class="crm-brand-name">Todas as marcas</span></button>
+      <button data-marca="aristo" aria-label="O Aristocrata"><span class="crm-brand-name">O Aristocrata</span></button>
+      <button data-marca="fish" aria-label="Fishermans"><span class="crm-brand-name">Fishermans</span></button>
+      <button data-marca="olivas" aria-label="Olivas do Campo"><span class="crm-brand-name">Olivas do Campo</span></button>
+    </div>
+  </nav></details><nav class="secoes" id="secoes" aria-label="Seções">
+    <button data-s="visao" class="ativo">Início</button>
+    <button data-s="base">Públicos<span class="n" id="n-arv"></span></button>
+    <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
+    <button data-s="templates">Templates</button>
+    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
+    <button data-s="resultados">Resultados</button>
+    <span class="n" id="n-conv" hidden></span><span class="n" id="n-ab" hidden></span>
+  </nav><span class="crm-sidebar-foot">Operação de CRM</span></aside>
+
+<header class="topo">
+  <div class="titulo">
+    <span class="marcas" id="marcas-topo"></span>
+    <div><h1 id="crm-screen-title">Início</h1><p class="crm-active-brand" id="crm-active-brand">Todas as marcas</p><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
+  </div>
+
+  <div class="status" data-crm-owner-only><span id="relogio">--:--</span><span id="frescor" class="frescor" data-crm-owner-only>coleta —</span></div>
+  <div id="crm-view-controls" class="crm-view-controls" hidden><label for="crm-view-select">Visualizar como</label><select id="crm-view-select"><option value="manager">Gerência CRM</option><option value="owner">Dono · diagnóstico</option></select><span id="crm-view-status" class="mini" aria-live="polite"></span></div>
+</header>
+
+<main id="conteudo" tabindex="-1">
+<div class="crm-toolbar">
+    <div class="seg" id="seg-canal" role="group" aria-label="Canal">
+      <button data-canal="todos" class="ativo" aria-pressed="true">Todos os canais</button>
+      <button data-canal="whatsapp" aria-pressed="false">WhatsApp</button>
+      <button data-canal="email" aria-pressed="false">E-mail</button>
+    </div>
+<details id="crm-period-picker"><summary id="crm-period-label">Últimos 7 dias</summary><div class="periodo" id="periodo">
+    <div class="presets" id="presets">
+      <button data-p="hoje">Hoje</button><button data-p="ontem">Ontem</button>
+      <button data-p="semana">Esta semana</button><button data-p="semanaant">Semana passada</button>
+      <button data-p="mes">Este mês</button><button data-p="mesant">Mês passado</button>
+      <button data-p="7" class="ativo">7 dias</button><button data-p="30">30 dias</button>
+    </div>
+    <input type="date" id="d-ini" aria-label="Início do período" aria-describedby="crm-period-error"><span class="mini">até</span><input type="date" id="d-fim" aria-label="Fim do período" aria-describedby="crm-period-error">
+    <p id="crm-period-error" role="alert" hidden></p>
+    <label><input type="checkbox" id="cmp" checked> comparar</label>
+  </div></details>    <div class="refresh-area"><span id="atualizado-em" aria-live="polite">Aguardando dados</span><button id="btn-atualizar" class="refresh-btn">Atualizar</button></div>
+  </div>
+  <div id="faixa-alertas" aria-live="polite"></div>
+  <div id="crm-channel-status" data-crm-manager-only role="status" hidden></div>
+  <div id="crm-connection-status" data-crm-manager-only class="crm-connection-status" role="status" hidden></div>
+  <p id="brand-context-status" class="nota" role="status" hidden></p>
+  <dialog id="brand-change-confirm" class="ce-confirm" aria-labelledby="brand-change-title" aria-describedby="brand-change-description">
+    <h3 id="brand-change-title">Guardar e trocar de marca</h3>
+    <p id="brand-change-description"></p>
+    <div class="ce-confirm-actions"><button type="button" id="brand-change-cancel" class="ce-secondary" autofocus>Continuar nesta marca</button><button type="button" id="brand-change-accept" class="ce-primary">Guardar e trocar</button></div>
+  </dialog>
+
+
+
+
+  <div class="crm-status-bar"><details class="crm-data-freshness" id="crm-data-freshness"><summary id="crm-data-summary">Atualização por origem</summary><div class="fontes" id="fontes" aria-label="Horário de cada fonte de dados"></div></details>
+  <div class="growth-context" id="growth-context" hidden>Disparos e resultados do período · horário de Brasília</div>
+
+  <div class="fluxo-saude" id="fluxo-saude" aria-label="Saúde dos fluxos WhatsApp"></div></div>
+  <div id="load-state" class="load-state" role="status"><span class="load-dot"></span>Carregando o CRM…</div>
+  <form id="growth-acesso" class="painel" hidden aria-labelledby="growth-acesso-titulo" novalidate>
+    <h2 id="growth-acesso-titulo">Acessar CRM</h2>
+    <p id="growth-acesso-ajuda">Entre com sua chave CRM. Ela fica somente nesta página aberta.</p>
+    <fieldset id="growth-acesso-campos" style="border:0;padding:0;margin:0">
+    <div class="campo"><label for="growth-chave">Chave de acesso</label>
+      <input id="growth-chave" type="password" autocomplete="off" spellcheck="false" maxlength="2048" aria-describedby="growth-acesso-ajuda growth-acesso-msg"></div>
+    <button type="submit" class="btn">Acessar painel</button>
+    </fieldset><button id="growth-acesso-cancelar" type="button" class="btn sec">Cancelar</button>
+    <span id="growth-acesso-msg" class="mini" role="status" aria-live="polite"></span>
+  </form>
+  <div id="wa-coverage" data-crm-analysis class="coverage-note" hidden role="status"></div>
+
+
+
+
+
+  <div class="sec ativa" id="sec-visao">
+<div class="crm-section-intro"><div><span class="crm-eyebrow">SUA OPERAÇÃO</span><h2>Uma visão clara para começar o dia.</h2><p>Confira os resultados do período e escolha o próximo passo. A marca selecionada acompanha sua navegação.</p></div></div><div class="crm-home-heading"><h2>Resumo do período</h2></div><p><a class="btn sec" href="/growth-diagnostico.html">Diagnóstico de pedido pago</a></p>
+<section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
+<div class="crm-home-actions"><button type="button" data-crm-go="base"><span>01 · Público</span><strong>Criar e conhecer públicos</strong><small>Listas, compras e engajamento</small></button><button type="button" data-crm-go="templates"><span>02 · Mensagem</span><strong>Modelos e imagens</strong><small>Conteúdo reutilizável e arquivos públicos</small></button><button type="button" data-crm-go="camp"><span>03 · Campanha</span><strong>Preparar e acompanhar</strong><small>Revisão, agendamento e progresso</small></button><button type="button" data-crm-go="regua"><span>04 · Automação</span><strong>Abrir automações</strong><small>Jornadas e histórico de envios</small></button><button type="button" data-crm-go="resultados"><span>05 · Resultado</span><strong>Ver resultados</strong><small>Entregas, cliques e vendas atribuídas</small></button></div>
+
+    <section class="painel" id="automation-attention" aria-labelledby="attention-title"></section>
+
+
+    <section class="painel" id="painel-fila" hidden>
+      <div class="painel-cab"><h2>Na fila</h2><span class="mini" id="fila-rot"></span></div>
+      <p class="mini" id="fila-indisponivel" hidden></p>
+      <div class="rolagem"><table class="comparativo" id="tab-fila"><thead><tr>
+        <th>Peça</th><th></th><th>Sai em</th><th class="num">Faltam</th><th>UTM</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="fila-nota"><span class="control-badge" tabindex="0" title="Campanhas agendadas que ainda não dispararam; ficam fora das métricas de envio.">Aguardando envio</span> Confira os links de rastreamento antes do disparo.
+        <span class="control-badge" tabindex="0" title="Sem UTM no link da loja, a receita não pode ser atribuída depois. Links para fora da loja, como grupos de WhatsApp, usam outra forma de atribuição, como cupom ou coorte.">Como a UTM funciona</span></div>
+    </section>
+  </div>
+
+
+
+<div class="sec" id="sec-camp"><div class="crm-section-intro"><div><span class="crm-eyebrow">CAMPANHAS E TESTES</span><h2>Prepare, revise e acompanhe cada envio.</h2><p>Veja o que está agendado, em envio ou já finalizado. Abra a preparação para criar ou editar uma campanha da marca.</p></div><button type="button" class="crm-primary-action" id="crm-campaign-open" data-crm-focus="campaign-composer">Abrir preparação</button></div><div class="crm-report-tabs" role="tablist" aria-label="Campanhas"><button type="button" id="crm-campaign-list-tab" data-crm-campaign="list" role="tab" aria-selected="true" aria-controls="crm-campaign-list">Acompanhar e preparar</button><button type="button" id="crm-campaign-tests-tab" data-crm-campaign="tests" role="tab" aria-selected="false" tabindex="-1" aria-controls="crm-campaign-tests">Testes A/B</button></div><div id="crm-campaign-list" data-crm-campaign-panel="list" role="tabpanel" aria-labelledby="crm-campaign-list-tab">
+    <section class="painel" id="campaign-monitor" aria-label="Acompanhar e-mails enviados e agendados"></section>
+    <section class="painel" id="campaign-composer" aria-label="Preparar campanha de e-mail" tabindex="-1"></section>
+    <div id="attribution-campaign-status" role="status" hidden></div>
+    <section class="painel" id="attribution-campaigns" aria-label="Atribuição por campanha comercial"></section>
+
+
+
+
+  </div><div id="crm-campaign-tests" data-crm-campaign-panel="tests" role="tabpanel" aria-labelledby="crm-campaign-tests-tab" hidden><section class="painel"><div class="crm-subsection-heading" id="ab-experiment-intro" hidden><h2>Executar teste com campanhas salvas</h2><p>Selecione Fishermans ou O Aristocrata. Prepare duas campanhas com o mesmo público salvo e horário; o teste divide esse público em duas variantes.</p></div><div class="crm-subsection-heading" id="ab-experiment-off" role="status"><h2>Teste com campanhas salvas · desligado nesta versão</h2><p>A divisão de público e o agendamento das variantes estão desligados para a marca selecionada. Nada é dividido, agendado ou enviado por aqui.</p></div><div id="ab-experiment-panel" hidden></div><details class="crm-legacy-records"><summary>Planejamento e registros anteriores de A/B</summary><p class="mini">Este cadastro guarda hipóteses e observações. Para preparar a divisão de público e agendar as variantes, use o teste com campanhas salvas acima quando disponível.</p>
+      <div class="painel-cab"><h2>Testes A/B</h2>
+        <button class="btn sec" id="btn-novo">Nova configuração</button></div>
+      <span class="tag nulo" title="Usa seu acesso atual do CRM. Salvar não distribui públicos, agenda ou dispara mensagens.">Somente configuração</span>
+      <div class="campo" id="ab-acesso-legado" hidden><label for="ab-chave">Acesso original da tentativa anterior</label>
+        <input id="ab-chave" type="password" autocomplete="off" spellcheck="false" aria-describedby="ab-chave-ajuda">
+        <span id="ab-chave-ajuda" class="ajuda">Somente para consultar uma tentativa feita com o acesso antigo. Fica nesta página aberta; não será usado para salvar outra configuração nem repetir a gravação.</span></div>
+      <p id="ab-status" class="mini" role="status"></p>
+      <button type="button" class="btn sec" id="ab-consultar" disabled>Consultar tentativa registrada</button>
+      <div id="form-teste" hidden>
+        <div class="form">
+          <div class="campo"><label for="f-id">Código do teste</label>
+            <input type="text" id="f-id" placeholder="fish-c2-assunto-01">
+            <span class="ajuda">Use um código único, sem espaços.</span></div>
+          <div class="campo"><label for="f-marca">Marca</label>
+            <select id="f-marca"><option value="fish">Fishermans</option>
+              <option value="aristo">Aristocrata</option><option value="olivas">Olivas</option></select></div>
+          <div class="campo"><label for="f-canal">Canal</label>
+            <select id="f-canal"><option value="email">E-mail</option><option value="whatsapp">WhatsApp</option></select></div>
+          <div class="campo"><label for="f-nome">Nome</label>
+            <input type="text" id="f-nome" placeholder="C2 · assunto direto vs curiosidade"></div>
+          <div class="campo largo"><label for="f-hip">Hipótese</label>
+            <textarea id="f-hip" placeholder="Assunto que nomeia a linha comprada gera mais clique que assunto de curiosidade no galho C2."></textarea>
+            <span class="ajuda">Registre antes do disparo. O cadastro preserva sua versão; não distribui públicos nem comprova efeito causal.</span></div>
+          <div class="campo"><label for="f-var">Variável</label>
+            <select id="f-var"><option>assunto</option><option>remetente</option><option>horario</option>
+              <option>oferta</option><option>criativo</option><option>cta</option></select></div>
+          <div class="campo"><label for="f-met">Métrica primária</label>
+            <select id="f-met"><option value="ctor">CTOR</option><option value="ctr">CTR</option>
+              <option value="conversao">Conversão em venda</option></select>
+            <span class="ajuda">Uma só, escolhida agora.</span></div>
+          <div class="campo"><label for="f-efeito">Efeito mínimo (p.p.)</label>
+            <input type="number" id="f-efeito" step="0.1" value="1.0">
+            <span class="ajuda">Diferença que valeria mudar a operação.</span></div>
+          <div class="campo"><label for="f-ca">Variação A — campanha</label>
+            <select id="f-ca"></select><input type="text" id="f-da" aria-label="Descrição da variação A" placeholder="descrição da variação A"></div>
+          <div class="campo"><label for="f-cb">Variação B — campanha</label>
+            <select id="f-cb"></select><input type="text" id="f-db" aria-label="Descrição da variação B" placeholder="descrição da variação B"></div>
+          <div class="campo largo" style="flex-direction:row;gap:8px;align-items:center">
+            <button class="btn" id="f-salvar">Salvar configuração sem disparo</button>
+            <button class="btn sec" id="f-cancelar">Cancelar</button>
+            <span class="mini" id="f-msg" role="status"></span></div>
+        </div>
+        <span class="crm-help" tabindex="0" title="A configuração registra variações A/B, mas não distribui públicos nem comprova conversão. Preserve os links atuais; não substitua as UTMs para tentar obter um resultado neste quadro.">Preserve as UTMs atuais ⓘ</span>
+      </div>
+      <div id="area-testes"></div>
+    </details></section></div></div>
+  <div class="sec" id="sec-regua">
+    <div class="crm-section-intro"><div><span class="crm-eyebrow">AUTOMAÇÕES</span><h2>Consulte as jornadas e suas conexões originais.</h2><p>Jornadas mostra as definições disponíveis e o histórico de mensagens. O fluxograma usa somente as conexões declaradas na configuração. <span id="control-graph-intro" hidden>Construir fluxo prepara novos caminhos.</span><span id="control-graph-off">Construir fluxo está desligado nesta versão.</span> Envios no período mostra o que foi registrado.</p></div></div>
+    <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações"><button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
+      <button type="button" id="control-tab-graph" data-control-tab="graph" role="tab" aria-controls="control-graph" aria-selected="false" tabindex="-1" hidden>Construir fluxo</button>
+      <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
+      <button type="button" id="control-tab-workflows" data-control-tab="workflows" role="tab" aria-controls="control-workflows" aria-selected="false" tabindex="-1">Operação atual</button>
+
+
+
+    </div>
+    <section class="painel control-panel" id="control-fluxos" data-control-panel="fluxos" role="tabpanel" aria-labelledby="control-tab-fluxos" hidden></section>
+
+    <section class="painel control-panel" id="control-graph" data-control-panel="graph" role="tabpanel" aria-labelledby="control-tab-graph" hidden></section>
+
+    <section class="painel control-panel" id="control-workflows" data-control-panel="workflows" role="tabpanel" aria-labelledby="control-tab-workflows" hidden></section>
+
+    <div class="control-panel control-history" id="control-history" data-control-panel="history" role="tabpanel" aria-labelledby="control-tab-history">
+    <section class="painel" id="ses-delivery" aria-label="Entregas de e-mail"></section>
+    <section class="painel" id="email-comparison-block">
+      <div class="painel-cab"><h2>Campanhas × Automações</h2><span class="tag nulo crm-help" tabindex="0" data-metric-scope="pedidos-por-envio" title="Pedidos atribuídos pela data da compra ÷ e-mails pela data do envio, no período. Não conta pessoas compradoras nem é conversão dos envios deste período.">e-mail no período · não é taxa de compradores ⓘ</span></div>
+      <div id="area-cvr"></div>
+    </section>
+    <section class="painel">
+      <div class="painel-cab"><h2>Automações por canal</h2><span class="mini" id="regua-rot"></span></div>
+      <div class="gt-toolbar flow-controls"><label class="gt-filtro" for="sel-flow">Fluxo<select id="sel-flow"><option value="">Todas as automações</option></select></label>
+        <label class="gt-busca">Buscar peça<input type="search" id="regua-busca" placeholder="Peça ou fluxo" autocomplete="off"></label>
+        <button type="button" class="refresh-btn gt-export" id="regua-export">Exportar CSV</button></div>
+      <div class="rolagem"><table class="comparativo" id="tab-regua"><thead><tr>
+        <th data-sort="piece"><button type="button" class="gt-th">Peça</button></th><th data-sort="marca"><button type="button" class="gt-th">Marca / canal</button></th><th class="num" data-sort="enviados"><button type="button" class="gt-th">Disparos</button></th><th class="num" data-sort="entregues"><button type="button" class="gt-th">Entregues</button></th>
+        <th class="num" data-sort="falhas"><button type="button" class="gt-th">Falhas</button></th><th class="num" data-sort="pedidos"><button type="button" class="gt-th">Pedidos</button></th><th class="num" data-sort="receita"><button type="button" class="gt-th">Receita</button></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-regua"></div>
+    </section>
+    <section class="painel" id="painel-carrinho">
+      <div class="painel-cab"><h2>Carrinho abandonado · todos os canais</h2><span class="mini" id="car-rot"></span></div>
+      <div id="area-carrinho"></div>
+    </section>
+    </div>
+  </div>
+
+  <div class="sec" id="sec-base">
+
+    <section class="ga-workspace-head" aria-labelledby="crm-audience-title">
+      <div><span class="ga-eyebrow">PÚBLICOS · SEGMENTOS DE CONTATOS</span><h2 id="crm-audience-title">Conheça seus clientes. Crie seus públicos.</h2><p>Combine listas, compras, produtos e engajamento. Salve o público e escolha-o na campanha da mesma marca.</p></div>
+      <button type="button" class="ga-create-primary" id="crm-audience-create"><span aria-hidden="true">＋</span> Criar público</button>
+      <div class="ga-brand-choices" id="crm-audience-brand-choices" role="group" aria-label="Marca do novo público" hidden><span>Escolha a marca do público</span><button type="button" data-audience-create-brand="fish">Fishermans</button><button type="button" data-audience-create-brand="aristo">O Aristocrata</button></div>
+      <p id="crm-audience-create-status" role="status" aria-live="polite" hidden></p>
+    </section>
+
+    <section class="painel" id="crm-segments-panel" hidden aria-label="Públicos reutilizáveis">
+      <p id="crm-segments-status" role="status" hidden></p>
+      <div id="crm-segments-editor"></div>
+    </section>
+
+    <section class="painel">
+      <div class="painel-cab"><h2>Públicos da marca</h2><span class="mini crm-help" id="arv-rot" tabindex="0" title="Base da marca na última coleta disponível, independente do período e do canal selecionados."></span></div>
+      <div id="area-arvore"></div>
+    </section>
+  </div>
+
+
+<div class="sec" id="sec-templates"><div class="crm-section-intro"><div><span class="crm-eyebrow">MODELOS E IMAGENS</span><h2>Uma biblioteca para suas próximas mensagens.</h2><p>Consulte os modelos, o inventário e o uso das mensagens e as imagens públicas disponíveis para os e-mails.</p></div><div class="crm-intro-actions"><button type="button" class="crm-primary-action" data-crm-open-tab="control-tab-drafts">Criar ou editar modelo</button><button type="button" class="crm-secondary-action" data-crm-focus="crm-media">Imagens públicas ↓</button></div></div><div class="control-tabs" role="tablist" aria-label="Biblioteca de templates"><button type="button" id="control-tab-drafts" hidden disabled title="Edição de modelos indisponível nesta versão" data-control-tab="drafts" role="tab" aria-controls="control-drafts" aria-selected="false" tabindex="-1">Criar e editar</button><button type="button" id="control-tab-templates" data-control-tab="templates" role="tab" aria-controls="control-templates" aria-selected="false" tabindex="-1">Inventário de mensagens</button></div><section class="painel control-panel" id="control-drafts" data-control-panel="drafts" role="tabpanel" aria-labelledby="control-tab-drafts" hidden></section><section class="painel control-panel" id="control-templates" data-control-panel="templates" role="tabpanel" aria-labelledby="control-tab-templates" hidden></section><section class="painel" id="crm-media" aria-label="Imagens públicas para e-mail"></section></div><div class="sec" id="sec-resultados"><div class="crm-section-intro"><div><span class="crm-eyebrow">RESULTADOS</span><h2>Do envio à venda, com a cobertura visível.</h2><p>Compare os canais, consulte as campanhas e acompanhe as vendas atribuídas. As quantidades sem confirmação permanecem indicadas como indisponíveis.</p></div></div><div class="crm-report-tabs" role="tablist" aria-label="Relatórios"><button type="button" id="crm-report-overview-tab" data-crm-report="overview" role="tab" aria-controls="crm-report-overview" aria-selected="true">Visão geral</button><button type="button" id="crm-report-email-tab" data-crm-report="email" role="tab" aria-controls="crm-report-email" aria-selected="false" tabindex="-1">Campanhas de e-mail</button><button type="button" id="crm-report-conversion-tab" data-crm-report="conversion" role="tab" aria-controls="crm-report-conversion" aria-selected="false" tabindex="-1">Conversão em venda</button></div><section id="attribution-status" aria-label="Modelo e cobertura da atribuição"></section><div id="crm-report-overview" data-crm-report-panel="overview" role="tabpanel" aria-labelledby="crm-report-overview-tab"><div class="channel-grid" id="channel-cards" aria-label="Desempenho por canal"></div><div class="crm-report-grid"><section class="painel">
+      <div class="painel-cab"><h2>Evolução</h2>
+        <select id="sel-metrica" aria-label="Métrica do gráfico">
+          <option value="receita">Receita atribuída</option>
+          <option value="cliques">Cliques de e-mail</option>
+          <option value="enviados">Disparos registrados</option>
+          <option value="entregues">Entregues · WhatsApp</option>
+          <option value="falhas">Falhas de entrega · WhatsApp</option>
+          <option value="complaints">Reclamações de e-mail</option>
+          <option value="novos_subs">Novos inscritos de e-mail</option>
+        </select>
+      </div>
+      <svg id="grafico" role="img" aria-label="Evolução no período"></svg>
+      <div class="legenda" id="legenda-graf"></div>
+    </section><section class="painel">
+      <div class="painel-cab"><h2>Onde a venda fecha</h2><span class="mini">top 5 por receita</span></div>
+      <div id="area-top"></div>
+    </section></div></div><div id="crm-report-email" data-crm-report-panel="email" role="tabpanel" aria-labelledby="crm-report-email-tab" hidden><section class="painel" id="campaign-email-block">
+      <div class="painel-cab"><h2>Campanhas de e-mail</h2><span class="mini" id="camp-rot"></span></div>
+      <div class="gt-toolbar"><label class="gt-busca">Buscar peça<input type="search" id="camp-busca" placeholder="Nome ou UTM" autocomplete="off"></label>
+        <span class="gt-contagem" id="camp-contagem"></span><button type="button" class="refresh-btn gt-export" id="camp-export">Exportar CSV</button></div>
+      <div class="rolagem"><table class="comparativo" id="tab-camp"><thead><tr>
+        <th data-sort="enviado_em"><button type="button" class="gt-th">Peça</button></th><th></th><th class="num" data-sort="enviados"><button type="button" class="gt-th">Enviados</button></th>
+        <th class="num" data-sort="abertura_pct"><button type="button" class="gt-th">Abertura</button></th><th class="num" data-sort="ctr_pct"><button type="button" class="gt-th">CTR</button></th><th class="num" data-sort="ctor_pct"><button type="button" class="gt-th">CTOR</button></th>
+        <th class="num" data-sort="receita"><button type="button" class="gt-th">Receita acumulada</button></th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-camp"></div>
+    </section><div id="campaign-email-channel-empty" class="vazio" hidden>Este relatório mostra campanhas de e-mail. <button type="button" class="refresh-btn" id="campaign-email-show">Ver campanhas de e-mail</button></div></div><div id="crm-report-conversion" data-crm-report-panel="conversion" role="tabpanel" aria-labelledby="crm-report-conversion-tab" hidden><section class="painel" id="pix-conversion" aria-live="polite"></section><section class="painel">
+      <div class="painel-cab"><h2>Conversão em venda</h2><span class="mini">modelo selecionado · assistido</span>
+        <select id="sel-grao" aria-label="Agrupar conversões" title="Escolha como reunir as vendas. Família reúne as campanhas vinculadas à mesma iniciativa; campanhas sem esse vínculo aparecem separadas.">
+          <option value="peca">por peça</option><option value="campanha">por campanha</option><option value="familia">por família</option></select></div>
+      <div class="gt-toolbar"><label class="gt-busca">Buscar<input type="search" id="conv-busca" placeholder="Peça, campanha ou família" autocomplete="off"></label>
+        <span class="gt-contagem" id="conv-contagem"></span><button type="button" class="refresh-btn gt-export" id="conv-export">Exportar CSV</button></div>
+      <div class="rolagem"><table class="comparativo" id="tab-conv"><thead><tr>
+        <th data-sort="titulo"><button type="button" class="gt-th" id="th-conv-grao">Peça</button></th><th>Canal</th><th class="num" data-sort="pedidos"><button type="button" class="gt-th">Pedidos</button></th><th class="num" data-sort="receita"><button type="button" class="gt-th">Receita</button></th>
+        <th class="num" data-sort="assist"><button type="button" class="gt-th">Assist.</button></th><th class="num" data-sort="receita_assist"><button type="button" class="gt-th">R$ assist.</button></th><th class="num" data-sort="pct_novos"><button type="button" class="gt-th">% novos</button></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="nota" id="nota-conv"></div>
+    </section></div></div>
+</main>
+
+<footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
+<div class="dica" id="dica"></div>
+
+<!-- PANEL_JS --><script src="/media-read.js"></script><script src="assets/panels/growth.js?v=3648f08e3b6c"></script>
+<script>
+/* ================= app: só render ================= */
+const $=s=>document.querySelector(s);
+const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
+const rf=n=>(n===null||n===undefined)?'—':'R$ '+(+n).toLocaleString('pt-BR',{maximumFractionDigits:0});
+const pf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR')+'%';
+const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+GA.install(G);
+let ATTR_MODEL=GA.DEFAULT_MODEL;
+let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
+// The BFF authorizes the brand; this listener only keeps the visible panel in that scope.
+window.addEventListener('shrigma:brand-access',event=>{
+ const scope=event.detail;if(scope?.brandAccess!=='single'||!['fish','aristo'].includes(scope.brand))return;
+ MARCA=scope.brand;document.querySelectorAll('#seg-marca button').forEach(button=>button.classList.toggle('ativo',button.dataset.marca===MARCA));
+ pintaMarca();CRMWorkspace.sync({section:SEC,brand:MARCA});if(API)render();
+});
+
+// Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
+let CONSULTA={em:null,falhou:false,antigo:false},FALHA_LEITURA='';
+// A faixa reúne o estado da leitura (falha, retrato antigo) e os alertas de dados do Início.
+// Ela é sempre redesenhada inteira: alerta de outra marca/seção ou falha já resolvida não fica na tela.
+function pintaAlertas(itens=[]){
+  const el=$('#faixa-alertas');if(!el)return;
+  const hora=API?GUI.sourceTime(API._cache_gerado_em):null;
+  const leitura=CONSULTA.falhou?`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(FALHA_LEITURA)} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`
+    :CONSULTA.antigo&&API?`<div class="alerta" role="status">Os dados atualizados do CRM ainda não foram preparados. Exibindo o último retrato disponível, de ${esc(hora||'horário não informado')}. <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`:'';
+  el.innerHTML=leitura+itens.map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
+  const retry=$('#tentar-novamente');if(retry)retry.onclick=()=>carregar({retryIdentity:true});
+}
+const AB_PENDENTES=new Map();let AB_CHAVE_SESSAO='',AB_LEITURA=0;
+let AB_JOURNAL=null,AB_PROVA_LEITURA=null,AB_RECONCILIACAO=null,AB_BLOQUEADO=false,AB_WRITE_EPOCH=0,AB_BUSY=false;
+// Busca e ordenação das tabelas ficam fora do DOM: render() redesenha o tbody a cada 60 s.
+const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita',dir:'desc'}};
+const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
+let CRM_LEITURA_BLOQUEADA=false;
+function limpaConsultaCRM(){
+  if(typeof GPR!=='undefined')GPR.clear();
+  API=null;AB_PROVA_LEITURA=null;ULT.camp=[];ULT.conv=[];
+  GC.readTicket=null;GC.carregando=null;GC.limpaLeitura();GRU.ctx={...GRU.ctx,api:null};
+  CRM_LEITURA_BLOQUEADA=true;
+  // Keep editors and their uncertain journals intact, but withdraw every section
+  // while the individual read credential is unavailable. Clear rendered read results.
+  document.querySelectorAll('main>.sec').forEach(el=>{el.style.display='none';el.setAttribute('inert','');});
+  document.querySelectorAll('#fontes,#fluxo-saude,#wa-coverage,#area-kpis,#automation-attention,#tab-fila tbody,#fila-rot,#fila-indisponivel,#campaign-monitor,#attribution-campaigns,#attribution-campaign-status,#control-fluxos,#control-workflows,#control-templates,#ses-delivery,#area-cvr,#tab-regua tbody,#nota-regua,#regua-rot,#area-carrinho,#car-rot,#area-arvore [data-ga-rfm],#area-arvore [data-ga-summary],#area-arvore [data-ga-result],#arv-rot,#attribution-status,#area-top,#pix-conversion,#tab-camp tbody,#camp-rot,#camp-contagem,#nota-camp,#tab-conv tbody,#conv-contagem,#nota-conv,#grafico,#legenda-graf,#growth-context,#crm-channel-status,#crm-connection-status,#frescor,#dica').forEach(el=>el.replaceChildren());
+  document.querySelectorAll('#secoes .n').forEach(el=>{el.textContent='';});
+  $('#message-preview-dialog')?.remove();$('#atualizado-em').title='';
+  $('#crm-data-summary').textContent='Atualização por origem';
+}
+function restauraConsultaCRM(){
+  if(!CRM_LEITURA_BLOQUEADA)return;
+  CRM_LEITURA_BLOQUEADA=false;
+  document.querySelectorAll('main>.sec').forEach(el=>{el.style.removeProperty('display');el.removeAttribute('inert');});
+}
+// Colunas de recorte repetidas em toda linha exportada: o CSV continua legível fora do painel.
+function exportMeta(extra={}){
+  const canal={todos:'E-mail e WhatsApp',email:'E-mail',whatsapp:'WhatsApp próprio'}[CANAL]||CANAL;
+  return {recorte_marca:MARCA==='todas'?'Consolidada':(G.MARCA_CHEIA[MARCA]||MARCA),recorte_canal:canal,
+    periodo_inicio:PER.ini,periodo_fim:PER.fim,modelo_atribuicao:GA.valid(API)?GA.models[GA.model(API)]:'Fonte anterior não reconciliada',
+    referencia_consulta:CONSULTA.em?new Date(CONSULTA.em).toLocaleString('pt-BR',{timeZone:G.TZ,day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'',
+    ...extra};
+}
+const COLS_CAMP=[{chave:'nome',rotulo:'Peça'},{chave:'marca',rotulo:'Marca',pega:c=>G.MARCA_CHEIA[c.marca]||c.marca},{chave:'enviado_em',rotulo:'Enviado em'},
+  {chave:'utm_campaign',rotulo:'utm_campaign'},{chave:'utm_content',rotulo:'utm_content'},{chave:'enviados',rotulo:'Enviados'},{chave:'entregues',rotulo:'Entregues'},
+  {chave:'entrega_pct',rotulo:'Entrega %'},{chave:'abertura_pct',rotulo:'Abertura %',pega:c=>c.medido?c.abertura_pct:null},{chave:'ctr_pct',rotulo:'CTR %',pega:c=>c.medido_clique?c.ctr_pct:null},
+  {chave:'ctor_pct',rotulo:'CTOR %',pega:c=>c.medido&&c.medido_clique?c.ctor_pct:null},{chave:'hard',rotulo:'Hard bounce'},{chave:'complaints',rotulo:'Reclamações'},{chave:'compl_pct',rotulo:'Reclamação %'},
+  {chave:'pedidos',rotulo:'Pedidos atribuídos',pega:c=>c.rec&&!c.rec.utm_ambiguo?c.rec.pedidos:null},{chave:'receita',rotulo:'Receita acumulada',pega:c=>c.rec&&!c.rec.utm_ambiguo?c.rec.receita:null},
+  {chave:'utm_ambiguo',rotulo:'Receita indivisível',pega:c=>!!(c.rec&&c.rec.utm_ambiguo)},{chave:'grupo',rotulo:'Mesmo UTM (grupo)',pega:c=>c.grupo?`#${c.grupo.grupo}`:null},{chave:'truncado',rotulo:'Truncado',pega:c=>!!c.truncado}];
+const COLS_CONV=[{chave:'titulo',rotulo:'Linha'},{chave:'grao',rotulo:'Agrupamento'},{chave:'marca',rotulo:'Marca',pega:c=>G.MARCA_CHEIA[c.marca]||c.marca},{chave:'canais',rotulo:'Canais',pega:c=>[...c.canais].join(' | ')},
+  {chave:'campanha',rotulo:'utm_campaign'},{chave:'peca',rotulo:'utm_content'},{chave:'familia',rotulo:'Família'},{chave:'pedidos',rotulo:'Pedidos'},{chave:'receita',rotulo:'Receita'},
+  {chave:'assist',rotulo:'Pedidos assistidos'},{chave:'receita_assist',rotulo:'Receita assistida'},{chave:'novos',rotulo:'Clientes novos'},{chave:'recorr',rotulo:'Clientes recorrentes'},{chave:'pct_novos',rotulo:'% novos'}];
+const HOJE=G.diaBR(new Date());
+let PER=G.preset('7',HOJE);
+const cor=m=>`var(--${m==='aristo'?'aristocrata':m==='fish'?'fishermans':m==='olivas'?'olivas':'todas'})`;
+// Icone pequeno da marca, no topo a esquerda. O nome por extenso vive no seletor.
+const LOGO={
+  aristo:'/logos/icone-aristocrata.png',
+  fish:'/logos/icone-fishermans.svg',
+  olivas:'/logos/icone-olivas.jpg'};
+// Pre-carrega os tres logotipos: sem isso, trocar de marca mostra um buraco
+// no cabecalho ate o PNG chegar (o da Fishermans tem ~112 KB).
+Object.values(LOGO).forEach(u=>{const i=new Image(); i.src=u;});
+function pintaMarca(){
+  document.body.dataset.marca=MARCA;
+  const uma=MARCA!=='todas';
+  const el=$('#marcas-topo');
+  el.className='marcas';
+  el.innerHTML = uma
+    ? `<span class="chipe" title="${G.MARCA_CHEIA[MARCA]}"><img src="${LOGO[MARCA]}" alt="${G.MARCA_CHEIA[MARCA]}"></span>`
+    : '<span class="sigla" title="Grupo Shrigma">GS</span>';
+  $('#sub-topo').textContent=uma?`${G.MARCA_CHEIA[MARCA]} · e-mail e WhatsApp`:'Grupo Shrigma · três marcas';
+}
+const chip=d=>d===null?'<span class="mini">sem base de comparação</span>'
+  :`<span class="chip ${d>=0?'chip-bom':'chip-ruim'}">${d>=0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR')}%</span>`;
+
+function grafico(atual,ant){
+  const svg=$('#grafico'),W=svg.clientWidth||700,H=200,P={t:12,r:10,b:22,l:48};
+  const vals=[...atual.map(p=>p.v),...(CMP?ant.map(p=>p.v):[])].filter(v=>v!==null);
+  const max=Math.max(1,...vals);
+  const x=i=>P.l+i*(W-P.l-P.r)/Math.max(1,atual.length-1),y=v=>H-P.b-(v/max)*(H-P.t-P.b);
+  const linha=s=>{let open=false;return s.map((p,i)=>{if(p.v===null){open=false;return '';}const cmd=open?'L':'M';open=true;return `${cmd}${x(i)},${y(p.v)}`;}).join(' ');};
+  const antVazia=CMP&&ant.length&&ant.every(p=>p.v===null);
+  const eixo=[0,.5,1].map(f=>{const v=max*f;return `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}"
+    stroke="var(--borda)"/><text x="${P.l-7}" y="${y(v)+4}" text-anchor="end" fill="var(--rotulo)"
+    font-size="10.5" font-family="Inter">${METRICA==='receita'?rf(v):nf(Math.round(v))}</text>`;}).join('');
+  const ehHora=atual.length&&/h$/.test(atual[0].d);
+  const rot=atual.map((p,i)=>(i===0||i===atual.length-1||(atual.length>6&&i===Math.floor(atual.length/2)))
+    ?`<text x="${x(i)}" y="${H-6}" text-anchor="middle" fill="var(--rotulo)" font-size="10.5"
+      font-family="Inter">${ehHora?p.d:p.d.slice(8,10)+'/'+p.d.slice(5,7)}</text>`:'').join('');
+  const pts=atual.map((p,i)=>p.v===null?'':`<circle cx="${x(i)}" cy="${y(p.v)}" r="9" fill="transparent" data-i="${i}"/>`).join('');
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.innerHTML=eixo+rot+
+    (CMP&&ant.length&&!antVazia?`<path d="${linha(ant)}" fill="none" stroke="var(--mudo)" stroke-width="1.6" stroke-dasharray="4 3" opacity=".75"/>`:'')+
+    (antVazia?`<text x="${W/2}" y="${P.t+14}" text-anchor="middle" fill="var(--rotulo)" font-size="11.5"
+       font-family="Inter">sem dado no período anterior — nada a comparar</text>`:'')+
+    `<path d="${linha(atual)}" fill="none" stroke="${cor(MARCA)}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`+pts;
+  const dica=$('#dica');
+  svg.onmousemove=e=>{
+    const alvo=e.target.closest('circle[data-i]');
+    if(!alvo){dica.style.opacity=0;return;}
+    const i=+alvo.dataset.i,a=atual[i],b=ant[i],fmt=v=>v===null?'sem dado':(METRICA==='receita'?rf(v):nf(v));
+    const rotD=/h$/.test(a.d)?a.d:a.d.split('-').reverse().join('/');
+    dica.textContent=`${rotD}\natual: ${fmt(a.v)}`+(CMP&&b?`\nanterior: ${fmt(b.v)}`:'');
+    dica.style.left=(e.clientX+12)+'px';dica.style.top=(e.clientY+12)+'px';dica.style.opacity=1;
+  };
+  svg.onmouseleave=()=>dica.style.opacity=0;
+}
+
+function renderTestes(){
+  reconciliaTestesAB();
+  const ts=API.crm_teste||[],bs=API.crm_teste_braco||[];
+  const meus=ts.filter(t=>(MARCA==='todas'||t.marca===MARCA)&&(CANAL==='todos'||t.canal===CANAL));
+  $('#n-ab').textContent=meus.length||'';
+  if(!meus.length){
+    $('#area-testes').innerHTML=`<div class="vazio">Nenhum teste registrado.<br>
+      <span class="mini">Registre hipótese e métrica antes do disparo. O cadastro, sozinho, não distribui públicos nem comprova um experimento.</span></div>`;
+    return;
+  }
+  $('#area-testes').innerHTML=meus.map(t=>{
+    const mb_=bs.filter(b=>b.teste_id===t.teste_id).sort((a,b)=>String(a.braco).localeCompare(String(b.braco)));
+    const analysis=G.analisaTeste(API,t,mb_);
+    const signed=(value,digits,suffix)=>`${value>0?'+':value<0?'−':''}${Math.abs(value).toLocaleString('pt-BR',{minimumFractionDigits:digits,maximumFractionDigits:digits})}${suffix}`;
+    const comparison=analysis.difference===null
+      ?`<div class="ab-diferenca"><span>Diferença B − A</span><strong>—</strong><span class="mini">Ainda não há duas taxas comparáveis com campanhas distintas.</span></div>`
+      :`<div class="ab-diferenca"><span>Diferença observada B − A</span><strong>${signed(analysis.difference,2,' p.p.')}</strong>
+        <span class="mini">${analysis.relativeDifference===null?'Variação relativa indisponível porque a taxa de A é zero.':`${signed(analysis.relativeDifference,1,'%')} em relação à taxa de A.`}</span></div>`;
+    const veredito=`<div class="veredito inconclusivo"><strong>Comparação descritiva, sem vencedor automático.</strong>
+      Este cadastro não comprova quem entrou em cada versão, se o conteúdo ficou fixo nem se o prazo de acompanhamento terminou.
+      As taxas de clique usam a base indicada; não medem vendas adicionais causadas pelo envio.</div>`;
+    const cards=mb_.map((b,i)=>{
+      const a=analysis.arms[i],m=a.metric;
+      return `<div class="braco"><h4>Braço ${esc(String(b.braco).toUpperCase())}</h4>
+        <div class="m">${m?((100*m.x/m.n).toFixed(2)+'%'):'—'}</div>
+        <div class="mini">${m?`${nf(m.x)} de ${nf(m.n)} · ${m.rot} · ${esc(a.base)}`:esc(a.reason)}</div>
+        <div class="mini">${esc(b.descricao||'')}</div></div>`;}).join('');
+    return `<section class="painel" style="margin-bottom:14px">
+      <div class="painel-cab"><h2 style="font-size:15px">${esc(t.nome)}</h2>
+        <span><span class="tag ${G.MARCA[t.marca]?t.marca:'nulo'}">${esc(G.MARCA[t.marca]||t.marca)}</span>
+        <span class="tag nulo">${esc(t.status)}</span>
+        ${t.status==='rodando'?`<button class="btn sec btn-encerrar" data-t="${esc(t.teste_id)}"
+          data-st="inconclusivo">Encerrar registro</button>`:''}
+        </span></div>
+      ${t.status==='rodando'?`<div class="form enc" id="enc-${esc(t.teste_id)}" hidden style="margin-top:10px">
+        <div class="campo"><label>Resultado do registro</label>
+          <span class="ajuda">Encerramento sem vencedor experimental. Registre a observação e a decisão operacional; este cadastro não comprova a distribuição dos participantes nem o prazo completo de acompanhamento.</span></div>
+        <div class="campo largo"><label>Conclusão</label>
+          <textarea class="e-conc" aria-label="Conclusão do registro" placeholder="O que isso muda na operação daqui pra frente."></textarea></div>
+        <div class="campo"><button class="btn e-salvar" data-t="${esc(t.teste_id)}" ${AB_BLOQUEADO||AB_PENDENTES.has(t.teste_id)?'disabled':''}>Encerrar registro</button>
+          <span class="mini e-msg" role="status">${AB_PENDENTES.has(t.teste_id)?'Gravação aguardando confirmação; atualize os dados antes de repetir.':''}</span></div>
+      </div>`:''}
+      <div class="mini" style="margin-bottom:4px"><strong>Hipótese:</strong> ${esc(t.hipotese)}</div>
+      <div class="mini">Variável: ${esc(t.variavel)} · Métrica: ${esc(t.metrica_primaria)}
+        · Efeito mínimo: ${t.efeito_minimo||'—'} p.p.</div>
+      <div class="mini">Base: dados acumulados de cada campanha; este resultado não muda com o filtro de período do painel.
+        ${t.vencedor?`Vencedor anotado no registro anterior: ${esc(String(t.vencedor).toUpperCase())}. Essa anotação não foi revalidada como conclusão experimental.`:''}</div>
+      <div class="bracos">${cards}</div>${comparison}${veredito}</section>`;
+  }).join('');
+
+  document.querySelectorAll('.btn-encerrar').forEach(b=>b.onclick=()=>{
+    AB_WRITE_EPOCH++;const cx=document.getElementById('enc-'+b.dataset.t);
+    cx.hidden=!cx.hidden;
+    // Closing this legacy registry does not establish a causal result.
+    cx.dataset.st='inconclusivo';
+  });
+  document.querySelectorAll('.e-salvar').forEach(b=>b.onclick=()=>encerrarTeste(b.dataset.t));
+  document.querySelectorAll('.e-conc').forEach(e=>e.addEventListener('input',()=>{AB_WRITE_EPOCH++;}));
+}
+
+function chaveTesteAB(msg){
+  const key=chave();
+  if(!key)msg.textContent='Entre novamente no CRM para salvar a configuração. Nenhuma gravação foi enviada.';
+  return key;
+}
+function chaveLegadaTesteAB(){
+  const field=$('#ab-chave'),typed=field.value.trim();
+  if(typed){AB_CHAVE_SESSAO=typed;field.value='';}
+  if(!AB_CHAVE_SESSAO)try{AB_CHAVE_SESSAO=localStorage.getItem('shrigma_ab_key')||'';}catch(_){}
+  return AB_CHAVE_SESSAO;
+}
+function journalTesteAB(){
+  if(!AB_JOURNAL){let storage=null;try{storage=localStorage;}catch(_){}
+    AB_JOURNAL=GABJ.create({endpoint:typeof AB_API_URL==='string'?AB_API_URL:null,storage,
+      locks:typeof navigator!=='undefined'?navigator.locks:null,match:G.registroTesteConfere,receipt:G.reciboTesteValido,
+      serverContract:true,validServer:typeof GABServer!=='undefined'?GABServer.validServer:null});}
+  return AB_JOURNAL;
+}
+function sincronizaTestesAB(){
+  const state=journalTesteAB().inspect();AB_PENDENTES.clear();AB_BLOQUEADO=state.blocked;
+  for(const p of state.operations)if(['pending','uncertain','accepted'].includes(p.phase))AB_PENDENTES.set(p.expected.teste.teste_id,p);
+  $('#ab-consultar').disabled=!AB_PENDENTES.size||AB_BUSY||!!AB_RECONCILIACAO;
+  $('#ab-acesso-legado').hidden=![...AB_PENDENTES.values()].some(p=>p.server&&p.server.access!=='crm_operator');
+  $('#f-salvar').disabled=AB_BUSY||!GABF.valid(API)||AB_BLOQUEADO||[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');
+  if(AB_BLOQUEADO)$('#ab-status').textContent=state.message;
+  else if(AB_PENDENTES.size)$('#ab-status').textContent=[...AB_PENDENTES.values()].some(p=>!p.server)?'Há tentativa anterior ao contrato do servidor. Ela permanece preservada e exige conciliação; uma coincidência nos dados não comprova o recibo. Não repita com outra chave ou identificador.':'Há tentativa aguardando confirmação. Consultar tentativa registrada verifica o recibo com o acesso original; não repete a gravação.';
+}
+function reconciliaTestesAB(explicitKey=''){
+  sincronizaTestesAB();
+  if(AB_RECONCILIACAO||!AB_PROVA_LEITURA||!API)return AB_RECONCILIACAO||Promise.resolve();
+  AB_RECONCILIACAO=(async()=>{
+    let proof;
+    do{
+      proof=AB_PROVA_LEITURA;if(!AB_PENDENTES.size)return;
+      const operatorKey=chave(),legacyKey=explicitKey||chaveLegadaTesteAB(),endpoint=AB_API_URL;
+      const result=await journalTesteAB().reconcileRemote({lookup:async op=>{
+        const key=op.server.access==='crm_operator'?operatorKey:legacyKey;
+        if(!key)throw new Error(op.server.access==='crm_operator'?'Entre novamente no CRM com o mesmo acesso para consultar a tentativa.':'Informe o acesso original da tentativa anterior para consultar seu recibo. A gravação continua preservada.');
+        return GABServer.create({endpoint,key}).lookup(op);
+      }});
+      if(result.changed){sincronizaTestesAB();
+        for(const p of result.confirmed){$('#ab-status').textContent=p.phase==='confirmed'?'Recibo exato do registro '+p.expected.teste.teste_id+' conferido no servidor.':'Operação recusada pelo servidor com recibo preservado. Atualize a revisão antes de uma nova ação.';
+          if(p.phase==='confirmed'&&p.expected.acao==='criar'&&GABF.matches(p.expected.teste)){$('#form-teste').hidden=true;$('#f-msg').textContent='Registro e revisão confirmados pelo recibo.';}}
+        renderTestes();
+      }
+    }while(proof!==AB_PROVA_LEITURA); // A refresh that arrived during reconciliation must also be checked.
+  })().catch(e=>{if(e.code!=='AB_BUSY')$('#ab-status').textContent=e.message;}).finally(()=>{AB_RECONCILIACAO=null;$('#ab-consultar').disabled=!AB_PENDENTES.size||AB_BUSY;});
+  return AB_RECONCILIACAO;
+}
+async function gravaTesteAB(corpo,msg,btn){
+  if(AB_BUSY)return;AB_BUSY=true;btn.disabled=true;
+  const epoch=AB_WRITE_EPOCH,key=corpo.k;
+  try{
+    const result=await journalTesteAB().run(corpo,{api:API,readProof:AB_PROVA_LEITURA,
+      remote:GABServer.create({endpoint:AB_API_URL,key,requireAccess:'crm_operator'}),guard:()=>epoch===AB_WRITE_EPOCH&&chave()===key&&btn.isConnected});
+    if(result.phase==='rejected'){
+      if(result.rejection.status===401){msg.textContent='Acesso recusado. Entre novamente no CRM.';}
+      else msg.textContent='Recusado antes da gravação: '+result.rejection.error;
+    }else if(result.phase==='confirmed'){msg.textContent='Registro e revisão confirmados pelo recibo do servidor.';if(corpo.acao==='criar'&&GABF.matches(corpo.teste))$('#form-teste').hidden=true;await carregar();}
+    else msg.textContent='Gravação sem confirmação. A tentativa foi preservada neste navegador. Atualize e confira o mesmo registro; nenhum reenvio será feito automaticamente.';
+  }catch(e){msg.textContent=e.message||'Gravação sem confirmação. Preserve o registro local e atualize os dados.';}
+  finally{AB_BUSY=false;await reconciliaTestesAB();btn.disabled=AB_BLOQUEADO||AB_PENDENTES.has(corpo.teste.teste_id)||corpo.acao==='criar'&&[...AB_PENDENTES.values()].some(p=>p.expected.acao==='criar');}
+}
+window.addEventListener('storage',event=>{if((event.key===GABJ.SLOT||event.key===null)&&API)renderTestes();});
+
+async function encerrarTeste(id){
+  const cx=document.getElementById('enc-'+id),msg=cx.querySelector('.e-msg'),btn=cx.querySelector('.e-salvar');
+  msg.textContent='';const conc=cx.querySelector('.e-conc').value.trim();
+  if(!conc){msg.textContent='Escreva a conclusão — sem ela o teste não vira aprendizado.';return;}
+  const wk=chaveTesteAB(msg);if(!wk)return;
+  await gravaTesteAB({k:wk,acao:'encerrar',teste:{teste_id:id,status:'inconclusivo',vencedor:null,conclusao:conc}},msg,btn);
+}
+
+let AB_EXPERIMENT_PANEL=null;
+function restoreABExperimentBrand(next){
+  if(!['fish','aristo'].includes(next))return false;
+  const campaign=GCE.contextStatus(),template=GRU.contextStatus(),segments=CRM_SEGMENT_VIEW?.contextStatus()||{};
+  if($('#brand-change-confirm')?.open)return false;
+  if(AB_BUSY||campaign.blocked||campaign.pending||template.blocked||template.pending||segments.navigationBlocked||segments.pending||
+    typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.()))return false;
+  try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();}catch{return false;}
+  MARCA=next;AB_WRITE_EPOCH++;ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
+  GRU.enterBrand(MARCA);GRU.ctx={...GRU.ctx,api:API,marca:MARCA};pintaMarca();gravaHash();queueMicrotask(()=>render());return true;
+}
+function syncABExperimentState(){
+  const element=$('#ab-experiment-panel'),on=!!element&&!element.hidden;
+  const intro=$('#ab-experiment-intro'),off=$('#ab-experiment-off');if(intro)intro.hidden=!on;if(off)off.hidden=on;
+}
+function renderABExperiment(){try{renderABExperimentPanel();}finally{syncABExperimentState();}}
+function renderABExperimentPanel(){
+  const element=$('#ab-experiment-panel');
+  if(typeof GABExperimentPanel==='undefined'){if(element)element.hidden=true;return;}
+  const activation=GABExperimentPanel.activation(API,MARCA);
+  // Preserve an existing journal when an operational capability disappears.
+  if(!AB_EXPERIMENT_PANEL&&activation.enabled!==true){if(element)element.hidden=true;return;}
+  if(!API||!element)return;
+  try{
+    if(!AB_EXPERIMENT_PANEL)AB_EXPERIMENT_PANEL=GABExperimentPanel.create({experimentClient:GABExperimentClient,experimentUI:GABExperimentUI,campaignAPI:GCA,
+      getManagerKey:()=>typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'',restoreBrand:restoreABExperimentBrand,
+      campaignContext:{status:()=>GCE.contextStatus(),preserve:()=>GCE.preserve()},storage:localStorage,locks:navigator.locks,fetch});
+    AB_EXPERIMENT_PANEL.render({element,marca:MARCA,api:API,activation});
+  }catch(e){element.hidden=false;element.textContent=e.message;}
+}
+let CRM_AUDIENCE_VIEW=null,CRM_SEGMENT_VIEW=null,CRM_SEGMENT_SYNC=null,CRM_SEGMENT_NEXT=null;
+let CRM_AUDIENCE_CREATE_BUSY=false,CRM_AUDIENCE_CREATE_NOTICE='',CRM_AUDIENCE_CREATE_NOTICE_BRAND=null;
+function contextoSegmentos(){
+  const caps=typeof GSC!=='undefined'?GSC.caps(API):null;
+  return {api:API,brand:MARCA,caps,key:typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):''};
+}
+function mesmoContextoSegmentos(a,b){return a.brand===b.brand&&a.key===b.key&&JSON.stringify(a.caps)===JSON.stringify(b.caps);}
+function renderPublicCreation(){
+  const next=contextoSegmentos(),supported=['fish','aristo'].includes(MARCA),available=!!next.key&&next.caps?.read===true&&(supported?next.caps.brands.includes(MARCA):next.caps.brands.some(b=>['fish','aristo'].includes(b)));
+  if(CRM_AUDIENCE_CREATE_NOTICE_BRAND!==MARCA)CRM_AUDIENCE_CREATE_NOTICE='';
+  const button=$('#crm-audience-create'),choices=$('#crm-audience-brand-choices'),status=$('#crm-audience-create-status');
+  button.disabled=CRM_AUDIENCE_CREATE_BUSY||!available;
+  button.innerHTML=CRM_AUDIENCE_CREATE_BUSY?'Abrindo público…':'<span aria-hidden="true">＋</span> Criar público';
+  if(['fish','aristo'].includes(MARCA))choices.hidden=true;
+  choices.querySelectorAll('[data-audience-create-brand]').forEach(b=>{b.disabled=CRM_AUDIENCE_CREATE_BUSY||!available||!next.caps.brands.includes(b.dataset.audienceCreateBrand);});
+  status.textContent=CRM_AUDIENCE_CREATE_NOTICE||(!available?'A criação de públicos não está disponível neste acesso.':!['fish','aristo'].includes(MARCA)?'Crie públicos de Fishermans ou O Aristocrata. Cada público pertence a uma marca.':'');
+  status.hidden=!status.textContent;
+}
+async function beginAudienceDraft(brand){
+  if(CRM_AUDIENCE_CREATE_BUSY||MARCA!==brand||!['fish','aristo'].includes(brand))return;
+  const before=contextoSegmentos();
+  if(!before.key||before.caps?.read!==true||!before.caps.brands.includes(brand))return;
+  CRM_AUDIENCE_CREATE_BUSY=true;CRM_AUDIENCE_CREATE_NOTICE='';CRM_AUDIENCE_CREATE_NOTICE_BRAND=brand;renderPublicCreation();
+  try{
+    await renderSegmentos();
+    if(SEC!=='base'||!mesmoContextoSegmentos(before,contextoSegmentos())||CRM_SEGMENT_VIEW?.contextStatus().brand!==brand)return;
+    const result=await CRM_SEGMENT_VIEW.startNew();
+    if(SEC!=='base'||!mesmoContextoSegmentos(before,contextoSegmentos())||CRM_SEGMENT_VIEW?.contextStatus().brand!==brand)return;
+    const host=$('#crm-segments-panel');host.scrollIntoView?.({behavior:'smooth',block:'start'});
+    if(result==='confirmation'){CRM_AUDIENCE_CREATE_NOTICE='Confirme no diálogo se deseja substituir a preparação local.';return;}
+    if(result!=='started'){
+      const state=CRM_SEGMENT_VIEW.contextStatus();
+      CRM_AUDIENCE_CREATE_NOTICE=state.pending?'Há uma tentativa pendente. Use Consultar tentativa no editor abaixo antes de criar outro público.':state.error||(state.blocked?'Aguarde a consulta dos públicos terminar.':'Não foi possível carregar o editor. Use Atualizar públicos para consultar novamente; sua preparação foi preservada.');return;
+    }
+    if(!CRM_SEGMENT_VIEW.contextStatus().blocked)host.querySelector('[data-gs-name]')?.focus({preventScroll:true});
+  }catch{CRM_AUDIENCE_CREATE_NOTICE='Não foi possível abrir um novo público. Sua preparação atual foi preservada.';}
+  finally{CRM_AUDIENCE_CREATE_BUSY=false;renderPublicCreation();}
+}
+function openAudienceCreation(brand=MARCA){
+  if(CRM_AUDIENCE_CREATE_BUSY)return;
+  if(!['fish','aristo'].includes(brand)){
+    $('#crm-audience-brand-choices').hidden=false;
+    $('#crm-audience-brand-choices button:not(:disabled)')?.focus();return;
+  }
+  const begin=()=>void beginAudienceDraft(brand);
+  if(trocaMarca(brand,begin))begin();
+}
+function renderSegmentos(){
+  const host=$('#crm-segments-panel'),editor=$('#crm-segments-editor'),status=$('#crm-segments-status'),next=contextoSegmentos();
+  const available=!!next.key&&next.caps?.read===true&&next.caps.brands.includes(next.brand)&&typeof GSU!=='undefined';
+  host.hidden=!available;
+  // A missing capability leaves the existing audience view intact. Mount only
+  // when Público is opened; once mounted retain its journal while navigating.
+  if(!CRM_SEGMENT_VIEW&&(!available||SEC!=='base'))return Promise.resolve(false);
+  if(!CRM_SEGMENT_VIEW){
+    try{CRM_SEGMENT_VIEW=GSU.create({element:editor,document,key:()=>typeof shrigmaChaveOperador==='function'?shrigmaChaveOperador('growth','draft'):'',storage:localStorage,fetch,locks:navigator.locks});}
+    catch{editor.hidden=true;status.hidden=false;status.textContent='Não foi possível abrir os públicos reutilizáveis. A consulta atual foi preservada.';return Promise.resolve(false);}
+  }
+  CRM_SEGMENT_NEXT=next;
+  if(CRM_SEGMENT_VIEW.contextStatus().brand!==next.brand){editor.hidden=true;status.hidden=false;status.textContent='Conferindo os públicos desta marca…';}
+  if(CRM_SEGMENT_SYNC)return CRM_SEGMENT_SYNC;
+  CRM_SEGMENT_SYNC=(async()=>{
+    while(CRM_SEGMENT_NEXT){
+      const desired=CRM_SEGMENT_NEXT;CRM_SEGMENT_NEXT=null;let accepted=false;
+      try{accepted=await CRM_SEGMENT_VIEW.sync({api:desired.api,brand:desired.brand});}catch{}
+      const current=contextoSegmentos(),same=mesmoContextoSegmentos(desired,current);
+      if(accepted&&same&&CRM_AUDIENCE_VIEW)CRM_AUDIENCE_VIEW.update({api:API,brand:MARCA,catalogs:catalogosPublicos()});
+      // Never present a previous brand/access/endpoint as the current editor.
+      editor.hidden=!accepted||!same;status.hidden=accepted&&same;
+      if(!status.hidden)status.textContent=same&&CRM_SEGMENT_VIEW.contextStatus().brand===desired.brand&&CRM_SEGMENT_VIEW.contextStatus().error||'A preparação anterior foi preservada. Conclua ou confira a tentativa original antes de abrir outro contexto de públicos.';
+    }
+  })().finally(()=>{CRM_SEGMENT_SYNC=null;});
+  return CRM_SEGMENT_SYNC;
+}
+function catalogosPublicos(){
+  const catalog=CRM_SEGMENT_VIEW?.sourceCatalog?.();
+  return [...(GCE.catalogs?.()||[]),...(catalog?[catalog]:[])];
+}
+function renderPublicos(){
+  if(!API)return;
+  renderPublicCreation();
+  if(!CRM_AUDIENCE_VIEW)CRM_AUDIENCE_VIEW=GAudience.mount({element:$('#area-arvore'),onRefresh:()=>carregar(),onCreateRfm:async preset=>{
+    const before=contextoSegmentos();
+    if(!preset||!['fish','aristo'].includes(preset.brand)||before.brand!==preset.brand)return false;
+    await renderSegmentos();
+    if(SEC!=='base'||!mesmoContextoSegmentos(before,contextoSegmentos())||CRM_SEGMENT_VIEW?.contextStatus().brand!==preset.brand)return false;
+    const result=await CRM_SEGMENT_VIEW?.startPreset({field:'relationship.rfm',value:preset.tag,name:preset.name});
+    if(result==='started')$('#crm-segments-panel').scrollIntoView?.({behavior:'smooth',block:'start'});
+    return result;
+  }});
+  const audience=CRM_AUDIENCE_VIEW.update({api:API,brand:MARCA,catalogs:catalogosPublicos()});
+  $('#n-arv').textContent=audience.total||'';
+  $('#arv-rot').textContent='Última contagem por público';
+  void renderSegmentos();
+}
+// Journeys retain their editor/journal state while hidden. Only the visible route
+// mounts the view; its existing loaded/busy guards own read deduplication.
+function renderJornadas(modeloOp){
+  if(typeof GPR!=='undefined')GPR.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
+  if(typeof GJG!=='undefined'){
+    GJG.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
+    if(PENDENTE_GRAPH&&API){
+      PENDENTE_GRAPH=false;
+      if(SEC==='regua'&&GJG.available(API)&&['fish','aristo'].includes(MARCA)){
+        GC.setTab('graph');GJG.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
+      }
+    }
+    if(GC.activeTab==='graph'&&(!GJG.available(API)||!['fish','aristo'].includes(MARCA)))GC.setTab('fluxos');
+  }
+  if(PENDENTE_GRAPH&&API)PENDENTE_GRAPH=false;
+  const graphOn=typeof GJG!=='undefined'&&!!API&&GJG.available(API)===true;
+  const intro=document.getElementById?.('control-graph-intro'),off=document.getElementById?.('control-graph-off');
+  if(intro)intro.hidden=!graphOn;if(off)off.hidden=graphOn;
+  if(!API||SEC!=='regua'||GC.activeTab!=='fluxos')return;
+  const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
+  GFU.render({...ctx,configuredReadOnly:true,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
+}
+function renderRelatoriosCampanha(){
+  const campaigns=SEC==='camp'&&CRMWorkspace.state().campaign==='list';
+  if(!API||(!campaigns&&SEC!=='resultados'))return;
+  const result=GA.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,GUI,onRefresh:carregar,renderCampaigns:campaigns,onModel:m=>{ATTR_MODEL=m;GA.project(API,m);render();}});
+  if(campaigns){
+    GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
+    $('#n-camp').textContent=result?.campaignCount||'';
+  }
+}
+function render(){
+  if(typeof GPR!=='undefined')GPR.sync({api:CRM_LEITURA_BLOQUEADA?null:API,marca:MARCA,section:SEC,tab:GC.activeTab});
+  if(CRM_LEITURA_BLOQUEADA)return;
+  CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
+  // Contadores da navegação valem só para a marca em que foram calculados.
+  document.querySelectorAll('#secoes .n').forEach(n=>{if(n.dataset.marca!==MARCA){n.textContent='';n.dataset.marca=MARCA;}});
+  const campaignTab=CRMWorkspace.state().campaign,reportTab=CRMWorkspace.state().report;
+  const home=SEC==='visao',campaigns=SEC==='camp'&&campaignTab==='list',tests=SEC==='camp'&&campaignTab==='tests';
+  const automationHistory=SEC==='regua'&&GC.activeTab==='history',resultsOverview=SEC==='resultados'&&reportTab==='overview';
+  const resultsEmail=SEC==='resultados'&&reportTab==='email',resultsConversion=SEC==='resultados'&&reportTab==='conversion';
+  if(tests)renderABExperiment();
+  if(SEC==='base'||campaigns)GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
+  if(SEC==='templates')GMediaRead.mount({marca:MARCA,api:API});
+  if(!API)return;
+  if(tests)GABF.enter(MARCA,API);
+  pintaMarca();
+  const {ini,fim}=PER,ant=G.anterior(ini,fim);
+  $('#growth-context').textContent=`${ini.split('-').reverse().join('/')} a ${fim.split('-').reverse().join('/')} · ${CANAL==='todos'?'E-mail e WhatsApp':CANAL==='email'?'E-mail':'WhatsApp próprio'} · Brasília`;
+  // Coverage also drives the home overview while campaign history stays unmounted.
+  if((home||resultsOverview)&&GA.valid(API))API._attribution_missing=!GA.coverage(API,MARCA,ini,fim).covered;
+  const GRAO=($('#sel-grao')||{}).value||'peca';
+  const cs=(home||resultsEmail)?G.campanhas(API,MARCA,ini,fim,true,CANAL):[];
+  const conv=(home||resultsOverview||resultsConversion)?G.conversao(API,MARCA,ini,fim,GRAO,CANAL):[];
+  const tot=home?G.totais(cs,conv):null;
+  // Sem nenhum dia conciliado, a lista vazia é desconhecida, não "sem venda".
+  const vazioConv=(resultsOverview||resultsConversion)&&GA.valid(API)&&!GA.coverage(API,MARCA,ini,fim).covered
+    ?'Atribuição sem conciliação para esta marca no período. Não é possível afirmar que não houve venda; confira os horários da coleta e atualize.'
+    :'Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.';
+  // A faixa de fontes pertence ao shell do CRM e precisa refletir marca/consulta
+  // mesmo quando a rota ativa não monta os cartões de Início ou Resultados.
+  GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,ini,fim,CANAL));
+
+  pintaAlertas(home?G.alertas(cs,tot,API,{canal:CANAL}):[]);
+
+  if(campaigns||SEC==='resultados')renderRelatoriosCampanha();
+  if(resultsConversion)GPIX.render(API,MARCA,ini,fim,CANAL,GUI);
+  if(automationHistory)GSES.render(API,MARCA,ini,fim,CANAL,GUI);
+  if(home||resultsOverview)GUI.overview({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,cmp:CMP,hoje:G.diaBR(new Date()),onChannel:setCanal,onFlows:openFlows,onJump:pular,consulta:CONSULTA,visiblePanel:home?'home':'results',renderSources:false});
+  if(resultsEmail){
+    $('#campaign-email-block').hidden=CANAL==='whatsapp';
+    $('#campaign-email-channel-empty').hidden=CANAL!=='whatsapp';
+  }
+  if(automationHistory)$('#email-comparison-block').hidden=GA.valid(API)||CANAL==='whatsapp';
+
+  // periodo de 1 dia: tenta a curva por hora antes de cair no ponto unico diario
+  if(resultsOverview){
+  const umDia = ini===fim;
+  const agoraH = G.horaBR(new Date());
+  const hojeIso = G.diaBR(new Date());
+  const lim = (umDia && ini===hojeIso) ? agoraH : undefined;
+  let sAtual=null, sAnt=null, porHora=false;
+  if(umDia&&METRICA==='cliques'&&CANAL!=='whatsapp'){
+    const a=G.serieHora(API,MARCA,ini,METRICA,lim,'email');
+    if(a){ sAtual=a; sAnt=G.serieHora(API,MARCA,ant.ini,METRICA,lim,'email')||Array(24).fill(null).map((_,i)=>({d:String(i).padStart(2,'0')+'h',v:null})); porHora=true; }
+  }
+  if(!porHora){ sAtual=GD.series(G,API,MARCA,ini,fim,METRICA,CANAL); sAnt=GD.series(G,API,MARCA,ant.ini,ant.fim,METRICA,CANAL); }
+  const temAnt=CMP&&sAnt.some(p=>p.v!==null);
+  grafico(sAtual,sAnt);
+  // Coleta de venda da marca selecionada, comparada como instante e exibida em Brasília com a data.
+  const ultConv=(API.crm_conversao||[]).filter(r=>MARCA==='todas'||r.marca===MARCA).reduce((a,r)=>{const t=Date.parse(r.coletado_em||'');return Number.isFinite(t)&&(a===null||t>a)?t:a;},null);
+  const hConv=ultConv===null?null:GUI.sourceTime(new Date(ultConv).toISOString());
+  $('#legenda-graf').innerHTML=['<span><i style="background:'+cor(MARCA)+'"></i>período atual</span>',
+    temAnt?'<span><i style="background:var(--mudo)"></i>período anterior (tracejado)</span>':'',
+    porHora?'<span>por hora, acumulado'+(lim!==undefined?' · comparação até a mesma hora':'')+'</span>':'',
+    (METRICA==='receita'&&hConv)?'<span>venda coletada até '+hConv+'</span>':'',
+    fim===hojeIso?'<span>Hoje é parcial</span>':'',
+    ['entregues','falhas'].includes(METRICA)?'<span>Status dos disparos registrados em cada dia · WhatsApp próprio</span>':''].filter(Boolean).join('');
+  }
+
+  if(automationHistory){
+  const car=G.carrinho(API,MARCA,ini,fim);
+  $('#car-rot').textContent=car?`${car.dias} dia(s) no período`:'';
+  if(!car){
+    $('#area-carrinho').innerHTML='<div class="vazio">Nenhum carrinho abandonado coletado no período. Amplie o período ou clique em Atualizar.</div>';
+  } else {
+    // Tudo abaixo usa APENAS os dias com cobertura de conversao. Misturar escopo
+    // (valor do periodo inteiro contra receita so dos dias medidos) inflava o "perdido".
+    const temRec=car.recuperados!==null&&car.diasMedidos>0;
+    const emJogo=temRec?car.valorMedido:car.valor;
+    const perdido=Math.max(0,emJogo-(car.receita||0));
+    const frac=temRec&&emJogo?Math.max(.6,100*car.receita/emJogo):0;
+    const taxa=temRec&&car.carrinhosMedidos?(100*car.recuperados/car.carrinhosMedidos):null;
+    const naoMedidos=car.dias-car.diasMedidos;
+    // Um carrinho de hoje ainda tem ate 72h para voltar. Marcar os dias imaturos
+    // evita a leitura de que "hoje esta pessimo" quando so nao terminou.
+    const hoje=G.diaBR(new Date());
+    const imaturos=(API.crm_carrinho||[])
+      .filter(r=>(MARCA==='todas'||r.marca===MARCA)&&G.noPeriodo(String(r.dia).slice(0,10),ini,fim))
+      .filter(r=>G.diasEntre(String(r.dia).slice(0,10),hoje)<=3)
+      .map(r=>String(r.dia).slice(0,10));
+    const nImaturos=new Set(imaturos).size;
+    $('#area-carrinho').innerHTML=`
+      <div class="funil">
+        <div class="funil-num"><b>${rf(Math.max(0,car.valor-(car.receitaVoltaram||0)))}</b>
+          <span>abandonados e não recuperados em ${car.dias} dia(s) · ${rf(car.receitaVoltaram)} voltou</span></div>
+        <div class="funil-barra" title="Voltaram e compraram em até 72h">
+          <i style="width:${car.carrinhos?Math.max(.6,100*car.voltaram/car.carrinhos):0}%"></i></div>
+        <div class="funil-leg">
+          <span>${nf(car.carrinhos)} carrinhos · ${rf(car.valor)} em jogo</span>
+          <span><strong>${nf(car.voltaram)} voltaram</strong> · ${car.carrinhos?(100*car.voltaram/car.carrinhos).toFixed(1):'—'}% em 72h</span>
+        </div>
+        ${temRec?`<div class="funil-crm">
+          <div class="funil-barra" title="Fechados pelo fluxo de CRM (último clique)">
+            <i style="width:${car.voltaramMedidos?Math.max(.6,100*car.recuperados/car.voltaramMedidos):0}%;opacity:.55"></i></div>
+          <div class="funil-leg">
+            <span>fechados pelo fluxo · ${nf(car.recuperados)} de ${nf(car.voltaramMedidos)} que voltaram</span>
+            <span>${car.voltaramMedidos?Math.round(100*car.recuperados/car.voltaramMedidos)+'% do resgate é do CRM':'participação do CRM sem base: ninguém voltou'}</span>
+          </div></div>`:''}
+        ${nImaturos?`<div class="mini" style="margin-top:6px">${nImaturos} dia(s) ainda em maturação: um carrinho tem até 72h para virar venda, então os dias recentes sempre aparecem abaixo do que vão fechar.</div>`:''}
+        ${naoMedidos?`<div class="mini" style="margin-top:6px">${naoMedidos} dia(s) sem coleta de conversão — excluídos da fatia do CRM em vez de contarem como zero.</div>`:''}
+        <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${car.carrinhos?Math.round(100*car.consent/car.carrinhos)+'%':'sem base'}).</div>
+        ${car.porMarca.length>1?`<div class="funil-marcas">`+car.porMarca.map(m=>{
+          const tv=m.carrinhos?(100*m.voltou/m.carrinhos):null;
+          const t=m.medido&&m.voltou?(100*m.rec/m.voltou):null;
+          const mx=car.porMarca[0].valor||1;
+          return `<div class="galho"><div><div class="rot">${G.MARCA[m.marca]||m.marca}</div>
+            <div class="flx">${nf(m.carrinhos)} carrinhos · ${tv!==null?tv.toFixed(1)+'% voltou':'—'}${t!==null?` · ${Math.round(t)}% via fluxo`:''}</div></div>
+            <div class="barra"><i style="width:${100*m.valor/mx}%;background:${cor(m.marca)}"></i></div>
+            <div class="num tabn">${rf(m.valor)}</div>
+            <div><span class="tag ${m.marca}">${nf(m.voltou)}</span></div></div>`;}).join('')+`</div>`:''}
+      </div>`;
+  }
+  }
+
+  if(resultsOverview){
+  $('#area-top').innerHTML=conv.length?conv.slice(0,5).map(c=>{
+    const mx=conv[0].receita||1;
+    return `<div class="galho"><div><div class="rot">${esc((c.peca||c.campanha||'—').slice(0,30))}</div>
+      <div class="flx">${esc(c.campanha)}</div></div>
+      <div class="barra"><i style="width:${100*c.receita/mx}%;background:${cor(c.marca)}"></i></div>
+      <div class="num tabn">${rf(c.receita)}</div>
+      <div><span class="tag ${c.canal}">${c.canal}</span></div></div>`;
+  }).join(''):`<div class="vazio">${vazioConv}</div>`;
+  }
+
+  if(resultsConversion){
+  $('#n-conv').textContent=conv.length||'';
+  $('#th-conv-grao').textContent=GRAO==='peca'?'Peça':GRAO==='campanha'?'Campanha':'Família';
+  const convLinhas=conv.map(c=>{const t2=c.novos+c.recorr;return {...c,grao:GRAO,
+    titulo:GRAO==='peca'?(c.peca||c.campanha||'—'):GRAO==='campanha'?(c.campanha||'(sem)'):c.familia,
+    pct_novos:t2?Math.round(100*c.novos/t2):null};});
+  const convVis=GT.ordena(GT.busca(convLinhas,TABELAS.conv.q,['titulo','campanha','peca','familia',c=>G.MARCA[c.marca]||c.marca]),TABELAS.conv.sort,TABELAS.conv.dir);
+  ULT.conv=convVis;GT.marcaCabecalhos($('#tab-conv'),TABELAS.conv);
+  $('#conv-contagem').textContent=conv.length?`${convVis.length}${convVis.length!==conv.length?` de ${conv.length}`:''} linha${convVis.length===1?'':'s'}`:'';
+  $('#conv-export').disabled=!convVis.length;
+  $('#tab-conv tbody').innerHTML=convVis.length?convVis.map(c=>{
+    const t2=c.novos+c.recorr;
+    const titulo=c.titulo;
+    const sub=GRAO==='peca'?esc(c.campanha)
+      :GRAO==='campanha'?`${c.pecas.size} peça${c.pecas.size===1?'':'s'}`
+      :`${c.campanhas.size} campanha${c.campanhas.size===1?'':'s'} · ${c.pecas.size} peças`;
+    const canais=[...c.canais].map(x=>`<span class="tag ${x}">${x}</span>`).join(' ');
+    return `<tr><td><strong>${esc(String(titulo).slice(0,34))}</strong>
+      <div class="mini">${sub}</div></td>
+      <td>${canais} <span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span></td>
+      <td class="num tabn">${nf(c.pedidos)}</td><td class="num tabn destaque">${rf(c.receita)}</td>
+      <td class="num tabn">${nf(c.assist)}</td><td class="num tabn">${rf(c.receita_assist)}</td>
+      <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:vazioConv}</div></td></tr>`;
+  $('#tab-conv [data-limpar]')?.addEventListener('click',()=>{TABELAS.conv.q='';$('#conv-busca').value='';render();});
+  $('#nota-conv').innerHTML=GA.valid(API)?`<div class="operator-labels"><span class="control-badge" tabindex="0" title="${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'}">${esc(GA.models[GA.model(API)])} · 30 dias</span><span class="control-badge" tabindex="0" title="Receita líquida recebida, descontados reembolsos.">Receita após reembolsos</span></div><div>Jornadas indisponíveis ficam pendentes. Datas fora da cobertura conciliada ficam fora desta atribuição.</div><div><strong>Não some assistências entre campanhas.</strong></div><details><summary>Como ler assistências e famílias</summary><p>Assistido: outro contato de CRM nos 30 dias, sem crédito final nesta linha. A mesma compra pode assistir mais de uma campanha. Família reúne pedidos únicos da mesma iniciativa.</p></details>`:`<span class="control-badge">Fonte anterior · último clique não direto · 30 dias nominais</span><div>Atribuição ainda não reconciliada para esta marca.</div>`;
+  }
+
+  if(automationHistory){
+  const fl=GD.flows(G,API,MARCA,ini,fim,CANAL);
+  $('#n-regua').textContent=fl.length||'';
+  $('#regua-rot').textContent=fl.length?`${fl.length} peças`:'';
+  const cvr=G.campVsRegua(API,MARCA,ini,fim);
+  if(!cvr){
+    $('#area-cvr').innerHTML='<div class="vazio">Nenhum e-mail no período. Amplie o período; esta medição começa em 16/08/2026.</div>';
+  }else{
+    const mx=Math.max(cvr.campanha.env,cvr.regua.env,1);
+    $('#area-cvr').innerHTML=[['Campanha',cvr.campanha],['Régua',cvr.regua]].map(([rot,x])=>`
+      <div class="galho"><div><div class="rot">${rot}</div>
+        <div class="flx">${nf(x.ped)} pedidos · ${rf(x.rec)}${x.porMil!==null?` · ${x.porMil} ped./1000 envios`:''}</div></div>
+        <div class="barra"><i style="width:${Math.max(.6,100*x.env/mx)}%;background:${cor(MARCA)}"></i></div>
+        <div class="num tabn">${nf(x.env)}</div>
+        <div><span class="tag email">e-mail</span></div></div>`).join('');
+  }
+  GUI.flows({G,GD,api:API,marca:MARCA,ini,fim,canal:CANAL,exportMeta});
+  }
+  if(SEC==='regua'){
+    const controlCtx={api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim};
+    const modeloOp=GC.activeTab==='workflows'?GC.render({...controlCtx,visiblePanel:'workflows',syncTab:false}):GC.model(API.crm_operacao,controlCtx);
+    renderJornadas(modeloOp);
+  }
+  if(SEC==='templates'){
+    if(GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
+    else if(GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
+  }
+
+  if(home){
+  const fila=G.fila(API,MARCA,CANAL);
+  const filaIndisponivel=G.filaIndisponivel(API,MARCA,CANAL);
+  $('#painel-fila').hidden=!fila.length&&!filaIndisponivel.length;
+  $('#tab-fila').hidden=!fila.length;
+  $('#fila-nota').hidden=!fila.length;
+  $('#fila-rot').textContent=fila.length?`${fila.length} agendada${fila.length>1?'s':''}`:'';
+  $('#fila-indisponivel').hidden=!filaIndisponivel.length;
+  $('#fila-indisponivel').textContent=filaIndisponivel.length
+    ?`${filaIndisponivel.length} campanha${filaIndisponivel.length>1?'s':''} sem estado confirmado.`:'';
+  $('#fila-indisponivel').title='A fonte não confirmou o estado atual. Esta campanha não é contada como agendada nem como envio; confira o cadastro antes de operar.';
+  if(fila.length){
+    $('#fila-rot').textContent=`${fila.length} agendada${fila.length>1?'s':''}`;
+    $('#tab-fila tbody').innerHTML=fila.map(c=>{
+      const dt=new Date(c.enviado_em);
+      const h=Math.round((dt-Date.now())/36e5);
+      const falta=h<0?'atrasada':h<24?`${h}h`:`${Math.round(h/24)}d`;
+      return `<tr><td><strong>${esc((c.nome||'').slice(0,44))}</strong></td>
+        <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span></td>
+        <td>${dt.toLocaleString('pt-BR',{timeZone:G.TZ,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} · Brasília</td>
+        <td class="num tabn${h<0?' destaque':''}">${falta}</td>
+        <td>${c.tem_utm?'<span class="mini">ok</span>':'<span class="tag nulo">sem UTM</span>'}</td></tr>`;
+    }).join('');
+  }
+  }
+
+  if(resultsEmail){
+  if(SEC!=='camp'||CRMWorkspace.state().campaign!=='list')$('#n-camp').textContent='';
+  $('#camp-rot').textContent=`${cs.length} peças`;
+  const campVis=GT.ordena(GT.busca(cs,TABELAS.camp.q,['nome','utm_campaign','utm_content',c=>G.MARCA[c.marca]||c.marca]),TABELAS.camp.sort,TABELAS.camp.dir,
+    c=>TABELAS.camp.sort==='receita'?(c.rec&&!c.rec.utm_ambiguo?c.rec.receita:null):TABELAS.camp.sort==='abertura_pct'?(c.medido?c.abertura_pct:null):c[TABELAS.camp.sort]);
+  ULT.camp=campVis;GT.marcaCabecalhos($('#tab-camp'),TABELAS.camp);
+  $('#camp-contagem').textContent=cs.length?`${campVis.length}${campVis.length!==cs.length?` de ${cs.length}`:''} peça${campVis.length===1?'':'s'}`:'';
+  $('#camp-export').disabled=!campVis.length;
+  const campAbertas=GT.captura($('#tab-camp tbody'));
+  $('#tab-camp tbody').innerHTML=campVis.length?campVis.map(c=>{
+    const real=c.real?`<div class="barra" title="${c.real.bons} de ${c.real.tot} aberturas de provedor confiável">
+      <i style="width:${c.real.pct}%;background:${cor(c.marca)}"></i></div><span class="mini">${c.real.pct}% confiável</span>`
+      :'<span class="mini">—</span>';
+    const ambiguo=!!(c.rec&&c.rec.utm_ambiguo);
+    return `<tr><td><strong>${esc((c.nome||'').slice(0,38))}</strong>
+      <div class="mini">${esc(c.utm_campaign||'sem utm')} · ${esc(c.utm_content||'—')}</div></td>
+      <td><span class="tag ${c.marca}">${G.MARCA[c.marca]||c.marca}</span>${c.truncado?' <span class="tag alerta">truncado</span>':''}${c.grupo?` <span class="tag nulo" title="Peças #${c.grupo.grupo} usam a mesma tupla de UTM: mesmo e-mail para bases diferentes. Envios somados e receita do grupo.">mesmo UTM</span>`:''}</td>
+      <td class="num tabn">${nf(c.enviados)}</td>
+      <td class="num tabn">${c.medido?pf(c.abertura_pct):'<span class="tag nulo">não medido</span>'}</td>
+      <td class="num tabn">${pf(c.ctr_pct)}</td><td class="num tabn">${pf(c.ctor_pct)}</td>
+      <td class="num tabn destaque">${ambiguo
+        ?'<span class="tag nulo" title="UTM usado por mais de uma peça: a receita existe mas não tem dono">indivisível</span>'
+        :rf(c.rec?c.rec.receita:null)}${!ambiguo&&c.rec&&c.rec.pedidos?`<div class="mini">${nf(c.rec.pedidos)} pedidos</div>`:''}</td>
+      <td><button class="mais" title="entrega, reclamação, abertura real, UTM" data-gt-expand="${esc(c.marca+'|'+c.campanha_id)}" data-gt-toggle-text="–" aria-expanded="false">+</button></td></tr>
+      <tr class="det" hidden><td colspan="8"><div class="det-grid">
+        <div><span class="mini">Entrega</span><strong class="tabn">${pf(c.entrega_pct)}</strong><span class="mini">${nf(c.entregues)} de ${nf(c.enviados)}</span></div>
+        <div><span class="mini">Reclamação</span><strong class="tabn ${c.compl_pct>=0.08?'vm':''}">${pf(c.compl_pct)}</strong><span class="mini">${nf(c.complaints)} · limite SES 0,1%</span></div>
+        <div><span class="mini">Rejeição permanente</span><strong class="tabn">${nf(c.hard)}</strong><span class="mini">hard bounce</span></div>
+        <div><span class="mini">Abertura por provedor</span>${c.grupo?'<span class="mini">soma de disparos</span>':real}</div>
+        <div><span class="mini">UTM</span><code>${esc(c.utm_campaign||'sem utm')}</code><br><code>${esc(c.utm_content||'—')}</code></div>
+        ${c.grupo?`<div><span class="mini">Disparos no grupo</span><strong>#${esc(c.grupo.grupo)}</strong><span class="mini">mesmo e-mail, bases diferentes</span></div>`:''}
+      </div></td></tr>`;
+  }).join(''):`<tr><td colspan="8"><div class="vazio">${cs.length?`Nenhuma peça contém "${esc(TABELAS.camp.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="camp">Limpar busca</button>`:'Nenhuma campanha enviada no período. Amplie o período ou use Preparar campanha para criar uma nova.'}</div></td></tr>`;
+  GT.restaura($('#tab-camp tbody'),campAbertas);
+  $('#tab-camp [data-limpar]')?.addEventListener('click',()=>{TABELAS.camp.q='';$('#camp-busca').value='';render();});
+  document.querySelectorAll('#tab-camp .mais').forEach(b=>b.onclick=()=>{const d=b.closest('tr').nextElementSibling;d.hidden=!d.hidden;b.textContent=d.hidden?'+':'–';b.setAttribute('aria-expanded',String(!d.hidden));});
+  const ambig=cs.filter(c=>c.rec&&c.rec.utm_ambiguo).length;
+  $('#nota-camp').innerHTML=`<div class="operator-labels"><span class="crm-help" tabindex="0" title="Enviado menos rejeições. Não comprova caixa de entrada; mensagens no spam também podem contar como entregues.">Entrega registrada ⓘ</span><span class="crm-help" tabindex="0" title="Aberturas podem incluir pré-carregamento de imagens. O detalhe mostra os provedores que não pré-carregam.">Abertura estimada ⓘ</span><span class="crm-help" tabindex="0" title="Receita acumulada por último clique. Pode incluir compras fora do período selecionado e não inclui assistências.">Receita acumulada ⓘ</span><span class="crm-help" tabindex="0" title="Disparos do mesmo e-mail para bases diferentes com os mesmos parâmetros são agrupados. Use utm_term próprio para distinguir cada base.">Agrupamento por UTM ⓘ</span></div>${ambig?`<p class="control-warning">${ambig} campanha(s) compartilham o rastreamento. A receita não pode ser dividida entre elas; valor não informado não significa zero vendas.</p>`:''}`;
+  }
+
+  if(SEC==='base')renderPublicos();
+
+  if(tests)renderTestes();
+
+
+  shrigmaFrescor(API,$('#frescor'),{collections:GrowthFreshness.sources(API,MARCA)});
+  $('#relogio').textContent=GUI.sourceTime(new Date().toISOString());
+  $('#d-ini').value=ini;$('#d-fim').value=fim;$('#d-ini').max=G.diaBR(new Date());$('#d-fim').max=G.diaBR(new Date());
+  CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
+}
+
+// Atalhos dos KPIs: levam para a tabela que explica o número, sem mexer em marca/período.
+function pular(alvo){
+  if(alvo.startsWith('flows:')){const c=alvo.slice(6);openFlows(c==='todos'?CANAL:c);return;}
+  if(alvo==='attention'){$('#automation-attention').scrollIntoView({behavior:'smooth',block:'start'});return;}
+  if(alvo==='camp'||alvo==='conv'){
+    CRMWorkspace.setReport(alvo==='camp'?'email':'conversion');abrirSecaoCRM('resultados');
+    $(alvo==='camp'?'#campaign-email-block':'#tab-conv').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
+  }
+}
+// Estado da tela na URL: copiar o link entrega a mesma marca, canal, período, seção e aba.
+function estadoHash(){
+  const preset=document.querySelector('#presets button.ativo')?.dataset.p||null;
+  return {marca:MARCA,canal:CANAL,p:preset,ini:preset?null:PER.ini,fim:preset?null:PER.fim,sec:SEC,aba:SEC==='regua'&&PENDENTE_GRAPH?'graph':['regua','templates'].includes(SEC)?GC.activeTab:null,report:SEC==='resultados'?CRMWorkspace.state().report:null,campaign:SEC==='camp'?CRMWorkspace.state().campaign:null,flow:SEC==='regua'&&$('#sel-flow').value?$('#sel-flow').value:null};
+}
+function gravaHash(){CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});try{if(typeof history!=='undefined'&&history.replaceState&&typeof location!=='undefined'&&typeof location.hash==='string')history.replaceState(null,'',GT.escreveHash(estadoHash()));}catch(e){}}
+function setCanal(canal){
+  if(!['todos','email','whatsapp'].includes(canal))return;
+  CANAL=canal;salvaPref({canal});
+  document.querySelectorAll('#seg-canal button').forEach(b=>{const on=b.dataset.canal===canal;b.classList.toggle('ativo',on);b.setAttribute('aria-pressed',String(on));});
+  const onlyEmail=['cliques','complaints','novos_subs'],onlyWA=['entregues','falhas'];
+  if((canal==='whatsapp'&&onlyEmail.includes(METRICA))||(canal==='email'&&onlyWA.includes(METRICA)))METRICA='receita';
+  for(const o of $('#sel-metrica').options)o.disabled=(canal==='whatsapp'&&onlyEmail.includes(o.value))||(canal==='email'&&onlyWA.includes(o.value));
+  $('#sel-metrica').value=METRICA;render();gravaHash();
+}
+function openFlows(canal,selection={}){
+  if(selection.marca&&!trocaMarca(selection.marca,()=>openFlows(canal,selection)))return;
+  PENDENTE_GRAPH=false;setCanal(canal);SEC='regua';salvaPref({sec:SEC});GC.setTab('history');
+  document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));
+  ativaBotao('#secoes button','s',SEC);
+  render();
+  if(selection.flow && [...$('#sel-flow').options].some(option=>option.value===selection.flow)){
+    $('#sel-flow').value=selection.flow;$('#sel-flow').onchange?.();
+  }
+  $('#secoes').scrollIntoView({behavior:'smooth',block:'start'});gravaHash();
+}
+
+const ACESSO_GROWTH=GrowthAccess.bind({document,readExisting:()=>shrigmaChave('growth'),onRead:()=>carregar({retryIdentity:true})});
+GrowthView.init();
+function chave(){return ACESSO_GROWTH.current();}
+function mostraAcessoGrowth(mensagem=''){
+  GrowthView.resolve();
+  ACESSO_GROWTH.show(mensagem);$('#load-state').hidden=true;
+  $('#atualizado-em').textContent=API?'Acesso necessário · exibindo a consulta anterior':'Acesso necessário';
+}
+// GROWTH_CACHE_READ_BEGIN
+// Authenticated CRM cache read: never start the expensive live query on each login or retry.
+const GROWTH_CACHE_MAX_MS=20*60*1000; // duas geracoes esperadas do cache
+function payloadGrowthValido(p){return !!p&&typeof p==='object'&&p._escopo==='growth'&&!p.error&&!p.erro&&Array.isArray(p.crm_campanha)&&Array.isArray(p.crm_fluxo)&&Array.isArray(p.crm_conversao);}
+function cacheGrowthValido(p,agora=Date.now()){const t=Date.parse(p&&p._cache_gerado_em||'');return payloadGrowthValido(p)&&Number.isFinite(t)&&agora-t>=-60000&&agora-t<=GROWTH_CACHE_MAX_MS;}
+async function consultaGrowth(url,k,timeoutMs){
+  const controller=new AbortController();let timer;
+  const expired=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(new Error('O servidor demorou para responder. Tente atualizar novamente.'));controller.abort();},timeoutMs);});
+  try{return await Promise.race([expired,(async()=>{
+    const r=await fetch(url,{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:controller.signal});
+    let payload=null,codigo=null;if(r.ok){try{payload=await r.json();}catch(_){payload=null;}}
+    // 503 do portal: só o código de erro é lido (nenhum dado), para orientar sem prometer acesso.
+    else if(r.status===503&&typeof r.json==='function'){try{const b=await r.json();codigo=typeof b?.error==='string'&&/^[A-Z_]{1,64}$/.test(b.error)?b.error:null;}catch(_){codigo=null;}}
+    return {r,payload,codigo};
+  })()]);}finally{clearTimeout(timer);}
+}
+async function leCacheGrowth(k){
+  const url=new URL(CRM_READ_API_URL);url.searchParams.set('action','cache_growth');url.searchParams.set('painel','growth');
+  const c=await consultaGrowth(url.href,k,12000);
+  // Retrato vencido (mais de 20 min) não é tratado como atual, mas fica disponível para o painel
+  // cair nele e avisar, em vez de ficar sem dado. Nenhuma consulta extra é feita.
+  const fresh=c.r.ok&&cacheGrowthValido(c.payload);
+  const antigo=c.r.ok&&!fresh&&payloadGrowthValido(c.payload)&&Number.isFinite(Date.parse(c.payload._cache_gerado_em||''))&&Date.parse(c.payload._cache_gerado_em)<=Date.now()+60000?c.payload:null;
+  return {r:c.r,next:fresh?c.payload:null,antigo,codigo:c.codigo||null};
+}
+// GROWTH_CACHE_READ_END
+async function carregar({retryIdentity=false}={}){
+  if(typeof GPR!=='undefined')GPR.clear();
+  GrowthView.resolve({retry:retryIdentity});
+  if(LOADING)return;
+  const k=chave();if(!k){mostraAcessoGrowth();return;}
+  LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
+  if(!API)$('#load-state').hidden=false;
+  try{
+    const inicioLeituraAB=Date.now();
+    const {next:fresh,antigo,r,codigo}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
+    if(r&&r.status===503&&codigo==='CRM_ACCESS_NOT_READY'){limpaConsultaCRM();throw new Error(GrowthAccess.ACESSO_CRM_PENDENTE);}
+    if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
+    // Sem preparação no prazo, cai para o retrato vencido só se ele for mais novo que o já exibido.
+    const recua=!fresh&&!!antigo&&(!API||Date.parse(antigo._cache_gerado_em)>Date.parse(API._cache_gerado_em||''));
+    const next=fresh||(recua?antigo:null);
+    if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Os dados atualizados do CRM ainda não estão disponíveis. Tente atualizar novamente em alguns minutos.');}
+    API=GA.project(next,ATTR_MODEL);
+    restauraConsultaCRM();
+    // Retrato vencido não serve de prova de leitura para conciliar gravações A/B.
+    if(fresh){AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};}
+    const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
+    if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
+    if(!ACESSO_GROWTH.isSession(k))shrigmaMarcaMestra(k,API._painel);
+    const connectionAlerts=GrowthFreshness.credentialAlerts(API.crm_credencial);
+    if(window.avisoCredencial)window.avisoCredencial(connectionAlerts);
+    const connectionStatus=$('#crm-connection-status');connectionStatus.hidden=!connectionAlerts.some(c=>['vencida','quebrada','vencendo'].includes(c.estado));
+    connectionStatus.textContent=connectionStatus.hidden?'':'Há uma conexão que precisa de atenção. Confira as datas de atualização antes de usar os resultados.';
+    if(window.avisoWhatsApp)window.avisoWhatsApp(API.wa_saude||[]);
+    CONSULTA={em:new Date().toISOString(),falhou:false,antigo:!fresh};FALHA_LEITURA='';
+    render();
+    if(PENDENTE_FLOW){const sel=$('#sel-flow');if([...sel.options].some(o=>o.value===PENDENTE_FLOW)){sel.value=PENDENTE_FLOW;sel.onchange?.();}PENDENTE_FLOW=null;}
+    gravaHash();
+    $('#load-state').hidden=true;
+    const horaBR=d=>GUI.sourceTime(d);
+    $('#atualizado-em').textContent=ORIGEM_LEITURA==='cache'
+      ?'Dados de '+horaBR(next._cache_gerado_em)+(fresh?'':' · retrato antigo')
+      :'Consultado em '+horaBR(Date.now());
+    $('#atualizado-em').title=!fresh?'A preparação mais recente dos dados tem mais de 20 minutos. O painel mostra o último retrato disponível; os números não são de agora. Atualize em alguns minutos.':ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
+  }catch(e){
+    $('#load-state').hidden=true;
+    CONSULTA={...CONSULTA,falhou:true};FALHA_LEITURA=GrowthAccess.readError(e);
+    pintaAlertas();
+    const exibidos=API?GUI.sourceTime(API._cache_gerado_em):null;
+    $('#atualizado-em').textContent=API?'Atualização falhou · '+(exibidos?'exibindo dados de '+exibidos:'exibindo a consulta anterior'):'Dados indisponíveis';
+    if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
+    if(!CRM_LEITURA_BLOQUEADA&&SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
+    if(!CRM_LEITURA_BLOQUEADA&&SEC==='regua'){
+      const ctx={api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim};
+      const modeloOp2=GC.activeTab==='workflows'?GC.render({...ctx,visiblePanel:'workflows',syncTab:false}):GC.model(API.crm_operacao,ctx);
+      renderJornadas(modeloOp2);
+    }else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
+    else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
+  }finally{
+    LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
+  }
+}
+async function salvarTeste(){
+  const msg=$('#f-msg');msg.textContent='';
+  if(GABF.brand!==MARCA||!GABF.valid(API)){msg.textContent='Confira a marca, o canal e os vínculos das campanhas antes de registrar.';return;}
+  if(typeof AB_API_URL==='undefined'){msg.textContent='Cadastro A/B indisponível nesta configuração.';return;}
+  const wk=chaveTesteAB(msg);if(!wk)return;
+  const corpo={k:wk,acao:'criar',
+    teste:{teste_id:$('#f-id').value.trim(),marca:GABF.brand,canal:$('#f-canal').value,
+      nome:$('#f-nome').value.trim(),hipotese:$('#f-hip').value.trim(),variavel:$('#f-var').value,
+      metrica_primaria:$('#f-met').value,efeito_minimo:$('#f-efeito').value},
+    bracos:[{braco:'a',utm_term:'a',campanha_id:$('#f-ca').value||null,descricao:$('#f-da').value},
+            {braco:'b',utm_term:'b',campanha_id:$('#f-cb').value||null,descricao:$('#f-db').value}]};
+  await gravaTesteAB(corpo,msg,$('#f-salvar'));
+}
+// Marca, periodo e aba persistem no navegador (padrao Metabase/Looker): quem abre o painel
+// todo dia nao refaz os mesmos quatro cliques. Sem preferencia salva vale o padrao da pagina.
+const PREF_K='shrigma_growth_pref';
+let PENDENTE_FLOW=null; // fluxo pedido pela URL, aplicado na primeira carga com dados
+let PENDENTE_GRAPH=false; // restaurar só após confirmar a capability; Jornadas é a alternativa segura
+function salvaPref(p){try{localStorage.setItem(PREF_K,JSON.stringify({...(lePref()||{}),...p}));}catch(e){}}
+function lePref(){try{return JSON.parse(localStorage.getItem(PREF_K)||'null');}catch(e){return null;}}
+function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).forEach(b=>{const on=b.dataset[attr]===val;b.classList.toggle('ativo',on);ok=ok||on;});return ok;}
+(function aplicaPref(){
+  const h=(typeof location!=='undefined'&&typeof location.hash==='string')?GT.leHash(location.hash):{};
+  const p={...(lePref()||{}),...(h.marca?{marca:h.marca}:{}),...(h.canal?{canal:h.canal}:{}),...(h.sec?{sec:h.sec}:{}),
+    ...(h.p?{preset:h.p,ini:null,fim:null}:h.ini&&h.fim?{preset:null,ini:h.ini,fim:h.fim}:{})};
+  if(h.aba&&['history','workflows','templates','fluxos','drafts'].includes(h.aba))GC.activeTab=h.aba;
+  if(h.aba==='graph'&&(!h.sec||h.sec==='regua')){PENDENTE_GRAPH=true;GC.activeTab='fluxos';p.sec='regua';}
+  if(h.flow)PENDENTE_FLOW=h.flow;
+  if(!Object.keys(p).length)return;
+  if(p.marca&&ativaBotao('#seg-marca button','marca',p.marca))MARCA=p.marca;
+  if(p.preset&&ativaBotao('#presets button','p',p.preset))PER=G.preset(p.preset,HOJE);
+  else if(p.ini&&p.fim&&p.fim<=HOJE){PER={ini:p.ini,fim:p.fim};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));}
+  if(p.canal&&['todos','email','whatsapp'].includes(p.canal)){CANAL=p.canal;ativaBotao('#seg-canal button','canal',CANAL);document.querySelectorAll('#seg-canal button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.canal===CANAL)));}
+  if(p.sec&&document.getElementById('sec-'+p.sec)){SEC=p.sec;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
+})();
+function trocaMarca(next,afterConfirm=null){
+  if(!['todas','fish','aristo','olivas'].includes(next))return false;
+  if(next===MARCA)return true;
+  const status=$('#brand-context-status'),notice=text=>{status.textContent=text;status.hidden=!text;};
+  const dialog=$('#brand-change-confirm'),previous=MARCA;
+  if(dialog?.open){notice('Conclua a confirmação aberta antes de trocar de marca.');return false;}
+  const ready=()=>{
+    if(MARCA!==previous){notice('A marca mudou. Confira a preparação atual antes de continuar.');return false;}
+    const experiment=typeof AB_EXPERIMENT_PANEL!=='undefined'?AB_EXPERIMENT_PANEL?.contextStatus()||{}:{},segments=CRM_SEGMENT_VIEW?.contextStatus()||{};
+    // Leitura em andamento só pede para aguardar; confirmação aberta e escrita mantêm seus avisos.
+    const campaign=GCE.contextStatus(),kind=s=>s.confirming?'confirm':s.reading?'read':'op';
+    const causes=[AB_BUSY&&'op',campaign.navigationBlocked&&kind(campaign),GRU.contextStatus().blocked&&'op',experiment.blocked&&'op',segments.navigationBlocked&&kind(segments),typeof GJG!=='undefined'&&GJG.contextStatus().blocked&&'op'].filter(Boolean);
+    if(causes.length){notice(causes.includes('op')?'Conclua a operação ou feche a confirmação aberta antes de trocar de marca.':causes.includes('confirm')?'Feche a confirmação aberta antes de trocar de marca.':'Há uma leitura em andamento (catálogo, campanhas ou públicos). Aguarde terminar para trocar de marca; nada foi alterado.');return false;}
+    if(segments.pending){notice('Há uma tentativa de público sem confirmação. Consulte a mesma tentativa antes de trocar de marca.');return false;}
+    if(experiment.pending||experiment.dirty){notice(experiment.pending?'Há uma tentativa A/B sem confirmação. Consulte a mesma tentativa antes de trocar de marca.':'Conclua ou descarte a configuração A/B antes de trocar de marca.');return false;}
+    if(typeof GB!=='undefined'&&(GB.state.busy||GB.state.dirty||GB.state.pending||GB.hasPending?.())){
+      notice(GB.state.pending||GB.hasPending?.()?'Há uma tentativa de jornada sem confirmação. Confira a mesma tentativa antes de trocar de marca.':'Conclua a edição da jornada antes de trocar de marca.');return false;
+    }
+    return true;
+  };
+  const apply=()=>{
+    if(!ready())return false;
+    const campaign=GCE.contextStatus();
+    try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();if(typeof GJG!=='undefined')GJG.preserve();}catch(e){notice(e.message);return false;}
+    MARCA=next;AB_WRITE_EPOCH++;
+    ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
+    // The editor may still hold a brand opened before the current header brand.
+    notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[campaign.brand]||G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
+    return true;
+  };
+  if(!ready())return false;
+  if(!GCE.contextStatus().dirty&&!GRU.contextStatus().dirty&&!GABF.contextStatus().dirty&&!CRM_SEGMENT_VIEW?.contextStatus().dirty&&!(typeof GJG!=='undefined'&&GJG.contextStatus().dirty))return apply();
+  if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){notice('Não foi possível abrir a confirmação. Sua preparação continua nesta marca.');return false;}
+  const caller=document.activeElement;let settled=false;
+  const finish=accepted=>{
+    if(settled)return;settled=true;dialog.oncancel=null;dialog.onclose=null;
+    $('#brand-change-accept').onclick=null;$('#brand-change-cancel').onclick=null;
+    try{dialog.close();}catch{dialog.removeAttribute('open');}
+    if(accepted&&apply()&&typeof afterConfirm==='function')afterConfirm();
+    (caller?.isConnected?caller:$('#seg-marca .ativo'))?.focus();
+  };
+  $('#brand-change-description').textContent='Guardar as preparações de '+(G.MARCA_CHEIA[previous]||previous)+' neste dispositivo e abrir '+(G.MARCA_CHEIA[next]||(next==='todas'?'Consolidada':next))+'? Nada será enviado ao servidor.';
+  $('#brand-change-accept').onclick=()=>finish(true);$('#brand-change-cancel').onclick=()=>finish(false);
+  dialog.oncancel=e=>{e.preventDefault();finish(false);};dialog.onclose=()=>finish(false);
+  try{dialog.showModal();$('#brand-change-cancel').focus();}catch{finish(false);notice('Não foi possível abrir a confirmação. Sua preparação continua nesta marca.');}
+  return false;
+}
+window.growthChangeBrand=trocaMarca;
+document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>trocaMarca(b.dataset.marca));
+function abrirSecaoCRM(section,{tab}={}){
+  const target=document.getElementById('sec-'+section);if(!target||!target.classList.contains('sec'))return;
+  PENDENTE_GRAPH=false;SEC=section;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x===target));
+  ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
+  const nextTab=SEC==='templates'?'templates':SEC==='regua'?(['fluxos','history','workflows','graph'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
+  if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
+  render();gravaHash();
+}
+document.querySelectorAll('#secoes button').forEach(b=>b.onclick=()=>abrirSecaoCRM(b.dataset.s));
+document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
+  $('#crm-period-error').hidden=true;$('#crm-period-error').textContent='';
+  document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));salvaPref({preset:b.dataset.p,ini:null,fim:null});render();gravaHash();$('#crm-period-picker').open=false;});
+['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
+  const a=$('#d-ini').value,b=$('#d-fim').value,notice=$('#crm-period-error');
+  const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+  const error=!validDate(a)||!validDate(b)?'Escolha duas datas válidas.':a>b?'A data inicial deve vir antes da data final.':b>G.diaBR(new Date())?'Escolha uma data final até hoje.':'';
+  notice.hidden=!error;notice.textContent=error?'Período não aplicado. '+error+' O período anterior foi mantido.':'';
+  if(error){$('#d-ini').value=PER.ini;$('#d-fim').value=PER.fim;return;}
+  PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));salvaPref({preset:null,ini:a,fim:b});render();gravaHash();});
+$('#campaign-email-show').onclick=()=>setCanal('email');
+document.querySelectorAll('#seg-canal button').forEach(b=>b.onclick=()=>setCanal(b.dataset.canal));
+$('#btn-atualizar').onclick=()=>carregar({retryIdentity:true});
+$('#cmp').onchange=e=>{CMP=e.target.checked;render();};
+$('#sel-grao').onchange=()=>render();
+$('#camp-busca').oninput=e=>{TABELAS.camp.q=e.target.value;render();};
+$('#conv-busca').oninput=e=>{TABELAS.conv.q=e.target.value;render();};
+document.querySelectorAll('#tab-camp th[data-sort]').forEach(th=>th.onclick=()=>{TABELAS.camp={...TABELAS.camp,...GT.proximaOrdem(TABELAS.camp,th.dataset.sort,th.classList.contains('num')||th.dataset.sort==='enviado_em')};render();});
+document.querySelectorAll('#tab-conv th[data-sort]').forEach(th=>th.onclick=()=>{TABELAS.conv={...TABELAS.conv,...GT.proximaOrdem(TABELAS.conv,th.dataset.sort,th.classList.contains('num'))};render();});
+$('#camp-export').onclick=()=>GT.baixar(GT.nomeArquivo('campanhas',exportMeta()),GT.csv(COLS_CAMP,ULT.camp,exportMeta({busca:TABELAS.camp.q})));
+$('#conv-export').onclick=()=>GT.baixar(GT.nomeArquivo('conversao-'+(($('#sel-grao')||{}).value||'peca'),exportMeta()),GT.csv(COLS_CONV,ULT.conv,exportMeta({busca:TABELAS.conv.q})));
+$('#sel-metrica').onchange=e=>{METRICA=e.target.value;render();};
+$('#btn-novo').onclick=()=>{if(!GBS.validBrand(MARCA)||GABF.error)return;$('#form-teste').hidden=!$('#form-teste').hidden;};
+$('#f-cancelar').onclick=()=>{AB_WRITE_EPOCH++;$('#form-teste').hidden=true;};
+$('#form-teste').addEventListener('input',()=>{AB_WRITE_EPOCH++;});
+$('#form-teste').addEventListener('change',()=>{AB_WRITE_EPOCH++;sincronizaTestesAB();});
+$('#f-canal').onchange=()=>{GABF.changeChannel(API);sincronizaTestesAB();};
+$('#ab-chave').addEventListener('input',()=>{AB_WRITE_EPOCH++;});
+$('#ab-consultar').onclick=async()=>{await reconciliaTestesAB(chaveLegadaTesteAB());};
+$('#f-salvar').onclick=salvarTeste;
+
+
+addEventListener('resize',()=>API&&['visao','resultados'].includes(SEC)&&render());
+GC.init();GRU.enterBrand(MARCA);GRU.ctx={api:null,marca:MARCA};
+$('#crm-audience-create').onclick=()=>openAudienceCreation();
+window.addEventListener('shrigma:operator-ready',()=>{if(API)render();});
+document.querySelectorAll('[data-audience-create-brand]').forEach(b=>b.onclick=()=>openAudienceCreation(b.dataset.audienceCreateBrand));
+
+// depois do GC.init: o onclick do GC troca a aba primeiro, o hash grava a aba nova
+document.querySelectorAll('[data-control-tab]').forEach(b=>b.addEventListener('click',()=>{abrirSecaoCRM(['drafts','templates'].includes(b.dataset.controlTab)?'templates':'regua',{tab:b.dataset.controlTab});}));
+const crmInitialView=GT.leHash(typeof location==='undefined'?'':location.hash||'');
+CRMWorkspace.init({navigate:abrirSecaoCRM,onChange:kind=>{if(kind==='report'&&API&&SEC==='resultados')render();if(kind==='campaign'&&API&&SEC==='camp')render();gravaHash();},initial:crmInitialView});
+if(SEC==='templates')GC.setTab('templates');
+if(SEC==='regua'&&['templates','drafts'].includes(GC.activeTab)){GC.setTab('templates');SEC='templates';document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+SEC));ativaBotao('#secoes button','s',SEC);}
+setCanal(CANAL);
+// Automatic refresh only while this panel is visible; server execution is independent.
+const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;
+let GROWTH_LAST_AUTO_READ=null;
+function atualizarGrowthVisivel(){
+  if(document.hidden)return;
+  GROWTH_LAST_AUTO_READ=Date.now();
+  return carregar();
+}
+atualizarGrowthVisivel();
+setInterval(atualizarGrowthVisivel,GROWTH_REFRESH_MS);
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&(GROWTH_LAST_AUTO_READ===null||Date.now()-GROWTH_LAST_AUTO_READ>=GROWTH_REFRESH_MS))atualizarGrowthVisivel();
+});
+setInterval(()=>{
+  if(document.hidden||!API)return;
+  if(SEC==='regua'&&GC.activeTab==='workflows')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'workflows',syncTab:false});
+  else if(SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
+  if(SEC==='regua')renderJornadas();
+},30000);
+</script>
+</body>
+</html>

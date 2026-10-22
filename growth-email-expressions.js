@@ -66,7 +66,7 @@ const GEE=(()=>{
   const rangeActive=()=>stack.some(x=>x.kind==='range'&&!x.inElse);
   const field=t=>{
    if(!t||t.type!=='field')bad('EMAIL_EXPRESSION_FIELD',t?.start||0);
-   const p=t.value,root=/^\.Tx\.Data\.([A-Za-z][A-Za-z0-9_]{0,63})$/.exec(p),subscriber=/^\.Subscriber\.(Name|UUID)$/.test(p),item=/^\.([a-z]+)$/.exec(p);
+   const p=t.value,root=/^\.Tx\.Data\.([A-Za-z][A-Za-z0-9_]{0,63})$/.exec(p),subscriber=/^\.Subscriber\.(Name|FirstName|LastName|UUID)$/.test(p),item=/^\.([a-z]+)$/.exec(p);
    if(root&&['__proto__','constructor','prototype'].includes(root[1]))bad('EMAIL_EXPRESSION_FIELD',t.start,t.end);
    if(root||subscriber){if(rangeActive())bad('EMAIL_EXPRESSION_SCOPE',t.start,t.end);if(root)keys.add(root[1]);}
    else if(!item||!ITEM_FIELDS.has(item[1])||!rangeActive())bad('EMAIL_EXPRESSION_FIELD',t.start,t.end);
@@ -200,7 +200,7 @@ const GEE=(()=>{
  }
  function validateContextValue(context,record){
   try{
-   if(!record(context)||Object.keys(context).some(k=>!['Tx','Subscriber'].includes(k))||!record(context.Tx)||Object.keys(context.Tx).some(k=>k!=='Data')||!record(context.Tx.Data)||!record(context.Subscriber)||Object.keys(context.Subscriber).some(k=>!['Name','UUID'].includes(k)))bad('EMAIL_CONTEXT_SHAPE');
+   if(!record(context)||Object.keys(context).some(k=>!['Tx','Subscriber'].includes(k))||!record(context.Tx)||Object.keys(context.Tx).some(k=>k!=='Data')||!record(context.Tx.Data)||!record(context.Subscriber)||Object.keys(context.Subscriber).some(k=>!['Name','FirstName','LastName','UUID'].includes(k)))bad('EMAIL_CONTEXT_SHAPE');
    const data={},subscriber={};
    function scalar(k,v){
     if(v===null)return null;

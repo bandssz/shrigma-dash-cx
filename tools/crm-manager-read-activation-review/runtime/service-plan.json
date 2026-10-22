@@ -1,0 +1,95 @@
+{
+  "schema": "crm-manager-read-privileged-service-plan-v1",
+  "inertProposal": true,
+  "approvedMutationActions": [],
+  "image": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:5ca20e4ea134b7a1a139b80c74a65573a4386d9584fcac40aeedaeb9cf8fe815",
+  "user": "1000:1000",
+  "readOnlyRootFilesystem": true,
+  "capDrop": [
+    "ALL"
+  ],
+  "noNewPrivileges": true,
+  "memoryBytes": 335544320,
+  "cpuLimit": 0.35,
+  "pidsLimit": 64,
+  "restart": "no",
+  "publishedPorts": [],
+  "domains": [],
+  "network": "existing shared external easypanel network; no firewall isolation claimed",
+  "pgDestination": {
+    "host": "comunicacao_postgres",
+    "port": 5432,
+    "database": "listmonk",
+    "user": "postgres",
+    "ssl": false,
+    "major": 17
+  },
+  "mounts": [
+    {
+      "target": "/review",
+      "source": "NEW reviewed public source bundle only",
+      "readOnly": true
+    },
+    {
+      "target": "/runtime-proof",
+      "source": "NEW dedicated durable public-intent volume UID1000 mode0700",
+      "readOnly": false
+    }
+  ],
+  "tmpfs": {
+    "/tmp": "size=16m,mode=1777,noexec,nosuid,nodev"
+  },
+  "command": [
+    "timeout",
+    "-s",
+    "KILL",
+    "600",
+    "node",
+    "--max-old-space-size=96",
+    "/review/supervisor.cjs"
+  ],
+  "publicEnvironment": {
+    "NODE_PATH": "/app/node_modules"
+  },
+  "ramOnlyMcpEnvironmentKeys": [
+    "READ_ACTIVATION_RUNTIME_OPT_IN",
+    "READ_ACTIVATION_MODE",
+    "READ_ACTIVATION_APPROVED_ACTION",
+    "READ_ACTIVATION_ACTION",
+    "READ_ACTIVATION_OPERATION_ID",
+    "READ_CREDENTIAL_INTENT_ID",
+    "READ_ACTIVATION_FROM_PHASE",
+    "PG_ADMIN_PASSWORD",
+    "READ_SERVICE_SCRAM"
+  ],
+  "cleanup": [
+    "capture bounded HTTPS GET/status closed schema from NEW temporary proof host; verify child0+durable reader proof flags for verified; MCP stopped-exit info/logs NOT assumed",
+    "remove ONLY this NEW temporary proof domain after result capture",
+    "stop this new disposable service",
+    "clear every environment entry on this new service",
+    "read back env count zero and no running containers; never print raw service configuration",
+    "preserve dedicated public ledger for READ ONLY reconciliation",
+    "never restart automatically"
+  ],
+  "childTotalBudgetMs": 30000,
+  "observerMaxUptimeSeconds": 600,
+  "observer": {
+    "listen": "0.0.0.0:8099",
+    "localHealth": "GET http://127.0.0.1:8099/status",
+    "healthMeaning": "closed observer schema available; NOT activation success",
+    "temporaryTraefikDomain": "REQUIRES exact NEW hostname pinned in future builder; remove after closed result capture",
+    "route": "GET /status only; no SQL or control endpoint",
+    "publicProof": "no IDs, secret, row, raw errors, password hashes or environment",
+    "compositeServiceAliasMaxBytes": 63
+  },
+  "healthcheck": {
+    "test": [
+      "CMD",
+      "node",
+      "/review/health.cjs"
+    ],
+    "interval": "5s",
+    "timeout": "2s",
+    "retries": 2
+  }
+}

@@ -6,8 +6,42 @@
 <meta name="referrer" content="no-referrer">
 <title>CRM · Grupo Shrigma</title>
 
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=4ed8407a99b1">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-roI2VOBQ0Qxfjjpevax9olXUQULvnfqyinGmdwaHrpA='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/growth.css?v=95e26455d660">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-WFR9JL2k/L/+goFjTYU/NIoHWeXRLO6XNYIG5a+ooOk='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host https://n8n.shrigma.com.br https://comunicacao-crm-audience.tazdb8.easypanel.host https://comunicacao-crm-panel-read.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<style id="crm-configured-journeys-read">
+#control-fluxos .gjr-only { color: #182a36; display: grid; gap: 1rem; }
+#control-fluxos .gjr-only h2, #control-fluxos .gjr-only h3 { margin: 0 0 .55rem; }
+#control-fluxos .gjr-source, #control-fluxos .gjr-card { background: #fff; border: 1px solid #d1dce3; border-radius: 14px; padding: 1rem; }
+#control-fluxos .gjr-card header > span, #control-fluxos .gjr-card footer { color: #496270; font-size: .85rem; }
+#control-fluxos .gjr-read-badge { border: 1px solid #aac2ce; border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; display: inline-block; }
+#control-fluxos .gjr-toolbar, #control-fluxos .gjr-view { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+#control-fluxos .gjr-toolbar label { display: grid; gap: .3rem; }
+#control-fluxos .gjr-toolbar input, #control-fluxos .gjr-toolbar select, #control-fluxos .gjr-toolbar button { font: inherit; border: 1px solid #9fb4c0; border-radius: 8px; padding: .55rem .75rem; background: #fff; color: #182a36; }
+#control-fluxos .gjr-toolbar button[aria-pressed="true"] { background: #e8f2f7; border-color: #356d86; }
+#control-fluxos .gjr-toolbar button:disabled { opacity: .5; }
+#control-fluxos .gjr-only :focus-visible { outline: 3px solid #226c96; outline-offset: 3px; }
+#control-fluxos .gjr-caution, #control-fluxos .gjr-warning { background: #fff6e6; padding: .65rem; border-radius: 8px; }
+#control-fluxos .gjr-stages { list-style: none; padding: 0; display: grid; gap: .65rem; }
+#control-fluxos .gjr-stages > li { border: 1px solid #d1dce3; border-radius: 8px; padding: .75rem; }
+#control-fluxos .gjr-stages > li > span { display: block; margin-top: .35rem; color: #496270; }
+#control-fluxos .gjr-links { margin-top: .5rem; }
+#control-fluxos .gjr-diagram { overflow: auto; max-height: 48rem; border: 1px solid #d1dce3; border-radius: 10px; background: #f7fafc; }
+#control-fluxos .gjr-diagram svg { display: block; visibility: visible; width: min(100%, 480px); min-width: 340px; height: auto; margin: auto; }
+#control-fluxos .gjr-node rect { fill: #fff; stroke: #7896a7; stroke-width: 1.5; }
+#control-fluxos .gjr-type-condicao rect { fill: #fff4db; }
+#control-fluxos .gjr-type-espera rect { fill: #eef2fc; }
+#control-fluxos .gjr-type-fim rect { fill: #e9f1f2; }
+#control-fluxos .gjr-node text { fill: #182a36; font: 13px system-ui, sans-serif; }
+#control-fluxos .gjr-node .gjr-node-key { fill: #496270; font-size: 11px; }
+#control-fluxos .gjr-edges > g > path { fill: none; stroke: #356d86; stroke-width: 1.6; }
+#control-fluxos .gjr-edges marker path, #control-fluxos .gjr-diagram marker path { fill: #356d86; }
+#control-fluxos .gjr-edge-label { fill: #496270; font: 10px system-ui, sans-serif; }
+#control-fluxos .gjr-accessible-list { padding: .75rem 0; }
+#control-fluxos .gjr-accessible-list summary { cursor: pointer; }
+#control-fluxos .gjr-history { border-top: 1px solid #d1dce3; padding-top: 1rem; }
+#control-fluxos .gjr-empty { color: #496270; }
+@media (max-width: 640px) { #control-fluxos .gjr-toolbar { align-items: stretch; } #control-fluxos .gjr-toolbar label { width: 100%; } }
+</style>
 </head>
 <body data-panel="growth" data-crm-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -20,10 +54,10 @@
     </div>
   </nav></details><nav class="secoes" id="secoes" aria-label="Seções">
     <button data-s="visao" class="ativo">Início</button>
+    <button data-s="base">Públicos<span class="n" id="n-arv"></span></button>
     <button data-s="camp">Campanhas<span class="n" id="n-camp"></span></button>
-    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
     <button data-s="templates">Templates</button>
-    <button data-s="base">Público<span class="n" id="n-arv"></span></button>
+    <button data-s="regua">Automações<span class="n" id="n-regua"></span></button>
     <button data-s="resultados">Resultados</button>
     <span class="n" id="n-conv" hidden></span><span class="n" id="n-ab" hidden></span>
   </nav><span class="crm-sidebar-foot">Operação de CRM</span></aside>
@@ -31,7 +65,7 @@
 <header class="topo">
   <div class="titulo">
     <span class="marcas" id="marcas-topo"></span>
-    <div><h1 id="crm-screen-title">Início</h1><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
+    <div><h1 id="crm-screen-title">Início</h1><p class="crm-active-brand" id="crm-active-brand">Todas as marcas</p><p class="sub" id="sub-topo">Grupo Shrigma · e-mail e WhatsApp</p></div>
   </div>
 
   <div class="status" data-crm-owner-only><span id="relogio">--:--</span><span id="frescor" class="frescor" data-crm-owner-only>coleta —</span></div>
@@ -94,7 +128,7 @@
   <div class="sec ativa" id="sec-visao">
 <div class="crm-section-intro"><div><span class="crm-eyebrow">SUA OPERAÇÃO</span><h2>Uma visão clara para começar o dia.</h2><p>Confira os resultados do período e escolha o próximo passo. A marca selecionada acompanha sua navegação.</p></div></div><div class="crm-home-heading"><h2>Resumo do período</h2></div>
 <section class="kpis" id="area-kpis" aria-label="Resultados do período"></section>
-<div class="crm-home-actions"><button type="button" data-crm-go="base"><span>01 · Público</span><strong>Criar e conhecer públicos</strong><small>Listas, compras e engajamento</small></button><button type="button" data-crm-go="templates"><span>02 · Mensagem</span><strong>Modelos e imagens</strong><small>Conteúdo reutilizável e arquivos públicos</small></button><button type="button" data-crm-go="camp"><span>03 · Campanha</span><strong>Preparar e acompanhar</strong><small>Revisão, agendamento e progresso</small></button><button type="button" data-crm-go="regua"><span>04 · Automação</span><strong>Abrir automações</strong><small>Jornadas, construção e histórico</small></button><button type="button" data-crm-go="resultados"><span>05 · Resultado</span><strong>Ver resultados</strong><small>Entregas, cliques e vendas atribuídas</small></button></div>
+<div class="crm-home-actions"><button type="button" data-crm-go="base"><span>01 · Público</span><strong>Criar e conhecer públicos</strong><small>Listas, compras e engajamento</small></button><button type="button" data-crm-go="templates"><span>02 · Mensagem</span><strong>Modelos e imagens</strong><small>Conteúdo reutilizável e arquivos públicos</small></button><button type="button" data-crm-go="camp"><span>03 · Campanha</span><strong>Preparar e acompanhar</strong><small>Revisão, agendamento e progresso</small></button><button type="button" data-crm-go="regua"><span>04 · Automação</span><strong>Abrir automações</strong><small>Jornadas e histórico de envios</small></button><button type="button" data-crm-go="resultados"><span>05 · Resultado</span><strong>Ver resultados</strong><small>Entregas, cliques e vendas atribuídas</small></button></div>
 
     <section class="painel" id="automation-attention" aria-labelledby="attention-title"></section>
 
@@ -121,7 +155,7 @@
 
 
 
-  </div><div id="crm-campaign-tests" data-crm-campaign-panel="tests" role="tabpanel" aria-labelledby="crm-campaign-tests-tab" hidden><section class="painel"><div class="crm-subsection-heading"><h2>Executar teste com campanhas salvas</h2><p>Selecione Fishermans ou O Aristocrata. Prepare duas campanhas com o mesmo público salvo e horário; o teste divide esse público em duas variantes.</p></div><div id="ab-experiment-panel" hidden></div><details class="crm-legacy-records"><summary>Planejamento e registros anteriores de A/B</summary><p class="mini">Este cadastro guarda hipóteses e observações. Para preparar a divisão de público e agendar as variantes, use o teste com campanhas salvas acima quando disponível.</p>
+  </div><div id="crm-campaign-tests" data-crm-campaign-panel="tests" role="tabpanel" aria-labelledby="crm-campaign-tests-tab" hidden><section class="painel"><div class="crm-subsection-heading" id="ab-experiment-intro" hidden><h2>Executar teste com campanhas salvas</h2><p>Selecione Fishermans ou O Aristocrata. Prepare duas campanhas com o mesmo público salvo e horário; o teste divide esse público em duas variantes.</p></div><div class="crm-subsection-heading" id="ab-experiment-off" role="status"><h2>Teste com campanhas salvas · desligado nesta versão</h2><p>A divisão de público e o agendamento das variantes estão desligados para a marca selecionada. Nada é dividido, agendado ou enviado por aqui.</p></div><div id="ab-experiment-panel" hidden></div><details class="crm-legacy-records"><summary>Planejamento e registros anteriores de A/B</summary><p class="mini">Este cadastro guarda hipóteses e observações. Para preparar a divisão de público e agendar as variantes, use o teste com campanhas salvas acima quando disponível.</p>
       <div class="painel-cab"><h2>Testes A/B</h2>
         <button class="btn sec" id="btn-novo">Nova configuração</button></div>
       <span class="tag nulo" title="Usa seu acesso atual do CRM. Salvar não distribui públicos, agenda ou dispara mensagens.">Somente configuração</span>
@@ -169,8 +203,9 @@
       <div id="area-testes"></div>
     </details></section></div></div>
   <div class="sec" id="sec-regua">
-    <div class="crm-section-intro"><div><span class="crm-eyebrow">AUTOMAÇÕES</span><h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes; Construir fluxo prepara novos caminhos quando disponível. Envios no período mostra o que foi registrado.</p></div></div>
+    <div class="crm-section-intro"><div><span class="crm-eyebrow">AUTOMAÇÕES</span><h2>Veja a jornada inteira, do preparo à entrega.</h2><p>Jornadas reúne as configurações existentes. <span id="control-graph-intro" hidden>Construir fluxo prepara novos caminhos.</span><span id="control-graph-off">Construir fluxo está desligado nesta versão.</span> Envios no período mostra o que foi registrado.</p></div></div>
     <div class="control-tabs" role="tablist" aria-label="Acompanhamento de automações"><button type="button" id="control-tab-fluxos" data-control-tab="fluxos" role="tab" aria-controls="control-fluxos" aria-selected="false" tabindex="-1">Jornadas</button>
+      <button type="button" id="control-tab-lab" data-control-tab="lab" role="tab" aria-controls="control-lab" aria-selected="false" tabindex="-1">Laboratório de jornadas</button>
       <button type="button" id="control-tab-graph" data-control-tab="graph" role="tab" aria-controls="control-graph" aria-selected="false" tabindex="-1" hidden>Construir fluxo</button>
       <button type="button" id="control-tab-history" data-control-tab="history" role="tab" aria-controls="control-history" aria-selected="true">Envios no período</button>
       <button type="button" id="control-tab-workflows" data-control-tab="workflows" role="tab" aria-controls="control-workflows" aria-selected="false" tabindex="-1">Operação atual</button>
@@ -180,6 +215,7 @@
     </div>
     <section class="painel control-panel" id="control-fluxos" data-control-panel="fluxos" role="tabpanel" aria-labelledby="control-tab-fluxos" hidden></section>
 
+    <section class="painel control-panel" id="control-lab" data-control-panel="lab" role="tabpanel" aria-labelledby="control-tab-lab" hidden></section>
     <section class="painel control-panel" id="control-graph" data-control-panel="graph" role="tabpanel" aria-labelledby="control-tab-graph" hidden></section>
 
     <section class="painel control-panel" id="control-workflows" data-control-panel="workflows" role="tabpanel" aria-labelledby="control-tab-workflows" hidden></section>
@@ -187,7 +223,7 @@
     <div class="control-panel control-history" id="control-history" data-control-panel="history" role="tabpanel" aria-labelledby="control-tab-history">
     <section class="painel" id="ses-delivery" aria-label="Entregas de e-mail"></section>
     <section class="painel" id="email-comparison-block">
-      <div class="painel-cab"><h2>Campanhas × Automações</h2><span class="mini">e-mail no período</span></div>
+      <div class="painel-cab"><h2>Campanhas × Automações</h2><span class="tag nulo crm-help" tabindex="0" data-metric-scope="pedidos-por-envio" title="Pedidos atribuídos pela data da compra ÷ e-mails pela data do envio, no período. Não conta pessoas compradoras nem é conversão dos envios deste período.">e-mail no período · não é taxa de compradores ⓘ</span></div>
       <div id="area-cvr"></div>
     </section>
     <section class="painel">
@@ -211,7 +247,7 @@
   <div class="sec" id="sec-base">
 
     <section class="ga-workspace-head" aria-labelledby="crm-audience-title">
-      <div><span class="ga-eyebrow">SEGMENTAÇÃO DA BASE</span><h2 id="crm-audience-title">Conheça seus clientes. Crie seus públicos.</h2><p>Combine listas, compras, produtos e engajamento. Salve o público e escolha-o na campanha da mesma marca.</p></div>
+      <div><span class="ga-eyebrow">PÚBLICOS · SEGMENTOS DE CONTATOS</span><h2 id="crm-audience-title">Conheça seus clientes. Crie seus públicos.</h2><p>Combine listas, compras, produtos e engajamento. Salve o público e escolha-o na campanha da mesma marca.</p></div>
       <button type="button" class="ga-create-primary" id="crm-audience-create"><span aria-hidden="true">＋</span> Criar público</button>
       <div class="ga-brand-choices" id="crm-audience-brand-choices" role="group" aria-label="Marca do novo público" hidden><span>Escolha a marca do público</span><button type="button" data-audience-create-brand="fish">Fishermans</button><button type="button" data-audience-create-brand="aristo">O Aristocrata</button></div>
       <p id="crm-audience-create-status" role="status" aria-live="polite" hidden></p>
@@ -273,7 +309,7 @@
 <footer class="rodape"><span>Períodos em horário de Brasília · atualização automática a cada 60 segundos.</span></footer>
 <div class="dica" id="dica"></div>
 
-<!-- PANEL_JS --><script src="assets/panels/growth.js?v=d354495ce972"></script>
+<!-- PANEL_JS --><script src="assets/panels/growth.js?v=ba59103992f4"></script>
 <script>
 /* ================= app: só render ================= */
 const $=s=>document.querySelector(s);
@@ -284,13 +320,43 @@ const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&am
 GA.install(G);
 let ATTR_MODEL=GA.DEFAULT_MODEL;
 let API=null,MARCA='todas',CANAL='todos',SEC='visao',METRICA='receita',CMP=true,LOADING=false;
+let SIMPLE_READ_GENERATION=0,SIMPLE_READ_QUEUED=false;
 // Hora da última resposta da API e se a última tentativa falhou: alimenta a faixa de fontes.
-let CONSULTA={em:null,falhou:false};
+let CONSULTA={em:null,falhou:false,antigo:false},FALHA_LEITURA='';
+// A faixa reúne o estado da leitura (falha, retrato antigo) e os alertas de dados do Início.
+// Ela é sempre redesenhada inteira: alerta de outra marca/seção ou falha já resolvida não fica na tela.
+function pintaAlertas(itens=[]){
+  const el=$('#faixa-alertas');if(!el)return;
+  const hora=API?GUI.sourceTime(API._cache_gerado_em):null;
+  const leitura=CONSULTA.falhou?`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(FALHA_LEITURA)} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`
+    :CONSULTA.antigo&&API?`<div class="alerta" role="status">Os dados atualizados do CRM ainda não foram preparados. Exibindo o último retrato disponível, de ${esc(hora||'horário não informado')}. <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`:'';
+  el.innerHTML=leitura+itens.map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
+  const retry=$('#tentar-novamente');if(retry)retry.onclick=()=>carregar({retryIdentity:true});
+}
 const AB_PENDENTES=new Map();let AB_CHAVE_SESSAO='',AB_LEITURA=0;
 let AB_JOURNAL=null,AB_PROVA_LEITURA=null,AB_RECONCILIACAO=null,AB_BLOQUEADO=false,AB_WRITE_EPOCH=0,AB_BUSY=false;
 // Busca e ordenação das tabelas ficam fora do DOM: render() redesenha o tbody a cada 60 s.
 const TABELAS={camp:{q:'',sort:'enviado_em',dir:'desc'},conv:{q:'',sort:'receita',dir:'desc'}};
 const ULT={camp:[],conv:[]}; // últimas linhas exibidas, para a exportação sair igual à tela
+let CRM_LEITURA_BLOQUEADA=false;
+function limpaConsultaCRM(){
+  if(typeof GPR!=='undefined')GPR.clear();
+  API=null;AB_PROVA_LEITURA=null;ULT.camp=[];ULT.conv=[];
+  GC.readTicket=null;GC.carregando=null;GC.limpaLeitura();GRU.ctx={...GRU.ctx,api:null};
+  CRM_LEITURA_BLOQUEADA=true;
+  // Keep editors and their uncertain journals intact, but withdraw every section
+  // while the individual read credential is unavailable. Clear rendered read results.
+  document.querySelectorAll('main>.sec').forEach(el=>{el.style.display='none';el.setAttribute('inert','');});
+  document.querySelectorAll('#fontes,#fluxo-saude,#wa-coverage,#area-kpis,#automation-attention,#tab-fila tbody,#fila-rot,#fila-indisponivel,#campaign-monitor,#attribution-campaigns,#attribution-campaign-status,#control-fluxos,#control-workflows,#control-templates,#ses-delivery,#area-cvr,#tab-regua tbody,#nota-regua,#regua-rot,#area-carrinho,#car-rot,#area-arvore [data-ga-rfm],#area-arvore [data-ga-summary],#area-arvore [data-ga-result],#arv-rot,#attribution-status,#area-top,#pix-conversion,#tab-camp tbody,#camp-rot,#camp-contagem,#nota-camp,#tab-conv tbody,#conv-contagem,#nota-conv,#grafico,#legenda-graf,#growth-context,#crm-channel-status,#crm-connection-status,#frescor,#dica').forEach(el=>el.replaceChildren());
+  document.querySelectorAll('#secoes .n').forEach(el=>{el.textContent='';});
+  $('#message-preview-dialog')?.remove();$('#atualizado-em').title='';
+  $('#crm-data-summary').textContent='Atualização por origem';
+}
+function restauraConsultaCRM(){
+  if(!CRM_LEITURA_BLOQUEADA)return;
+  CRM_LEITURA_BLOQUEADA=false;
+  document.querySelectorAll('main>.sec').forEach(el=>{el.style.removeProperty('display');el.removeAttribute('inert');});
+}
 // Colunas de recorte repetidas em toda linha exportada: o CSV continua legível fora do painel.
 function exportMeta(extra={}){
   const canal={todos:'E-mail e WhatsApp',email:'E-mail',whatsapp:'WhatsApp próprio'}[CANAL]||CANAL;
@@ -509,7 +575,12 @@ function restoreABExperimentBrand(next){
   MARCA=next;AB_WRITE_EPOCH++;ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
   GRU.enterBrand(MARCA);GRU.ctx={...GRU.ctx,api:API,marca:MARCA};pintaMarca();gravaHash();queueMicrotask(()=>render());return true;
 }
-function renderABExperiment(){
+function syncABExperimentState(){
+  const element=$('#ab-experiment-panel'),on=!!element&&!element.hidden;
+  const intro=$('#ab-experiment-intro'),off=$('#ab-experiment-off');if(intro)intro.hidden=!on;if(off)off.hidden=on;
+}
+function renderABExperiment(){try{renderABExperimentPanel();}finally{syncABExperimentState();}}
+function renderABExperimentPanel(){
   const element=$('#ab-experiment-panel');
   if(typeof GABExperimentPanel==='undefined'){if(element)element.hidden=true;return;}
   const activation=GABExperimentPanel.activation(API,MARCA);
@@ -621,6 +692,8 @@ function renderPublicos(){
 // Journeys retain their editor/journal state while hidden. Only the visible route
 // mounts the view; its existing loaded/busy guards own read deduplication.
 function renderJornadas(modeloOp){
+  if(typeof ShrigmaJourneyLabUI!=='undefined')ShrigmaJourneyLabUI.sync({brand:MARCA,section:SEC,tab:GC.activeTab});
+  if(typeof GPR!=='undefined')GPR.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
   if(typeof GJG!=='undefined'){
     GJG.sync({api:API,marca:MARCA,section:SEC,tab:GC.activeTab});
     if(PENDENTE_GRAPH&&API){
@@ -632,8 +705,16 @@ function renderJornadas(modeloOp){
     if(GC.activeTab==='graph'&&(!GJG.available(API)||!['fish','aristo'].includes(MARCA)))GC.setTab('fluxos');
   }
   if(PENDENTE_GRAPH&&API)PENDENTE_GRAPH=false;
-  if(!API||SEC!=='regua'||GC.activeTab!=='fluxos')return;
+  const graphOn=typeof GJG!=='undefined'&&!!API&&GJG.available(API)===true;
+  const intro=document.getElementById?.('control-graph-intro'),off=document.getElementById?.('control-graph-off');
+  if(intro)intro.hidden=!graphOn;if(off)off.hidden=graphOn;
+  if(SEC!=='regua'||GC.activeTab!=='fluxos')return;
   const ctx={api:API,marca:MARCA,canal:CANAL,ini:PER.ini,fim:PER.fim,exportMeta};
+  if(!API){
+    const root=document.getElementById('control-fluxos');
+    if(root){root.innerHTML='<p role="status">Os dados gerais do CRM estão indisponíveis. A consulta publicada tem sua própria verificação de acesso; escolha uma marca e consulte abaixo.</p>';if(typeof GPR!=='undefined')GPR.mount(ctx,root);}
+    return;
+  }
   GFU.render({...ctx,workflowsModel:(modeloOp||GC.model(API.crm_operacao,ctx))?.workflows||null});
 }
 function renderRelatoriosCampanha(){
@@ -646,6 +727,8 @@ function renderRelatoriosCampanha(){
   }
 }
 function render(){
+  if(typeof GPR!=='undefined')GPR.sync({api:CRM_LEITURA_BLOQUEADA?null:API,marca:MARCA,section:SEC,tab:GC.activeTab});
+  if(CRM_LEITURA_BLOQUEADA)return;
   CRMWorkspace.sync({section:SEC,brand:MARCA,period:PER,tab:GC.activeTab});
   // Contadores da navegação valem só para a marca em que foram calculados.
   document.querySelectorAll('#secoes .n').forEach(n=>{if(n.dataset.marca!==MARCA){n.textContent='';n.dataset.marca=MARCA;}});
@@ -656,7 +739,7 @@ function render(){
   if(tests)renderABExperiment();
   if(SEC==='base'||campaigns)GCE.mount({marca:MARCA,api:API,onCatalog:renderPublicos});
   if(SEC==='templates')GMedia.mount({marca:MARCA,api:API});
-  if(!API)return;
+  if(!API){renderJornadas();return;}
   if(tests)GABF.enter(MARCA,API);
   pintaMarca();
   const {ini,fim}=PER,ant=G.anterior(ini,fim);
@@ -667,12 +750,15 @@ function render(){
   const cs=(home||resultsEmail)?G.campanhas(API,MARCA,ini,fim,true,CANAL):[];
   const conv=(home||resultsOverview||resultsConversion)?G.conversao(API,MARCA,ini,fim,GRAO,CANAL):[];
   const tot=home?G.totais(cs,conv):null;
+  // Sem nenhum dia conciliado, a lista vazia é desconhecida, não "sem venda".
+  const vazioConv=(resultsOverview||resultsConversion)&&GA.valid(API)&&!GA.coverage(API,MARCA,ini,fim).covered
+    ?'Atribuição sem conciliação para esta marca no período. Não é possível afirmar que não houve venda; confira os horários da coleta e atualize.'
+    :'Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.';
   // A faixa de fontes pertence ao shell do CRM e precisa refletir marca/consulta
   // mesmo quando a rota ativa não monta os cartões de Início ou Resultados.
   GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,ini,fim,CANAL));
 
-  if(home)$('#faixa-alertas').innerHTML=G.alertas(cs,tot,API,{canal:CANAL})
-    .map(a=>`<div class="alerta ${a.t==='ruim'?'alerta-ruim':''}">${a.m}</div>`).join('');
+  pintaAlertas(home?G.alertas(cs,tot,API,{canal:CANAL}):[]);
 
   if(campaigns||SEC==='resultados')renderRelatoriosCampanha();
   if(resultsConversion)GPIX.render(API,MARCA,ini,fim,CANAL,GUI);
@@ -698,8 +784,9 @@ function render(){
   if(!porHora){ sAtual=GD.series(G,API,MARCA,ini,fim,METRICA,CANAL); sAnt=GD.series(G,API,MARCA,ant.ini,ant.fim,METRICA,CANAL); }
   const temAnt=CMP&&sAnt.some(p=>p.v!==null);
   grafico(sAtual,sAnt);
-  const ultConv=(API.crm_conversao||[]).reduce((a,r)=>{const d=String(r.coletado_em||'');return d>a?d:a;},'');
-  const hConv=ultConv?new Date(ultConv).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):null;
+  // Coleta de venda da marca selecionada, comparada como instante e exibida em Brasília com a data.
+  const ultConv=(API.crm_conversao||[]).filter(r=>MARCA==='todas'||r.marca===MARCA).reduce((a,r)=>{const t=Date.parse(r.coletado_em||'');return Number.isFinite(t)&&(a===null||t>a)?t:a;},null);
+  const hConv=ultConv===null?null:GUI.sourceTime(new Date(ultConv).toISOString());
   $('#legenda-graf').innerHTML=['<span><i style="background:'+cor(MARCA)+'"></i>período atual</span>',
     temAnt?'<span><i style="background:var(--mudo)"></i>período anterior (tracejado)</span>':'',
     porHora?'<span>por hora, acumulado'+(lim!==undefined?' · comparação até a mesma hora':'')+'</span>':'',
@@ -712,7 +799,7 @@ function render(){
   const car=G.carrinho(API,MARCA,ini,fim);
   $('#car-rot').textContent=car?`${car.dias} dia(s) no período`:'';
   if(!car){
-    $('#area-carrinho').innerHTML='<div class="vazio">Nenhum carrinho abandonado coletado no período. Amplie o período ou clique em Atualizar.</div>';
+    $('#area-carrinho').innerHTML=Array.isArray(API.crm_carrinho)?'<div class="vazio">Nenhum carrinho abandonado coletado no período. Amplie o período ou clique em Atualizar.</div>':'<div class="vazio">Dados de carrinho indisponíveis nesta consulta. As demais informações continuam disponíveis.</div>';
   } else {
     // Tudo abaixo usa APENAS os dias com cobertura de conversao. Misturar escopo
     // (valor do periodo inteiro contra receita so dos dias medidos) inflava o "perdido".
@@ -732,8 +819,8 @@ function render(){
     const nImaturos=new Set(imaturos).size;
     $('#area-carrinho').innerHTML=`
       <div class="funil">
-        <div class="funil-num"><b>${rf(Math.max(0,car.valor-(car.receitaVoltaram||0)))}</b>
-          <span>abandonados e não recuperados em ${car.dias} dia(s) · ${rf(car.receitaVoltaram)} voltou</span></div>
+        <div class="funil-num"><b>${car.receitaVoltaram===null?'Indisponível':rf(Math.max(0,car.valor-car.receitaVoltaram))}</b>
+          <span>abandonados e não recuperados em ${car.dias} dia(s) · ${car.receitaVoltaram===null?'receita de retorno indisponível':rf(car.receitaVoltaram)+' voltou'}</span></div>
         <div class="funil-barra" title="Voltaram e compraram em até 72h">
           <i style="width:${car.carrinhos?Math.max(.6,100*car.voltaram/car.carrinhos):0}%"></i></div>
         <div class="funil-leg">
@@ -745,11 +832,12 @@ function render(){
             <i style="width:${car.voltaramMedidos?Math.max(.6,100*car.recuperados/car.voltaramMedidos):0}%;opacity:.55"></i></div>
           <div class="funil-leg">
             <span>fechados pelo fluxo · ${nf(car.recuperados)} de ${nf(car.voltaramMedidos)} que voltaram</span>
-            <span>${car.voltaramMedidos?Math.round(100*car.recuperados/car.voltaramMedidos):0}% do resgate é do CRM</span>
+            <span>${car.voltaramMedidos?Math.round(100*car.recuperados/car.voltaramMedidos)+'% do resgate é do CRM':'participação do CRM sem base: ninguém voltou'}</span>
           </div></div>`:''}
+        ${car.receitaVoltaramDiasIndisponiveis?`<div class="mini" style="margin-top:6px">Receita de retorno indisponível em ${car.receitaVoltaramDiasIndisponiveis} dia(s). A receita total e o valor não recuperado não foram calculados; as contagens conhecidas permanecem visíveis.</div>`:''}
         ${nImaturos?`<div class="mini" style="margin-top:6px">${nImaturos} dia(s) ainda em maturação: um carrinho tem até 72h para virar venda, então os dias recentes sempre aparecem abaixo do que vão fechar.</div>`:''}
         ${naoMedidos?`<div class="mini" style="margin-top:6px">${naoMedidos} dia(s) sem coleta de conversão — excluídos da fatia do CRM em vez de contarem como zero.</div>`:''}
-        <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${Math.round(100*car.consent/car.carrinhos)}%).</div>
+        <div class="mini" style="margin-top:6px">${nf(car.consent)} de ${nf(car.carrinhos)} carrinhos do período com opt-in de marketing (${car.carrinhos?Math.round(100*car.consent/car.carrinhos)+'%':'sem base'}).</div>
         ${car.porMarca.length>1?`<div class="funil-marcas">`+car.porMarca.map(m=>{
           const tv=m.carrinhos?(100*m.voltou/m.carrinhos):null;
           const t=m.medido&&m.voltou?(100*m.rec/m.voltou):null;
@@ -771,7 +859,7 @@ function render(){
       <div class="barra"><i style="width:${100*c.receita/mx}%;background:${cor(c.marca)}"></i></div>
       <div class="num tabn">${rf(c.receita)}</div>
       <div><span class="tag ${c.canal}">${c.canal}</span></div></div>`;
-  }).join(''):'<div class="vazio">Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.</div>';
+  }).join(''):`<div class="vazio">${vazioConv}</div>`;
   }
 
   if(resultsConversion){
@@ -797,7 +885,7 @@ function render(){
       <td class="num tabn">${nf(c.pedidos)}</td><td class="num tabn destaque">${rf(c.receita)}</td>
       <td class="num tabn">${nf(c.assist)}</td><td class="num tabn">${rf(c.receita_assist)}</td>
       <td class="num tabn">${t2?Math.round(100*c.novos/t2)+'%':'—'}</td></tr>`;
-  }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:'Sem conversão atribuída no período. Amplie o período ou confira a marca e o canal selecionados.'}</div></td></tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="vazio">${conv.length?`Nenhuma linha contém "${esc(TABELAS.conv.q)}" neste recorte. <button type="button" class="refresh-btn gt-limpar" data-limpar="conv">Limpar busca</button>`:vazioConv}</div></td></tr>`;
   $('#tab-conv [data-limpar]')?.addEventListener('click',()=>{TABELAS.conv.q='';$('#conv-busca').value='';render();});
   $('#nota-conv').innerHTML=GA.valid(API)?`<div class="operator-labels"><span class="control-badge" tabindex="0" title="${GA.model(API)==='last_non_direct'?'Desconsidera retornos diretos posteriores ao clique identificado.':'Considera a última visita antes da compra, inclusive retorno direto.'}">${esc(GA.models[GA.model(API)])} · 30 dias</span><span class="control-badge" tabindex="0" title="Receita líquida recebida, descontados reembolsos.">Receita após reembolsos</span></div><div>Jornadas indisponíveis ficam pendentes. Datas fora da cobertura conciliada ficam fora desta atribuição.</div><div><strong>Não some assistências entre campanhas.</strong></div><details><summary>Como ler assistências e famílias</summary><p>Assistido: outro contato de CRM nos 30 dias, sem crédito final nesta linha. A mesma compra pode assistir mais de uma campanha. Família reúne pedidos únicos da mesma iniciativa.</p></details>`:`<span class="control-badge">Fonte anterior · último clique não direto · 30 dias nominais</span><div>Atribuição ainda não reconciliada para esta marca.</div>`;
   }
@@ -961,28 +1049,45 @@ async function consultaGrowth(url,k,timeoutMs){
   const expired=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(new Error('O servidor demorou para responder. Tente atualizar novamente.'));controller.abort();},timeoutMs);});
   try{return await Promise.race([expired,(async()=>{
     const r=await fetch(url,{headers:{Authorization:'Bearer '+k},cache:'no-store',redirect:'error',credentials:'omit',signal:controller.signal});
-    let payload=null;if(r.ok){try{payload=await r.json();}catch(_){payload=null;}}
-    return {r,payload};
+    let payload=null,codigo=null;if(r.ok){try{payload=await r.json();}catch(_){payload=null;}}
+    // 503 do portal: só o código de erro é lido (nenhum dado), para orientar sem prometer acesso.
+    else if(r.status===503&&typeof r.json==='function'){try{const b=await r.json();codigo=typeof b?.error==='string'&&/^[A-Z_]{1,64}$/.test(b.error)?b.error:null;}catch(_){codigo=null;}}
+    return {r,payload,codigo};
   })()]);}finally{clearTimeout(timer);}
 }
 async function leCacheGrowth(k){
   const url=new URL(CRM_READ_API_URL);url.searchParams.set('action','cache_growth');url.searchParams.set('painel','growth');
   const c=await consultaGrowth(url.href,k,12000);
-  return {r:c.r,next:c.r.ok&&cacheGrowthValido(c.payload)?c.payload:null};
+  // Retrato vencido (mais de 20 min) não é tratado como atual, mas fica disponível para o painel
+  // cair nele e avisar, em vez de ficar sem dado. Nenhuma consulta extra é feita.
+  const fresh=c.r.ok&&cacheGrowthValido(c.payload);
+  const antigo=c.r.ok&&!fresh&&payloadGrowthValido(c.payload)&&Number.isFinite(Date.parse(c.payload._cache_gerado_em||''))&&Date.parse(c.payload._cache_gerado_em)<=Date.now()+60000?c.payload:null;
+  return {r:c.r,next:fresh?c.payload:null,antigo,codigo:c.codigo||null};
 }
 // GROWTH_CACHE_READ_END
 async function carregar({retryIdentity=false}={}){
+  if(window.ShrigmaPrepareRead&&!(await window.ShrigmaPrepareRead())){$('#load-state').hidden=true;$('#atualizado-em').textContent='Sessão indisponível. Atualize para tentar novamente.';return;}
+  if(typeof GPR!=='undefined')GPR.clear();
   GrowthView.resolve({retry:retryIdentity});
-  if(LOADING)return;
+  if(LOADING){if(window.ShrigmaSimpleRead)SIMPLE_READ_QUEUED=true;return;}
+  const readingBrand=MARCA,readingGeneration=SIMPLE_READ_GENERATION;
   const k=chave();if(!k){mostraAcessoGrowth();return;}
   LOADING=true;$('#btn-atualizar').disabled=true;$('#btn-atualizar').textContent='Atualizando…';
   if(!API)$('#load-state').hidden=false;
   try{
     const inicioLeituraAB=Date.now();
-    const {next,r}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
+    const {next:fresh,antigo,r,codigo}=await leCacheGrowth(k),ORIGEM_LEITURA='cache';
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==SIMPLE_READ_GENERATION))return;
+    if(r&&r.status===503&&codigo==='CRM_ACCESS_NOT_READY'){limpaConsultaCRM();throw new Error(GrowthAccess.ACESSO_CRM_PENDENTE);}
     if(r&&(r.status===401||r.status===403)){ACESSO_GROWTH.reject(k,'Chave recusada. Confira o acesso ao CRM.');mostraAcessoGrowth('Chave recusada. Confira o acesso ao CRM.');throw new Error('Acesso recusado. Informe uma chave válida no formulário.');}
+    // Sem preparação no prazo, cai para o retrato vencido só se ele for mais novo que o já exibido.
+    const recua=!fresh&&!!antigo&&(!API||Date.parse(antigo._cache_gerado_em)>Date.parse(API._cache_gerado_em||''));
+    const next=fresh||(recua?antigo:null);
     if(!next){if(r&&!r.ok)throw new Error(`Consulta indisponível (HTTP ${r.status}).`);throw new Error('Os dados atualizados do CRM ainda não estão disponíveis. Tente atualizar novamente em alguns minutos.');}
-    API=GA.project(next,ATTR_MODEL);AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};
+    API=GA.project(next,ATTR_MODEL);
+    restauraConsultaCRM();
+    // Retrato vencido não serve de prova de leitura para conciliar gravações A/B.
+    if(fresh){AB_LEITURA++;AB_PROVA_LEITURA={startedAt:inicioLeituraAB,completedAt:Date.now()};}
     const activePreset=document.querySelector('#presets button.ativo')?.dataset.p;
     if(activePreset)PER=G.preset(activePreset,G.diaBR(new Date()));
     if(!ACESSO_GROWTH.isSession(k))shrigmaMarcaMestra(k,API._painel);
@@ -991,32 +1096,34 @@ async function carregar({retryIdentity=false}={}){
     const connectionStatus=$('#crm-connection-status');connectionStatus.hidden=!connectionAlerts.some(c=>['vencida','quebrada','vencendo'].includes(c.estado));
     connectionStatus.textContent=connectionStatus.hidden?'':'Há uma conexão que precisa de atenção. Confira as datas de atualização antes de usar os resultados.';
     if(window.avisoWhatsApp)window.avisoWhatsApp(API.wa_saude||[]);
-    CONSULTA={em:new Date().toISOString(),falhou:false};
+    CONSULTA={em:new Date().toISOString(),falhou:false,antigo:!fresh};FALHA_LEITURA='';
     render();
     if(PENDENTE_FLOW){const sel=$('#sel-flow');if([...sel.options].some(o=>o.value===PENDENTE_FLOW)){sel.value=PENDENTE_FLOW;sel.onchange?.();}PENDENTE_FLOW=null;}
     gravaHash();
     $('#load-state').hidden=true;
     const horaBR=d=>GUI.sourceTime(d);
     $('#atualizado-em').textContent=ORIGEM_LEITURA==='cache'
-      ?'Dados de '+horaBR(next._cache_gerado_em)
+      ?'Dados de '+horaBR(next._cache_gerado_em)+(fresh?'':' · retrato antigo')
       :'Consultado em '+horaBR(Date.now());
-    $('#atualizado-em').title=ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
+    $('#atualizado-em').title=!fresh?'A preparação mais recente dos dados tem mais de 20 minutos. O painel mostra o último retrato disponível; os números não são de agora. Atualize em alguns minutos.':ORIGEM_LEITURA==='cache'?'Data e hora da preparação dos dados. Cada origem tem seu próprio horário de coleta, indicado abaixo.':'Data e hora da consulta direta. Cada origem tem seu próprio horário de coleta, indicado abaixo.';
   }catch(e){
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==SIMPLE_READ_GENERATION))return;
     $('#load-state').hidden=true;
-    CONSULTA={...CONSULTA,falhou:true};
-    $('#faixa-alertas').innerHTML=`<div class="alerta alerta-ruim" role="alert">Não foi possível atualizar os dados. ${API?'Os últimos dados recebidos continuam na tela. ':''}${esc(GrowthAccess.readError(e))} <button type="button" class="refresh-btn" id="tentar-novamente">Tentar novamente</button></div>`;
-    $('#atualizado-em').textContent=API?'Atualização falhou · exibindo a consulta anterior':'Dados indisponíveis';
+    CONSULTA={...CONSULTA,falhou:true};FALHA_LEITURA=GrowthAccess.readError(e);
+    pintaAlertas();
+    const exibidos=API?GUI.sourceTime(API._cache_gerado_em):null;
+    $('#atualizado-em').textContent=API?'Atualização falhou · '+(exibidos?'exibindo dados de '+exibidos:'exibindo a consulta anterior'):'Dados indisponíveis';
     if(API)GUI.sources({api:API,consulta:CONSULTA},GD.summary(G,API,MARCA,PER.ini,PER.fim,CANAL));
-    if(SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
-    if(SEC==='regua'){
+    if(!CRM_LEITURA_BLOQUEADA&&SEC==='camp'&&CRMWorkspace.state().campaign==='list')GCM.render({api:API,marca:MARCA,ini:PER.ini,fim:PER.fim,canal:CANAL,consulta:CONSULTA,onRefresh:carregar});
+    if(!CRM_LEITURA_BLOQUEADA&&SEC==='regua'){
       const ctx={api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim};
-      const modeloOp2=GC.activeTab==='workflows'?GC.render({...ctx,visiblePanel:'workflows',syncTab:false}):GC.model(API.crm_operacao,ctx);
+      const modeloOp2=GC.activeTab==='workflows'?GC.render({...ctx,visiblePanel:'workflows',syncTab:false}):GC.model(API?.crm_operacao,ctx);
       renderJornadas(modeloOp2);
-    }else if(SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
-    else if(SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
-    $('#tentar-novamente').onclick=()=>carregar({retryIdentity:true});
+    }else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='templates')GC.render({api:API,marca:MARCA,canal:CANAL,exportMeta,ini:PER.ini,fim:PER.fim,visiblePanel:'templates',syncTab:false});
+    else if(!CRM_LEITURA_BLOQUEADA&&SEC==='templates'&&GC.activeTab==='drafts')GRU.render({api:API,marca:MARCA});
   }finally{
     LOADING=false;$('#btn-atualizar').disabled=false;$('#btn-atualizar').textContent='Atualizar';
+    if(SIMPLE_READ_QUEUED){SIMPLE_READ_QUEUED=false;carregar();}
   }
 }
 async function salvarTeste(){
@@ -1044,7 +1151,7 @@ function ativaBotao(sel,attr,val){let ok=false;document.querySelectorAll(sel).fo
   const h=(typeof location!=='undefined'&&typeof location.hash==='string')?GT.leHash(location.hash):{};
   const p={...(lePref()||{}),...(h.marca?{marca:h.marca}:{}),...(h.canal?{canal:h.canal}:{}),...(h.sec?{sec:h.sec}:{}),
     ...(h.p?{preset:h.p,ini:null,fim:null}:h.ini&&h.fim?{preset:null,ini:h.ini,fim:h.fim}:{})};
-  if(h.aba&&['history','workflows','templates','fluxos','drafts'].includes(h.aba))GC.activeTab=h.aba;
+  if(h.aba&&['history','workflows','templates','fluxos','drafts','lab'].includes(h.aba))GC.activeTab=h.aba;
   if(h.aba==='graph'&&(!h.sec||h.sec==='regua')){PENDENTE_GRAPH=true;GC.activeTab='fluxos';p.sec='regua';}
   if(h.flow)PENDENTE_FLOW=h.flow;
   if(!Object.keys(p).length)return;
@@ -1079,7 +1186,8 @@ function trocaMarca(next,afterConfirm=null){
     const campaign=GCE.contextStatus();
     try{GCE.preserve();GRU.preserve();GABF.preserve();CRM_SEGMENT_VIEW?.preserve();if(typeof GJG!=='undefined')GJG.preserve();}catch(e){notice(e.message);return false;}
     MARCA=next;AB_WRITE_EPOCH++;
-    ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});render();gravaHash();
+    ativaBotao('#seg-marca button','marca',MARCA);salvaPref({marca:MARCA});
+    if(window.ShrigmaSimpleRead){SIMPLE_READ_GENERATION++;API=null;render();carregar();}else render();gravaHash();
     // The editor may still hold a brand opened before the current header brand.
     notice(campaign.pending?'A tentativa de '+(G.MARCA_CHEIA[campaign.brand]||G.MARCA_CHEIA[previous]||previous)+' continua preservada. Volte à marca para conferir a mesma operação.':'');
     return true;
@@ -1107,7 +1215,7 @@ function abrirSecaoCRM(section,{tab}={}){
   const target=document.getElementById('sec-'+section);if(!target||!target.classList.contains('sec'))return;
   PENDENTE_GRAPH=false;SEC=section;document.querySelectorAll('main>.sec').forEach(x=>x.classList.toggle('ativa',x===target));
   ativaBotao('#secoes button','s',SEC);salvaPref({sec:SEC});
-  const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows','graph'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
+  const nextTab=SEC==='templates'?(['templates','drafts'].includes(tab)?tab:['templates','drafts'].includes(GC.activeTab)?GC.activeTab:'drafts'):SEC==='regua'?(['fluxos','history','workflows','graph','lab'].includes(tab)&&(tab!=='graph'||typeof GJG!=='undefined'&&GJG.available(API))?tab:'fluxos'):null;
   if(nextTab&&GC.activeTab!==nextTab)GC.setTab(nextTab);
   render();gravaHash();
 }
@@ -1162,7 +1270,7 @@ setCanal(CANAL);
 const GROWTH_REFRESH_MS=(typeof REFRESH_SEG!=='undefined'?REFRESH_SEG:60)*1000;
 let GROWTH_LAST_AUTO_READ=null;
 function atualizarGrowthVisivel(){
-  if(document.hidden)return;
+  if(document.hidden||SEC==='regua'&&GC.activeTab==='fluxos'&&GROWTH_LAST_AUTO_READ!==null)return;
   GROWTH_LAST_AUTO_READ=Date.now();
   return carregar();
 }

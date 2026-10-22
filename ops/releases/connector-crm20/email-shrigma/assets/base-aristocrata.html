@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>__ASSUNTO__</title>
+<style>
+    :root { color-scheme: light; }
+    body, .email-bg { margin:0; padding:0; background-color:#EFE6D0; }
+    .email-container { width:600px; max-width:600px; }
+    .card { background-color:#FFFBEC; border:1px solid #DFD6BC; border-radius:18px; overflow:hidden; }
+    .stack-pad { padding:30px 40px; }
+    .cta-a { display:inline-block; font-family:'Archivo',Arial,sans-serif; font-size:15px; font-weight:800;
+              letter-spacing:1px; color:#FFFBEC; background-color:#A54D25; padding:17px 34px; border-radius:10px; }
+    .email-bg { background-color:#EFE6D0; }
+    .card { background-color:#FFFBEC; }
+    .barband { background-color:#1E3420; }
+    .bar-tx { color:#EACEA9; }
+    .titleband { background-color:#A54D25; }
+    .title-kick { color:rgba(255,251,236,0.72); }
+    .title-tx { color:#FFFBEC; }
+    .body-tx { color:#31402C; }
+    .strongtx { color:#1E3420; }
+    .sec-kick { color:#A54D25; }
+    .muted-tx { color:#54604E; }
+    .soft-tx { color:#54604E; }
+    .divider { border-top:1px solid #EACEA9; }
+    .vshead-l { background-color:#D9CDB4; }
+    .vshead-tl { color:#54604E; }
+    .vshead-r { background-color:#1E3420; }
+    .vshead-tr { color:#EACEA9; }
+    .vsrow { background-color:#F4EBD8; }
+    .vsrow-alt { background-color:#EFE6D0; }
+    .vs-attr { color:#1E3420; }
+    .vs-bad { color:#8C6B4A; }
+    .vs-good { color:#1E3420; }
+    .quote-tx { color:#31402C; }
+    .quote-src { color:#A54D25; }
+    .foot-tx { color:rgba(255,251,236,0.5); }
+
+    /* ---- Media query: suporte varia por cliente; conferir preview ---- */
+    @media (prefers-color-scheme: dark) {
+  .cta-a { color:#FFFBEC !important; background-color:#A54D25 !important; }
+  .email-bg { background-color:#EFE6D0 !important; }
+  .card { background-color:#FFFBEC !important; }
+  .barband { background-color:#1E3420 !important; }
+  .bar-tx { color:#EACEA9 !important; }
+  .titleband { background-color:#A54D25 !important; }
+  .title-kick { color:rgba(255,251,236,0.72) !important; }
+  .title-tx { color:#FFFBEC !important; }
+  .body-tx { color:#31402C !important; }
+  .strongtx { color:#1E3420 !important; }
+  .sec-kick { color:#A54D25 !important; }
+  .muted-tx { color:#54604E !important; }
+  .soft-tx { color:#54604E !important; }
+  .divider { border-top:1px solid #EACEA9 !important; }
+  .vshead-l { background-color:#D9CDB4 !important; }
+  .vshead-tl { color:#54604E !important; }
+  .vshead-r { background-color:#1E3420 !important; }
+  .vshead-tr { color:#EACEA9 !important; }
+  .vsrow { background-color:#F4EBD8 !important; }
+  .vsrow-alt { background-color:#EFE6D0 !important; }
+  .vs-attr { color:#1E3420 !important; }
+  .vs-bad { color:#8C6B4A !important; }
+  .vs-good { color:#1E3420 !important; }
+  .quote-tx { color:#31402C !important; }
+  .quote-src { color:#A54D25 !important; }
+  .foot-tx { color:rgba(255,251,236,0.5) !important; }
+    }
+
+    /* ---- Atributos de modo escuro nos clientes compatíveis ---- */
+  [data-ogsc] .cta-a, [data-ogsb] .cta-a { color:#FFFBEC !important; background-color:#A54D25 !important; }
+  [data-ogsc] .email-bg, [data-ogsb] .email-bg { background-color:#EFE6D0 !important; }
+  [data-ogsc] .card, [data-ogsb] .card { background-color:#FFFBEC !important; }
+  [data-ogsc] .barband, [data-ogsb] .barband { background-color:#1E3420 !important; }
+  [data-ogsc] .bar-tx, [data-ogsb] .bar-tx { color:#EACEA9 !important; }
+  [data-ogsc] .titleband, [data-ogsb] .titleband { background-color:#A54D25 !important; }
+  [data-ogsc] .title-kick, [data-ogsb] .title-kick { color:rgba(255,251,236,0.72) !important; }
+  [data-ogsc] .title-tx, [data-ogsb] .title-tx { color:#FFFBEC !important; }
+  [data-ogsc] .body-tx, [data-ogsb] .body-tx { color:#31402C !important; }
+  [data-ogsc] .strongtx, [data-ogsb] .strongtx { color:#1E3420 !important; }
+  [data-ogsc] .sec-kick, [data-ogsb] .sec-kick { color:#A54D25 !important; }
+  [data-ogsc] .muted-tx, [data-ogsb] .muted-tx { color:#54604E !important; }
+  [data-ogsc] .soft-tx, [data-ogsb] .soft-tx { color:#54604E !important; }
+  [data-ogsc] .divider, [data-ogsb] .divider { border-top:1px solid #EACEA9 !important; }
+  [data-ogsc] .vshead-l, [data-ogsb] .vshead-l { background-color:#D9CDB4 !important; }
+  [data-ogsc] .vshead-tl, [data-ogsb] .vshead-tl { color:#54604E !important; }
+  [data-ogsc] .vshead-r, [data-ogsb] .vshead-r { background-color:#1E3420 !important; }
+  [data-ogsc] .vshead-tr, [data-ogsb] .vshead-tr { color:#EACEA9 !important; }
+  [data-ogsc] .vsrow, [data-ogsb] .vsrow { background-color:#F4EBD8 !important; }
+  [data-ogsc] .vsrow-alt, [data-ogsb] .vsrow-alt { background-color:#EFE6D0 !important; }
+  [data-ogsc] .vs-attr, [data-ogsb] .vs-attr { color:#1E3420 !important; }
+  [data-ogsc] .vs-bad, [data-ogsb] .vs-bad { color:#8C6B4A !important; }
+  [data-ogsc] .vs-good, [data-ogsb] .vs-good { color:#1E3420 !important; }
+  [data-ogsc] .quote-tx, [data-ogsb] .quote-tx { color:#31402C !important; }
+  [data-ogsc] .quote-src, [data-ogsb] .quote-src { color:#A54D25 !important; }
+  [data-ogsc] .foot-tx, [data-ogsb] .foot-tx { color:rgba(255,251,236,0.5) !important; }
+
+    /* ---- Mobile ---- */
+    @media only screen and (max-width:620px) {
+      .email-container, .fluid { width:100% !important; max-width:100% !important; }
+      .stack-pad { padding-left:24px !important; padding-right:24px !important; }
+      .title-tx { font-size:32px !important; }
+      .cta-a { display:block !important; width:100% !important; box-sizing:border-box; }
+      .stack-col { display:block !important; width:100% !important; }
+    }
+</style>
+</head>
+<body class="email-bg">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#EFE6D0;opacity:0">__PREHEADER__ &#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-bg" style="border-collapse:collapse"><tr><td align="center" style="padding:26px 12px">
+<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" class="email-container card" style="border-collapse:collapse">
+
+  <tr><td class="barband" style="padding:11px 20px">
+    <p class="bar-tx" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:2.6px;text-transform:uppercase">__BARRA_TOPO__</p>
+  </td></tr>
+
+  <!-- HERO (opcional): entra AQUI, entre a barra e o titleband, imagem sem padding.
+       Transicao hero -> titleband: celula do hero com classe fade-join e
+       bgcolor #A54D25, e titleband com padding-top de 2px. O degrade vem
+       EMBUTIDO NO ASSET (hero_laranja_fade.jpg). Alternativa CSS: faixa
+       fadestrip de 56px com linear-gradient — funciona, mas Outlook ignora
+       gradient e cai em cor solida. Receita completa: qualidade-ui.md -->
+  <tr><td class="titleband" style="padding:30px 44px">
+    <p class="title-kick" style="margin:0 0 12px 0;font-family:'Inter',Arial,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:2.6px;text-transform:uppercase">__KICKER__</p>
+    <h1 class="title-tx" style="margin:0;font-family:'Archivo',Arial,sans-serif;font-size:38px;line-height:1.06;font-weight:900;letter-spacing:-1.2px">__TITULO__</h1>
+  </td></tr>
+
+  <tr><td class="stack-pad" style="padding:30px 40px 0 40px">
+    <p class="body-tx" style="margin:0 0 16px 0;font-family:'Inter',Arial,sans-serif;font-size:16.5px;line-height:1.62">__ABERTURA__</p>
+  </td></tr>
+
+  <tr><td class="stack-pad" style="padding:22px 40px 14px 40px">
+    <p class="sec-kick" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:2.4px;text-transform:uppercase">__ROTULO_DISPOSITIVO__</p>
+  </td></tr>
+
+  <!-- ===== DISPOSITIVO VISUAL — o coracao da peca. Trocar a cada peca. ===== -->
+  <tr><td class="stack-pad" style="padding:0 40px 6px 40px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-radius:12px;overflow:hidden">
+      <tr>
+        <td style="padding:0">&nbsp;</td>
+        <td class="vshead-l" style="padding:11px 14px"><p class="vshead-tl" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase">__COL_ESQ__</p></td>
+        <td class="vshead-r" style="padding:11px 14px"><p class="vshead-tr" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase">__COL_DIR__</p></td>
+      </tr>
+      <tr>
+        <td class="vsrow" style="padding:13px 14px;border-top:1px solid #E3D8C0"><p class="vs-attr" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase">__ATRIB_1__</p></td>
+        <td class="vsrow" style="padding:13px 14px;border-top:1px solid #E3D8C0"><p class="vs-bad" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:13.5px;line-height:1.4">__RUIM_1__</p></td>
+        <td class="vsrow" style="padding:13px 14px;border-top:1px solid #E3D8C0"><p class="vs-good" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:13.5px;line-height:1.4;font-weight:700">__BOM_1__</p></td>
+      </tr>
+      <tr>
+        <td class="vsrow-alt" style="padding:13px 14px;border-top:1px solid #E3D8C0"><p class="vs-attr" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase">__ATRIB_2__</p></td>
+        <td class="vsrow-alt" style="padding:13px 14px;border-top:1px solid #E3D8C0"><p class="vs-bad" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:13.5px;line-height:1.4">__RUIM_2__</p></td>
+        <td class="vsrow-alt" style="padding:13px 14px;border-top:1px solid #E3D8C0"><p class="vs-good" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:13.5px;line-height:1.4;font-weight:700">__BOM_2__</p></td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td class="stack-pad" style="padding:22px 40px 4px 40px">
+    <p class="body-tx" style="margin:0 0 20px 0;font-family:'Inter',Arial,sans-serif;font-size:16.5px;line-height:1.62">__RAZAO_DO_CLIQUE__</p>
+  </td></tr>
+
+  <!-- ===== CTA 1 — utm_content OBRIGATORIAMENTE distinto por posicao ===== -->
+  <!-- CTA: centralizado e laranja #A54D25 — contrasta com as boxes verdes dos dispositivos (regra de 30/08/2026) -->
+  <tr><td class="stack-pad" align="center" style="padding:6px 40px 10px 40px">
+    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="__URL_CTA1__" style="height:52px;v-text-anchor:middle;width:280px" arcsize="19%" fillcolor="#A54D25" stroke="f"><w:anchorlock/><center style="color:#FFFBEC;font-family:Arial,sans-serif;font-size:15px;font-weight:800">__ROTULO_CTA1__</center></v:roundrect><![endif]-->
+    <!--[if !mso]><!-- --><a class="cta-a" href="__URL_CTA1__">__ROTULO_CTA1__</a><!--<![endif]-->
+  </td></tr>
+  <tr><td class="stack-pad" style="padding:0 40px 28px 40px">
+    <p class="muted-tx" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:11.5px;line-height:1.55">__SUBCTA1__</p>
+  </td></tr>
+
+  <tr><td class="stack-pad" style="padding:0 40px 34px 40px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tr><td class="divider" style="font-size:0;line-height:0;height:1px">&nbsp;</td></tr></table>
+    <p class="body-tx" style="margin:18px 0 0 0;font-family:'Archivo',Arial,sans-serif;font-size:14.5px;line-height:1.6;font-weight:700">__ASSINATURA__</p>
+    <p class="muted-tx" style="margin:4px 0 0 0;font-family:'Inter',Arial,sans-serif;font-size:12px;line-height:1.6">__SELO_CONFIANCA__</p>
+    <p class="soft-tx" style="margin:14px 0 0 0;font-family:'Inter',Arial,sans-serif;font-size:13px;line-height:1.6"><strong class="strongtx">P.S.:</strong> __PS__ <a href="__URL_PS__" style="color:#A54D25;text-decoration:underline;font-weight:600">__ROTULO_PS__</a></p>
+  </td></tr>
+
+  <tr><td class="barband" style="padding:30px 40px">
+    <p class="bar-tx" style="margin:0 0 18px 0;font-family:'Archivo',Arial,sans-serif;font-size:12px;line-height:1.5;font-weight:700;letter-spacing:0.4px">Feito para Homens.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:1px solid rgba(234,206,169,0.18)"><tr><td style="padding-top:16px">
+      <p class="foot-tx" style="margin:0 0 10px 0;font-family:'Inter',Arial,sans-serif;font-size:10px;line-height:1.8;text-align:center">Comunicação enviada por O Aristocrata Ltda (CNPJ: 61.084.898/0001-18). Você está recebendo este e-mail por fazer parte da nossa lista de contatos. Caso deseje cancelar, acesse <a href="{{ UnsubscribeURL }}" style="color:rgba(255,251,236,0.78);text-decoration:underline">CANCELAMENTO</a>.</p>
+      <p class="foot-tx" style="margin:0;font-family:'Inter',Arial,sans-serif;font-size:10px;line-height:1.8;text-align:center"><a href="__URL_PRIVACIDADE__" style="color:rgba(255,251,236,0.55);text-decoration:underline">Política de Privacidade</a> · <a href="__URL_TERMOS__" style="color:rgba(255,251,236,0.55);text-decoration:underline">Termos de Uso</a> · <a href="mailto:__EMAIL_CONTATO__" style="color:rgba(255,251,236,0.55);text-decoration:underline">__EMAIL_CONTATO__</a></p>
+    </td></tr></table>
+  </td></tr>
+
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr></table>
+<!-- Pixel de abertura: mora no WRAPPER (template do Listmonk). Se o template confirmado NAO tiver o marcador de TrackView,
+     devolva a linha aqui, antes do </body>. Confira sempre com: checklist.py peca.html --template wrapper-real.html -->
+</body></html>

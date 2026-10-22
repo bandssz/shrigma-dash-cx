@@ -1,0 +1,197 @@
+name: CRM presentation V2 custody and image
+'on':
+  pull_request:
+    branches: [codex/cowork-panel-source-20261006]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [codex/crm-presentation-v2-release-20261006]
+permissions:
+  contents: read
+concurrency:
+  group: crm-presentation-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && (github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'codex/crm-presentation-v2-release-20261006'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-crm-presentation-v2
+    outputs:
+      source_head: ${{ steps.custody.outputs.source_head }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Prepare exclusive CI scratch
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          ci_dir="$(mktemp -d "$RUNNER_TEMP/crm-presentation-v2.XXXXXX")"
+          printf 'CI_PRIVATE_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$ci_dir" "$ci_dir" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$ci_dir/docker"
+      - name: Verify fixed source custody before Docker
+        id: custody
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process');
+          const sha=b=>crypto.createHash('sha256').update(b).digest('hex'),blob=b=>crypto.createHash('sha1').update(Buffer.from('blob '+b.length+'\0')).update(b).digest('hex');
+          const BASE='90c8da5035fcf01ccbb6f75384259df703518abb',TREE='b5bc930e178a1590a741892561aa271aa51f6c09',REPO='bandssz/shrigma-dash-cx',BRANCH='codex/crm-presentation-v2-release-20261006',BASE_BRANCH='codex/cowork-panel-source-20261006',CUSTODY='tools/crm-presentation-v2/source-custody.json',WORKFLOW='.github/workflows/crm-presentation-v2-release-20261006.yml';
+          assert.equal(process.version,'v22.23.3');assert.equal(process.env.GITHUB_REPOSITORY,REPO);
+          const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));let head;
+          if(process.env.GITHUB_EVENT_NAME==='pull_request'){const pr=event.pull_request;assert.equal(pr.head.repo.full_name,REPO);assert.equal(pr.base.repo.full_name,REPO);assert.equal(pr.head.ref,BRANCH);assert.equal(pr.base.ref,BASE_BRANCH);head=pr.head.sha;assert.match(pr.base.sha,/^[0-9a-f]{40}$/);execFileSync('git',['merge-base','--is-ancestor',BASE,pr.base.sha]);}
+          else{assert.equal(process.env.GITHUB_EVENT_NAME,'push');assert.equal(process.env.GITHUB_REF,'refs/heads/'+BRANCH);assert.equal(event.repository.full_name,REPO);head=process.env.GITHUB_SHA;}
+          assert.match(head,/^[0-9a-f]{40}$/);const git=args=>execFileSync('git',args,{encoding:'utf8',maxBuffer:8*1024*1024});
+          assert.equal(git(['rev-parse','HEAD']).trim(),head);assert.equal(git(['rev-parse',BASE+'^{tree}']).trim(),TREE);execFileSync('git',['merge-base','--is-ancestor',BASE,head]);
+          const same=(a,b)=>['dev','ino','size','mode','nlink','mtimeMs','ctimeMs'].every(k=>a[k]===b[k]);
+          function safeRead(relative){assert.ok(relative&&!relative.startsWith('/')&&!relative.split('/').some(x=>x==='..'||x==='.'||!x));const full=path.resolve(process.env.GITHUB_WORKSPACE,relative);assert.equal(fs.realpathSync(full),full);const before=fs.lstatSync(full);assert.ok(before.isFile()&&!before.isSymbolicLink());assert.equal(before.nlink,1);const fd=fs.openSync(full,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);let b;try{assert.ok(same(before,fs.fstatSync(fd)));b=fs.readFileSync(fd);assert.equal(b.length,before.size);assert.ok(same(before,fs.fstatSync(fd)));}finally{fs.closeSync(fd);}assert.ok(same(before,fs.lstatSync(full)));return b;}
+          const bytes=safeRead(CUSTODY);assert.equal(sha(bytes),'15ad078390925d9e2ab544eed097ba0648bf0c908df4624fa61ad0256cdd9c45');const c=JSON.parse(bytes.toString('utf8'));assert.equal(c.operational,false);assert.equal(c.authority.writesEnabled,false);assert.equal(c.base.revision,BASE);assert.equal(c.base.tree,TREE);assert.equal(c.payloadPins.length,12);assert.equal(c.builderInputPins.length,8);
+          function tree(rev){return git(['ls-tree','-r','-l','-z',rev]).split('\0').filter(Boolean).map(line=>{const m=/^(\d{6}) blob ([0-9a-f]{40}) +([0-9]+)\t(.+)$/.exec(line);assert.ok(m);return{path:m[4],mode:m[1],sha:m[2],size:Number(m[3])};}).sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);}
+          const baseline=tree(BASE),current=tree(head),headByPath=new Map(current.map(x=>[x.path,x]));assert.equal(baseline.length,1933);assert.equal(current.length,1943);assert.equal(sha(Buffer.from(JSON.stringify(baseline.map(x=>[x.path,x.mode,x.sha,x.size])))),c.base.canonicalBlobRowsSha256);
+          const delta=git(['diff','--name-status','--no-renames',BASE,head]).trim().split('\n').map(line=>{const v=line.split('\t');assert.equal(v.length,2);return{path:v[1],status:v[0]};}).sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);assert.deepEqual(delta,c.delta.paths);assert.equal(delta.length,14);assert.equal(delta.filter(x=>x.status==='M').length,4);assert.equal(delta.filter(x=>x.status==='A').length,10);
+          const modified=new Set(delta.filter(x=>x.status==='M').map(x=>x.path));let preserved=0;for(const old of baseline)if(!modified.has(old.path)){assert.deepEqual(headByPath.get(old.path),old);preserved++;}assert.equal(preserved,1929);
+          for(const p of [...c.payloadPins,...c.builderInputPins]){const b=safeRead(p.repoPath),v=headByPath.get(p.repoPath);assert.equal(b.length,p.bytes);assert.equal(sha(b),p.sha256);assert.equal(blob(b),p.gitBlobSha1);assert.equal(v?.sha,p.gitBlobSha1);assert.equal(v.mode,'100644');assert.equal(v.size,p.bytes);}
+          for(const name of [CUSTODY,WORKFLOW]){const b=safeRead(name),v=headByPath.get(name);assert.equal(blob(b),v?.sha);assert.equal(v.mode,'100644');assert.equal(v.size,b.length);}
+          assert.equal(git(['status','--porcelain','--untracked-files=all']),'');assert.equal(c.presentation.manifestSha256,'191128958b9c7b299c8cc4d0fdc1c3f0fd6626ae2a42a0132b9556a9065baa11');
+          fs.appendFileSync(process.env.GITHUB_ENV,'SOURCE_HEAD='+head+'\n');fs.appendFileSync(process.env.GITHUB_OUTPUT,'source_head='+head+'\n');console.log(JSON.stringify({schema:'crm-presentation-v2-source-verified-v1',sourceHead:head,baseRevision:BASE,baseBlobs:1933,baseBlobsPreserved:preserved,modified:4,added:10,verifiedPayloadPins:12,verifiedBuildInputPins:8,operational:false}));
+          NODE
+      - name: Read pinned parent image
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build six replacements over pinned V1 parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$SOURCE_HEAD" --tag "$IMAGE:source-$SOURCE_HEAD" --file ops/releases/crm-presentation-v2-20261006/Dockerfile .
+      - name: Real UID1000 default startup, HTTP, health and refusal
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_file="$GITHUB_WORKSPACE/ops/releases/crm-presentation-v2-20261006/default-smoke.cjs"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$smoke_file,dst=/tmp/default-smoke.cjs,readonly" --env PRESENTATION_RELEASE_SMOKE=synthetic-new-volume-v2 --entrypoint node "$IMAGE:source-$SOURCE_HEAD" /tmp/default-smoke.cjs > "$CI_PRIVATE_DIR/smoke.json"
+          node - "$CI_PRIVATE_DIR/smoke.json" <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').split(/\r?\n/).filter(line=>line.trim().length>0).at(-1));a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.gid,1000);a.equal(r.originalArtifactFiles,58);a.equal(r.originalPublicFiles,30);a.equal(r.publicFilesChanged,13);a.equal(r.otherPublicFilesUnchanged,17);a.equal(r.runtimeFilesUnchanged,28);a.equal(r.immutableImageFiles,6);a.equal(r.manifestSha256,'191128958b9c7b299c8cc4d0fdc1c3f0fd6626ae2a42a0132b9556a9065baa11');for(const k of ['defaultStartWithPresentation','defaultVerifyReady','readyFdInodeModeVerified','thirteenPublicHttpCspVerified','sameArtifactReplayRefused','freshArtifactRestartAccepted','identityAndSessionsPreserved'])a.equal(r[k],true);a.deepEqual(r.originalAuthDrains,[1,1]);a.equal(r.readyHealthRefusals,1);a.equal(r.externalNetworkAttempts,0);a.equal(r.operational,false);console.log(JSON.stringify(r));
+          NODE
+          # CI-only physical tamper image. It is never published and inherits UID1000.
+          cat > "$CI_PRIVATE_DIR/Tamper.Dockerfile" <<EOF
+          FROM $IMAGE:source-$SOURCE_HEAD
+          USER 0:0
+          RUN node -e 'const fs=require("node:fs"),p="/app/presentation-release/manifest.json",r=JSON.parse(fs.readFileSync(p,"utf8"));r.files[0].afterBytes+=1;fs.writeFileSync(p,JSON.stringify(r)+"\\n");'
+          USER 1000:1000
+          EOF
+          docker build --network none --tag "$IMAGE:tampered-$SOURCE_HEAD" --file "$CI_PRIVATE_DIR/Tamper.Dockerfile" "$CI_PRIVATE_DIR"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$smoke_file,dst=/tmp/default-smoke.cjs,readonly" --env PRESENTATION_RELEASE_SMOKE=synthetic-tampered-manifest-v2 --entrypoint node "$IMAGE:tampered-$SOURCE_HEAD" /tmp/default-smoke.cjs > "$CI_PRIVATE_DIR/tamper.json"
+          node - "$CI_PRIVATE_DIR/tamper.json" <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').split(/\r?\n/).filter(line=>line.trim().length>0).at(-1));a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.gid,1000);a.equal(r.scope,'synthetic-tampered-manifest');a.equal(r.manifestTamperRefused,true);a.deepEqual(r.originalAuthDrains,[1]);a.equal(r.failedStartupHttpRequests,0);a.equal(r.failedStartupSocket,'ECONNREFUSED');a.equal(r.externalNetworkAttempts,0);a.equal(r.operational,false);console.log(JSON.stringify(r));
+          NODE
+      - name: Remove ephemeral registry token
+        if: always()
+        shell: bash
+        run: |
+          rm -rf -- "$DOCKER_CONFIG"
+  publish:
+    needs: checks
+    if: github.event_name == 'push' && github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/crm-presentation-v2-release-20261006'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/bandssz/shrigma-dash-crm-presentation-v2
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.checks.outputs.source_head }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Prepare exclusive CI scratch
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          ci_dir="$(mktemp -d "$RUNNER_TEMP/crm-presentation-v2.XXXXXX")"
+          printf 'CI_PRIVATE_DIR=%s\nDOCKER_CONFIG=%s/docker\n' "$ci_dir" "$ci_dir" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$ci_dir/docker"
+      - name: Recheck identical source custody
+        id: custody
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process');
+          const sha=b=>crypto.createHash('sha256').update(b).digest('hex'),blob=b=>crypto.createHash('sha1').update(Buffer.from('blob '+b.length+'\0')).update(b).digest('hex');
+          const BASE='90c8da5035fcf01ccbb6f75384259df703518abb',TREE='b5bc930e178a1590a741892561aa271aa51f6c09',REPO='bandssz/shrigma-dash-cx',BRANCH='codex/crm-presentation-v2-release-20261006',BASE_BRANCH='codex/cowork-panel-source-20261006',CUSTODY='tools/crm-presentation-v2/source-custody.json',WORKFLOW='.github/workflows/crm-presentation-v2-release-20261006.yml';
+          assert.equal(process.version,'v22.23.3');assert.equal(process.env.GITHUB_REPOSITORY,REPO);
+          const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));let head;
+          if(process.env.GITHUB_EVENT_NAME==='pull_request'){const pr=event.pull_request;assert.equal(pr.head.repo.full_name,REPO);assert.equal(pr.base.repo.full_name,REPO);assert.equal(pr.head.ref,BRANCH);assert.equal(pr.base.ref,BASE_BRANCH);head=pr.head.sha;assert.match(pr.base.sha,/^[0-9a-f]{40}$/);execFileSync('git',['merge-base','--is-ancestor',BASE,pr.base.sha]);}
+          else{assert.equal(process.env.GITHUB_EVENT_NAME,'push');assert.equal(process.env.GITHUB_REF,'refs/heads/'+BRANCH);assert.equal(event.repository.full_name,REPO);head=process.env.GITHUB_SHA;}
+          assert.match(head,/^[0-9a-f]{40}$/);const git=args=>execFileSync('git',args,{encoding:'utf8',maxBuffer:8*1024*1024});
+          assert.equal(git(['rev-parse','HEAD']).trim(),head);assert.equal(git(['rev-parse',BASE+'^{tree}']).trim(),TREE);execFileSync('git',['merge-base','--is-ancestor',BASE,head]);
+          const same=(a,b)=>['dev','ino','size','mode','nlink','mtimeMs','ctimeMs'].every(k=>a[k]===b[k]);
+          function safeRead(relative){assert.ok(relative&&!relative.startsWith('/')&&!relative.split('/').some(x=>x==='..'||x==='.'||!x));const full=path.resolve(process.env.GITHUB_WORKSPACE,relative);assert.equal(fs.realpathSync(full),full);const before=fs.lstatSync(full);assert.ok(before.isFile()&&!before.isSymbolicLink());assert.equal(before.nlink,1);const fd=fs.openSync(full,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);let b;try{assert.ok(same(before,fs.fstatSync(fd)));b=fs.readFileSync(fd);assert.equal(b.length,before.size);assert.ok(same(before,fs.fstatSync(fd)));}finally{fs.closeSync(fd);}assert.ok(same(before,fs.lstatSync(full)));return b;}
+          const bytes=safeRead(CUSTODY);assert.equal(sha(bytes),'15ad078390925d9e2ab544eed097ba0648bf0c908df4624fa61ad0256cdd9c45');const c=JSON.parse(bytes.toString('utf8'));assert.equal(c.operational,false);assert.equal(c.authority.writesEnabled,false);assert.equal(c.base.revision,BASE);assert.equal(c.base.tree,TREE);assert.equal(c.payloadPins.length,12);assert.equal(c.builderInputPins.length,8);
+          function tree(rev){return git(['ls-tree','-r','-l','-z',rev]).split('\0').filter(Boolean).map(line=>{const m=/^(\d{6}) blob ([0-9a-f]{40}) +([0-9]+)\t(.+)$/.exec(line);assert.ok(m);return{path:m[4],mode:m[1],sha:m[2],size:Number(m[3])};}).sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);}
+          const baseline=tree(BASE),current=tree(head),headByPath=new Map(current.map(x=>[x.path,x]));assert.equal(baseline.length,1933);assert.equal(current.length,1943);assert.equal(sha(Buffer.from(JSON.stringify(baseline.map(x=>[x.path,x.mode,x.sha,x.size])))),c.base.canonicalBlobRowsSha256);
+          const delta=git(['diff','--name-status','--no-renames',BASE,head]).trim().split('\n').map(line=>{const v=line.split('\t');assert.equal(v.length,2);return{path:v[1],status:v[0]};}).sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);assert.deepEqual(delta,c.delta.paths);assert.equal(delta.length,14);assert.equal(delta.filter(x=>x.status==='M').length,4);assert.equal(delta.filter(x=>x.status==='A').length,10);
+          const modified=new Set(delta.filter(x=>x.status==='M').map(x=>x.path));let preserved=0;for(const old of baseline)if(!modified.has(old.path)){assert.deepEqual(headByPath.get(old.path),old);preserved++;}assert.equal(preserved,1929);
+          for(const p of [...c.payloadPins,...c.builderInputPins]){const b=safeRead(p.repoPath),v=headByPath.get(p.repoPath);assert.equal(b.length,p.bytes);assert.equal(sha(b),p.sha256);assert.equal(blob(b),p.gitBlobSha1);assert.equal(v?.sha,p.gitBlobSha1);assert.equal(v.mode,'100644');assert.equal(v.size,p.bytes);}
+          for(const name of [CUSTODY,WORKFLOW]){const b=safeRead(name),v=headByPath.get(name);assert.equal(blob(b),v?.sha);assert.equal(v.mode,'100644');assert.equal(v.size,b.length);}
+          assert.equal(git(['status','--porcelain','--untracked-files=all']),'');assert.equal(c.presentation.manifestSha256,'191128958b9c7b299c8cc4d0fdc1c3f0fd6626ae2a42a0132b9556a9065baa11');
+          fs.appendFileSync(process.env.GITHUB_ENV,'SOURCE_HEAD='+head+'\n');fs.appendFileSync(process.env.GITHUB_OUTPUT,'source_head='+head+'\n');console.log(JSON.stringify({schema:'crm-presentation-v2-source-verified-v1',sourceHead:head,baseRevision:BASE,baseBlobs:1933,baseBlobsPreserved:preserved,modified:4,added:10,verifiedPayloadPins:12,verifiedBuildInputPins:8,operational:false}));
+          NODE
+      - name: Authenticate package publish after successful checks
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Rebuild exact checked presentation source
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$SOURCE_HEAD" --tag "$IMAGE:source-$SOURCE_HEAD" --file ops/releases/crm-presentation-v2-20261006/Dockerfile .
+      - name: Test exact rebuilt image before registry push
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_file="$GITHUB_WORKSPACE/ops/releases/crm-presentation-v2-20261006/default-smoke.cjs"
+          image_id="$(docker image inspect --format '{{.Id}}' "$IMAGE:source-$SOURCE_HEAD")"
+          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf '%s\n' "$image_id" > "$CI_PRIVATE_DIR/publish-tested-image-id"
+          docker run --rm --network none --read-only --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$smoke_file,dst=/tmp/default-smoke.cjs,readonly" --env PRESENTATION_RELEASE_SMOKE=synthetic-new-volume-v2 --entrypoint node "$image_id" /tmp/default-smoke.cjs > "$CI_PRIVATE_DIR/publish-smoke.json"
+          node - "$CI_PRIVATE_DIR/publish-smoke.json" "$CI_PRIVATE_DIR/publish-tested-image-id" <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),r=JSON.parse(fs.readFileSync(process.argv[2],'utf8').split(/\r?\n/).filter(line=>line.trim().length>0).at(-1)),testedImageId=fs.readFileSync(process.argv[3],'utf8').trim();a.match(testedImageId,/^sha256:[0-9a-f]{64}$/);a.equal(r.ok,true);a.equal(r.node,'v22.23.3');a.equal(r.uid,1000);a.equal(r.gid,1000);a.equal(r.originalArtifactFiles,58);a.equal(r.originalPublicFiles,30);a.equal(r.publicFilesChanged,13);a.equal(r.otherPublicFilesUnchanged,17);a.equal(r.runtimeFilesUnchanged,28);a.equal(r.immutableImageFiles,6);a.equal(r.manifestSha256,'191128958b9c7b299c8cc4d0fdc1c3f0fd6626ae2a42a0132b9556a9065baa11');for(const k of ['defaultStartWithPresentation','defaultVerifyReady','readyFdInodeModeVerified','thirteenPublicHttpCspVerified','sameArtifactReplayRefused','freshArtifactRestartAccepted','identityAndSessionsPreserved'])a.equal(r[k],true);a.deepEqual(r.originalAuthDrains,[1,1]);a.equal(r.readyHealthRefusals,1);a.equal(r.externalNetworkAttempts,0);a.equal(r.operational,false);console.log(JSON.stringify({...r,testedConfigImageId:testedImageId,scope:'exact-publish-image'}));
+          NODE
+      - name: Publish immutable source tag and distinguish OCI digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(docker image inspect --format '{{.Id}}' "$IMAGE:source-$SOURCE_HEAD")" = "$(cat "$CI_PRIVATE_DIR/publish-tested-image-id")"
+          docker push "$IMAGE:source-$SOURCE_HEAD"
+          node <<'NODE'
+          const fs=require('node:fs'),a=require('node:assert/strict'),{execFileSync}=require('node:child_process');const name=process.env.IMAGE+':source-'+process.env.SOURCE_HEAD,r=JSON.parse(execFileSync('docker',['image','inspect',name],{encoding:'utf8'}));a.equal(r.length,1);a.match(r[0].Id,/^sha256:[0-9a-f]{64}$/);a.equal(r[0].Id,fs.readFileSync(process.env.CI_PRIVATE_DIR+'/publish-tested-image-id','utf8').trim());const digests=r[0].RepoDigests.filter(d=>d.startsWith(process.env.IMAGE+'@sha256:'));a.equal(digests.length,1);a.match(digests[0],/@sha256:[0-9a-f]{64}$/);const receipt={schema:'crm-presentation-v2-published-image-v1',sourceHead:process.env.SOURCE_HEAD,ociRepoDigest:digests[0],configImageId:r[0].Id,testedConfigImageId:r[0].Id,publishedImageSmokeVerified:true,parentImage:'ghcr.io/bandssz/shrigma-dash-crm-presentation@sha256:88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861',manifestSha256:'191128958b9c7b299c8cc4d0fdc1c3f0fd6626ae2a42a0132b9556a9065baa11',publicFilesChanged:13,runtimeFilesUnchanged:28,operational:false};console.log(JSON.stringify(receipt));fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'Published OCI digest: `'+receipt.ociRepoDigest+'`\n\nConfig ImageID: `'+receipt.configImageId+'`\n\nSource-only image; production admission remains with Root.\n');
+          NODE
+      - name: Remove ephemeral registry token
+        if: always()
+        shell: bash
+        run: rm -rf -- "$DOCKER_CONFIG"

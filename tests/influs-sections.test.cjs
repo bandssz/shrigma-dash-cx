@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {parseHTML}=require('linkedom'),Access=require('../influs-access.js');
 const html=fs.readFileSync(require.resolve('../influs.html'),'utf8');
 function page(){
- const {document}=parseHTML(html);
+ const {document,window}=parseHTML(html);
  for(const link of document.querySelectorAll('link[rel=stylesheet]')){
   const style=document.createElement('style');
   style.textContent=fs.readFileSync(require('node:path').join(__dirname,'..',link.getAttribute('href').split('?')[0]),'utf8');
@@ -13,7 +13,7 @@ function page(){
  // Evaluate real style selectors against the DOM; linkedom has CSSOM but no layout engine.
  const rules=[...document.querySelectorAll('style')].flatMap(s=>Array.from(s.sheet.cssRules)).filter(r=>r.selectorText&&!r.selectorText.includes('::')&&r.style?.getPropertyValue('display'));
  const display=el=>rules.filter(r=>el.matches(r.selectorText)).reduce((_value,r)=>r.style.getPropertyValue('display'),'initial');
- const context=vm.createContext({window:{},document,SEC:'creators',carregarAbaAtiva:()=>{},$:s=>document.querySelector(s)});
+ const context=vm.createContext({window,document,SEC:'creators',carregarAbaAtiva:()=>{},$:s=>document.querySelector(s)});
  const start=html.indexOf("document.querySelectorAll('#secoes button').forEach(b=>b.onclick="),end=html.indexOf('\npintaMarca();',start);
  assert(start>=0&&end>start);vm.runInContext(html.slice(start,end),context);
  return {document,display,$:s=>document.querySelector(s)};

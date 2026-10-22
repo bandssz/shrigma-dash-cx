@@ -1,0 +1,181 @@
+name: Cowork panels source Node22
+
+# Root source-only checks on this PR branch; a green CRM baseline and closed40-file carrier.
+# Separate source checks; no image, deployment, database, gateway or operational admission.
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+concurrency:
+  group: cowork-panel-source-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  panel-source-node22:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && (github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == 'bandssz/shrigma-dash-cx' && github.head_ref == 'codex/cowork-panel-source-20261006'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SOURCE_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+      SOURCE_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+      SOURCE_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name || github.repository }}
+      SOURCE_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Conferir delta fechado e imutabilidade da fonte fora da apresentacao
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          cat > "$RUNNER_TEMP/cowork-panel-source-gate.cjs" <<'NODE_GATE'
+          'use strict';
+          // Public source-only gate. No runtime/gateway/provider/SQL imports.
+          const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+          const {execFileSync}=require('node:child_process');
+          const BASE='bc5efd57f40ba798a981c67a5937be084e441eaf';
+          const REPO='bandssz/shrigma-dash-cx',BRANCH='codex/cowork-panel-source-20261006';
+          const WORKFLOW='.github/workflows/cowork-panel-source.yml',CARRIER='tools/cowork-panel-source/delta.json';
+          const EXPECTED={"assets/panels/influs.css":"M","assets/panels/influs.js":"M","assets/panels/organico.css":"M","assets/panels/organico.js":"M","influs-affiliates-mount.js":"A","influs.html":"M","organico.html":"M","services/dashboard-preview/bootstrap.cjs":"M","services/dashboard-preview/pack-runtime.cjs":"M","tests/affiliates-v2/affiliates-v2.test.cjs":"A","tests/affiliates-v2/mini-dom.cjs":"A","tests/dashboard-preview-brotli-integrity.test.cjs":"A","tests/dashboard-preview.test.cjs":"M","tests/influs-active-read.test.cjs":"M","tests/influs-affiliates-mount-lifecycle.test.cjs":"A","tests/influs-affiliates-mount.test.cjs":"A","tests/influs-sections.test.cjs":"M","tests/influs-window-lifecycle.test.cjs":"A","tests/mvp-root-integration/cowork-binding-and-journal.test.cjs":"A","tests/organic-v2/browser.smoke.test.cjs":"A","tests/organic-v2/data-states.test.cjs":"A","tests/organic-v2/draft-intent-root.test.cjs":"A","tests/organic-v2/fake-dom.cjs":"A","tests/organic-v2/harness.cjs":"A","tests/organic-v2/lifecycle.test.cjs":"A","tests/organic-v2/links-recovery.test.cjs":"A","tests/organic-v2/links.test.cjs":"A","tests/organic-v2/pending-journal-root.test.cjs":"A","tests/organic-v2/static-guard.test.cjs":"A","tests/organic-v2/synthetic-gateway.cjs":"A","tests/root-mounts/dom-fixture.cjs":"A","tests/root-mounts/organic-v2-mount.test.cjs":"A","tools/panel-build/manifest.json":"M","ui/affiliates-v2/affiliates-v2.css":"A","ui/affiliates-v2/affiliates-v2.js":"A","ui/organic-v2/INTEGRACAO.md":"A","ui/organic-v2/organic-v2.css":"A","ui/organic-v2/organic-v2.js":"A","ui/root-mounts/organic-v2-mount.css":"A","ui/root-mounts/organic-v2-mount.js":"A"};
+          const ANCHORS={"assets/panels/influs.css":[98381,"86f46577e9c72d36b23f599de45b049ebda134bbf339607d81f39d58e69a2406","0d1a651a7933a3f949636a938eda36c266bd7594"],"assets/panels/influs.js":[278596,"e662c04812a1505e4178eaa589a9f83b57e688faebffd9877497eda643f98bae","42ff57d5ed40d509b0eebe5e96e3d25c2a4a4f94"],"influs-affiliates-mount.js":[5071,"9a6f41f09f45a7730ae3715ccfa7860a8d126540003a7183edcfef172cb9235a","f7433c0fc71d8c4958a1ac4ae710e6750fad3acd"],"influs.html":[97384,"9884e1b18bfc06f3137027965d50f2c099432808cf2b86fecb4a623cd15bce16","8f1ed72e21fc124590e25cad1773d5bac0b447d0"],"services/dashboard-preview/bootstrap.cjs":[4747,"a12522f0b5419a3089c487f9ad3146f1570ca3b01bc07c4abd3bd5789a37075c","60ea83d5c1283c05d196db49a53786ce05664f28"],"services/dashboard-preview/pack-runtime.cjs":[3201,"f07baf2ff0fa21fa08ce56acacf08c4147d0a5d85e0d240e7b3ecfb54769844f","c882b4ef4c85cda7d0ab837ac3984f42eff6d44a"],"tests/affiliates-v2/affiliates-v2.test.cjs":[38116,"ddb46ffce512632c0d37b61d2305ce297089d72a553c6cb942505c7146fcef5b","9b364a33692cd4e2c482999d169ccba5e9424ef3"],"tests/affiliates-v2/mini-dom.cjs":[7725,"d7ff99dba627013337a6c4a1f458da3242eeecb3c86d585e2e0f4e5a6083f75c","78c8aae1abb501d8e4d794c78b992b25df124d97"],"tests/dashboard-preview-brotli-integrity.test.cjs":[2347,"8d20881fff566b0060fb97283e45fde57cf8a711fbfeaf014cb2de9dacde48a8","31e93bbe5de9656f2722329564c419f72dba27db"],"tests/dashboard-preview.test.cjs":[15768,"8366a047f0972058a26723f2e37881a26d9b8befa507ee89963766bb700fbb23","1036ed0ba7e6def5227effc76890d129b985e7bc"],"tests/influs-active-read.test.cjs":[4182,"386b0ecffa699e774df880a4bde78d98a65d09da0c191adcf7b75a4949938de5","96a9ea190fcf5b9fbc608d6f03def196f80621aa"],"tests/influs-affiliates-mount-lifecycle.test.cjs":[3227,"cc681a9576e7718ec8adc1ffbf4662e2a071f4227d04a26bdd564ec54034b440","cf7516c24d71ad3474ee3dae8ba9c12ac85a67f7"],"tests/influs-affiliates-mount.test.cjs":[7986,"8da0d6eda2e45bf22b0b1b601d9ac3512958830ff103e9f2f88b93b337327998","eebd68a0f8eb6e9fb02b989268496729eea57627"],"tests/influs-sections.test.cjs":[5616,"520a6c825dec53c02af766203b36b968e800511c40e794fe083f03c8afabee63","3fc2001452077b305ce78c48aa00c55c43962def"],"tests/influs-window-lifecycle.test.cjs":[1495,"ac057434ee4bd716075979d29d707f1652f35a18756dda879025622038a3ece4","67f27920d474f25b668a05e58412b587edeedb7a"],"tests/mvp-root-integration/cowork-binding-and-journal.test.cjs":[11945,"02e6f47e33d5a89eba591c12c2b72e75063acae19b7f7d12f9e1bdb87b693625","6a6f778a5d2876e76b722d8afa09ebd75dd033d2"],"tests/organic-v2/browser.smoke.test.cjs":[7170,"ab705fa80b068f867c7d8bdad0d798a409d46535312bccdec9fa650fd6ca4357","8a0810609957052cd3b617b07b40c5f550700ff4"],"tests/organic-v2/data-states.test.cjs":[8531,"d9cab1ad3c227d282e4d76b7de525b7d3588a968bed226bf475b784925291d81","7476f0e36f698fe56263dc97d1b1f266eda605bc"],"tests/organic-v2/draft-intent-root.test.cjs":[3232,"5926e9509535da0f8c855619f083cbb44289a84003d1bd66e70ce28fdaec145d","6a1e3c3ee7546bd050eb392daff4f05ecdb6cc23"],"tests/organic-v2/fake-dom.cjs":[5771,"b77c1be20e6141e2c8cd4cade2629b092cfa8ef61ba7651c8073b3e407447007","73efc28be112b0b7d4c429e2a98ca1eeebbaba06"],"tests/organic-v2/harness.cjs":[1974,"23c9739d64680e4b50431dc86bc67d19168c0bc9fbdf2e170f15208002674775","3cf9153962f002e409faaf3a0523ec2d7151ee07"],"tests/organic-v2/lifecycle.test.cjs":[8599,"e931e3d0ea269671a8a99880f2af43f58bcbf3774df9d610e5c43a78c1d2b9f7","3f0c62a180696698c578d0f8a3e59290706a7c82"],"tests/organic-v2/links-recovery.test.cjs":[7694,"0854c1eabca54a0b4fe691c2d3cdaef91a9895abc0cb64bbf78c47c6e9d43e80","a03aa821a5c729baa848a4533c2f74cd347620a5"],"tests/organic-v2/links.test.cjs":[10666,"abcedf888c742463019eb7eb5d8526b3e8cf6e6d6834fc11bbe73ff9f602c2ac","f6b7178df03a875f204bf79afc5dc2202389ecca"],"tests/organic-v2/pending-journal-root.test.cjs":[3511,"8d30445f630db3b6f3c60d9e53a9760b4f780523243fc3aeb742fdfbb2f203f9","2837b5d31268ec7b6bfd19d620567db4abbce336"],"tests/organic-v2/static-guard.test.cjs":[2192,"059df3ea84b15462ef8a04dcafc6f72e0b1d5e85efe40774d0ca6c4d287dad3c","fc60342b09dadde9f93d8676ef0b60a1f89dfc93"],"tests/organic-v2/synthetic-gateway.cjs":[10667,"5c97a3d216c51d963034b38827d1b5a3f3cf9cea4539dbf487dc5e48ffbd67a5","db13aae7d6b9cde342be24c4202512b39d8b6101"],"tests/root-mounts/dom-fixture.cjs":[5771,"b77c1be20e6141e2c8cd4cade2629b092cfa8ef61ba7651c8073b3e407447007","73efc28be112b0b7d4c429e2a98ca1eeebbaba06"],"tests/root-mounts/organic-v2-mount.test.cjs":[7054,"4ebe4514c654faa0ab785207cb43e9b198782b13ff3626f5ab120d9e2140f150","2d12f6c097f1eeb61c8c3303d90e6bf6621cf94c"],"tools/panel-build/manifest.json":[4517,"f3d64b6a26c8c02e5fa2649ee55160de659e38dcd1929769360c255f567c8918","589377d19345a46a3e2ee93918c2a6bd24afcd1e"],"ui/affiliates-v2/affiliates-v2.css":[8175,"e141c2f12408e4422dadffd5ce2e2077d0fbd35d7791930721cb5a01cf015c2e","d0a2a51dcbc8f81ecf9d18d98025aff3b89d9f13"],"ui/affiliates-v2/affiliates-v2.js":[71622,"7d486c070c9c78484595fd4355a5a78a9ec9569e1100a30ca499aca6f8485bcd","55e929fc63e1a2ef5dca8b45d98c2ea86f78b438"],"ui/organic-v2/INTEGRACAO.md":[3691,"868c1a9960e23f9fb13c2f2a29742bed414920b9ed5cf68ae54a45cf7e0b8128","f874e345fcea20810439ef077e3f78c49d364d01"],"ui/organic-v2/organic-v2.css":[6293,"47c920e7986f79bb33719a88392b98b31c4db23df218c8b38a52828b39d8a2d0","0e6675def4cf9cf5891eb3929824918ffeac720d"],"ui/organic-v2/organic-v2.js":[63175,"bb4e8624aa2695ee4ad25cc936bdf83dbd8f529844360a9726167e1b712640c4","339e75b47e9099b46dda591f7545c290798a3035"],"ui/root-mounts/organic-v2-mount.css":[402,"3791e5e6ad56657b5300ae355ed9fd35430554189d10051a8239c5c11eccb390","7b659bdd3e1325b2de6e0933a49ac6b9cb323dc4"],"ui/root-mounts/organic-v2-mount.js":[6295,"fdd0f71361e0e92133e00e8df4c652ca366bad4c5b92857c8a39b297dcc0903d","fa97eee4e6efe13f31d4d7f7072f376057eab2fe"]};
+          const BEFORE={"assets/panels/influs.css":[90634,"954e7aeae13fbf1e789e5e1917802eb9ca67e105f45faf864865e0983f8b501b","dfe381d7fb6662ca6dd3517f0285ca9c8597c6e9"],"assets/panels/influs.js":[219847,"cbd8f53fe5910153118e4fd785ec9ca98e5e02a275c48c08e689d3c3f79cbc8a","bf3ff9f6bdb02414f7c019ca27915073e09b822a"],"assets/panels/organico.css":[65053,"556ad546e042e364546c50e40e81d17660358afc3698ff793e84c29a4d9653db","56408ed2b9e9c40077da84ccb97f2d436abe803e"],"assets/panels/organico.js":[56079,"7d9bdcd5fdeac3db036d28d84c8f5992ccceb9f9d6ad06836dc5f9a65e164fcb","60eabbcc6de3cd90cd14e2b429e4399d983a83e4"],"influs.html":[96288,"c2475121aff58db8d7e6fa91286235cdb9f6beb9c4d2ac4c94aea0ab0203c73d","bcac9f41662696bb01241a746eea0aee1e7ac131"],"organico.html":[50486,"1600c0983eaa1732f2e68075a30d51f4651c144719f2e44d73c78df8353b5483","d72a9de66d6bb6a79b09b224352ea53192ef75fd"],"services/dashboard-preview/bootstrap.cjs":[4314,"9bf85b2277dc37eea666b755d875e4a1a315bbee076631d3e637847c650375b6","5177383982a5476bd95ddbfe79cc311d8e52c845"],"services/dashboard-preview/pack-runtime.cjs":[2669,"bf31bb21bfb452aff66b403dfe8628b26c06533cff498a16dfea3c22a1e987b3","351935edeb760e604875dd0d52e37654264a4d8a"],"tests/dashboard-preview.test.cjs":[11868,"198266bc74f94c157f9c94c6d055c8a4d764ad712621729f70ac4211d197191c","6dff8526bcab9157630e4872e7a7a5b964105c29"],"tests/influs-active-read.test.cjs":[4178,"fe803ba3c313b2f4aa2392f890302ceafbb8c18ebd0292475b8a57259e8db210","c1329e7b3a9922a180fc566ba39ae7022eb49ed0"],"tests/influs-sections.test.cjs":[5612,"0a70d71227071c1cc40a1906e1a76b535b848887edcfd6ca6211ae4f9adec693","9b3cf13f67d8fc43e42743208278087a5e14b05c"],"tools/panel-build/manifest.json":[4230,"807892fcc1f3771eebda9dc6760e687db9f17195fa72c68dbabad02fc34e33d5","9043c66ba64005fb84afe908b5d69dc5ecc640a7"]};
+          const TOOL_PINS={"tools/panel-build/build.cjs":[7232,"5751785176fcf65eef1d40b946be745d4a761accfec23e26caba4e87b353d35b","70525189414bfe834e75d447df7192d6a2b58d81"],"tools/campaign-runtime-build/package.json":[279,"badcbf21802a4cd55cbf0424f3a0cffba12072067880dd0dcd15d3408d37c9ba","901fdc842cdec52a6458c73a6d966edb910e21b1"],"tools/campaign-runtime-build/package-lock.json":[14972,"a78fe9ab66d2783029f69c95d0eb58089cf832bcb2d624d9d5ba796105842694","2081b645200b41767ab322cee50ed39749b052c0"],".gitignore":[46,"57dfd7a9402d696af12a3e821ee4ba26189875ec75154d4722f9d1936287545d","ee3a212e544e537e5548cf50aaa473646f33db96"]};
+          const GENERATED=['assets/panels/organico.css','assets/panels/organico.js','organico.html'];
+          const requireValue=(ok,code)=>{if(!ok)throw Error(code);};
+          const hash=(kind,data)=>crypto.createHash(kind).update(data).digest('hex');
+          const blob=data=>hash('sha1',Buffer.concat([Buffer.from(`blob ${data.length}\0`),data]));
+          const git=(...a)=>execFileSync('git',a,{stdio:['ignore','pipe','ignore']});
+          const gitText=(...a)=>git(...a).toString('utf8').trim();
+          const stable=(a,b)=>['dev','ino','size','mtimeNs','ctimeNs'].every(k=>a[k]===b[k]);
+          function read(name,max=1048576){
+            requireValue(typeof name==='string'&&!path.isAbsolute(name)&&!name.split('/').some(s=>!s||s==='.'||s==='..'),'SOURCE_PATH_REFUSED');
+            let current=process.cwd();
+            for(const part of name.split('/')){current=path.join(current,part);requireValue(!fs.lstatSync(current).isSymbolicLink(),'SOURCE_LINK_REFUSED');}
+            const before=fs.lstatSync(current,{bigint:true});
+            requireValue(before.isFile()&&before.nlink===1n&&before.size>0n&&before.size<=BigInt(max),'SOURCE_FILE_REFUSED');
+            const fd=fs.openSync(current,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
+            try{const opened=fs.fstatSync(fd,{bigint:true});requireValue(stable(before,opened),'SOURCE_CHANGED');const data=fs.readFileSync(fd);requireValue(stable(opened,fs.fstatSync(fd,{bigint:true}))&&stable(opened,fs.lstatSync(current,{bigint:true})),'SOURCE_CHANGED');return data;}
+            finally{fs.closeSync(fd);}
+          }
+          function pin(data,p){
+            requireValue(Array.isArray(p)&&p.length===3&&Number.isSafeInteger(p[0])&&p[0]>0&&p[0]<=1048576&&/^[a-f0-9]{64}$/.test(p[1])&&/^[a-f0-9]{40}$/.test(p[2]),'SOURCE_PIN_REFUSED');
+            requireValue(data.length===p[0]&&hash('sha256',data)===p[1]&&blob(data)===p[2],'SOURCE_PIN_REFUSED');
+          }
+          function tree(ref){const t=new Map();for(const row of git('ls-tree','-r','-z',ref).toString('utf8').split('\0').filter(Boolean)){const at=row.indexOf('\t');requireValue(at>0&&!t.has(row.slice(at+1)),'SOURCE_TREE_REFUSED');t.set(row.slice(at+1),row.slice(0,at));}return t;}
+          function context(){
+            const e=process.env;
+            requireValue(process.version==='v22.23.3','SOURCE_NODE_REFUSED');
+            requireValue(['push','pull_request'].includes(e.GITHUB_EVENT_NAME)&&e.SOURCE_HEAD_REPO===REPO&&e.SOURCE_BASE_REPO===REPO&&e.SOURCE_HEAD_REF===BRANCH,'SOURCE_CONTEXT_REFUSED');
+            requireValue(/^[a-f0-9]{40}$/.test(e.SOURCE_HEAD_SHA||''),'SOURCE_HEAD_REFUSED');
+            if(e.GITHUB_EVENT_NAME==='pull_request')requireValue(e.SOURCE_BASE_SHA===BASE,'SOURCE_PR_BASE_REFUSED');
+            else requireValue(e.GITHUB_REF==='refs/heads/'+BRANCH,'SOURCE_PUSH_REFUSED');
+            requireValue(gitText('rev-parse','HEAD')===e.SOURCE_HEAD_SHA&&gitText('rev-parse',`${BASE}^{commit}`)===BASE&&gitText('merge-base',BASE,e.SOURCE_HEAD_SHA)===BASE,'SOURCE_ANCESTRY_REFUSED');
+          }
+          function main(){
+            context();
+            const head=process.env.SOURCE_HEAD_SHA,old=tree(BASE),now=tree(head);
+            const expected={...EXPECTED,[CARRIER]:'A',[WORKFLOW]:'A'};
+            requireValue(Object.keys(EXPECTED).length===40&&Object.values(EXPECTED).filter(x=>x==='M').length===12&&Object.keys(expected).length===42,'SOURCE_EXPECTED_REFUSED');
+            const raw=git('diff','--name-status','--no-renames','-z',BASE,head,'--').toString('utf8').split('\0');
+            requireValue(raw.pop()===''&&raw.length===84,'SOURCE_DELTA_COUNT_REFUSED');const seen=new Set();
+            for(let i=0;i<raw.length;i+=2){requireValue(!seen.has(raw[i+1])&&Object.hasOwn(expected,raw[i+1])&&expected[raw[i+1]]===raw[i],'SOURCE_DELTA_REFUSED');seen.add(raw[i+1]);}
+            requireValue(now.size===old.size+30,'SOURCE_TREE_COUNT_REFUSED');
+            for(const [name,meta]of old)if(EXPECTED[name]!=='M')requireValue(now.get(name)===meta,'SOURCE_LEGACY_TREE_REFUSED');
+            for(const [name,status]of Object.entries(expected)){
+              requireValue(now.has(name)&&now.get(name).startsWith('100644 blob '),'SOURCE_CURRENT_MODE_REFUSED');
+              if(status==='A')requireValue(!old.has(name)&&![...old.keys()].some(n=>n.startsWith(name+'/')||name.startsWith(n+'/')),'SOURCE_NEW_PATH_REFUSED');
+              else{requireValue(old.has(name)&&old.get(name)===`100644 blob ${BEFORE[name][2]}`,'SOURCE_BEFORE_BLOB_REFUSED');pin(git('show',`${BASE}:${name}`),BEFORE[name]);}
+            }
+            const carrierData=read(CARRIER,65536),carrier=JSON.parse(carrierData.toString('utf8'));
+            requireValue(carrier.schema==='root-shared-mount-source-composition-v1'&&carrier.baseRevision===BASE&&carrier.soleSharedManifestWriter==='Codex-Root','SOURCE_CARRIER_ID_REFUSED');
+            requireValue(carrier.sourceOnly===true&&carrier.operational===false&&carrier.productionChanged===false&&carrier.defaultGatewayInstalled===false&&carrier.allMutationsAdmitted===false,'SOURCE_AUTHORITY_REFUSED');
+            requireValue(Array.isArray(carrier.files)&&carrier.files.length===40&&new Set(carrier.files.map(f=>f.repoPath)).size===40,'SOURCE_CARRIER_FILES_REFUSED');
+            for(const f of carrier.files){
+              requireValue(Object.hasOwn(EXPECTED,f.repoPath)&&f.deltaStatus===EXPECTED[f.repoPath],'SOURCE_CARRIER_PATH_REFUSED');
+              const p=[f.bytes,f.sha256,f.gitBlobSha1];
+              if(Object.hasOwn(ANCHORS,f.repoPath))requireValue(JSON.stringify(p)===JSON.stringify(ANCHORS[f.repoPath]),'SOURCE_ANCHOR_REFUSED');
+              else requireValue(GENERATED.includes(f.repoPath),'SOURCE_UNPINNED_PATH_REFUSED');
+              pin(read(f.repoPath),p);requireValue(now.get(f.repoPath)===`100644 blob ${p[2]}`,'SOURCE_BLOB_REFUSED');
+              if(f.deltaStatus==='M')requireValue(f.before&&f.before.repoPath===f.repoPath&&JSON.stringify([f.before.bytes,f.before.sha256,f.before.gitBlobSha1])===JSON.stringify(BEFORE[f.repoPath]),'SOURCE_CARRIER_BEFORE_REFUSED');
+            }
+            for(const name of [CARRIER,WORKFLOW])requireValue(now.get(name)===`100644 blob ${blob(read(name))}`,'SOURCE_METADATA_BLOB_REFUSED');
+            for(const [name,p]of Object.entries(TOOL_PINS)){pin(read(name),p);pin(git('show',`${BASE}:${name}`),p);requireValue(old.get(name)===now.get(name),'SOURCE_TOOL_CHANGED');}
+            const manifest=JSON.parse(read('tools/panel-build/manifest.json').toString('utf8'));
+            const original=JSON.parse(git('show',`${BASE}:tools/panel-build/manifest.json`).toString('utf8'));
+            requireValue(JSON.stringify(Object.keys(manifest))===JSON.stringify(Object.keys(original)),'SOURCE_PANEL_KEYS_REFUSED');
+            for(const panel of ['index','growth'])requireValue(JSON.stringify(manifest[panel])===JSON.stringify(original[panel]),'SOURCE_UNRELATED_PANEL_REFUSED');
+            const suffix={influs:{css:['ui/affiliates-v2/affiliates-v2.css'],scripts:['ui/affiliates-v2/affiliates-v2.js','influs-affiliates-mount.js']},organico:{css:['ui/organic-v2/organic-v2.css','ui/root-mounts/organic-v2-mount.css'],scripts:['ui/organic-v2/organic-v2.js','ui/root-mounts/organic-v2-mount.js']}};
+            for(const [panel,fields]of Object.entries(suffix))for(const [field,extra]of Object.entries(fields))requireValue(JSON.stringify(manifest[panel][field])===JSON.stringify([...original[panel][field],...extra]),'SOURCE_MANIFEST_ORDER_REFUSED');
+            requireValue(gitText('status','--porcelain=v1','--untracked-files=all')==='','SOURCE_WORKTREE_CHANGED');
+            console.log(JSON.stringify({schema:'cowork-panel-source-ci-proof-v1',baseRevision:BASE,sourceRevision:head,payloadFiles:40,deltaFiles:42,legacyOutsideTwelveReviewedPathsUnchanged:true,sourceOnly:true,defaultGatewayInstalled:false,allMutationsAdmitted:false,operational:false,productionChanged:false}));
+          }
+          try{main();}catch(e){console.error(/^SOURCE_[A-Z0-9_]+$/.test(e.message)?e.message:'SOURCE_GATE_REFUSED');process.exitCode=1;}
+          NODE_GATE
+          node "$RUNNER_TEMP/cowork-panel-source-gate.cjs"
+      - name: Instalar somente ferramentas fixadas no runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          mkdir "$RUNNER_TEMP/cowork-panel-build-tools"
+          cp tools/campaign-runtime-build/package.json tools/campaign-runtime-build/package-lock.json "$RUNNER_TEMP/cowork-panel-build-tools/"
+          npm ci --prefix "$RUNNER_TEMP/cowork-panel-build-tools" --ignore-scripts --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/cowork-panel-test-tools" --no-save --ignore-scripts --no-audit --no-fund linkedom@0.18.12
+          test ! -e tools/campaign-runtime-build/node_modules
+          test ! -L tools/campaign-runtime-build/node_modules
+          ln -s "$RUNNER_TEMP/cowork-panel-build-tools/node_modules" tools/campaign-runtime-build/node_modules
+          export NODE_PATH="$RUNNER_TEMP/cowork-panel-test-tools/node_modules"
+          node -e "if(require('./tools/campaign-runtime-build/node_modules/esbuild').version!=='0.28.2'||JSON.parse(require('node:fs').readFileSync(process.env.RUNNER_TEMP+'/cowork-panel-test-tools/node_modules/linkedom/package.json','utf8')).version!=='0.18.12')throw Error('SOURCE_TOOL_VERSION_REFUSED')"
+      - name: Conferir apenas artefatos dos dois paineis pelo builder canonico
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          node tools/panel-build/build.cjs --panel=influs --check
+          node tools/panel-build/build.cjs --panel=organico --check
+      - name: Executar fixtures Influs e codec de preview alterados
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          export NODE_PATH="$RUNNER_TEMP/cowork-panel-test-tools/node_modules"
+          # Prior native118 proof belongs to c6d12d29; those product/test bytes stay pinned.
+          # These new-head tests exercise the changed fixtures/codec and synthetic loopback only.
+          set +e
+          node --test --test-reporter=tap --test-timeout=120000 tests/influs-active-read.test.cjs tests/influs-sections.test.cjs tests/influs-window-lifecycle.test.cjs > "$RUNNER_TEMP/cowork-influs.tap" 2>&1
+          influs=$?
+          node --test --test-reporter=tap --test-timeout=120000 tests/dashboard-preview.test.cjs > "$RUNNER_TEMP/cowork-preview.tap" 2>&1
+          preview=$?
+          node --test --test-reporter=tap --test-timeout=120000 tests/dashboard-preview-brotli-integrity.test.cjs > "$RUNNER_TEMP/cowork-integrity.tap" 2>&1
+          integrity=$?
+          set -e
+          cat "$RUNNER_TEMP/cowork-influs.tap" "$RUNNER_TEMP/cowork-preview.tap" "$RUNNER_TEMP/cowork-integrity.tap"
+          test "$influs" -eq 0 && test "$preview" -eq 0 && test "$integrity" -eq 0
+          node <<'NODE_COUNTS'
+          const fs=require('node:fs'),path=require('node:path');
+          for(const [name,count]of [['cowork-influs.tap',12],['cowork-preview.tap',13],['cowork-integrity.tap',2]]){
+            const tap=fs.readFileSync(path.join(process.env.RUNNER_TEMP,name),'utf8');
+            for(const [field,expected]of Object.entries({tests:count,pass:count,fail:0,cancelled:0,skipped:0,todo:0})){
+              const seen=[...tap.matchAll(new RegExp('^# '+field+' ([0-9]+)$','gm'))].map(x=>Number(x[1]));
+              if(seen.length!==1||seen[0]!==expected)throw Error('SOURCE_COUNTS_REFUSED');
+            }
+          }
+          console.log('SYNTHETIC_CHANGED_SOURCE_CASES_CONFIRMED=27;PRIOR_UNCHANGED_PANEL_CASES=118;OPERATIONAL=false');
+          NODE_COUNTS
+      - name: Revalidar fonte fechada depois dos checks
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          test -L tools/campaign-runtime-build/node_modules
+          test "$(readlink tools/campaign-runtime-build/node_modules)" = "$RUNNER_TEMP/cowork-panel-build-tools/node_modules"
+          unlink tools/campaign-runtime-build/node_modules
+          node "$RUNNER_TEMP/cowork-panel-source-gate.cjs"

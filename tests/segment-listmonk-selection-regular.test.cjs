@@ -26,6 +26,9 @@ async function setup(){
    CREATE TABLE crm_dash_chave(chave text PRIMARY KEY,painel text,ativo boolean DEFAULT true,revogada_em timestamptz,expira_em timestamptz,chave_hash text,chave_hash_curta text);
    CREATE TABLE shrigma_panel_permission_v1(principal_id text,area text,caps jsonb,PRIMARY KEY(principal_id,area));
    CREATE FUNCTION public.shrigma_panel_operator_v1(text,text) RETURNS jsonb LANGUAGE sql AS 'SELECT NULL::jsonb';`);
+  // Catalog reads use the current ownership function, with the exclusive
+  // brand registry already present in campaign-provider-schema.sql.
+  await db.exec(read('n8n/growth/campaign-template-ownership.sql'));
   const provider=read('n8n/growth/campaign-provider.sql');
   await db.exec(provider.slice(0,provider.indexOf('-- Current regular-campaign eligibility')));
   await db.exec(read('n8n/growth/segment-audience-store.sql'));

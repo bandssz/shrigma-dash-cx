@@ -1,0 +1,91 @@
+'use strict';
+// Real loopback HTTP sockets, the pinned 58-file artifact, real Auth/SQLite and
+// the original pinned bootstrap shutdown block. No Server.listen/close mocks.
+// Public fixture image/payload ownership is explicit; production defaults stay
+// unchanged. No real identity, activation fence, environment secret or upstream.
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),http=require('node:http'),vm=require('node:vm');
+const {EventEmitter}=require('node:events');
+const {DatabaseSync}=require('node:sqlite');
+const Release=require('./release.cjs');
+const SOURCE_IMAGE=process.env.PRESENTATION_RELEASE_TEST_IMAGE_DIR||'/private/tmp/master-v2-public-image-SI92wK/image';
+const REAL_PAYLOAD=path.join(__dirname,'payload'),REAL_MANIFEST_SHA='c8de73c9f4afcc31eb9040f44850ad07dd8de3ca7ed8af95a5daf10b7df1aa1b';
+const UID=process.getuid(),GID=process.getgid(),HOST='gerencial.shrigma.com.br',OWNER='felipebandeira@oaristocrata.com',PASSWORD='Synthetic presentation-release password 2026!';
+const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+function snapshots(dir,names){return Object.fromEntries(names.map(name=>[name,sha(fs.readFileSync(path.join(dir,name)))]));}
+function writableTree(dir){if(!fs.existsSync(dir))return;const s=fs.lstatSync(dir);if(s.isSymbolicLink())return;if(s.isDirectory()){fs.chmodSync(dir,0o700);for(const n of fs.readdirSync(dir))writableTree(path.join(dir,n));}else fs.chmodSync(dir,0o600);}
+function remove(dir){writableTree(dir);fs.rmSync(dir,{recursive:true,force:true});}
+function immutableTree(dir,rootMode=0o555){for(const n of fs.readdirSync(dir)){const p=path.join(dir,n);if(fs.lstatSync(p).isDirectory())immutableTree(p);else fs.chmodSync(p,0o444);}fs.chmodSync(dir,rootMode);}
+async function until(check,label,ms=3000){const end=Date.now()+ms;while(!check()){if(Date.now()>end)assert.fail('did not settle: '+label);await new Promise(r=>setTimeout(r,5));}}
+function request(port,pathname,cookie=''){
+ return new Promise(resolve=>{const req=http.request({host:'127.0.0.1',port,path:pathname,method:'GET',headers:{host:HOST,...(cookie?{cookie}:{}),'Sec-Fetch-Site':'same-origin','Sec-Fetch-Mode':'cors','Sec-Fetch-Dest':'empty'},agent:false},res=>{const chunks=[];res.on('data',b=>chunks.push(b));res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,bytes:Buffer.concat(chunks)}));});req.on('error',e=>resolve({error:e.code}));req.setTimeout(1000,()=>req.destroy(Object.assign(Error('TEST_TIMEOUT'),{code:'TEST_TIMEOUT'})));req.end();});
+}
+async function unusedPort(){const s=http.createServer();s.listen(0,'127.0.0.1');await until(()=>s.listening,'port reservation');const port=s.address().port;await new Promise((resolve,reject)=>s.close(e=>e?reject(e):resolve()));return port;}
+function identitySnapshot(file){const db=new DatabaseSync(file,{readOnly:true});try{const tables=db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all();return Object.fromEntries(tables.map(({name})=>[name,sha(Buffer.from(JSON.stringify(db.prepare('SELECT * FROM "'+name.replace(/"/g,'""')+'"').all().map(row=>JSON.stringify(row)).sort())))]));}finally{db.close();}}
+function fixture(t,{real=false}={}){
+ const dir=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'presentation-release-fixture-'))),imageDir=path.join(dir,'image'),releaseDir=path.join(dir,'release');fs.mkdirSync(imageDir,{mode:0o700});fs.mkdirSync(releaseDir,{mode:0o700});
+ const sourcePins=snapshots(SOURCE_IMAGE,Object.keys(Release.IMAGE_FILES));assert.deepEqual(sourcePins,Release.IMAGE_FILES);
+ for(const name of Object.keys(Release.IMAGE_FILES))fs.writeFileSync(path.join(imageDir,name),fs.readFileSync(path.join(SOURCE_IMAGE,name)),{flag:'wx',mode:0o444});immutableTree(imageDir,0o755);
+ const policy=require(path.join(imageDir,'artifact-policy.cjs')),original=policy.decodePack(fs.readFileSync(path.join(imageDir,'runtime-pack.json'),'utf8'),Release.BASE_PACK),before=new Map(original.files.map(f=>[f.path,Buffer.from(f.content,f.encoding)])),after=new Map();
+ for(const name of Release.FILES){const b=before.get('public/'+name),marker=name.endsWith('.html')?'\n<p data-presentation-fixture="verified">Synthetic presentation fixture</p>\n':'\n/* Synthetic presentation fixture: '+name+' */\n',bytes=real?fs.readFileSync(path.join(REAL_PAYLOAD,'public',name)):Buffer.concat([b,Buffer.from(marker)]),file=path.join(releaseDir,'public',name);after.set('public/'+name,bytes);fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file,bytes,{flag:'wx',mode:0o444});}
+ const manifest=real?JSON.parse(fs.readFileSync(path.join(REAL_PAYLOAD,'manifest.json'))):{schema:'crm-presentation-release-v1',baseImageDigest:Release.BASE_IMAGE,baseSourceRevision:Release.BASE_SOURCE,basePackSha256:Release.BASE_PACK,files:Release.FILES.map(name=>({path:name,beforeSha256:sha(before.get('public/'+name)),beforeBytes:before.get('public/'+name).length,afterSha256:sha(after.get('public/'+name)),afterBytes:after.get('public/'+name).length}))},manifestBytes=real?fs.readFileSync(path.join(REAL_PAYLOAD,'manifest.json')):Buffer.from(JSON.stringify(manifest,null,2)+'\n');if(real)assert.equal(sha(manifestBytes),REAL_MANIFEST_SHA);fs.writeFileSync(path.join(releaseDir,'manifest.json'),manifestBytes,{flag:'wx',mode:0o444});immutableTree(releaseDir);
+ const parents=[],artifacts=[],cleanups=[];const newArtifact=()=>{const parent=fs.realpathSync(fs.mkdtempSync('/tmp/shrigma-operational-'));fs.chmodSync(parent,0o700);fs.chownSync(parent,UID,GID);parents.push(parent);const artifact=policy.unpack(path.join(imageDir,'runtime-pack.json'),path.join(parent,'artifact'),{expectedSha256:Release.BASE_PACK});artifacts.push(artifact);return artifact;};
+ const a={dir,imageDir,releaseDir,policy,original,before,after,manifest,newArtifact,parents,artifacts,sourcePins,cleanups,applier:extra=>Release.createApplier({imageDir,releaseDir,uid:UID,gid:GID,immutableUid:UID,immutableGid:GID,...extra})};a.artifact=newArtifact();
+ t.after(async()=>{for(const cleanup of cleanups)await cleanup();for(const p of parents)remove(p);remove(dir);a.encryptionKey?.fill(0);assert.deepEqual(snapshots(SOURCE_IMAGE,Object.keys(Release.IMAGE_FILES)),sourcePins);});return a;
+}
+function expectOriginal(a,artifact=a.artifact){for(const [name,b]of a.before)assert.equal(sha(fs.readFileSync(path.join(artifact.root,name))),sha(b),name);}
+function expectApplied(a,artifact=a.artifact){let runtime=0,untouched=0,changed=0;for(const [name,b]of a.before){const next=a.after.get(name),expected=next||b;assert.equal(sha(fs.readFileSync(path.join(artifact.root,name))),sha(expected),name);if(name.startsWith('runtime/'))runtime++;else if(next)changed++;else untouched++;}assert.equal(runtime,28);assert.equal(untouched,23);assert.equal(changed,7);assert.deepEqual(snapshots(a.imageDir,Object.keys(Release.IMAGE_FILES)),Release.IMAGE_FILES);}
+function replaceImmutable(file,bytes){fs.chmodSync(file,0o600);fs.writeFileSync(file,bytes);fs.chmodSync(file,0o444);}
+function extraImmutable(dir,file,bytes='synthetic extra'){fs.chmodSync(dir,0o700);fs.writeFileSync(path.join(dir,file),bytes,{flag:'wx',mode:0o444});fs.chmodSync(dir,0o555);}
+
+// Preserve the exact pinned production cleanup implementation. Only process
+// signal registration/exitCode and console are isolated from this test runner.
+function installOriginalShutdown(a,server,auth,parent){
+ const source=fs.readFileSync(path.join(a.imageDir,'bootstrap.cjs'),'utf8'),start=source.indexOf(' let closing=false,failureSeen=false;'),end=source.indexOf(' server.listen(settings.port,settings.host,',start);assert.ok(start>=0&&end>start);
+ const processFixture=new EventEmitter();processFixture.exitCode=undefined;let drained=0,errors=0;const countedAuth={...auth,close(){drained++;auth.close();}};
+ const close=vm.compileFunction(source.slice(start,end)+'\nreturn close;',['server','auth','managedCrmRuntime','parent','fs','process','console'])(server,countedAuth,undefined,parent,fs,processFixture,{error(){errors++;}});
+ return{close,processFixture,get drained(){return drained;},get errors(){return errors;}};
+}
+async function realRuntime(t,a,artifact=a.artifact){
+ const runtime=require(path.join(artifact.runtimeDir,'server.cjs')),proxy=require(path.join(artifact.runtimeDir,'proxy.cjs')),{createAuth}=require(path.join(artifact.runtimeDir,'auth.cjs'));
+ if(!a.encryptionKey){a.encryptionKey=crypto.randomBytes(32);a.authConfig={dbPath:path.join(a.dir,'synthetic-identity.sqlite'),encryptionKey:a.encryptionKey,managerHost:HOST,areaHosts:{growth:'crm.shrigma.com.br',organico:'organico.shrigma.com.br',influs:'influs.shrigma.com.br'},allowedEmailDomains:['oaristocrata.com','fishermans.com.br','shrigma.com.br'],bootstrapAdminEmail:OWNER,bootstrapTokenSha256:sha(Buffer.from('synthetic-presentation-bootstrap')),now:()=>1791000000000,crmCampaignSubmitWrite:true,crmCampaignWriterProfile:'own-master-production-v1'};}
+ const auth=createAuth(a.authConfig);if(!a.initialized){await auth.completeBootstrap({email:OWNER,token:'synthetic-presentation-bootstrap',password:PASSWORD,host:HOST,origin:'https://'+HOST});const logged=await auth.login({email:OWNER,password:PASSWORD,host:HOST,origin:'https://'+HOST});a.cookie=logged.cookie.split(';')[0];a.initialized=true;}
+ const read=proxy.FIXED_DESTINATIONS['crm-read'],campaign=proxy.REVIEWED_DYNAMIC.routes.campaigns,settings={...a.authConfig,mode:'operational',upstreamProfile:'production',publicDir:artifact.publicDir,upstreams:{'crm-read':read,campaigns:campaign},allowedUpstreamHosts:[new URL(read).hostname,new URL(campaign).hostname],dynamicRouteManifest:{schema:proxy.DYNAMIC_MANIFEST_SCHEMA,sourceRevision:proxy.REVIEWED_DYNAMIC.sourceRevision,routes:{campaigns:campaign}}};let upstreamCalls=0,served=0,listeningEvents=0;
+ const server=runtime.createServer(settings,{auth,fetchImpl:()=>{upstreamCalls++;throw Error('NO_UPSTREAM');}});server.on('request',()=>{served++;});server.on('listening',()=>{listeningEvents++;});const shutdown=installOriginalShutdown(a,server,auth,path.dirname(artifact.root)),port=await unusedPort();
+ const identityBefore=identitySnapshot(a.authConfig.dbPath),start=()=>{server.listen(port,'127.0.0.1');return{server,artifact};};
+ a.cleanups.push(async()=>{shutdown.close();await until(()=>shutdown.drained===1&&!server.listening,'real runtime cleanup');server.removeAllListeners();});
+ return{server,artifact,port,start,shutdown,identityBefore,runtime,get served(){return served;},get upstreamCalls(){return upstreamCalls;},get listeningEvents(){return listeningEvents;}};
+}
+
+test('release applies exactly seven public files while all 28 runtime, other 23 public and image six hashes stay intact',t=>{const a=fixture(t),result=a.applier().apply(a.artifact);assert.equal(result.publicFilesChanged,7);assert.equal(result.runtimeFilesUnchanged,28);assert.equal(result.identityAccess,false);assert.equal(result.operational,false);expectApplied(a);assert.equal(a.applier().verify(a.artifact).publicFilesChanged,7);});
+
+test('same unpacked artifact cannot replay the release; a fresh original artifact accepts on restart',t=>{const a=fixture(t),apply=a.applier();apply.apply(a.artifact);expectApplied(a);assert.throws(()=>apply.apply(a.artifact),/PRESENTATION_RELEASE_REFUSED/);expectApplied(a);const fresh=a.newArtifact();expectOriginal(a,fresh);apply.apply(fresh);expectApplied(a,fresh);});
+
+for(const [name,mutate]of [
+ ['payload byte tamper',a=>replaceImmutable(path.join(a.releaseDir,'public/entry.js'),Buffer.from('synthetic tampered payload'))],
+ ['manifest extra key',a=>replaceImmutable(path.join(a.releaseDir,'manifest.json'),Buffer.from(JSON.stringify({...a.manifest,unexpected:true})))],
+ ['image byte tamper',a=>replaceImmutable(path.join(a.imageDir,'bootstrap.cjs'),Buffer.concat([fs.readFileSync(path.join(a.imageDir,'bootstrap.cjs')),Buffer.from('\n/* tampered */')]))],
+ ['payload symbolic link',a=>{const p=path.join(a.releaseDir,'public/entry.js'),d=path.dirname(p);fs.chmodSync(d,0o700);fs.unlinkSync(p);fs.symlinkSync(path.join(a.releaseDir,'manifest.json'),p);fs.chmodSync(d,0o555);}],
+ ['payload hard link',a=>{const p=path.join(a.releaseDir,'public/entry.js'),d=path.dirname(p);fs.chmodSync(d,0o700);fs.linkSync(p,path.join(a.dir,'extra-payload-link'));fs.chmodSync(d,0o555);}],
+ ['artifact symbolic link',a=>{const p=path.join(a.artifact.publicDir,'entry.js');fs.unlinkSync(p);fs.symlinkSync(path.join(a.releaseDir,'public/entry.js'),p);}],
+ ['artifact hard link',a=>fs.linkSync(path.join(a.artifact.publicDir,'entry.js'),path.join(a.dir,'extra-artifact-link'))],
+ ['extra payload file',a=>extraImmutable(path.join(a.releaseDir,'public'),'unexpected.js')],
+ ['extra artifact file',a=>fs.writeFileSync(path.join(a.artifact.publicDir,'unexpected.js'),'synthetic',{flag:'wx',mode:0o600})],
+ ['artifact directory mode',a=>fs.chmodSync(path.join(a.artifact.publicDir,'assets'),0o755)]
+])test(name+' is refused before replacing any allowed original file',t=>{const a=fixture(t);mutate(a);const retained=snapshots(a.artifact.runtimeDir,a.policy.RUNTIME_FILES);assert.throws(()=>a.applier().apply(a.artifact),/PRESENTATION_RELEASE_REFUSED/);assert.deepEqual(snapshots(a.artifact.runtimeDir,a.policy.RUNTIME_FILES),retained);for(const p of Release.FILES.filter(p=>p!=='entry.js'||!name.startsWith('artifact'))){const target=path.join(a.artifact.publicDir,p);assert.equal(sha(fs.readFileSync(target)),sha(a.before.get('public/'+p)));}});
+
+test('real HTTP serves each of seven replacement bytes with real CSP, then accepts a fresh artifact using the preserved identity on restart',async t=>{
+ const a=fixture(t,{real:true}),r=await realRuntime(t,a),started=Release.createStarter(a.applier())(r.start);assert.equal(started.server,r.server);assert.equal(started.presentation.publicFilesChanged,7);assert.equal(started.presentation.manifestSha256,REAL_MANIFEST_SHA);await until(()=>r.server.listening,'real HTTP listener');
+ for(const name of Release.FILES){const reply=await request(r.port,'/'+name,a.cookie);assert.equal(reply.status,200,name);assert.equal(sha(reply.bytes),sha(a.after.get('public/'+name)),name);const csp=reply.headers['content-security-policy'];assert.equal(typeof csp,'string');assert.match(csp,/default-src 'self'/);assert.match(csp,/frame-ancestors 'self'/);assert.doesNotMatch(csp,/unsafe-eval/);if(name.endsWith('.html')){const html=reply.bytes.toString('utf8'),meta=/<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]*)">/i.exec(html);assert.ok(meta,name);assert.equal(csp,meta[1],name);assert.match(csp,/script-src 'self'/);for(const script of html.matchAll(/<script\s*>([\s\S]*?)<\/script>/gi))assert.ok(csp.includes("'sha256-"+crypto.createHash('sha256').update(script[1]).digest('base64')+"'"),name);}else assert.match(reply.headers['content-type'],/javascript/);}
+ assert.equal(r.served,7);assert.equal(r.upstreamCalls,0);expectApplied(a);r.shutdown.close();await until(()=>r.shutdown.drained===1&&!r.server.listening,'first real server drained');assert.equal(r.shutdown.processFixture.exitCode,0);assert.equal(r.shutdown.errors,0);assert.deepEqual(identitySnapshot(a.authConfig.dbPath),r.identityBefore);
+ const fresh=a.newArtifact(),next=await realRuntime(t,a,fresh);Release.createStarter(a.applier())(next.start);await until(()=>next.server.listening,'restart listener');const result=await request(next.port,'/growth.html',a.cookie);assert.equal(result.status,200);assert.equal(sha(result.bytes),sha(a.after.get('public/growth.html')));assert.equal(next.upstreamCalls,0);expectApplied(a,fresh);
+});
+
+test('release refusal after real start throws before return, never serves partial content, closes its socket and drains Auth once',async t=>{
+ const a=fixture(t),r=await realRuntime(t,a);replaceImmutable(path.join(a.releaseDir,'public/entry.js'),Buffer.from('synthetic tamper before startup'));let returned=false;assert.throws(()=>{Release.createStarter(a.applier())(r.start);returned=true;},/PRESENTATION_RELEASE_REFUSED/);assert.equal(returned,false);r.server.emit('error',Error('SYNTHETIC_REPEATED_STARTUP_ERROR'));r.shutdown.close(true);
+ await until(()=>r.shutdown.drained===1&&!r.server.listening,'failed startup Auth drained');await new Promise(resolve=>setTimeout(resolve,30));assert.equal(r.listeningEvents,0);assert.equal(r.served,0);assert.equal(r.upstreamCalls,0);assert.equal(r.shutdown.drained,1);assert.equal(r.shutdown.errors,1);assert.equal(r.shutdown.processFixture.exitCode,1);assert.equal(r.server.address(),null);const probe=await request(r.port,'/growth.html',a.cookie);assert.equal(probe.status,undefined);assert.equal(probe.error,'ECONNREFUSED');assert.equal(fs.existsSync(r.artifact.root),false);assert.deepEqual(identitySnapshot(a.authConfig.dbPath),r.identityBefore);
+});
+
+test('failure between two actual renames leaves no HTTP opportunity to observe a mixed tree and drains the original server once',async t=>{
+ const a=fixture(t),r=await realRuntime(t,a);let renames=0,mixedObserved=false,queuedProbe;const fsFault=Object.create(fs);fsFault.renameSync=(from,to)=>{renames++;if(renames===2){const first=Release.FILES[0],second=Release.FILES[1];assert.equal(sha(fs.readFileSync(path.join(a.artifact.publicDir,first))),sha(a.after.get('public/'+first)));assert.equal(sha(fs.readFileSync(path.join(a.artifact.publicDir,second))),sha(a.before.get('public/'+second)));mixedObserved=true;queuedProbe=request(r.port,'/growth.html',a.cookie);throw Error('SYNTHETIC_SECOND_RENAME_FAILURE');}return fs.renameSync(from,to);};
+ assert.throws(()=>Release.createStarter(a.applier({fsImpl:fsFault}))(r.start),/PRESENTATION_RELEASE_REFUSED/);assert.equal(renames,2);assert.equal(mixedObserved,true);await until(()=>r.shutdown.drained===1&&!r.server.listening,'rename failure drained');const probe=await queuedProbe;assert.equal(probe.status,undefined);assert.equal(probe.error,'ECONNREFUSED');assert.equal(r.listeningEvents,0);assert.equal(r.served,0);assert.equal(r.upstreamCalls,0);assert.equal(r.shutdown.drained,1);assert.equal(r.shutdown.processFixture.exitCode,1);assert.equal(fs.existsSync(a.artifact.root),false);assert.deepEqual(identitySnapshot(a.authConfig.dbPath),r.identityBefore);
+});

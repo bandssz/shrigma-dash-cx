@@ -2,8 +2,9 @@
 const {createRuntime}=require('../../n8n/growth/campaign-runtime');
 const {randomUUID}=require('node:crypto');
 const AUTH_SQL='SELECT public.shrigma_crm_campaign_auth_v1($1::text) AS auth';
+const CONTENT_AUTHORITY_SQL='SELECT public.shrigma_crm_campaign_content_authority_v1($1::text,$2::text) AS result';
 const EFFECT_SQL='SELECT public.shrigma_crm_campaign_effect_v1($1::text,$2::jsonb,$3::jsonb) AS result';
-const DB_ERRORS=new Set(['AB_V2_CAMPAIGN_FROZEN','AB_V2_SCHEDULE_REQUIRED','RECOVERY_UNAVAILABLE','RECOVERY_ALREADY_CLAIMED','RECOVERY_INVALID','AUDIENCE_REVIEW_REQUIRED','AUDIENCE_STALE','AUDIENCE_CHANGED','AUDIENCE_EMPTY','AUDIENCE_DISABLED','CAMPAIGN_RECEIPT_MISMATCH','CAMPAIGN_OPERATION_INVALID','CAMPAIGN_NOT_FOUND','CAMPAIGN_SCOPE','VERSION_CONFLICT','CAMPAIGN_LOCKED','LIST_SCOPE','TEMPLATE_SCOPE','TEMPLATE_CHANGED','INITIATIVE_INVALID','INITIATIVE_CONFLICT','VALIDATION_STALE','SCHEDULE_TOO_SOON','INITIATIVE_MISSING','CONTENT_UNVALIDATED','CONTENT_EMPTY','CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE','CAMPAIGN_CREATE_DRAFT_ONLY','CAMPAIGN_ADOPTION_REQUIRED']);
+const DB_ERRORS=new Set(['AB_V2_CAMPAIGN_FROZEN','AB_V2_SCHEDULE_REQUIRED','RECOVERY_UNAVAILABLE','RECOVERY_ALREADY_CLAIMED','RECOVERY_INVALID','AUDIENCE_REVIEW_REQUIRED','AUDIENCE_STALE','AUDIENCE_CHANGED','AUDIENCE_EMPTY','AUDIENCE_DISABLED','CAMPAIGN_RECEIPT_MISMATCH','CAMPAIGN_OPERATION_INVALID','CAMPAIGN_NOT_FOUND','CAMPAIGN_SCOPE','VERSION_CONFLICT','CAMPAIGN_LOCKED','LIST_SCOPE','TEMPLATE_SCOPE','TEMPLATE_CHANGED','INITIATIVE_INVALID','INITIATIVE_CONFLICT','VALIDATION_STALE','SCHEDULE_TOO_SOON','INITIATIVE_MISSING','CONTENT_UNVALIDATED','CONTENT_EMPTY','CAMPAIGN_EDITOR_REQUIRED','CAMPAIGN_REVIEW_REQUIRED','CAMPAIGN_DEPENDENCY_IN_USE','CAMPAIGN_CREATE_DRAFT_ONLY','CAMPAIGN_ADOPTION_REQUIRED','SEGMENT_CAMPAIGN_SELECTOR_REQUIRED']);
 const unavailable=()=>({status:503,body:{error:'RUNTIME_RECONCILIATION_REQUIRED',message:'Resultado não confirmado. Consulte a operação antes de tentar novamente; não use outra chave.'}});
 function safeError(e){
  if(['55P03','40P01','40001'].includes(e?.code))return {code:e.code,message:'DATABASE_ROLLBACK'};
@@ -38,6 +39,11 @@ function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=ra
   if(verified?.length!==1)throw Error('AUTH_RESPONSE_INVALID');
   const auth=verified[0].auth;
   if(!auth||typeof auth.actor!=='string'||!auth.actor.trim()||!Array.isArray(auth.caps)||auth.caps.some(c=>typeof c!=='string'))return {status:401,body:{error:'UNAUTHORIZED',message:'Autenticação necessária.'}};
+  if(Object.hasOwn(auth,'brand')&&(!['fish','aristo'].includes(auth.brand)||auth.brand!==command.brand))return {status:403,body:{error:'BRAND_DENIED',message:'Acesso não autorizado para esta marca.'}};
+  if(command.acao==='campanha_acesso'){
+   if(Object.keys(command).sort().join(',')!=='acao,brand'||!['fish','aristo'].includes(command.brand)||interrupted())return unavailable();
+   try{const result=await pool.query(CONTENT_AUTHORITY_SQL,[key,command.brand]);return result?.rows?.length===1&&result.rows[0].result?{status:200,body:result.rows[0].result}:{status:503,body:{error:'CONTENT_AUTHORITY_NOT_READY'}};}catch{return {status:503,body:{error:'CONTENT_AUTHORITY_NOT_READY'}};}
+  }
   if(interrupted())return unavailable();
   const runtime=runtimeFactory(),id=executionId();let operation=null,step=await runtime.start({actor:auth.actor,caps:auth.caps},command,{executionId:id});
   for(let index=0;step.kind==='effect'&&index<64;index++){
@@ -70,4 +76,4 @@ function createExecutor({pool,native,runtimeFactory=createRuntime,executionId=ra
   return step.kind==='response'?step.response:unavailable();
  };
 }
-module.exports={AUTH_SQL,EFFECT_SQL,DB_ERRORS,safeError,nativeTransport,createExecutor,unavailable};
+module.exports={AUTH_SQL,CONTENT_AUTHORITY_SQL,EFFECT_SQL,DB_ERRORS,safeError,nativeTransport,createExecutor,unavailable};

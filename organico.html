@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orgânico · Grupo Shrigma</title>
 <link rel="icon" href="data:,">
-<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=8ca0fad814b3">
-<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-GVKVbG4hbu+v4/0Jl0EnpOHovsanlmu6vemd4ybK3ro='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- PANEL_CSS --><link rel="stylesheet" href="assets/panels/organico.css?v=3d9a84d3fea8">
+<!-- PANEL_SECURITY --><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-20I/o7rOqM8871iuZ5aeRvy1owL29hG7uCIH1ybWp1E='; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src https://n8n-n8n.tazdb8.easypanel.host; font-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 </head>
 <body data-panel="organico" data-area-view="manager">
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -21,6 +21,7 @@
     <button data-s="stories">Stories<small>links, toques e conversões</small><span class="n" id="n-stories"></span></button>
     <button data-s="venda">Venda<small>pedidos atribuídos, modelo e cobertura</small><span class="n" id="n-venda"></span></button>
     <button data-s="links">Links UTM<small>gerar, registrar e ver o que vendeu</small></button>
+    <button data-s="organic-v2">Visão integrada<small>posts, atribuição e links</small></button>
   </nav>
   <p class="area-rodape">Instagram e Facebook · leitura de snapshots no Postgres; a página nunca chama a Meta.</p>
 </aside>
@@ -120,6 +121,8 @@
 
   <section class="sec" id="sec-links"><div id="organico-links"></div></section>
 
+  <section class="sec" id="sec-organic-v2" aria-label="Orgânico integrado"><div id="organic-v2-root-host"><section class="painel"><h2>Orgânico integrado</h2><p role="status">Dados indisponíveis. O acesso desta área ainda não foi habilitado.</p></section></div></section>
+
   <section class="sec" id="sec-venda">
     <div class="painel" id="organico-attribution"><div class="nota">Aguardando leitura da atribuição por pedido.</div></div>
     <details class="painel org-legado">
@@ -142,7 +145,7 @@
 
 <footer class="rodape"><span>Lê snapshots do Postgres via n8n — a Graph API da Meta nunca é chamada por esta página.</span></footer>
 
-<!-- PANEL_JS --><script src="assets/panels/organico.js?v=bf36a010dc49"></script>
+<!-- PANEL_JS --><script src="assets/panels/organico.js?v=645ed968912e"></script>
 <script>
 const $=s=>document.querySelector(s);
 const nf=n=>(n===null||n===undefined)?'—':(+n).toLocaleString('pt-BR');
@@ -241,7 +244,10 @@ const varia=(a,b)=>(b===null||b===undefined||!b)?null:Math.round(100*(a-b)/b);
 /* ---------- recortes ---------- */
 // Toda serie de post e story e filtrada por data BR do publicado_em; a serie de conta
 // ja chega como coluna DATE e usa slice(0,10) direto -- converter quebraria o dia.
-function daMarca(x){return MARCA==='todas'||G.CLASSE[x.marca]===MARCA;}
+function daMarca(x){
+  return MARCA==='todas'||G.CLASSE[x.marca]===MARCA
+    ||((x.marca==='aristo'||x.marca==='fish')&&x.marca===MARCA);
+}
 let COM=null;
 function comentarios(){
   // Indexa uma vez por carga: sao 500+ posts e a tabela repinta a cada clique de coluna.
@@ -541,11 +547,8 @@ document.addEventListener('click',e=>{
 });
 function render(){
   pintaMarca();
+  if(typeof ORGANIC_V2_ROOT!=='undefined'&&ORGANIC_V2_ROOT)ORGANIC_V2_ROOT.sync();
   if(!API)return;
-  if(typeof OrganicFreshness!=='undefined')OrganicFreshness.render(API,MARCA,$('#frescor'));
-  // Presets acompanham o dia de Brasília; intervalos manuais ficam fixos.
-  const preset=document.querySelector('#presets button.ativo');
-  if(preset)PER=G.preset(preset.dataset.p,G.diaBR(new Date()));
   $('#d-ini').value=PER.ini; $('#d-fim').value=PER.fim;
   const lista=pintaKPIs();
   pintaGrade(); pintaPosts(lista); pintaStories();
@@ -556,15 +559,21 @@ function troca(s){
   document.querySelectorAll('#secoes button').forEach(b=>b.classList.toggle('ativo',b.dataset.s===s));
   document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('ativa',x.id==='sec-'+s));
   document.body.classList.toggle('sec-links',s==='links');
+  document.body.classList.toggle('organic-v2-root-active',s==='organic-v2');
+  if(typeof ORGANIC_V2_ROOT!=='undefined'&&ORGANIC_V2_ROOT){if(s==='organic-v2')ORGANIC_V2_ROOT.activate({filters:{period:{from:PER.ini,to:PER.fim}}});else ORGANIC_V2_ROOT.leave();}
   if(s==='links'&&typeof LINKS_ORG!=='undefined'&&LINKS_ORG)LINKS_ORG.mount($('#organico-links'));
 }
 // Registro de links UTM: grava com a mesma chave de leitura do Orgânico (acesso único).
 var ORGANICO_LINKS_URL='https://n8n-n8n.tazdb8.easypanel.host/webhook/organico-links-utm-8f07a61f3f3c';
 var LINKS_ORG=typeof OrganicoLinks!=='undefined'?OrganicoLinks.create({document,endpoint:()=>ORGANICO_LINKS_URL,key:()=>ACESSO_ORGANICO.current(),getApi:()=>API,getMarca:()=>MARCA,getPeriod:()=>PER}):null;
 
+// Root injects its admitted adapter; this host supplies no endpoint, key or session.
+var ORGANIC_V2_ROOT=typeof ShrigmaOrganicRootMount!=='undefined'?ShrigmaOrganicRootMount.create({element:$('#organic-v2-root-host'),document,component:typeof ShrigmaOrganicV2!=='undefined'?ShrigmaOrganicV2:null,getScopeHint:()=>MARCA}):null;
+if(ORGANIC_V2_ROOT){window.ShrigmaOrganicRootHost=ORGANIC_V2_ROOT;window.addEventListener('pagehide',()=>ORGANIC_V2_ROOT.dispose(),{once:true});}
+
 /* ---------- carga ---------- */
 const ACESSO_ORGANICO=OrganicAccess.bind({document,readExisting:()=>shrigmaChave('organico'),onAccess:()=>carrega()});
-let CARGA_ORGANICO=false;
+let CARGA_ORGANICO=false,ORGANICO_GENERATION=0,ORGANICO_QUEUED=false;
 function chaveLeitura(){return ACESSO_ORGANICO.current();}
 function avisoTela(t,d,retry=true){
   $('#aviso-carga').innerHTML=`<div class="painel" style="padding:20px"><strong>${esc(t)}</strong><div class="mini" style="margin-top:6px">${esc(d)}</div>${retry?'<br><button class="btn" id="btn-retry">Atualizar leitura</button>':''}</div>`;
@@ -586,7 +595,9 @@ function cacheOrganicoValido(p,agora=Date.now()){
 }
 // ORGANICO_CACHE_READ_END
 async function carrega(){
-  if(CARGA_ORGANICO)return;
+  if(window.ShrigmaPrepareRead&&!(await window.ShrigmaPrepareRead())){avisoTela('Sessão indisponível','Atualize a leitura para conferir novamente o acesso.');return;}
+  if(CARGA_ORGANICO){if(window.ShrigmaSimpleRead)ORGANICO_QUEUED=true;return;}
+  const readingBrand=MARCA,readingGeneration=ORGANICO_GENERATION;
   const k=chaveLeitura();
   if(!k){avisoTela('Acesso de leitura necessário','Abra Acesso de leitura para consultar Orgânico.',false);ACESSO_ORGANICO.show();return;}
   CARGA_ORGANICO=true;ACESSO_ORGANICO.setBusy(true);
@@ -596,17 +607,27 @@ async function carrega(){
     // Cache de 10 min primeiro, como CX e CRM; a API viva fica de reserva.
     // Cache velho (mais de 20 min) não vence a consulta ao vivo, mas fica guardado: se o ao vivo falhar,
     // o painel mostra esse retrato e avisa que caiu para ele, em vez de ficar sem dado.
-    let r=null,payload=null,origem='',antigo=null;
+    let r=null,payload=null,origem='',antigo=null,semContrato=false;
     const tenta=typeof PainelRede!=='undefined'?PainelRede.ler:fn=>fn();
     if(typeof CX_CACHE_URL==='string'&&CX_CACHE_URL){
       try{
         await tenta(async()=>{
           const c=await fetch(CX_CACHE_URL+'?painel=organico',{headers:{Authorization:'Bearer '+k},credentials:'omit',redirect:'error',signal:controller.signal,cache:'no-store'});
           r=c;
+          // Portal: leitura por marca ainda sem contrato validado. Não é falha passageira nem resultado vazio:
+          // não repete, não cai para a API viva e não exibe agregado de outra marca.
+          if(c.status===503){const b=await c.clone().json().catch(()=>null);if(b?.error==='BRAND_READ_CONTRACT_NOT_READY'){semContrato=true;return;}}
           if(c.status>=500){const e=new Error('cache_indisponivel');e.transitorio=true;throw e;}
           if(c.ok){const corpo=payloadOrganico(await c.json().catch(()=>null));if(cacheOrganicoValido(corpo)){payload=corpo;origem='cache';}else if(payloadOrganicoValido(corpo))antigo=corpo;}
         },{espera:[1500],parar:()=>controller.signal.aborted});
       }catch(e){if(controller.signal.aborted)throw e;payload=null;}
+    }
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==ORGANICO_GENERATION))return;
+    if(semContrato){
+      API=null;COM=null;MIDIA=null;ORIGEM_LEITURA='';
+      document.querySelectorAll('#area-kpis,#organico-attribution,#stories-conversions,#tab-eq tbody,#tab-posts tbody,#tab-story tbody,#tab-venda tbody,#n-grade,#n-posts,#n-stories,#n-venda,#story-rot,#venda-rot,#origem-leitura').forEach(el=>{el.textContent='';});
+      $('#frescor').textContent='coleta sem confirmação';$('#frescor').title='';$('#origem-leitura').title='';
+      avisoTela('Leitura da sua marca aguardando validação','O Orgânico ainda não tem a leitura por marca validada para este acesso. Nenhum dado foi exibido, e isso não significa ausência de resultados. Dados de outras marcas não são apresentados.',false);return;
     }
     if(!payload&&!(r&&(r.status===401||r.status===403))){
       try{
@@ -618,6 +639,7 @@ async function carrega(){
     if(r&&(r.status===401||r.status===403)){
       avisoTela('Acesso recusado','Informe uma chave de leitura válida para Orgânico. Os dados já exibidos não foram atualizados.',false);ACESSO_ORGANICO.reject();return;}
     if(!payload){if(r&&!r.ok)throw new Error('read_failed');throw new Error('invalid_payload');}
+    if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==ORGANICO_GENERATION))return;
     ORIGEM_LEITURA=origem;
     API=payload;
     {const barra=$('#organico-acesso-bar');if(barra)barra.hidden=true;} // com a chave aceita, o botão de entrar some (acesso único)
@@ -633,17 +655,21 @@ async function carrega(){
      origemRot.textContent=ORIGEM_LEITURA==='cache'?'Dados de '+hora(API._cache_gerado_em)+' · cache de 10 min':ORIGEM_LEITURA==='cache_antigo'?'Dados de '+hora(API._cache_gerado_em)+' · retrato antigo':'Consulta ao vivo às '+hora(Date.now());
      origemRot.title=ORIGEM_LEITURA==='cache_antigo'?'O cache estava velho e a consulta ao vivo não respondeu: esta tela mostra o último retrato salvo.':ORIGEM_LEITURA==='cache'?'Payload montado pelo workflow "Orgânico — API cache" e servido de dash_payload_cache. Se o cache falhar ou passar de 20 min, a leitura cai para a API viva.':'O cache não respondeu ou estava velho; esta leitura veio direto do Postgres.';
     }
+    // O payload do Orgânico não traz coletado_em por linha: a coleta é confirmada pelos carimbos que existem.
+    {const maxT=l=>l.reduce((m,x)=>{const t=Date.parse(x||'');return Number.isFinite(t)&&(m===null||t>m)?t:m;},null),iso=t=>t===null?null:new Date(t).toISOString();
+     const stories=maxT((API.cx_story||[]).map(s=>s.ultima_coleta)),vendas=maxT((API.organico_attribution?.coverage||[]).map(c=>c.checked_at));
+     shrigmaFrescor(API,$('#frescor'),{collections:[{name:'Stories (Instagram)',checked_at:iso(stories),required:true},{name:'Vendas (Shopify)',checked_at:iso(vendas),required:true}]});}
     if(typeof AREA_VIEW!=='undefined'&&AREA_VIEW)AREA_VIEW.resolve();
-  }catch(e){avisoTela('Não foi possível atualizar',controller.signal.aborted?'A consulta demorou além do limite. Atualize a leitura para tentar novamente.':'A consulta falhou. Os dados anteriores, se exibidos, não foram atualizados.');}
-  finally{clearTimeout(timer);CARGA_ORGANICO=false;ACESSO_ORGANICO.setBusy(false);}
+  }catch(e){if(window.ShrigmaSimpleRead&&(readingBrand!==MARCA||readingGeneration!==ORGANICO_GENERATION))return;avisoTela('Não foi possível atualizar',controller.signal.aborted?'A consulta demorou além do limite. Atualize a leitura para tentar novamente.':'A consulta falhou. Os dados anteriores, se exibidos, não foram atualizados.');}
+  finally{clearTimeout(timer);CARGA_ORGANICO=false;ACESSO_ORGANICO.setBusy(false);if(ORGANICO_QUEUED){ORGANICO_QUEUED=false;carrega();}}
 }
 
 document.querySelectorAll('#seg-marca button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#seg-marca button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');MARCA=b.dataset.marca;render();});
+  b.classList.add('ativo');MARCA=b.dataset.marca;if(window.ShrigmaSimpleRead){ORGANICO_GENERATION++;API=null;COM=null;MIDIA=null;carrega();}else render();});
 document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));
-  b.classList.add('ativo');PER=G.preset(b.dataset.p,G.diaBR(new Date()));render();});
+  b.classList.add('ativo');PER=G.preset(b.dataset.p,HOJE);render();});
 ['d-ini','d-fim'].forEach(id=>$('#'+id).onchange=()=>{
   const a=$('#d-ini').value,b=$('#d-fim').value;if(!a||!b||a>b)return;
   PER={ini:a,fim:b};document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('ativo'));render();});

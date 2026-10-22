@@ -14,7 +14,19 @@ test('local handler projects uncertain writes and static read errors without lea
  const api=API.createAudienceAPI({store:{execute:async()=>{throw Error('private token');}}});
  const result=await api.handle({method:'POST',request:{headers,body:payload}});assert.equal(result.status,202);assert.deepEqual(result.body,{error:'SEGMENT_SERVICE_UNAVAILABLE',state:'unconfirmed',idempotency_key:payload.idempotency_key});assert.equal(result.headers['Cache-Control'],'no-store');
  assert.equal((await api.handle({method:'GET',request:{headers,query:{acao:'segmento_operacao',brand:'fish',idempotency_key:payload.idempotency_key}}})).status,503);
+ assert.equal((await api.handle({method:'GET',request:{headers,query:{acao:'segmento_operacao_v2',brand:'fish',idempotency_key:payload.idempotency_key}}})).status,503);
  assert.equal(api.enabled,false);assert.equal(API.ENABLED,false);
+});
+test('v2 receipt projection rejects a mismatched action, key, brand or unconfirmed response',async()=>{
+ const query={acao:'segmento_operacao_v2',brand:'fish',idempotency_key:'operation-v2-001'};
+ const operation={schema:'crm-audience-operation-v2',idempotency_key:query.idempotency_key,brand:'fish',action:'segmento_salvar',actor_sha256:'b'.repeat(64),payload_sha256:'a'.repeat(64),receipt:{status:409,body:{error:'SEGMENT_VERSION_CONFLICT',current_version:2}}};
+ let value={_http:200,_body:{operation}};
+ const api=API.createAudienceAPI({store:{execute:async()=>value}});
+ const read=()=>api.handle({method:'GET',request:{headers,query}});
+ assert.equal((await read()).status,200);
+ for(const invalid of [{...operation,action:'campanha_agendar'},{...operation,brand:'aristo'},{...operation,idempotency_key:'different-key'},{...operation,receipt:{status:404,body:{error:'SEGMENT_OPERATION_UNCONFIRMED'}}},{...operation,payload_sha256:'invalid'},{...operation,actor_sha256:'invalid'}]){
+  value={_http:200,_body:{operation:invalid}};assert.equal((await read()).status,503);
+ }
 });
 test('response projection rejects extra personal fields or a capability that contradicts an OFF catalog',async()=>{
  const api=API.createAudienceAPI({store:{execute:async()=>({_http:200,_body:{segments:[],limit:50,offset:0,catalog:{brand:'fish',current:false,coverage:'unconfirmed',checked_at:new Date().toISOString(),...F.source('fish'),lists:[]},capabilities:{draft:true,count:false,send:false},email:'private@example.test'}})}});

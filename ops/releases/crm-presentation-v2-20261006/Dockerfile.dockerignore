@@ -1,0 +1,11 @@
+**
+!influs.html
+!organico.html
+!assets/panels/influs.css
+!assets/panels/influs.js
+!assets/panels/organico.css
+!assets/panels/organico.js
+!services/dashboard-operational/build.cjs
+!services/dashboard-operational/public/entry.js
+!ops/releases/crm-presentation-v2-20261006/release.cjs
+!ops/releases/crm-presentation-v2-20261006/build-release.cjs

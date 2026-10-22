@@ -14,11 +14,15 @@ const GBS=(()=>{
   if(data?.version!==1||data.area!==area||data.brand!==brand||!data.value||typeof data.value!=='object'||Array.isArray(data.value))throw Error('Preparação local incompatível. Os dados foram preservados.');
   return copy(data.value);
  }
- function save(area,brand,value){
+ // `empty` is the caller's blank preparation: while nothing existed when read, keeping it creates no slot.
+ function save(area,brand,value,empty){
   const key=slot(area,brand),s=store();if(!s)throw Error('Não foi possível guardar neste dispositivo. Exporte o conteúdo antes de trocar de marca.');
+  const raw=JSON.stringify({version:1,area,brand,value});
+  // Nothing changed since this tab read it: no write, so another tab's real content is never overwritten or flagged.
+  if(seen.has(key)&&(seen.get(key)===raw||seen.get(key)===null&&empty!==undefined&&JSON.stringify(value)===JSON.stringify(empty)))return copy(value);
   const current=s.getItem(key);
   if(seen.has(key)&&seen.get(key)!==current)throw Error('Outra aba alterou esta preparação. Exporte seu conteúdo e recarregue antes de trocar de marca.');
-  const raw=JSON.stringify({version:1,area,brand,value});s.setItem(key,raw);
+  s.setItem(key,raw);
   if(s.getItem(key)!==raw)throw Error('A gravação local não foi confirmada. Continue nesta marca e exporte o conteúdo.');
   seen.set(key,raw);return copy(value);
  }

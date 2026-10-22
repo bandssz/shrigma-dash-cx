@@ -1,0 +1,34 @@
+# A distinct NEW ciphertext volume is required. Public RSA PEM travels only as
+# base64 runtime configuration; no private key or plaintext database in image.
+services:
+  identity-encrypt-once:
+    image: ${ENCRYPT_IMAGE_REF:?pin reviewed digest}
+    command: ["encrypt", "/snapshot-data/identity", "-", "/cipher-output/envelope"]
+    user: "1000:1000"
+    read_only: true
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+    pids_limit: 64
+    mem_limit: 768m
+    cpus: 0.5
+    environment:
+      DASHBOARD_BACKUP_PUBLIC_KEY_PEM_B64: ${DASHBOARD_BACKUP_PUBLIC_KEY_PEM_B64:?public RSA key required}
+      DASHBOARD_BACKUP_SNAPSHOT_NONCE_SHA256: ${DASHBOARD_BACKUP_SNAPSHOT_NONCE_SHA256:?Mac-generated snapshot nonce hash required}
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=32m,uid=1000,gid=1000,mode=0700
+    volumes:
+      - type: volume
+        source: new_snapshot
+        target: /snapshot-data
+        read_only: true
+      - type: volume
+        source: new_ciphertext
+        target: /cipher-output
+volumes:
+  new_snapshot:
+    external: true
+    name: ${NEW_SNAPSHOT_VOLUME:?isolated snapshot volume name required}
+  new_ciphertext:
+    name: ${NEW_CIPHERTEXT_VOLUME:?new isolated ciphertext volume name required}

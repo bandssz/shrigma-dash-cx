@@ -6,7 +6,7 @@ const GENU={
  content(r){return JSON.stringify(GR.conteudo(r));},
  client(){
   const key=GRU.emailTestKey(),endpoint=GRU.caps?.endpoint;
-  if(!key||!endpoint)throw Error('Entre com o acesso de gestor do CRM para consultar estes templates.');
+  if(!endpoint||!key&&GRU.caps?.write_key_required!==false)throw Error('Entre com o acesso de gestor do CRM para consultar estes templates.');
   const base=new URL(endpoint);if(base.protocol!=='https:'||base.username||base.password)throw Error('Conexão de templates indisponível.');
   const request=async(action,body,query={})=>{
    const url=new URL(base);if(!body){url.searchParams.set('acao',action);for(const [k,v] of Object.entries(query))url.searchParams.set(k,v);}
@@ -16,12 +16,13 @@ const GENU={
     let text='';if(res.body?.getReader){const reader=res.body.getReader(),decoder=new TextDecoder();let size=0;try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>2500000)throw Error('Limite da consulta.');text+=decoder.decode(part.value,{stream:true});}text+=decoder.decode();}finally{await reader.cancel();}}else{text=await res.text();if(text.length>2500000)throw Error('Limite da consulta.');}return JSON.parse(text);
    }catch(_){throw Error('Não foi possível conferir o template. Nada foi publicado ou enviado.');}finally{clearTimeout(timer);}
   };
-  return {async capabilities(){const c=await request('email_capacidades');if(c.contract!==GENU.policy||c.policy_version!==1||!Array.isArray(c.brands)||c.brands.length!==2||!['fish','aristo'].every(b=>c.brands.includes(b))||c.native_email_preview!==true||c.native_email_derive!==true||c.native_email_test!==true)throw Error('Templates nativos ainda não estão disponíveis neste acesso. Atualize o painel.');return c;},
+  return {async capabilities(){const c=await request('email_capacidades');if(c.contract!==GENU.policy||c.policy_version!==1||!Array.isArray(c.brands)||c.brands.length!==2||!['fish','aristo'].every(b=>c.brands.includes(b))||c.native_email_preview!==true||c.native_email_derive!==true||typeof c.native_email_test!=='boolean')throw Error('Templates nativos ainda não estão disponíveis neste acesso. Atualize o painel.');return c;},
    async list(brand){const b=await request('listar',null,{marca:brand,canal:'email'});if(!Array.isArray(b.templates)||b.templates.length>250)throw Error('O catálogo de e-mail não foi confirmado.');return b.templates.filter(t=>t.brand===brand&&t.channel==='email').map(t=>{if(!Number.isSafeInteger(Number(t.id))||Number(t.id)<=0||typeof t.name!=='string'||typeof t.components?.body_html!=='string'||t.components.body_html.length>200000||typeof t.components.subject!=='string'||t.components.subject.length>500)throw Error('Um template do catálogo está incompleto.');return {id:Number(t.id),name:t.name,subject:t.components.subject,body:t.components.body_html};});},
    async render(r){const p=await request('email_previa',{rascunho:GR.conteudo(r)});if(p.contract!==GENU.policy||p.eligible!==true||p.brand!==r.marca||!['synthetic','external'].includes(p.subscriber_context)||!/^[a-f0-9]{64}$/.test(p.source_hash||'')||typeof p.subject!=='string'||p.subject.length>1000||typeof p.body_html!=='string'||p.body_html.length>600000||!p.data||typeof p.data!=='object'||Array.isArray(p.data))throw Error('A prévia nativa não está disponível para este conteúdo. Revise as variáveis e tente novamente.');return p;}};
  },
  busy(){return !!(GRU.state.ocupado||GRU.state.confirmando||GRU.emailTestSession||GRU.replicationSession||GENU.session);},
- safeJournal(){const j=GRU.journal()?.inspect(),t=GRU.emailTestClient()?.inspect();if(!j||j.blocked||j.operations.some(o=>['pending','unknown','uncertain'].includes(o.phase)||o.phase==='confirmed'&&o.applied===false)||t?.blocked||t?.operations.some(o=>['pending','unknown'].includes(o.phase)))throw Error('Confira as operações pendentes antes de preparar uma cópia.');},
+ // Published READ and a new local copy do not repeat any provider operation.
+ safeJournal(){const store=GRU.store();if(!store)throw Error('Não foi possível conferir o armazenamento local. A cópia não foi criada.');const raw=store.getItem(GR.CHAVE);if(raw!==null){let rows;try{rows=JSON.parse(raw);}catch{throw Error('O arquivo local de modelos não foi confirmado. Preserve-o antes de criar uma cópia.');}if(!Array.isArray(rows)||rows.some(r=>!r||typeof r!=='object'||typeof r.id!=='string'||!r.id))throw Error('O arquivo local de modelos não foi confirmado. Nenhuma cópia foi gravada.');}},
  current(s){if(GENU.session!==s||GRU.ctx.marca!==s.brand||GRU.contextBrand!==s.brand)throw Error('A marca mudou. Reabra a consulta.');GENU.safeJournal();},
  // A body published by this panel carries exactly one pre-header block written by GEC.preheaderHTML.
  // Return it to the field so the copy renders a single pre-header; any other markup stays in the body.

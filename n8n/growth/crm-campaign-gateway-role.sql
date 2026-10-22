@@ -27,7 +27,7 @@ BEGIN
    OR r.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, public','lock_timeout=3s']::text[]
    OR r.body_md5 IS DISTINCT FROM (CASE r.proname
     WHEN 'shrigma_campaign_store' THEN 'b77d960aca32c2c93dfe15e82922d7ff'
-    WHEN 'shrigma_campaign_provider' THEN 'fe3a35e75c8d0830f1b289fa806e52fc'
+    WHEN 'shrigma_campaign_provider' THEN 'ee8c16b6c37785dafd59c062330b2290'
     WHEN 'shrigma_campaign_recovery' THEN '1e2c0a2bacd82f4dcf8d6797cbf1842c' END)
    OR r.public_execute THEN RAISE EXCEPTION 'CRM_CAMPAIGN_GATEWAY_DEPENDENCY_DRIFT %',r.proname; END IF;
  END LOOP;
@@ -69,14 +69,56 @@ END $install$;
 
 CREATE FUNCTION public.shrigma_crm_campaign_auth_v1(p_key text) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,public AS $fn$
-DECLARE a jsonb;
+DECLARE a jsonb; scoped_brand text;
 BEGIN
  a:=public.shrigma_crm_operator_auth_v1(p_key);
  IF jsonb_typeof(a) IS DISTINCT FROM 'object' OR jsonb_typeof(a->'caps') IS DISTINCT FROM 'array'
   OR coalesce(a->>'who','')='' OR length(a->>'who')>200
   OR EXISTS(SELECT 1 FROM jsonb_array_elements(a->'caps') x WHERE jsonb_typeof(x) IS DISTINCT FROM 'string')
  THEN RETURN NULL; END IF;
- RETURN jsonb_build_object('actor',a->>'who','caps',a->'caps');
+ -- Preserve the existing explicit legacy template operator: only the exact
+ -- current authenticated key row may retain that established capability scope.
+ -- Individual panel WRITERs below cannot fall back to this unrelated principal.
+ IF EXISTS(SELECT 1 FROM public.shrigma_template_key_v2 k WHERE k.active
+  AND k.key_hash=encode(sha256(convert_to(p_key,'UTF8')),'hex')
+  AND k.actor=a->>'who' AND k.capabilities=a->'caps')
+  AND NOT EXISTS(SELECT 1 FROM public.crm_dash_chave c
+   WHERE encode(sha256(convert_to(p_key,'UTF8')),'hex') IN (c.chave_hash,c.chave_hash_curta)
+    OR c.chave_hash IS NULL AND c.chave=p_key) THEN
+  RETURN jsonb_build_object('actor',a->>'who','caps',a->'caps');
+ END IF;
+ -- A verified real Master remains multi-brand. The role comes from the
+ -- authoritative panel principal row, never owner text or an ID prefix.
+ IF EXISTS(SELECT 1 FROM public.crm_dash_chave c WHERE a->>'who'='panel:'||c.chave
+  AND c.painel='todos' AND c.dono=a->>'label') THEN
+  RETURN jsonb_build_object('actor',a->>'who','caps',a->'caps');
+ END IF;
+ -- Existing managed READ credentials retain their GET bridge. These exact
+ -- capabilities contain no campaign or media write permission. Their brand
+ -- admission remains the existing BFF READ binding, distinct from WRITER.
+ IF a->'caps'='["read_content","list_history","submission"]'::jsonb
+  AND EXISTS(SELECT 1 FROM public.crm_dash_chave c WHERE a->>'who'='panel:'||c.chave
+   AND c.painel='growth' AND c.dono=a->>'label') THEN
+  RETURN jsonb_build_object('actor',a->>'who','caps',a->'caps');
+ END IF;
+ -- Individual manager WRITERs are admitted only through the issuer's
+ -- explicit, immutable brand binding. Legacy unbound rows stay closed.
+ IF to_regclass('public.crm_manager_writer_generation_v1') IS NULL
+  OR to_regclass('public.crm_manager_writer_subject_v1') IS NULL
+  OR to_regclass('public.crm_manager_writer_issuer_v1') IS NULL THEN RETURN NULL; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass('public.crm_manager_writer_generation_v1')
+  AND attname='brand' AND attnum>0 AND NOT attisdropped) THEN RETURN NULL; END IF;
+ SELECT g.brand INTO scoped_brand FROM public.crm_manager_writer_generation_v1 g
+ JOIN public.crm_manager_writer_subject_v1 subject USING(namespace_id,user_id,lifecycle_id)
+ JOIN public.crm_manager_writer_issuer_v1 issuer USING(namespace_id)
+ JOIN public.crm_dash_chave c ON c.chave=g.principal_id
+ WHERE a->>'who'='panel:'||g.principal_id AND g.state='active'
+  AND subject.state='active' AND issuer.active AND subject.active_generation=g.generation
+  AND g.brand=subject.brand AND g.brand IN ('fish','aristo') AND c.painel='growth'
+  AND c.dono=subject.owner AND c.dono=a->>'label'
+  AND g.expires_at_ms>floor(extract(epoch FROM clock_timestamp())*1000)::bigint;
+ IF NOT FOUND THEN RETURN NULL; END IF;
+ RETURN jsonb_build_object('actor',a->>'who','caps',a->'caps','brand',scoped_brand);
 END $fn$;
 
 CREATE FUNCTION public.shrigma_crm_campaign_effect_v1(p_key text,p_envelope jsonb,p_effect jsonb) RETURNS jsonb
@@ -102,6 +144,7 @@ BEGIN
  command_name:=command->>'acao';brand_name:=command->>'brand';
  IF command_name IS NULL OR brand_name IS NULL OR command_name !~ '^campanha_(catalogo|listar|obter|operacao|salvar|validar|agendar|cancelar|recuperar)$'
   OR brand_name NOT IN ('fish','aristo') THEN RAISE EXCEPTION 'CRM_CAMPAIGN_GATEWAY_COMMAND'; END IF;
+ IF auth ? 'brand' AND auth->>'brand' IS DISTINCT FROM brand_name THEN RAISE EXCEPTION 'CRM_CAMPAIGN_GATEWAY_FORBIDDEN'; END IF;
  action_name:=regexp_replace(command_name,'^campanha_','');
  capability:=CASE action_name WHEN 'catalogo' THEN 'read_content' WHEN 'listar' THEN 'read_content' WHEN 'obter' THEN 'read_content'
   WHEN 'operacao' THEN 'read_content' WHEN 'salvar' THEN 'draft' WHEN 'recuperar' THEN 'draft' WHEN 'validar' THEN 'validate'

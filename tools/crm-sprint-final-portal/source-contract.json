@@ -1,0 +1,132 @@
+{
+  "baseRevision": "781653e546b08531c0b968aa75fc9edf3409f65f",
+  "baseTree": "023af67e692e4b63761087725c28aecab6fc752f",
+  "defaultPublisherEnabled": false,
+  "expectedDeltaPaths": [
+    ".github/workflows/dashboard-crm-sprint-final-portal-20261005.yml",
+    "assets/panels/growth.css",
+    "assets/panels/growth.js",
+    "growth-audience.js",
+    "growth-campaign-editor.js",
+    "growth-flows-ui.js",
+    "growth-workspace.css",
+    "growth-workspace.js",
+    "growth.html",
+    "services/dashboard-operational/auth.cjs",
+    "services/dashboard-operational/campaign-ui-assets.json",
+    "services/dashboard-operational/crm-campaign-create.cjs",
+    "services/dashboard-operational/crm-manager-runtime.cjs",
+    "services/dashboard-operational/proxy.cjs",
+    "services/dashboard-operational/public/entry.compiled.js",
+    "services/dashboard-operational/public/entry.js",
+    "services/dashboard-operational/server.cjs",
+    "tests/dashboard-operational-own-master-production.test.cjs",
+    "tests/growth-workspace.test.cjs",
+    "tools/crm-sprint-final-portal/portal-proof.cjs",
+    "tools/crm-sprint-final-portal/source-contract.json",
+    "tools/crm-sprint-final-portal/verify-source.py"
+  ],
+  "files": {
+    ".github/workflows/dashboard-crm-sprint-final-portal-20261005.yml": {
+      "bytes": 3907,
+      "sha256": "a95dc44bea9e25ed1ebaf5ac18387b0a22aeae9b6dd4455d681902eb6c42ac53"
+    },
+    "assets/panels/growth.css": {
+      "bytes": 163326,
+      "sha256": "297a8f06d1c607c1fcd393482b0f4bb9759c8818784873be72a6f6659282f04c"
+    },
+    "assets/panels/growth.js": {
+      "bytes": 967338,
+      "sha256": "e10b181b2d000ed8d76d5cd99e8e1a52dbea0875c8aa91b4e74761453888fb4b"
+    },
+    "growth-audience.js": {
+      "bytes": 19021,
+      "sha256": "038f9bca0879eb41877a9b759ec052c5e6c402f55bf19eee302440142da8629e"
+    },
+    "growth-campaign-editor.js": {
+      "bytes": 53943,
+      "sha256": "afd7bd10856637bc79e8c5393a5a526bc6316aca0401c2cb6a1d3c7409f43210"
+    },
+    "growth-flows-ui.js": {
+      "bytes": 13639,
+      "sha256": "f88b83fc26d1b124a9ffd8346554d1b6fc7dcc39b486fc1a29419d5733e90ab1"
+    },
+    "growth-workspace.css": {
+      "bytes": 26964,
+      "sha256": "336f0a421459ba6cc9f5c1b7e80fa29ecb32462f51d492ed77a7f1e0a9df1033"
+    },
+    "growth-workspace.js": {
+      "bytes": 4830,
+      "sha256": "b862819cc3fb3fd9af9a67b62b717ce4bf9edf94644f6acb1ed19abf75cd5a7e"
+    },
+    "growth.html": {
+      "bytes": 107012,
+      "sha256": "618aa4361a42751996cc544d0de97f96577a857c240b53d85eb1b8a6833b1ab5"
+    },
+    "services/dashboard-operational/auth.cjs": {
+      "bytes": 110733,
+      "sha256": "cdec138777a749e39d6318d799b8d704900450ba6ad3e0798d2642c3f79ac0d4"
+    },
+    "services/dashboard-operational/campaign-ui-assets.json": {
+      "bytes": 1379,
+      "sha256": "20e19a2471816e972640870980ceef46079a223921240164e7e3314632af7f55"
+    },
+    "services/dashboard-operational/crm-campaign-create.cjs": {
+      "bytes": 16148,
+      "sha256": "581590756252384e2c17da6ba2e390d5942b1528f1cd81d6eba18664a27ffd01"
+    },
+    "services/dashboard-operational/crm-manager-runtime.cjs": {
+      "bytes": 12945,
+      "sha256": "e52d1bcdc0d00e553163a695d12b2225f3a1bc3b2b0f78655407e07b0599af07"
+    },
+    "services/dashboard-operational/proxy.cjs": {
+      "bytes": 40015,
+      "sha256": "bd6f6fa3444ea8a66c26e79ea08ae9ba5589121064a616b9983695ffe245dc0f"
+    },
+    "services/dashboard-operational/public/entry.compiled.js": {
+      "bytes": 40810,
+      "sha256": "859e918ed594cdcc5889f9079938f49bab52f51b4519a75448cb442fcb589afa"
+    },
+    "services/dashboard-operational/public/entry.js": {
+      "bytes": 54740,
+      "sha256": "0de65d36aeed3edc684fc651db76defe9126c8137c151c078a0672cea0433506"
+    },
+    "services/dashboard-operational/server.cjs": {
+      "bytes": 91898,
+      "sha256": "b3e0cc550831647f16e09db073f27dc6cdebe81cae09263e8c15c5616ac1a40e"
+    },
+    "tests/dashboard-operational-own-master-production.test.cjs": {
+      "bytes": 17505,
+      "sha256": "efe6d8bd79fb22b45ec4ebacb546fe3001c987809239487067c06985a4fd06a8"
+    },
+    "tests/growth-workspace.test.cjs": {
+      "bytes": 10280,
+      "sha256": "1b56e82a6036af83a27ee7653e87950c93dc00eb7b32ee99cb72bfb9f5411461"
+    },
+    "tools/crm-sprint-final-portal/portal-proof.cjs": {
+      "bytes": 3149,
+      "sha256": "4203278307b8f2bda1dd3000b51a06a7d611f798108847f8bb30fcce0ecc9fd2"
+    },
+    "tools/crm-sprint-final-portal/verify-source.py": {
+      "bytes": 3316,
+      "sha256": "519b7c1a36b698b97f6e3816743b661eac5f5bf1664133f8b31c19d5c663d642"
+    }
+  },
+  "schema": "crm-sprint-final-source-contract-v1",
+  "sourceBranch": "codex/dashboard-candidate-crm-fix-20261002",
+  "tests": [
+    "tests/growth-workspace.test.cjs",
+    "tests/growth-flows-ui.test.cjs",
+    "tests/growth-audience.test.cjs",
+    "tests/claude-crm-ux.test.cjs",
+    "tests/claude-campaign-schedule-ui.test.cjs",
+    "tests/dashboard-operational-own-master-production.test.cjs",
+    "tests/native-master-sqlite-install.test.cjs",
+    "tests/dashboard-operational-master-writer.test.cjs",
+    "tests/dashboard-operational-master-own-activation.test.cjs",
+    "services/dashboard-operational/crm-manager-runtime.test.cjs",
+    "tests/dashboard-operational-master-own-activation-ui.test.cjs",
+    "tests/dashboard-operational-content-access-ui.test.cjs",
+    "tests/dashboard-operational-managed-ui.test.cjs"
+  ]
+}

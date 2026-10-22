@@ -1,0 +1,16 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),{EventEmitter}=require('node:events'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {createSupervisor}=require('./supervisor.cjs'),{createJournal}=require('./journal.cjs'),{readProof}=require('./read-proof.cjs');
+const q={schema:'crm-manager-read-runtime-intent-v1',operationId:crypto.randomUUID(),credentialIntentId:crypto.randomUUID(),action:'stage',fromPhase:'empty'};
+const proof={schema:'crm-manager-read-runtime-result-v1',action:'stage',state:'confirmed',phase:'staged',coreVerified:true,credentialBound:true,commitAck:false};
+function harness({firstCode=0,body=proof,invalidUtf8=false}={}){const seen=[];let timer;
+ const spawn=(node,args,{env,stdio})=>{seen.push({args,env:{...env},stdio});const c=new EventEmitter();c.stdout=new EventEmitter();c.kill=()=>{};queueMicrotask(()=>{if(seen.length===1)c.emit('close',firstCode,null);else{c.stdout.emit('data',invalidUtf8?Buffer.from([0xff]):Buffer.from(JSON.stringify(body)));c.emit('close',0,null);}});return c;};
+ const s=createSupervisor({intent:q,mode:'execute',password:'PUBLIC_SYNTHETIC_PASSWORD',verifier:'PUBLIC_SYNTHETIC_SCRAM'},{spawn,setTimer:fn=>{timer=fn;return 1;},clearTimer:()=>{}});return {s,seen,expire:()=>timer?.()};}
+test('child0 + independent bounded durable reader only then verifies; secrets only child env',async()=>{
+ const f=harness(),a=f.s.run(),b=f.s.run();assert.equal(a,b);const out=await a;assert.equal(out.state,'verified');assert.equal(out.childExitConfirmed,true);assert.equal(out.proofBarrierConfirmed,true);assert.equal(out.proof.commitAck,false);assert.equal(f.seen.length,2);assert.equal(f.seen[0].env.PG_ADMIN_PASSWORD,'PUBLIC_SYNTHETIC_PASSWORD');assert.equal(f.seen[1].env.PG_ADMIN_PASSWORD,undefined);assert.equal(f.seen[1].env.READ_SERVICE_SCRAM,undefined);assert.ok(!JSON.stringify(f.seen.map(x=>x.args)).includes('PASSWORD'));assert.ok(!JSON.stringify(out).includes('PASSWORD'));
+});
+test('failed child stays observable unknown and never launches reader or repeats SQL',async()=>{const f=harness({firstCode:2});assert.equal((await f.s.run()).state,'outcome_unknown');assert.equal(f.seen.length,1);await f.s.run();assert.equal(f.seen.length,1);});
+test('raw extra-field/sentinel and invalid UTF8 are refused without reflection',async()=>{for(const options of [{body:{...proof,raw:'PRIVATE_SENTINEL'}},{invalidUtf8:true}]){const f=harness(options),out=await f.s.run();assert.equal(out.state,'proof_refused');assert.equal(JSON.stringify(out).includes('PRIVATE_SENTINEL'),false);}});
+test('secretless reader fsync validates every durable event and refuses unconfirmed intent',t=>{
+ const dir=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'read-proof-lab-')));fs.chmodSync(dir,0o700);t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const j=createJournal(dir,{uid:process.getuid()});j.create(q);assert.throws(()=>readProof(j,q.operationId));j.append(q.operationId,{kind:'dispatch',backend:{pid:123,backendStart:'2026-10-03 12:00:00+00'}});j.append(q.operationId,{kind:'readback',state:'confirmed',phase:'staged'});assert.deepEqual(readProof(j,q.operationId),proof);
+});

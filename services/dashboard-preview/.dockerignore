@@ -1,0 +1,7 @@
+**
+!Dockerfile
+!.dockerignore
+!server.cjs
+!fixtures.cjs
+!public/
+!public/**

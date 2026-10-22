@@ -5,7 +5,7 @@ const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 const uuid=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
 async function fixture(connection=null){
  const db=connection||new PGlite();
- for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-provider.sql'])await db.exec(read(f));
+ for(const f of ['tests/campaign-provider-schema.sql','n8n/growth/campaign-store.sql','n8n/growth/campaign-template-ownership.sql','n8n/growth/campaign-provider.sql'])await db.exec(read(f));
  await db.exec(`TRUNCATE subscriber_lists,subscribers;
  CREATE TABLE link_clicks(id serial PRIMARY KEY,campaign_id integer,subscriber_id integer,created_at timestamptz NOT NULL);
  CREATE TABLE settings(key text PRIMARY KEY,value jsonb);INSERT INTO settings VALUES('privacy.disable_tracking','false'),('privacy.individual_tracking','true');

@@ -1,6 +1,8 @@
 -- Apply together with campaign-provider.sql in one transaction, after compatibility tests.
 -- Only crm-campaign-v1 Aristo/Fish campaigns are owned by the dashboard.
 -- These guards arbitrate application writers, not a database owner who can disable triggers.
+-- PREPARED templates only: load campaign-template-ownership.sql first. The native
+-- INSERT check below closes the gap between gateway preflight and Listmonk CREATE.
 CREATE OR REPLACE FUNCTION public.shrigma_campaign_is_managed(c public.campaigns) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$
  SELECT coalesce(c.attribs#>>'{crm,policy}'='crm-campaign-v1' AND c.attribs#>>'{crm,brand}' IN ('aristo','fish'),false)
@@ -103,3 +105,23 @@ CREATE TRIGGER shrigma_campaign_media_asset_guard BEFORE UPDATE OR DELETE ON pub
  FOR EACH ROW EXECUTE FUNCTION public.shrigma_campaign_dependency_guard();
 REVOKE ALL ON FUNCTION public.shrigma_campaign_is_managed(public.campaigns),public.shrigma_campaign_guard(),
  public.shrigma_campaign_relation_guard(),public.shrigma_campaign_dependency_guard() FROM PUBLIC;
+
+-- Keep the existing campaign guard's privileges unchanged. This narrow trigger
+-- needs no new registry SELECT grant for the native Listmonk connection: its
+-- postgres owner performs only a fixed ownership check and transaction lock.
+-- Apply this file with the ownership helper as postgres in one transaction.
+CREATE FUNCTION public.shrigma_campaign_template_create_guard_v1()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='3s' AS $create_owned$
+BEGIN
+ IF public.shrigma_campaign_is_managed(NEW) THEN
+  LOCK TABLE public.shrigma_template_email_registry IN SHARE MODE;
+  PERFORM t.id FROM public.templates t WHERE t.id=NEW.template_id FOR SHARE;
+  IF NOT public.shrigma_campaign_template_owned_v1(NEW.template_id,NEW.attribs#>>'{crm,brand}') THEN
+   RAISE EXCEPTION 'TEMPLATE_SCOPE';
+  END IF;
+ END IF;
+ RETURN NEW;
+END $create_owned$;
+REVOKE ALL ON FUNCTION public.shrigma_campaign_template_create_guard_v1() FROM PUBLIC;
+CREATE TRIGGER shrigma_campaign_template_create_guard_v1 BEFORE INSERT ON public.campaigns
+ FOR EACH ROW EXECUTE FUNCTION public.shrigma_campaign_template_create_guard_v1();

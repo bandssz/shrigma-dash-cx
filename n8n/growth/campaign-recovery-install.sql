@@ -3,7 +3,7 @@ BEGIN;
 SET LOCAL lock_timeout='3s';
 DO $check$ BEGIN
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shrigma_campaign_store(text,jsonb)'::regprocedure) NOT IN ('4e95ed0403daef3496194e86c1878654','b77d960aca32c2c93dfe15e82922d7ff') THEN RAISE EXCEPTION 'RECOVERY_STORE_DRIFT'; END IF;
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shrigma_campaign_provider(text,jsonb)'::regprocedure) NOT IN ('99a6c32087bf30264da2a0a059528f62','fe3a35e75c8d0830f1b289fa806e52fc') THEN RAISE EXCEPTION 'RECOVERY_PROVIDER_DRIFT'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shrigma_campaign_provider(text,jsonb)'::regprocedure) NOT IN ('99a6c32087bf30264da2a0a059528f62','fe3a35e75c8d0830f1b289fa806e52fc','ee8c16b6c37785dafd59c062330b2290') THEN RAISE EXCEPTION 'RECOVERY_PROVIDER_DRIFT'; END IF;
  IF to_regprocedure('public.shrigma_campaign_recovery(text,jsonb)') IS NOT NULL AND (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('public.shrigma_campaign_recovery(text,jsonb)'))<>'1e2c0a2bacd82f4dcf8d6797cbf1842c' THEN RAISE EXCEPTION 'RECOVERY_HELPER_DRIFT'; END IF;
  IF to_regclass('public.shrigma_campaign_recovery_receipt') IS NOT NULL THEN
   IF NOT EXISTS(SELECT 1 FROM pg_class WHERE oid='public.shrigma_campaign_recovery_receipt'::regclass AND relkind='r' AND relpersistence='p' AND NOT relrowsecurity AND NOT relforcerowsecurity AND NOT relispartition)

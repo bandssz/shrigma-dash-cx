@@ -59,7 +59,12 @@ if(SHRIGMA_EMBEDDED && typeof window!=='undefined' && window.parent!==window){
   if(event.source!==window.parent||event.origin!==location.origin||event.data?.type!=='shrigma:read-access'||event.data.panel!==area)return;
   if(typeof event.data.key!=='string'||!/^[a-z0-9-]{8,128}$/.test(event.data.key))return;
   let parentPath;try{parentPath=new URL(window.parent.location.href).pathname;}catch(_){return;}
-  if(!/(?:cx|crm|organico|creators|gestao)\/(?:index.html)?$/.test(parentPath))return;
+  // Operational portal entries may be served at the host root. Bind that
+  // exception to the entry document and this exact iframe, not just a path.
+  if(parentPath==='/'){
+   let parentBody,host;try{parentBody=window.parent.document.body;host=window.parent.document.getElementById('entry-frame');}catch(_){return;}
+   if(!host?.contains(window.frameElement)||!['todos',area].includes(parentBody?.dataset?.accessPanel))return;
+  }else if(!/(?:cx|crm|organico|creators|gestao)\/(?:index.html)?$/.test(parentPath))return;
   shrigmaGuardaChave(area,event.data.key);
   const op=event.data.permission;delete SHRIGMA_OPERATOR_SESSION[area];
   if(op&&Array.isArray(op.caps)&&typeof op.label==='string')SHRIGMA_OPERATOR_SESSION[area]={caps:op.caps.filter(x=>typeof x==='string'),label:op.label};

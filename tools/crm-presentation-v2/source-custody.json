@@ -1,0 +1,245 @@
+{
+  "schema": "crm-presentation-v2-source-custody-v1",
+  "status": "source-proposal-not-production-admitted",
+  "operational": false,
+  "repository": "bandssz/shrigma-dash-cx",
+  "branch": "codex/crm-presentation-v2-release-20261006",
+  "prBaseBranch": "codex/cowork-panel-source-20261006",
+  "base": {
+    "revision": "90c8da5035fcf01ccbb6f75384259df703518abb",
+    "tree": "b5bc930e178a1590a741892561aa271aa51f6c09",
+    "blobCount": 1933,
+    "canonicalBlobRowsSha256": "f81a3539c7feeaa5868884fd27e5ebea1de9a4822bb290aa8aa9d1ddd2c470d8",
+    "canonicalFormat": "JSON sorted arrays [path,mode,blobSha1,size]; UTF-8; no whitespace"
+  },
+  "delta": {
+    "modified": 4,
+    "added": 10,
+    "deleted": 0,
+    "paths": [
+      {
+        "path": ".github/workflows/crm-presentation-v2-release-20261006.yml",
+        "status": "A"
+      },
+      {
+        "path": "assets/panels/organico.js",
+        "status": "M"
+      },
+      {
+        "path": "ops/releases/crm-presentation-v2-20261006/Dockerfile",
+        "status": "A"
+      },
+      {
+        "path": "ops/releases/crm-presentation-v2-20261006/Dockerfile.dockerignore",
+        "status": "A"
+      },
+      {
+        "path": "ops/releases/crm-presentation-v2-20261006/build-release.cjs",
+        "status": "A"
+      },
+      {
+        "path": "ops/releases/crm-presentation-v2-20261006/default-smoke.cjs",
+        "status": "A"
+      },
+      {
+        "path": "ops/releases/crm-presentation-v2-20261006/release.cjs",
+        "status": "A"
+      },
+      {
+        "path": "organico.html",
+        "status": "M"
+      },
+      {
+        "path": "tests/organic-v2/contract-v102-public-messages.test.cjs",
+        "status": "A"
+      },
+      {
+        "path": "tests/root-mounts/organic-v102-build-order.test.cjs",
+        "status": "A"
+      },
+      {
+        "path": "tools/crm-presentation-v2/source-custody.json",
+        "status": "A"
+      },
+      {
+        "path": "tools/panel-build/manifest.json",
+        "status": "M"
+      },
+      {
+        "path": "ui/organic-v2/organic-contract-v1-0-2.js",
+        "status": "A"
+      },
+      {
+        "path": "ui/organic-v2/organic-v2.js",
+        "status": "M"
+      }
+    ]
+  },
+  "payloadPins": [
+    {
+      "repoPath": "assets/panels/organico.js",
+      "mode": "100644",
+      "deltaStatus": "M",
+      "bytes": 139205,
+      "sha256": "645ed968912efc86ff86b06167d63d775fb19bb662e61238a70d9827ddb03259",
+      "gitBlobSha1": "ce5b4f2f21d129c1dec2ebc45a62a6fd2dd324cf"
+    },
+    {
+      "repoPath": "ops/releases/crm-presentation-v2-20261006/Dockerfile",
+      "mode": "100644",
+      "deltaStatus": "A",
+      "bytes": 2924,
+      "sha256": "066919ad53b7c3a28bdeed196641409339baf1f942ee707d2cc770d566ef77db",
+      "gitBlobSha1": "009cbdaa1cc16ae5a250cbacc5659b6d2801d43d"
+    },
+    {
+      "repoPath": "ops/releases/crm-presentation-v2-20261006/Dockerfile.dockerignore",
+      "mode": "100644",
+      "deltaStatus": "A",
+      "bytes": 343,
+      "sha256": "0088da17c4cd211a6b8fb4ef525bd7cf95f16eb8a25cfbae7584ed1d7e6b6e35",
+      "gitBlobSha1": "9711d49cf7f616ace23f876f1633db717baa7f85"
+    },
+    {
+      "repoPath": "ops/releases/crm-presentation-v2-20261006/build-release.cjs",
+      "mode": "100644",
+      "deltaStatus": "A",
+      "bytes": 6807,
+      "sha256": "7338a1e4f335e4766ff6eee26b0e5f507d00e465e940d234c9fa6f72705549ed",
+      "gitBlobSha1": "a7c22966055293868d0d2009154debd5ab3af5cc"
+    },
+    {
+      "repoPath": "ops/releases/crm-presentation-v2-20261006/default-smoke.cjs",
+      "mode": "100644",
+      "deltaStatus": "A",
+      "bytes": 16527,
+      "sha256": "f5aa19571ec96d287a58646045e2f5f4d8448e1a70be72062441019e0e942f7f",
+      "gitBlobSha1": "3dedc7a070a588cb1cdcee2198a0e9344eb5be26"
+    },
+    {
+      "repoPath": "ops/releases/crm-presentation-v2-20261006/release.cjs",
+      "mode": "100644",
+      "deltaStatus": "A",
+      "bytes": 12176,
+      "sha256": "bf39facf06e0e99453e320cab3de98c1d674f4d25e27515904a9d028d7613b5d",
+      "gitBlobSha1": "6b55da6decca9efb8194ff7d91a08e56c4068cdd"
+    },
+    {
+      "repoPath": "organico.html",
+      "mode": "100644",
+      "deltaStatus": "M",
+      "bytes": 51680,
+      "sha256": "83ac63e49955bba801e1321ce4252708aefb97fdbb5ed63f07acfa4699c025ba",
+      "gitBlobSha1": "baee567c764c0356fedffa88e5154a075f303255"
+    },
+    {
+      "repoPath": "tests/organic-v2/contract-v102-public-messages.test.cjs",
+      "mode": "100644",
+      "deltaStatus": "A",
+      "bytes": 20611,
+      "sha256": "6f1f161ed46233357198cdc69875c9e2a4449b504554106906f3e40411758a6f",
+      "gitBlobSha1": "d22952ab5162f0dca41c7f98c54183530c8cfdba"
+    },
+    {
+      "repoPath": "tests/root-mounts/organic-v102-build-order.test.cjs",
+      "mode": "100644",
+      "deltaStatus": "A",
+      "bytes": 3985,
+      "sha256": "b710ef786221618bfb4b641f59b607b571aee0306848159b151d1eaf42b3afdf",
+      "gitBlobSha1": "ed74cc4b6668d5f9c29cf4db5cbff3422d218970"
+    },
+    {
+      "repoPath": "tools/panel-build/manifest.json",
+      "mode": "100644",
+      "deltaStatus": "M",
+      "bytes": 4567,
+      "sha256": "67ecd0b2fcaf95348cea365226e0af685f8ddbfe7e2f3826228598115022a57e",
+      "gitBlobSha1": "47dc059b7c99fe21e93e8283252b56fa0a2c2e7c"
+    },
+    {
+      "repoPath": "ui/organic-v2/organic-contract-v1-0-2.js",
+      "mode": "100644",
+      "deltaStatus": "A",
+      "bytes": 24693,
+      "sha256": "a53fc473eb2afec76259dea7f157aea69da8c2990f86b025874cd146450b3bb8",
+      "gitBlobSha1": "65588460b70430382693121d125eea7278b65e8d"
+    },
+    {
+      "repoPath": "ui/organic-v2/organic-v2.js",
+      "mode": "100644",
+      "deltaStatus": "M",
+      "bytes": 78830,
+      "sha256": "3e49e372e347bc39af54e4646fef4af4b84a6b85c93e71c4a50a4535ea1c02e5",
+      "gitBlobSha1": "8be195fe9a5bc9226455fe22b064bc236fd47112"
+    }
+  ],
+  "builderInputPins": [
+    {
+      "repoPath": "assets/panels/influs.css",
+      "bytes": 98381,
+      "sha256": "86f46577e9c72d36b23f599de45b049ebda134bbf339607d81f39d58e69a2406",
+      "gitBlobSha1": "0d1a651a7933a3f949636a938eda36c266bd7594"
+    },
+    {
+      "repoPath": "assets/panels/influs.js",
+      "bytes": 278596,
+      "sha256": "e662c04812a1505e4178eaa589a9f83b57e688faebffd9877497eda643f98bae",
+      "gitBlobSha1": "42ff57d5ed40d509b0eebe5e96e3d25c2a4a4f94"
+    },
+    {
+      "repoPath": "assets/panels/organico.css",
+      "bytes": 71232,
+      "sha256": "ef89318de87830f0e79b905a2617edd6685b567ac7156b67c0d444af3a9a9a75",
+      "gitBlobSha1": "572e72c48a0bda025b4942bb712e269242fdda79"
+    },
+    {
+      "repoPath": "assets/panels/organico.js",
+      "bytes": 139205,
+      "sha256": "645ed968912efc86ff86b06167d63d775fb19bb662e61238a70d9827ddb03259",
+      "gitBlobSha1": "ce5b4f2f21d129c1dec2ebc45a62a6fd2dd324cf"
+    },
+    {
+      "repoPath": "influs.html",
+      "bytes": 97384,
+      "sha256": "9884e1b18bfc06f3137027965d50f2c099432808cf2b86fecb4a623cd15bce16",
+      "gitBlobSha1": "8f1ed72e21fc124590e25cad1773d5bac0b447d0"
+    },
+    {
+      "repoPath": "organico.html",
+      "bytes": 51680,
+      "sha256": "83ac63e49955bba801e1321ce4252708aefb97fdbb5ed63f07acfa4699c025ba",
+      "gitBlobSha1": "baee567c764c0356fedffa88e5154a075f303255"
+    },
+    {
+      "repoPath": "services/dashboard-operational/build.cjs",
+      "bytes": 16752,
+      "sha256": "4bb955d96644f1a4472a81210a644cbd4a0b15e23d67c614e78062c2d2b99c2c",
+      "gitBlobSha1": "d2b02ad0873c634c725e89a35f66417c10d7b147"
+    },
+    {
+      "repoPath": "services/dashboard-operational/public/entry.js",
+      "bytes": 58676,
+      "sha256": "e3dd53afd7ab70d71c4b82478829c8edd99eb08894837d51f98f5068d92959eb",
+      "gitBlobSha1": "23536df3a8bdc05b47048ada70085e4697fdfd6f"
+    }
+  ],
+  "presentation": {
+    "parentImage": "ghcr.io/bandssz/shrigma-dash-crm-presentation@sha256:88b082d574394ef56623e5cb429ace65dbca99c9d1de698fa6a1cf83e1a17861",
+    "manifestSha256": "191128958b9c7b299c8cc4d0fdc1c3f0fd6626ae2a42a0132b9556a9065baa11",
+    "originalArtifactFiles": 58,
+    "originalPublicFiles": 30,
+    "publicFilesChanged": 13,
+    "otherPublicFilesUnchanged": 17,
+    "runtimeFilesUnchanged": 28,
+    "imageFilesUnchanged": 6,
+    "corePackSha256": "c80ee2a8f2611b9cb17a5d24b9b1668a7fe4218a2a95e73cb706e5b6682980da"
+  },
+  "authority": {
+    "nativeBase": "Root provided native tree/blob index; not an IAM admission",
+    "runtimeIdentityAuthSqlOrControllerChanges": false,
+    "writesEnabled": false,
+    "syntheticSmokeOnly": true,
+    "publishAfterChecks": "same repository exact branch push only",
+    "selfPins": "Workflow checks this file literal SHA256; workflow physical bytes/mode must equal source-head Git blob. Root upload manifest records both final hashes without circular self-pins."
+  }
+}

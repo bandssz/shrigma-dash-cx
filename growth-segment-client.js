@@ -6,8 +6,11 @@
  const exact=(o,keys)=>!!o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).length===keys.length&&keys.every(k=>Object.hasOwn(o,k));
  const rejectionCodes=new Set(['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_NOT_FOUND','SEGMENT_UNAVAILABLE','SEGMENT_LIST_UNAVAILABLE','SEGMENT_SHAPE','SEGMENT_FIELDS','SEGMENT_NAME','SEGMENT_RULE','SEGMENT_LIMIT','SEGMENT_VERSION','SEGMENT_BRAND_MISMATCH','SEGMENT_VERSION_REQUIRED','SEGMENT_LIST_ID']);
  const rejected=r=>!!r&&[404,409,422,503].includes(r.status)&&rejectionCodes.has(r.body?.error)&&Object.keys(r.body).every(k=>['error','current_version','transport_supported'].includes(k))&&(!Object.hasOwn(r.body,'current_version')||positive(r.body.current_version))&&(!Object.hasOwn(r.body,'transport_supported')||r.body.transport_supported===false);
+ // Exact access refusals are emitted before any write (SQL returns before the
+ // effect; v2 rolls the transaction back), so they leave no receipt to consult.
+ const accessRefusal=r=>exact(r?.body,['error'])&&(r.status===401&&r.body.error==='SEGMENT_UNAUTHORIZED'||r.status===403&&r.body.error==='SEGMENT_ACCESS_DENIED');
  function caps(api){const c=api?.capabilities?.segments;let endpoint=null;try{const u=new URL(api.capabilities.endpoints.segments);if(u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash)endpoint=u.href;}catch{}
-  const ok=[VERSION,AudienceContract?.VERSION].filter(Boolean).includes(c?.contract_version)&&Array.isArray(c.brands)&&endpoint;return {contract_version:ok?c.contract_version:null,endpoint:ok?endpoint:null,brands:ok?c.brands.filter(b=>['fish','aristo'].includes(b)):[],read:!!ok&&c.read===true,operation:!!ok&&c.operation===true,save:!!ok&&c.read===true&&c.save===true&&c.operation===true,count:!!ok&&c.read===true&&c.count===true,send:false};}
+  const ok=[VERSION,AudienceContract?.VERSION].filter(Boolean).includes(c?.contract_version)&&Array.isArray(c.brands)&&endpoint;return {contract_version:ok?c.contract_version:null,endpoint:ok?endpoint:null,brands:ok?c.brands.filter(b=>['fish','aristo'].includes(b)):[],read:!!ok&&c.read===true,operation:!!ok&&c.operation===true,save:!!ok&&c.read===true&&c.save===true&&c.operation===true,count:!!ok&&c.read===true&&c.count===true,contextReview:!!ok&&c.read===true&&c.context_review===true&&c.context_review_contract==='crm-audience-context-review-v2',send:false};}
  async function fingerprint(key){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
  function create({api,brand,key,storage=localStorage,fetch:fetcher=fetch,locks=globalThis.navigator?.locks,identity=fingerprint,id=()=>crypto.randomUUID()}={}){
   const Contract=contractFor(api),normalized=x=>Contract.normalize(x),definitionSame=(a,b)=>same(normalized(a),normalized(b));
@@ -25,7 +28,7 @@
    if(Contract.FIELDS&&(create||save)&&!/^[a-f0-9]{64}$/.test(p.expected_catalog_hash))return false;
    if(create?op.before!==null:!validSegment(op.before)||op.before.archived||p.id!==op.before.id||p.expected_version!==op.before.version)return false;
    if((create||save)&&normalized(p.definition).brand!==brand)return false;
-   return op.phase==='confirmed'?receipt(op.receipt,op):op.phase==='rejected'?rejected(op.receipt):true;
+   return op.phase==='confirmed'?receipt(op.receipt,op):op.phase==='rejected'?rejected(op.receipt)||accessRefusal(op.receipt):true;
   }catch{return false;}}
   function refresh(){let saved;try{saved=JSON.parse(storage.getItem(slot)||'null');}catch{fail('SEGMENT_JOURNAL_INVALID');}if(saved){if(!validState(saved))fail('SEGMENT_JOURNAL_INVALID');state=saved;}}
   refresh();const snapshot=()=>clone(state),pending=()=>['pending','uncertain'].includes(state.operation?.phase);
@@ -36,7 +39,7 @@
    try{const response=await fetcher(url.href,init),body=await response.json();return {status:response.status,body};}catch{return {status:0,body:null};}}
   function ok(r){return r.status>=200&&r.status<300;}
   // Exact access refusals are shown as such; every other failure stays unconfirmed.
-  const accessRefused=r=>exact(r?.body,['error'])&&(r.status===401&&r.body.error==='SEGMENT_UNAUTHORIZED'||r.status===403&&r.body.error==='SEGMENT_ACCESS_DENIED');
+  const accessRefused=accessRefusal;
   function requireOK(r){if(!ok(r))fail(accessRefused(r)||['SEGMENT_CATALOG_CHANGED','SEGMENT_VERSION_CONFLICT','SEGMENT_ARCHIVED','SEGMENT_LIST_UNAVAILABLE','SEGMENT_UNAVAILABLE'].includes(r.body?.error)?r.body.error:'SEGMENT_READ_UNCONFIRMED');return r.body;}
   async function exclusive(work){if(typeof locks?.request!=='function')fail('SEGMENT_LOCK_UNAVAILABLE');return locks.request(slot,{mode:'exclusive',ifAvailable:true},async lock=>{if(!lock||busy)fail('SEGMENT_BUSY');busy=true;try{refresh();return await work();}finally{busy=false;}});}
   function writable(){access('save');if(pending())fail('SEGMENT_OPERATION_PENDING');if(!catalog||permissions?.draft!==true)fail('SEGMENT_CATALOG_UNCONFIRMED');}
@@ -60,6 +63,9 @@
    if(!/^[A-Za-z0-9_.:-]{8,128}$/.test(request.idempotency_key))fail('SEGMENT_OPERATION_ID_INVALID');
    const operation={phase:'pending',actor:actorHash,request,before};persist({...state,operation});const r=await call('POST',request,'save');
    if(receipt(r,operation)){persist({...state,segment:r.body.segment,operation:{...operation,phase:'confirmed',receipt:r}});return snapshot();}
+   // Recusa provada na resposta (acesso recusado antes de gravar, ou recusa de
+   // negócio já gravada como recibo sem efeito): resolve sem incerteza.
+   if(rejected(r)||accessRefusal(r)){persist({...state,operation:{...operation,phase:'rejected',receipt:{status:r.status,body:clone(r.body)}}});fail(r.body.error);}
    persist({...state,operation:{...operation,phase:'uncertain'}});fail('SEGMENT_OPERATION_UNCONFIRMED');
   });}
   return {
@@ -69,6 +75,17 @@
     if(!Array.isArray(b.segments)||!b.segments.every(validSegment)||b.offset!==offset||b.limit!==limit||b.capabilities?.send!==false||typeof b.capabilities?.draft!=='boolean'||typeof b.capabilities?.count!=='boolean'||b.catalog?.brand!==brand||typeof b.catalog.current!=='boolean'||(!b.catalog.current&&(b.capabilities.draft||b.capabilities.count))||!Array.isArray(b.catalog.lists)||b.catalog.lists.some(l=>!positive(l.id)||l.brand!==brand||typeof l.name!=='string'||typeof l.available!=='boolean')||new Set(b.catalog.lists.map(l=>l.id)).size!==b.catalog.lists.length||!typedCatalog(b.catalog))fail('SEGMENT_CATALOG_UNCONFIRMED');
     access('read');catalog=clone(b.catalog);permissions=clone(b.capabilities);return clone(b);},
    async open(id){if(!uuid(id))fail('SEGMENT_ID_INVALID');return exclusive(async()=>{if(pending())fail('SEGMENT_OPERATION_PENDING');const b=requireOK(await call('GET',{acao:'segmento_obter',brand,id},'read'));if(!validSegment(b.segment)||b.segment.id!==id)fail('SEGMENT_READ_UNCONFIRMED');persist({...state,segment:b.segment});return snapshot();});},
+   async reviewContext(expected){return exclusive(async()=>{
+    access('read');if(!availability.contextReview)fail('SEGMENT_CAPABILITY_UNAVAILABLE');if(pending())fail('SEGMENT_OPERATION_PENDING');
+    const original=clone(state.segment),hash=catalog?.catalog_hash;
+    if(!validSegment(original)||original.archived||original.id!==expected?.id||original.version!==expected?.version||catalog?.current!==true||!hash)fail('SEGMENT_SELECTION_CHANGED');
+    const b=requireOK(await call('GET',{acao:'segmento_contexto_revisao',brand,id:original.id,expected_version:original.version,expected_catalog_hash:hash},'read')),v=b.context_review;
+    const canonical=x=>Array.isArray(x)?'['+x.map(canonical).join(',')+']':x&&typeof x==='object'?'{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}':JSON.stringify(x);
+    const definitionHash=await fingerprint(canonical(normalized(original.definition)));
+    const validContextChange=(c,d)=>{if(c.before===c.after)return false;const m=/^(?:base\.(id|optin)|rules\[(0|[1-9][0-9]*)\]\.(list_id|optin|source|source_hash|shop_id|currency|timezone|recorded_origin_provenance_hash|origin_provenance_hash))$/.exec(c.path);if(!m)return false;const k=m[1]||m[3],n=Number(m[2]);if(m[2]!==undefined){const leaf=Contract.leaves(d)[n];if(!leaf||n>=32)return false;const r=leaf.rule;if(r.op==='in_list'?!['list_id','optin'].includes(k):!['source','source_hash',...(Contract.FIELDS[r.field].source==='shopify'?['shop_id','currency','timezone']:[]),...(r.field==='signup.origin'?['origin_provenance_hash']:[]),...(r.field==='signup.recorded_origin'?['recorded_origin_provenance_hash']:[])].includes(k))return false;}return [c.before,c.after].every(x=>k==='id'||k==='list_id'?positive(x):k==='optin'?['single','double'].includes(x):k==='source'?['shopify','crm','email'].includes(x):k.endsWith('hash')?typeof x==='string'&&/^[a-f0-9]{64}$/.test(x):k==='shop_id'?typeof x==='string'&&/^gid:\/\/shopify\/Shop\/[1-9]\d{0,19}$/.test(x):k==='currency'?typeof x==='string'&&/^[A-Z]{3}$/.test(x):k==='timezone'?typeof x==='string'&&x.length<=100&&(()=>{try{return !!new Intl.DateTimeFormat('en',{timeZone:x});}catch{return false;}})():false);};
+    if(!exact(b,['context_review'])||!exact(v,['schema','brand','id','version','definition_hash','stored_context_hash','current_context_hash','catalog_hash','checked_at','context_current','changes','authorizes_refresh','transport_supported','source_ready','unavailable_fields'])||v.schema!=='crm-audience-context-review-v2'||v.brand!==brand||v.id!==original.id||v.version!==original.version||v.catalog_hash!==hash||v.definition_hash!==definitionHash||![v.stored_context_hash,v.current_context_hash].every(h=>typeof h==='string'&&/^[a-f0-9]{64}$/.test(h))||typeof v.context_current!=='boolean'||v.context_current!==(v.stored_context_hash===v.current_context_hash)||v.authorizes_refresh!==false||v.transport_supported!==false||typeof v.checked_at!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(v.checked_at)||!Number.isFinite(Date.parse(v.checked_at))||Date.parse(v.checked_at)>Date.now()+30000||Date.parse(v.checked_at)<Date.now()-90000||!Array.isArray(v.changes)||v.changes.length>258||v.context_current!==(v.changes.length===0)||v.changes.some(c=>!exact(c,['path','before','after'])||typeof c.path!=='string'||!validContextChange(c,original.definition))||new Set(v.changes.map(c=>c.path)).size!==v.changes.length||typeof v.source_ready!=='boolean'||!Array.isArray(v.unavailable_fields)||v.unavailable_fields.length>32||v.unavailable_fields.some(f=>typeof f!=='string'||!Object.hasOwn(Contract.FIELDS,f)||!Contract.leaves(original.definition).some(l=>l.rule.field===f))||!same(v.unavailable_fields,[...new Set(v.unavailable_fields)].sort())||v.source_ready!==(v.unavailable_fields.length===0)||!same(v.unavailable_fields,[...new Set(Contract.leaves(original.definition).filter(l=>l.rule.op==='condition'&&catalog.fields.find(f=>f.key===l.rule.field)?.available===false).map(l=>l.rule.field))].sort())||JSON.stringify(b).includes(actor))fail('SEGMENT_CONTEXT_REVIEW_UNCONFIRMED');
+    access('read');refresh();if(!same(state.segment,original)||catalog?.catalog_hash!==hash)fail('SEGMENT_SELECTION_CHANGED');return clone(v);
+   });},
    async newDraft({preserveDraft}={}){return exclusive(async()=>{
     access('read');if(pending())fail('SEGMENT_OPERATION_PENDING');
     if(preserveDraft){

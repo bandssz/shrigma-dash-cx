@@ -1,0 +1,37 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),zlib=require('node:zlib');
+const policy=require('./artifact-policy.cjs'),{pack}=require('./pack-runtime.cjs'),{prepareImage,verifyImagePack}=require('./canary-image.cjs');
+function temporary(t){const dir=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'dashboard-pack-v2-')));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return dir;}
+function fixture(t){const dir=temporary(t),dist=path.join(dir,'dist');for(const file of policy.PUBLIC_FILES){const to=path.join(dist,'public',file);fs.mkdirSync(path.dirname(to),{recursive:true,mode:0o700});fs.writeFileSync(to,policy.isText(file)?'SYNTHETIC_PUBLIC '+file:Buffer.from([0,255,1,2,3]));}const output=path.join(dir,'pack'),meta=pack(dist,output),input=fs.readFileSync(path.join(output,'runtime-pack.json'),'utf8'),wrapper=JSON.parse(input),raw=zlib.brotliDecompressSync(Buffer.from(wrapper.brotliBase64,'base64'));return{dir,dist,output,meta,input,wrapper,raw};}
+const v2=(raw)=>({schema:policy.SCHEMA_V2,sha256:policy.sha(raw),brotliBase64:zlib.brotliCompressSync(raw,{params:{[zlib.constants.BROTLI_PARAM_QUALITY]:9}}).toString('base64')});
+function reject(wrapper,pin=wrapper.sha256){assert.throws(()=>policy.decodePack(JSON.stringify(wrapper),pin));}
+test('deterministic V2 roundtrip preserves every raw/file byte and exact legacy V1 semantics',t=>{
+ const f=fixture(t),second=path.join(f.dir,'pack-second'),meta=pack(f.dist,second);assert.equal(f.wrapper.schema,policy.SCHEMA_V2);assert.deepEqual(Object.keys(f.wrapper),['schema','sha256','brotliBase64']);assert.equal(f.wrapper.gzipBase64,undefined);assert.equal(meta.packSha256,f.meta.packSha256);assert.equal(fs.readFileSync(path.join(second,'runtime-pack.json'),'utf8'),f.input);assert.ok(meta.packBytes<=950000);assert.ok(meta.seedMountsBytes<=960000);assert.equal(policy.MAX_BYTES,16*1024*1024);assert.equal(policy.MAX_PACK_BYTES,950000);
+ const legacy={schema:policy.SCHEMA,sha256:f.meta.packSha256,gzipBase64:zlib.gzipSync(f.raw,{level:9}).toString('base64')};assert.deepEqual(policy.decodePack(JSON.stringify(legacy),legacy.sha256),policy.decodePack(f.input,f.meta.packSha256));assert.equal(policy.sha(f.raw),f.meta.packSha256);
+ const result=policy.unpack(path.join(f.output,'runtime-pack.json'),path.join(f.dir,'extracted'),{expectedSha256:f.meta.packSha256});for(const file of policy.PUBLIC_FILES)assert.deepEqual(fs.readFileSync(path.join(result.publicDir,file)),fs.readFileSync(path.join(f.dist,'public',file)));for(const file of policy.RUNTIME_FILES)assert.deepEqual(fs.readFileSync(path.join(result.runtimeDir,file)),fs.readFileSync(path.join(__dirname,file)));
+ assert.throws(()=>policy.unpack(path.join(f.output,'runtime-pack.json'),result.root,{expectedSha256:f.meta.packSha256}),/TARGET_EXISTS/);
+});
+test('schema/algo confusion, unknown fields, pins and noncanonical Base64 remain closed',t=>{
+ const f=fixture(t);for(const change of [{schema:'shrigma_dashboard_operational_pack_v3'},{schema:policy.SCHEMA},{gzipBase64:f.wrapper.brotliBase64},{sha256:'a'.repeat(64)},{brotliBase64:f.wrapper.brotliBase64+'\n'},{encoding:'brotli'}])reject({...f.wrapper,...change},f.meta.packSha256);
+ reject({schema:policy.SCHEMA_V2,sha256:f.meta.packSha256,gzipBase64:zlib.gzipSync(f.raw).toString('base64')});reject({schema:policy.SCHEMA,sha256:f.meta.packSha256,brotliBase64:f.wrapper.brotliBase64});assert.throws(()=>policy.decodePack(f.input),/PIN_REQUIRED/);assert.throws(()=>policy.decodePack(' '.repeat(950001),f.meta.packSha256),/TOO_LARGE/);
+ const changed=v2(Buffer.from('[]'));reject({...changed,sha256:f.meta.packSha256},f.meta.packSha256);
+});
+test('Brotli bomb, truncation, trailing payload and malformed decompressed UTF8 are rejected',t=>{
+ const raw=Buffer.alloc(policy.MAX_BYTES+1,65);reject(v2(raw));const f=fixture(t),bytes=Buffer.from(f.wrapper.brotliBase64,'base64');reject({...f.wrapper,brotliBase64:bytes.subarray(0,bytes.length-1).toString('base64')});reject({...f.wrapper,brotliBase64:Buffer.concat([bytes,Buffer.from('HIDDEN_TRAILING_DATA')]).toString('base64')});
+ reject(v2(Buffer.from([0x5b,0x22,0xc3,0x22,0x5d])));
+});
+test('both algorithms retain exact allowlist/duplicates/encoding/path and symlink extraction controls',t=>{
+ const f=fixture(t);for(const mutation of [files=>files[0].path='../unreviewed-secret',files=>files[0].path=files[1].path,files=>files[0].encoding='base64',files=>files.pop(),files=>files[0].content+='\ud800',files=>files[0].token='UNREVIEWED_SECRET']){const files=JSON.parse(f.raw);mutation(files);const raw=Buffer.from(JSON.stringify(files));reject(v2(raw));reject({schema:policy.SCHEMA,sha256:policy.sha(raw),gzipBase64:zlib.gzipSync(raw).toString('base64')});}
+ const link=path.join(f.dir,'pack-link');fs.symlinkSync(path.join(f.output,'runtime-pack.json'),link);assert.throws(()=>policy.unpack(link,path.join(f.dir,'unpacked'),{expectedSha256:f.meta.packSha256}),/PACK_FILE/);
+ const extra=path.join(f.dist,'public','.env');fs.writeFileSync(extra,'PRIVATE_CANARY');assert.throws(()=>pack(f.dist,path.join(f.dir,'rejected')),/ALLOWLIST/);assert.equal(fs.existsSync(path.join(f.dir,'rejected')),false);
+});
+test('image preparation admits exact V1/V2 metadata and still pins bytes/revision before any seed',t=>{
+ const f=fixture(t),revision='b'.repeat(40),image=path.join(f.dir,'image'),pin=prepareImage(f.output,revision,image);assert.equal(pin.packSha256,f.meta.packSha256);assert.equal(verifyImagePack(image).input,f.input);
+ const metadata=JSON.parse(fs.readFileSync(path.join(f.output,'deployment-metadata.json')));metadata.schema=policy.SCHEMA;fs.writeFileSync(path.join(f.output,'deployment-metadata.json'),JSON.stringify(metadata));assert.throws(()=>prepareImage(f.output,revision,path.join(f.dir,'mismatch')),/METADATA/);
+ const legacy={schema:policy.SCHEMA,sha256:f.meta.packSha256,gzipBase64:zlib.gzipSync(f.raw,{level:9}).toString('base64')};fs.writeFileSync(path.join(f.output,'runtime-pack.json'),JSON.stringify(legacy));const oldImage=path.join(f.dir,'legacy-image');assert.equal(prepareImage(f.output,revision,oldImage).packSha256,f.meta.packSha256);assert.equal(JSON.parse(verifyImagePack(oldImage).input).schema,policy.SCHEMA);
+});
+
+test('new decoder accepts an authoritative matching V1 volume without replacing its bytes or inode',t=>{
+ const f=fixture(t),image=path.join(f.dir,'image');prepareImage(f.output,'c'.repeat(40),image);const dataDir=path.join(f.dir,'data');fs.mkdirSync(dataDir,{mode:0o700});const file=path.join(dataDir,'runtime-pack.json'),legacy=JSON.stringify({schema:policy.SCHEMA,sha256:f.meta.packSha256,gzipBase64:zlib.gzipSync(f.raw,{level:9}).toString('base64')});fs.writeFileSync(file,legacy,{mode:0o600});const before=fs.statSync(file),{seedVolume}=require('./canary-start.cjs');const result=seedVolume({dataDir,imageDir:image,expectedUid:process.getuid(),expectedGid:fs.statSync(dataDir).gid});assert.equal(result.seeded,false);assert.equal(fs.statSync(file).ino,before.ino);assert.equal(fs.readFileSync(file,'utf8'),legacy);assert.deepEqual(fs.readdirSync(dataDir),['runtime-pack.json']);
+ const w=JSON.parse(legacy);w.sha256='e'.repeat(64);fs.writeFileSync(file,JSON.stringify(w),{mode:0o600});assert.throws(()=>seedVolume({dataDir,imageDir:image,expectedUid:process.getuid(),expectedGid:fs.statSync(dataDir).gid}));assert.equal(fs.readFileSync(file,'utf8'),JSON.stringify(w));
+});

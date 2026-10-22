@@ -1,5 +1,7 @@
 -- Listmonk v6.1 provider primitives. Authenticated backend only.
 -- Create remains the native Listmonk API. These writes touch only CRM-managed drafts.
+-- PREPARED templates only: apply after campaign-template-ownership.sql, together
+-- with campaign-write-guard.sql in one transaction. No WRITER brand binding is added.
 CREATE OR REPLACE FUNCTION public.shrigma_campaign_list_brand(l public.lists) RETURNS text
 LANGUAGE sql STABLE AS $$
  SELECT CASE
@@ -14,10 +16,11 @@ CREATE OR REPLACE FUNCTION public.shrigma_campaign_catalog(b text) RETURNS jsonb
 LANGUAGE sql STABLE AS $$
  SELECT CASE WHEN b NOT IN ('aristo','fish') OR b IS NULL THEN NULL ELSE
  jsonb_build_object('brand',b,'current',true,'read_at',clock_timestamp(),
+  'template_ownership_contract','crm-campaign-template-brand-v1',
   'lists',coalesce((SELECT jsonb_agg(jsonb_build_object('id',l.id,'name',l.name,'brand',b,'available',l.status::text='active') ORDER BY l.id)
    FROM public.lists l WHERE public.shrigma_campaign_list_brand(l)=b),'[]'::jsonb),
-  'templates',coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'name',t.name,'type',t.type,'available',true,
-   'version',md5(to_jsonb(t)::text)) ORDER BY t.id) FROM public.templates t WHERE t.type::text='campaign'),'[]'::jsonb),
+  'templates',coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'name',t.name,'brand',b,'type',t.type,'available',true,
+   'version',md5(to_jsonb(t)::text)) ORDER BY t.id) FROM public.templates t WHERE public.shrigma_campaign_template_owned_v1(t.id,b)),'[]'::jsonb),
   'initiatives',coalesce((SELECT jsonb_agg(jsonb_build_object('utm_campaign',f.utm_campaign,'key',f.familia) ORDER BY f.utm_campaign)
    FROM public.crm_familia_campanha f WHERE f.marca=b),'[]'::jsonb)) END
 $$;
@@ -89,6 +92,12 @@ BEGIN
   FROM public.campaigns ca WHERE ca.attribs#>>'{crm,policy}'='crm-campaign-v1' AND ca.attribs#>>'{crm,brand}'=p->>'brand'),'[]'::jsonb);
  END IF;
  IF a NOT IN ('update','schedule','cancel','review') THEN RAISE EXCEPTION 'CAMPAIGN_PROVIDER_ACTION'; END IF;
+ -- Registry INSERTs have no existing row to lock. SHARE serializes every mapping
+ -- mutation with this transaction. Acquire it before campaign row locks, matching
+ -- the registry guard's table-before-campaign order and avoiding a lock inversion.
+ IF a IN ('update','schedule','review') THEN
+  LOCK TABLE public.shrigma_template_email_registry IN SHARE MODE;
+ END IF;
  -- Lock operation then campaign consistently; old workers and different identities cannot write.
  SELECT * INTO op FROM public.shrigma_campaign_operation WHERE id=(p->>'operationId')::uuid FOR UPDATE;
  IF NOT FOUND OR op.state<>'pending' OR op.action<>(CASE WHEN a='update' THEN 'salvar' WHEN a='cancel' THEN 'cancelar' WHEN a='review' THEN 'validar' ELSE 'agendar' END) THEN RAISE EXCEPTION 'CAMPAIGN_OPERATION_INVALID'; END IF;
@@ -130,7 +139,7 @@ BEGIN
  IF (SELECT count(*) FROM public.lists l WHERE id=ANY(ids) AND l.status::text='active' AND public.shrigma_campaign_list_brand(l)=b)<>cardinality(ids) THEN RAISE EXCEPTION 'LIST_SCOPE'; END IF;
  PERFORM id FROM public.templates WHERE id=tid FOR SHARE;
  PERFORM m.id FROM public.media m JOIN public.campaign_media cm ON cm.media_id=m.id WHERE cm.campaign_id=c.id ORDER BY m.id FOR SHARE OF m;
- IF NOT EXISTS(SELECT 1 FROM public.templates WHERE id=tid AND type::text='campaign') THEN RAISE EXCEPTION 'TEMPLATE_SCOPE'; END IF;
+ IF NOT public.shrigma_campaign_template_owned_v1(tid,b) THEN RAISE EXCEPTION 'TEMPLATE_SCOPE'; END IF;
  IF public.shrigma_campaign_current(c.id)->>'version' IS DISTINCT FROM p->>'expectedVersion' THEN RAISE EXCEPTION 'VERSION_CONFLICT'; END IF;
  IF a='update' AND (SELECT md5(to_jsonb(t)::text) FROM public.templates t WHERE id=tid) IS DISTINCT FROM p->>'templateVersion' THEN RAISE EXCEPTION 'TEMPLATE_CHANGED'; END IF;
  IF coalesce(d->>'utm_campaign','') !~ '^[a-z0-9]+([-_][a-z0-9]+)*$' OR coalesce(d#>>'{initiative,key}','') !~ '^[a-z0-9]+([-_][a-z0-9]+)*$' THEN RAISE EXCEPTION 'INITIATIVE_INVALID'; END IF;

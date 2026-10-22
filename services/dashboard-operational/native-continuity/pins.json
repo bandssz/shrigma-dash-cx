@@ -1,0 +1,102 @@
+{
+  "schema": "shrigma-existing-native-continuity-input-v1",
+  "currentService": {
+    "project": "dashboard-image-20260930",
+    "service": "portal-read-8fd9c71c9126"
+  },
+  "currentImage": "ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911",
+  "oldRuntimePackSha256": "c80ee2a8f2611b9cb17a5d24b9b1668a7fe4218a2a95e73cb706e5b6682980da",
+  "transitionHistoricalConfig": {
+    "schema": "crm-owned-runtime-pack-upgrade-v1",
+    "sourceRevision": "c3f0ac329d04903078fc0a558ed89aa9f50696c9",
+    "newPackSha256": "c80ee2a8f2611b9cb17a5d24b9b1668a7fe4218a2a95e73cb706e5b6682980da",
+    "newPackTransportSha256": "3b7ffcb0095a723402bc37ed3187ccab1e05f27b1e27cff8d1a9699011972be4",
+    "newPackBytes": 827816,
+    "oldPackSha256": "a0767d1c57a04e428116e993bc9f9996e264093476f4af37de39ffdeb46bb4f7",
+    "baseImage": "node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402",
+    "originalParityConfig": {
+      "binding": {
+        "operationId": "8fd9c71c-9126-430a-a292-58a6470b3499",
+        "proposalSha256": "df21d9b47f60ba979ca9a7de424d225631b7a4382595811dd96c7931c34eeb19",
+        "sourceRevision": "f58dfa7333c9e2b66d0e39023eb3ea39bc5802ea",
+        "sourceImage": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:9d25e5d9d78ba5734f9b7a008f6d512becc95d91402d92eaddc62c5ebc669705",
+        "sourceVolume": "dashboard-access-identity-20261003-v24-f58dfa73",
+        "sourcePackSha256": "9338ef1ec26b17b5368ba7367931e1753507498201f178babcc58e6b5a203dab",
+        "targetRevision": "efc57ef1a3cab2fa612d21e8a53f222de21f8bd5",
+        "targetImage": "ghcr.io/bandssz/shrigma-dash-operational-canary@sha256:cd4b907c495aa1e36257c9182454914f349f9517a6f4adf39bec21feb8b94424",
+        "targetPackSha256": "d983e4898d2acb67918ab5aac206029d518c106f6f172e9c5429bd77c9b1e93b",
+        "targetBaseImage": "node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402",
+        "targetVolume": "shrigma-corporate-read-identity-8fd9c71c9126430aa29258a6470b3499",
+        "helperSha256": "f56ebc485865aa88f09e4307d37c5d8bcd37def73b75c1968c4d143441092a9e",
+        "cloneKernelSha256": "adb0802f79984af4fd228f879e478fd8c8973b7e5e008935f43516a1b5173e63",
+        "gatewayKernelSha256": "5e0021e404d7ee7bfd9aae68365552543bddf7d7d7f71903c4481b6b75580aa3",
+        "legacyVerifierSha256": "00156070af82b95959791834660f6a7dac7e83b946f49d8f6234736a923f1be3"
+      },
+      "bindingSha256": "0ef90b98a00aece5dab6814aff629ffc90c6cbd79ac92757adef29e82ae3bf38",
+      "guardSha256": "5dd722a9c33b0dc1a0cc2f2bcb4a8e2691bcec754208c6f173ff1025dfa6a0c0",
+      "sourceMode": "stopped"
+    },
+    "upgradeGuardSha256": "9a6aa45efd3de715d69903ab8c54e7c6367c5364ef8e041884511c0eec9714b7"
+  },
+  "originalConsumedPlan": {
+    "schema": "crm-own-master-original-runtime-startup-plan-v1",
+    "enabled": true,
+    "operationId": "73a35984-9884-4e8f-b132-24c06a8fd7e7",
+    "expiresAt": 1791250907582,
+    "programSha256": "ec222c5e51838b1059e81577d41824df9e267073add4631a4f2ce82fd936a4b1",
+    "sourceRevision": "c3f0ac329d04903078fc0a558ed89aa9f50696c9",
+    "packSha256": "c80ee2a8f2611b9cb17a5d24b9b1668a7fe4218a2a95e73cb706e5b6682980da",
+    "imageDigest": "e1729ca3a6d064244c82a8df3d13bd1f3323797d5cfb8a80e1d6d0cf12345e32",
+    "nativeAdmissionSha256": "b251e1968c698c8e104d4e767631f4dc0194b9f80888db82bc5862f90413b381"
+  },
+  "preservedMasterFiles": [
+    {
+      "name": "activation-once.json",
+      "bytes": 771,
+      "sha256": "39aec2a4bc08b60e0e9c25e61111e83da903a781f030af01093428530a86c059",
+      "mode": 384
+    },
+    {
+      "name": "readonly-observation.json",
+      "bytes": 1662,
+      "sha256": "a046d1d04f2074cdaf18614204520cace06389827c3069b1193b1feaaa048a6d",
+      "mode": 256
+    },
+    {
+      "name": "activation-result.json",
+      "bytes": 334,
+      "sha256": "faf46f89e5e296d9a8f28f2d76a20e87f7075531ddaee853d7a5069665632abb",
+      "mode": 384
+    }
+  ],
+  "rootNativeInspection": true,
+  "configurationOnly": true,
+  "operatorAuthentication": false,
+  "operational": false,
+  "inputSha256": "344169add0db186507634fc2c0a55f44145b0cbdd243e8c5427493f1f9be821d",
+  "owner": "felipebandeira@oaristocrata.com",
+  "uid": 1000,
+  "gid": 1000,
+  "root": "/dashboard-data",
+  "source": "/source-identity",
+  "state": "/dashboard-data/own-master-maintenance-v1",
+  "domains": {
+    "fence": "crm-own-master-startup-activation-fence-v1:",
+    "result": "crm-own-master-startup-activation-result-v1:",
+    "proof": "original-runtime-observation-v1:",
+    "parity": "crm-efc-prestart-parity-v2\u0000",
+    "transition": "crm-owned-runtime-pack-transition-v1\u0000"
+  },
+  "historicalPublicDependencies": {
+    "observerProgramSha256": "7e4ba5c087dcf134f5ecc04a411568311914291382fc6fbfcc44fa6fee7ffc4b",
+    "attestationSha256": "645bef9f46eeeb41eb78b99f93f5c4aa843eacc55e821fb60ce2369e21c597ac"
+  },
+  "routes": {
+    "read": "https://comunicacao-crm-panel-read.tazdb8.easypanel.host/read",
+    "campaigns": "https://n8n-n8n.tazdb8.easypanel.host/webhook/crm-campanhas-api-a40da4ef222efba3f7278e35",
+    "host": "n8n-n8n.tazdb8.easypanel.host",
+    "schema": "shrigma_dashboard_dynamic_upstreams_v1",
+    "revision": "4517cc3d3060a75e9d11c360479054cb0bd4d459"
+  },
+  "proofLifetimeMs": 1000
+}

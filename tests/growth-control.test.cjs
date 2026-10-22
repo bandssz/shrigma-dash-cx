@@ -67,12 +67,13 @@ test('abas funcionam por clique e teclado e pesquisa mantém filtro durante a tr
  x.run('GC.render(ctx)');assert.equal(x.document.querySelector('#control-template-search').value,'card');
 });
 test('graph navigation skips the absent capability and disabled brand in clicks and keyboard',()=>{
- const x=render(),graph=x.document.querySelector('#control-tab-graph'),journeys=x.document.querySelector('#control-tab-fluxos');
+ const x=render(),graph=x.document.querySelector('#control-tab-graph'),journeys=x.document.querySelector('#control-tab-fluxos'),lab=x.document.querySelector('#control-tab-lab');
  x.run("GC.setTab('fluxos');GC.setTab('graph')");assert.equal(x.run('GC.activeTab'),'fluxos');
- const right=()=>{const e=new x.window.Event('keydown');e.key='ArrowRight';journeys.dispatchEvent(e);};
- right();assert.equal(x.run('GC.activeTab'),'history');
- graph.hidden=false;graph.disabled=true;x.run("GC.setTab('fluxos')");right();assert.equal(x.run('GC.activeTab'),'history');
- graph.disabled=false;x.run("GC.setTab('fluxos')");right();assert.equal(x.run('GC.activeTab'),'graph');assert.equal(x.document.querySelector('#control-graph').hidden,false);
+ const right=button=>{const e=new x.window.Event('keydown');e.key='ArrowRight';button.dispatchEvent(e);};
+ right(journeys);assert.equal(x.run('GC.activeTab'),'lab');assert.equal(x.document.querySelector('#control-lab').hidden,false);
+ right(lab);assert.equal(x.run('GC.activeTab'),'history');
+ graph.hidden=false;graph.disabled=true;x.run("GC.setTab('lab')");right(lab);assert.equal(x.run('GC.activeTab'),'history');
+ graph.disabled=false;x.run("GC.setTab('lab')");right(lab);assert.equal(x.run('GC.activeTab'),'graph');assert.equal(x.document.querySelector('#control-graph').hidden,false);
 });
 test('reconsulta preserva detalhes abertos e envelhece a coleta mesmo sem payload novo',()=>{
  const x=render();x.document.querySelector('[data-control-workflow="fish_tx"] details').open=true;
@@ -165,4 +166,13 @@ test('missing operation and unknown stage labels stay actionable without exposin
  const p=fixture();p.email_steps=[{key:'fish:private-stage-id',brand:'fish',flow_key:'fish:private-flow-id',piece:'private-stage-id',enabled:false,runtime_ready:true,checked_at:'2026-09-08T01:09:00Z'}];
  const y=render(p,{marca:'fish',canal:'email'}),section=y.document.querySelector('.control-email-inventory');assert.match(section.textContent,/private-stage-id/);
  const manager=managerProjection(section);assert.match(manager.textContent,/Jornada não identificada.*Etapa não identificada.*Pausada/);assert.doesNotMatch(manager.textContent,/private-stage-id|private-flow-id/);
+});
+
+test('portal Inventory explains READ without promising hidden template or journey editing; legacy guidance remains exact',()=>{
+ const p=fixture();p.templates=[];const x=render(p),root=x.document.querySelector('#control-templates'),legacy=root.innerHTML;
+ assert.match(root.textContent,/Criar templates/);
+ const marker=x.document.createElement('style');marker.id='dashboard-operational-readonly';x.document.head.append(marker);x.run('GC.render(ctx)');
+ assert.match(root.textContent,/Nenhum template disponível nesta leitura/);assert.match(root.textContent,/Inventário de leitura · conteúdo publicado/);
+ assert.doesNotMatch(root.textContent,/Criar templates|Edição em|Jornadas/);assert.match(root.querySelector('.control-badge[title*="Inventário"]').getAttribute('title'),/não cria templates nem altera jornadas/);
+ marker.remove();x.run('GC.render(ctx)');assert.equal(root.innerHTML,legacy);
 });
