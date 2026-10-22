@@ -1,0 +1,42 @@
+'use strict';
+// Real sessions, CSRF, SQLite, CREATE callback, broker and native Delivery.
+// Only remote originals are synthetic; no production identity or sending call.
+const test=require('node:test'),a=require('node:assert/strict'),crypto=require('node:crypto'),path=require('node:path'),{fixture,response,campaignDefinition}=require('./gateway-fixture.cjs');
+const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../../services/dashboard-operational');
+const HOST='gerencial.shrigma.com.br',PASS='Synthetic-Test-Password-2026!';
+for(const brand of ['aristo','fish'])test('real editor shares campaign readiness but owns each native intention '+brand,{timeout:300000},async t=>{
+ const base={id:brand==='aristo'?16:17,uuid:crypto.randomUUID(),optin:'double',status:'active'},aid=crypto.randomUUID(),dh='d'.repeat(64),frozenId=brand==='aristo'?1707:1717,frozenUuid=crypto.randomUUID();let f,register=true,schedulePosts=0;
+ console.log('# editor-shared '+brand+' fixture');
+ f=await fixture(t,{email:'felipebandeira+codex@oaristocrata.com',brands:[brand],hooks:{frozenListId:frozenId,
+  consent:({u,body:q})=>{if(q.kind==='plan'){const p=q.provenance;return response({schema:'crm-campaign-consent-private-result-v1',brand,kind:'plan',result:{schema:'crm-campaign-consent-job-plan-v1',brand,campaign_id:p.campaignId,campaign_uuid:p.campaignUuid,created_operation_id:p.createdOperationId,frozen:{id:p.freeze.list_id,uuid:p.freeze.list_uuid,optin:'double',status:'active'},origins:p.origins,original_receipt_sha256:p.originalReceiptSha256,member_ids:[]}},u);}if(q.kind!=='register'||!register)return response({code:'CONSENT_REGISTRATION_UNCONFIRMED'},u,409);const r=f.dbQuery(db=>db.prepare('SELECT * FROM crm_campaign_create_v1 WHERE remote_key=?').get(q.createKey));a(r);return response({schema:'crm-campaign-consent-private-result-v1',brand,kind:'register',result:{schema:'crm-consent-provenance-v1',brand,campaignId:r.campaign_id,campaignUuid:crypto.randomUUID(),createdOperationId:r.remote_operation_id,createKey:r.remote_key,freezeKey:q.freezeKey,originalReceiptSha256:r.receipt_sha256,freeze:{brand,audience_id:aid,audience_version:1,definition_hash:dh,list_id:frozenId,list_uuid:frozenUuid},audience:{id:aid,version:1,definition_hash:dh},origins:[base]}},u);},
+  native:({u,body,action})=>{const q=body||Object.fromEntries(u.searchParams),id=Number(q.id);
+   if(action==='campanha_nativa_contexto')return response({schema:'crm-native-internal-context-v1',brand,campaign_id:id,eligible:true,acceptance_proved:true,internal_test:false,commercial:true,freeze_contract:'crm-native-frozen-list-v3',list_id:frozenId,eligible_count:1,audience_id:aid,audience_version:1,base,origins:[base]},u);
+   if(action!=='campanha_agendar')return null;
+   schedulePosts++;const c=f.campaigns.get(id),at=new Date(f.now()).toISOString(),operationId=crypto.randomUUID(),next={...c,version:'e'.repeat(32),status:'scheduled'};f.campaigns.set(id,next);
+   const audience={policy:'listmonk-6.1-regular-v1',brand,list_ids:c.definition.list_ids,eligible_count:1,unique_members_count:1,excluded_blocklisted_count:0,excluded_subscription_count:0,native_disabled_count:0,review_id:q.audience_review_id,campaign_id:id,campaign_version:q.expected_version,frozen:false,checked_at:at,expires_at:new Date(Date.parse(at)+300000).toISOString(),rechecked_at:at},receipt={status:200,body:{campaign:next,operation_id:operationId,audience,native_internal:true}};
+   f.operations.set(q.idempotency_key,{id:operationId,operation_key:q.idempotency_key,brand,action:'agendar',state:'succeeded',providerId:id,response:receipt,created_at:at,updated_at:at});return response(receipt.body,u);
+  }
+ }});
+ console.log('# editor-shared '+brand+' create');
+ const createKey=crypto.randomUUID(),created=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,body:{acao:'campanha_criar',brand,idempotency_key:createKey,definition:{...campaignDefinition(brand),subject:"Synthetic campaign subject",list_ids:[frozenId]}}});a.equal(created.status,200);a.equal(created.body.state,'succeeded');const id=created.body.campaign.id,row=()=>f.dbQuery(db=>db.prepare('SELECT * FROM crm_campaign_create_v1 WHERE client_key=?').get(createKey)),original=row();a.equal(typeof original.consent_job_ciphertext,'string');a.equal(original.consent_job_version,1);
+ const account=async(email,{fronts=['growth'],brands=[brand],writeFronts=['growth']}={})=>{const r=await f.auth.simpleAccounts.create({context:f.adminContext,email,password:PASS,jobTitle:'analista',fronts,brands,writeFronts});return{user:r.user,login:await f.auth.login({email,password:PASS,host:HOST,origin:'https://'+HOST})};};
+ console.log('# editor-shared '+brand+' editor-b');
+ const b=await account('editor-b@oaristocrata.com'),context=await f.request('/api/campaigns?'+new URLSearchParams({acao:'campanha_nativa_contexto',brand,id}),{viewBrand:brand,login:b.login});a.equal(context.status,200);a.equal(context.body.can_schedule,true);
+ // Source pre-state after a legitimate date edit; the immutable CREATE stays A's.
+ const c=f.campaigns.get(id),when=new Date(Date.now()+30*60000).toISOString();f.campaigns.set(id,{...c,version:'c'.repeat(32),send_at:when,definition:{...c.definition,send_at:when}});
+ const key=crypto.randomUUID(),command={acao:'campanha_nativa_agendar',brand,id,expected_version:'c'.repeat(32),idempotency_key:key,confirm:'agendar',audience_review_id:crypto.randomUUID()};
+ console.log('# editor-shared '+brand+' negative-accounts');
+ const denied=[await account('read-only@oaristocrata.com',{writeFronts:[]}),await account('wrong-front@oaristocrata.com',{fronts:['organico'],writeFronts:['organico']}),await account('wrong-brand@oaristocrata.com',{brands:[brand==='aristo'?'fish':'aristo']})];
+ for(const person of denied){const r=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,login:person.login,body:{...command,idempotency_key:crypto.randomUUID()}});a(r.status>=400);}
+ for(const extra of [{csrf:false},{viewBrand:brand==='aristo'?'fish':'aristo'},{extraHeaders:{Origin:'https://untrusted.invalid'}}]){const r=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,login:b.login,body:{...command,idempotency_key:crypto.randomUUID()},...extra});a(r.status>=400);}
+ a.equal(schedulePosts,0);a.equal(f.dbQuery(db=>db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1').get().n),0);
+ console.log('# editor-shared '+brand+' schedule');
+ const scheduled=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,login:b.login,body:command});a.equal(scheduled.status,200,JSON.stringify(scheduled.body));a.equal(scheduled.body.state,'succeeded');a.equal(scheduled.body.campaign.status,'scheduled');a.equal(schedulePosts,1);
+ const delivery=f.dbQuery(db=>db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE client_key=?').get(key));a.equal(delivery.user_id,b.user.id);a.notEqual(delivery.user_id,original.user_id);a.equal(delivery.phase,'succeeded');
+ console.log('# editor-shared '+brand+' foreign');
+ const foreign=await f.request('/api/campaigns?'+new URLSearchParams({acao:'campanha_nativa_operacao',brand,idempotency_key:key}),{viewBrand:brand});a.equal(foreign.status,404);a.deepEqual(f.dbQuery(db=>db.prepare('SELECT * FROM crm_campaign_delivery_v1 WHERE client_key=?').get(key)),delivery);a.equal(schedulePosts,1);
+ console.log('# editor-shared '+brand+' no-registration');
+ register=false;const other=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,body:{acao:'campanha_criar',brand,idempotency_key:crypto.randomUUID(),definition:{...campaignDefinition(brand),subject:"Synthetic campaign subject",list_ids:[frozenId]}}});a.equal(other.body.state,'succeeded');const unregistered=await f.request('/api/campaigns?'+new URLSearchParams({acao:'campanha_nativa_contexto',brand,id:other.body.campaign.id}),{viewBrand:brand,login:b.login});a.equal(unregistered.body.can_schedule,false);const refused=await f.request('/api/campaigns',{method:'POST',viewBrand:brand,login:b.login,body:{...command,id:other.body.campaign.id,expected_version:other.body.campaign.version,idempotency_key:crypto.randomUUID()}});a.equal(refused.status,409);a.equal(refused.body.reserved,false);a.equal(schedulePosts,1);a.equal(f.dbQuery(db=>db.prepare('SELECT count(*) n FROM crm_campaign_delivery_v1').get().n),1);
+ console.log('# editor-shared '+brand+' done');
+ const after=row();a.deepEqual(after,original);a.equal(after.user_id,original.user_id);a.equal(after.campaign_id,id);
+});

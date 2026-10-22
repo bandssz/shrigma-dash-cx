@@ -1,0 +1,23 @@
+{
+  "schema": "crm-ui-independent751-boundaries-v1",
+  "base": "75108435e1ea91d1bfbc0567d85842dadb7ae57c",
+  "unchanged": {
+    "campaign-write-contract.js": "5f71c867978601d9b39afc0f14a3e5b7b4930130bddadaec3c7bf3682ba41009",
+    "proxy.cjs": "9099429426944148a8105843fd81151fda3ae4eb6d710d3b5aa16ca4e48380e4",
+    "server.cjs": "dceeff5a6a646401d5ede0c93d3a6ec3f88a11d4e5322bdbc29d75c6f2a1e70f",
+    "crm-campaign-delivery.cjs": "e053091f21fc9115a1e8800996e0571d72113b4954d240e2ab3839b56e19f8b9",
+    "crm-campaign-create.cjs": "0c78c8a9889ac409d4d9123f7ee2803f5da0bad654bb4cb030e46e226029b1be",
+    "simple-crm-native-internal.cjs": "3b5e35d68cfc2954adb99d75469deb22535766af427f6f544cb42bf9a43f43f8",
+    "native-internal-release.json": "3a7aec85fb3cdea869c51c0fab12e2281a0b18f961d8156d1c2af52223abac5a",
+    "simple-crm-campaign-audiences.cjs": "4fd3ee505bc8f59a3585ff7c27a3865034ae1ed8a5e699cda864b6a66171cc34",
+    "public/entry.js": "838313bc43adca338fbfe5e160d74efb3518bb3bc2b8866babb3a39e175800fa",
+    "public/entry.compiled.js": "b8d301c87dc68255d478e83ab533e138ba10dabea2a1372a3b491ba26bf839d5",
+    "public/crm-preview/home.js": "e1275ed81d5fd85ab9b43fb1d6380a41ec3858a5024e8174717b74079485346c",
+    "public/crm-preview/analytics.compiled.js": "c1259898c22ff96f38ee94c5516a45e9060f7c0dafa829e93df5da8e906fdd28",
+    "public/crm-preview/journey-engine.js": "907d4866ef0622a2d65f2f9da6a91cccd91ce8b538a3cb9d8d8acc519b86d558",
+    "public/crm-preview/journey-ui.js": "b3bcec26d4827741fa404af58edcfdc454ed180b1215c93f58f4f483ae00d746"
+  },
+  "drafts": "543a34ad4806aa792fa20eaeee68fc8d2460738160f2d9b5e6e26aaa8d880a1a",
+  "auth": "3350247c157a4b78485b316daef1151983f846bf299b263128591e5baba1551b",
+  "reader": "2a259909f7491062248061a31914174373da0607b1e237e2627623541fd67555"
+}

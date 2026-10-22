@@ -1,0 +1,74 @@
+name: Restricted bulk freeze and compact consent
+on:
+  push:
+    branches: [codex/freeze-scale-20261020]
+permissions:
+  contents: read
+concurrency:
+  group: shrigma-freeze-scale20-proofs
+  cancel-in-progress: false
+jobs:
+  source-images-and-postgres:
+    if: github.repository == 'bandssz/shrigma-dash-cx'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+    env:
+      RELEASE: ops/releases/freeze-scale20
+      IMAGE: ghcr.io/bandssz/shrigma-dash-operational-canary
+      PG_RUNTIME: ghcr.io/bandssz/shrigma-dash-native-connection@sha256:e3f2631670269ea8c5dd42ff4b5dbbf8693ad37f0fb4bf4366ed9baac712f1a9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Open original private registry session
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          scale_registry="$(mktemp -d "$RUNNER_TEMP/scale20-registry.XXXXXX")"
+          printf 'DOCKER_CONFIG=%s\n' "$scale_registry" >> "$GITHUB_ENV"
+          export DOCKER_CONFIG="$scale_registry"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker pull "$PG_RUNTIME"
+      - name: Build Campaigns over its exact existing source base
+        run: docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE:scale20-campaign-$GITHUB_SHA" "$RELEASE/source"
+      - name: Actual Campaigns image contracts and compact100001 registration, serially
+        run: |
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/app/services/crm-campaign --env DASHBOARD_ACCESS_TEST_RUNTIME=/source/services/dashboard-operational --entrypoint node "$IMAGE:scale20-campaign-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/consent19/source-http.test.cjs /source/tests/consent19/source.test.cjs /source/tests/consent19/source-v3.test.cjs /source/tests/consent19/source-scale.test.cjs /source/tests/consent19/transport.test.cjs /source/ops/releases/freeze-scale20/source-bundle.test.cjs /source/tests/crm-freeze-scale20.test.cjs
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 256m --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/release,readonly" --entrypoint node "$IMAGE:scale20-campaign-$GITHUB_SHA" /release/source-start-smoke.cjs "$GITHUB_SHA"
+      - name: Build Audience over the actual61b832bf source image
+        run: docker build --pull --platform linux/amd64 --build-arg GIT_SHA="$GITHUB_SHA" --tag "$IMAGE:scale20-audience-$GITHUB_SHA" "$RELEASE/audience-source"
+      - name: Actual Audience image admits only explicit same-intention recovery
+        run: |
+          docker run --rm --platform linux/amd64 --network none --read-only --user 1000:1000 --memory 256m --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/release,readonly" --env SCALE_AUDIENCE_RUNTIME=/app/n8n/growth --entrypoint node "$IMAGE:scale20-audience-$GITHUB_SHA" --test --test-concurrency=1 /release/recovery-api.test.cjs
+      - name: Isolated PG17 bulk110000 per brand, immutable receipt and compact consent
+        run: |
+          set -euo pipefail
+          scale_pg="shrigma-scale20-$GITHUB_RUN_ID"
+          printf 'SCALE_PG=%s\n' "$scale_pg" >> "$GITHUB_ENV"
+          docker run --detach --name "$scale_pg" --network none --memory 1400m --tmpfs /var/lib/postgresql/data:rw,size=1g --tmpfs /var/run/postgresql:rw,size=4m --env POSTGRES_HOST_AUTH_METHOD=trust postgres:17.10 > /dev/null
+          scale_ready=false
+          for scale_try in {1..30}; do
+            if docker exec "$scale_pg" pg_isready -U postgres > /dev/null; then scale_ready=true; break; fi
+            sleep 1
+          done
+          [ "$scale_ready" = true ]
+          scale_db=native17_test2001
+          docker exec "$scale_pg" createdb -U postgres "$scale_db"
+          docker run --rm --platform linux/amd64 --network "container:$scale_pg" --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE,dst=/scale,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/legacy,dst=/v3,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/delta,dst=/delta,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/freeze,dst=/freeze,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/current-source,dst=/current-source,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/source,dst=/source,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/$RELEASE/fixture/custody,dst=/custody,readonly" --env "SHRIGMA_LOCAL_TEST_DB=$scale_db" --env CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS=v2 --env SCALE_FREEZE_MODULE=/scale/audience-source/segment-audience-native-freeze.cjs --entrypoint node "$PG_RUNTIME" --test --test-concurrency=1 /scale/bulk.test.cjs
+      - name: Preserve both verified source images without installing
+        run: |
+          set -euo pipefail
+          for scale_source in campaign audience; do
+            docker push "$IMAGE:scale20-$scale_source-$GITHUB_SHA"
+            docker image inspect "$IMAGE:scale20-$scale_source-$GITHUB_SHA" --format '{{range .RepoDigests}}{{println .}}{{end}}' >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Clean only this disposable fixture and registry session
+        if: always()
+        run: |
+          if [ -n "${SCALE_PG:-}" ]; then docker rm --force "$SCALE_PG" > /dev/null; fi
+          if [ -n "${DOCKER_CONFIG:-}" ]; then rm -rf -- "$DOCKER_CONFIG"; fi

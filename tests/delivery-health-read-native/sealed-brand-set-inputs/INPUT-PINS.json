@@ -1,0 +1,56 @@
+{
+  "schema": "shrigma-current-brand-set-diagnostic-inputs-v1",
+  "head": "81fef09e53e56a531dc46389b70298e57a5081e7",
+  "files": [
+    {
+      "path": "services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 15565,
+      "sha256": "2e6b86d6ae9576f200e928c50591b8d2c13555ab0559000ae1e98e2f0dd73f58"
+    },
+    {
+      "path": "services/dashboard-operational/native-delivery-health-controller.cjs",
+      "bytes": 10227,
+      "sha256": "83c556c529c0532bbfc8d7e8f3f9b0812ecc42e4ddcf6f9b22413dbeb25ab47d"
+    },
+    {
+      "path": "tests/delivery-health-read-native/protocol-diagnostic.test.cjs",
+      "bytes": 13213,
+      "sha256": "ccd7493fb360b0c7c7a3ba1702ab358d0122ae47ed6d09be5482079277b7cd53"
+    },
+    {
+      "path": "tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/INPUT-PINS.json",
+      "bytes": 1107,
+      "sha256": "9040c80f62a0abab9bb65dadca1c52c250c521319537896578b25d6877916b72"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/fixture.cjs",
+      "bytes": 5742,
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/tests/delivery-health-read-native/core.test.cjs",
+      "bytes": 8738,
+      "sha256": "b93bfb1f37671d02aa603fc81658d27f17e21541493d75d5fa0e23492077bcab"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/n8n/growth/ses-health.sql",
+      "bytes": 4989,
+      "sha256": "79baa596df961083214e0ff5ed2a8a67f1fe77138cc59c442ae95bc6191ddc94"
+    },
+    {
+      "path": "tests/delivery-health-read-native/sealed-protocol-inputs/inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 12536,
+      "sha256": "8e719ea3c7463478ff57fa50660eaaf7011d1f88363dfcbbcd601be6383543b8"
+    },
+    {
+      "path": "CURRENT-RUNTIME-ACCEPTANCE.json",
+      "bytes": 6056,
+      "sha256": "c6c9dcce517dd98d9c432f531060cd981ba962af9c74865b3eaa9325ed24cd6e"
+    }
+  ]
+}

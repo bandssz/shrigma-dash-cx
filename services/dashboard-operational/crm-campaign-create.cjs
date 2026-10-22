@@ -41,8 +41,9 @@ function campaign(c,brand,id){
  return Object.freeze({id:c.id,version:c.version,status:c.status,sent:c.sent,startedAt:c.started_at,sendAt:c.send_at});
 }
 function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,corporateWriter,authorize,transport,now=Date.now,encrypt,decrypt,preflightDefinition,prepareDefinition,hasOpenDelivery}){
+ const serviceDraft=profile==='crm-service-draft-v1'&&require('./crm-manager-runtime.cjs').isServiceDraftDescriptor(corporateWriter);
  const sandbox=profile==='crm-sandbox'&&allowedEmailDomains?.length===1&&allowedEmailDomains[0]==='synthetic.invalid';
- const corporate=(profile==='corporate-read-writer-v1'&&require('./crm-manager-runtime.cjs').isCorporateWriterDescriptor(corporateWriter)||profile==='own-master-production-v1'&&require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(corporateWriter))&&Array.isArray(allowedEmailDomains)&&allowedEmailDomains.length===3&&Object.keys(allowedEmailDomains).length===3&&new Set(allowedEmailDomains).size===3&&['oaristocrata.com','shrigma.com.br','fishermans.com.br'].every(d=>allowedEmailDomains.includes(d));
+ const corporate=(profile==='corporate-read-writer-v1'&&require('./crm-manager-runtime.cjs').isCorporateWriterDescriptor(corporateWriter)||profile==='own-master-production-v1'&&require('./crm-manager-runtime.cjs').isOwnMasterWriterDescriptor(corporateWriter)||serviceDraft)&&Array.isArray(allowedEmailDomains)&&allowedEmailDomains.length===3&&Object.keys(allowedEmailDomains).length===3&&new Set(allowedEmailDomains).size===3&&['oaristocrata.com','shrigma.com.br','fishermans.com.br'].every(d=>allowedEmailDomains.includes(d));
  if(enabled!==true||!Array.isArray(allowedEmailDomains)||!sandbox&&!corporate)fail('CAMPAIGN_CREATE_DENIED');
  if(!db||typeof db.isTransaction!=='boolean'||![authorize,transport,now,encrypt,decrypt,preflightDefinition,prepareDefinition,hasOpenDelivery].every(f=>typeof f==='function'))fail('CAMPAIGN_CREATE_CONFIG');
  const outside=()=>{if(db.isTransaction)fail('CAMPAIGN_CREATE_TRANSACTION');};
@@ -61,7 +62,8 @@ function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,cor
  const identity=(ctx,q)=>{try{
   const a=synchronous(authorize(ctx,Object.freeze({brand:q.brand,action:q.action||'criar'})),'CAMPAIGN_CREATE_DENIED');
   if(profile==='own-master-production-v1'&&a?.role!=='superadmin')fail('CAMPAIGN_CREATE_DENIED');
-  if(!exact(a,['userId','role','slot','canEdit','credentialMac','caps'])||!UUID.test(a.userId||'')||!['manager','superadmin'].includes(a.role)||a.slot!=='growth-campaign'||a.canEdit!==true||!MAC.test(a.credentialMac||'')||!Array.isArray(a.caps)||a.caps.length!==4||new Set(a.caps).size!==4||!a.caps.every(c=>CAPS.has(c)))fail('CAMPAIGN_CREATE_DENIED');return a;
+  const caps=serviceDraft?new Set(['read_content','draft','validate']):CAPS;
+  if(!exact(a,['userId','role','slot','canEdit','credentialMac','caps'])||!UUID.test(a.userId||'')||!['manager','superadmin'].includes(a.role)||a.slot!=='growth-campaign'||a.canEdit!==true||!MAC.test(a.credentialMac||'')||!Array.isArray(a.caps)||a.caps.length!==caps.size||new Set(a.caps).size!==caps.size||!a.caps.every(c=>caps.has(c)))fail('CAMPAIGN_CREATE_DENIED');return a;
  }catch{fail('CAMPAIGN_CREATE_DENIED');}};
  const get=(u,k)=>db.prepare('SELECT * FROM crm_campaign_create_v1 WHERE user_id=? AND client_key=?').get(u,k);
  const same=(ctx,row)=>{const a=identity(ctx,row);if(a.userId!==row.user_id||a.credentialMac!==row.credential_mac)fail('CAMPAIGN_CREATE_DENIED');};
@@ -78,9 +80,11 @@ function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,cor
   if(o.state==='succeeded'){
    if(o.response.status!==201||!positive(o.providerId)||!exact(b,['campaign','tracking','operation_id'])||b.operation_id!==o.id)return null;
    c=campaign(b.campaign,row.brand,o.providerId);if(!c||c.status!=='draft'||c.sent!==0||c.startedAt!==null||c.sendAt!==null||b.campaign.definition.send_at!==null)return null;
-   const s=snapshot(row);let prepared;
-   try{prepared=synchronous(prepareDefinition(s.definition,{catalog:s.catalog,id:o.providerId,now:row.prepared_at}),'CAMPAIGN_CREATE_CONFIG');}catch{return null;}
-   if(!plain(prepared)||!plain(prepared.definition)||!exact(prepared.tracking,['policy','term','list_ids','changed_links'])||sha(prepared.definition)!==sha(b.campaign.definition)||sha(prepared.tracking)!==sha(b.tracking))return null;
+   const s=snapshot(row);let matched=false;
+   // Compare both deterministic policies against the authenticated receipt.
+   // This is read-only recovery; neither alternative admits or dispatches input.
+   for(const [legacyReceipt,editorialReceipt]of [[false,false],[true,false],[false,true]]){try{const p=synchronous(prepareDefinition(s.definition,{catalog:s.catalog,id:o.providerId,now:row.prepared_at,legacyReceipt,editorialReceipt}),'CAMPAIGN_CREATE_CONFIG');if(plain(p)&&plain(p.definition)&&exact(p.tracking,['policy','term','list_ids','changed_links'])&&sha(p.definition)===sha(b.campaign.definition)&&sha(p.tracking)===sha(b.tracking)){matched=true;break;}}catch{}}
+   if(!matched)return null;
   }else if(!exact(b,['error','message','provider_id','operation_id'])||typeof b.error!=='string'||!/^[A-Z][A-Z0-9_]{0,63}$/.test(b.error)||typeof b.message!=='string'||b.message.length>2000||b.operation_id!==o.id||b.provider_id!==o.providerId||o.state==='rejected'&&!(o.response.status>=400&&o.response.status<=599&&b.error!=='OUTCOME_UNKNOWN')||o.state==='outcome_unknown'&&(o.response.status!==502||b.error!=='OUTCOME_UNKNOWN'))return null;
   const h=sha(o);if(row.receipt_sha256&&(row.receipt_sha256!==h||row.receipt_state!==o.state))return null;
   return{state:o.state,id:o.id,hash:h,campaign:c};
@@ -107,7 +111,7 @@ function createCampaignCreator({db,enabled=false,profile,allowedEmailDomains,cor
   if(row.phase!=='queued')return reconcileRow(ctx,row);
   const catalog=await call(ctx,row,'GET',Object.freeze({acao:'campanha_catalogo',brand:row.brand}));if(catalog?.status!==200)return pending();
   const t=clock();let d;
-  try{d=synchronous(preflightDefinition(input(row).definition,{catalog:catalog.body,now:t}),'CAMPAIGN_CREATE_CONFIG');if(!plain(d)||d.brand!==row.brand||d.send_at!==null)d=null;}catch{d=null;}
+  try{d=synchronous(preflightDefinition(input(row).definition,{catalog:catalog.body,now:t,context:ctx}),'CAMPAIGN_CREATE_CONFIG');if(!plain(d)||d.brand!==row.brand||d.send_at!==null)d=null;}catch{d=null;}
   if(!d){const changed=atomic(()=>{same(ctx,row);return db.prepare("UPDATE crm_campaign_create_v1 SET phase='rejected',updated_at=? WHERE user_id=? AND client_key=? AND phase='queued'").run(t,row.user_id,row.client_key).changes===1;});return changed?dto('rejected'):reconcileRow(ctx,get(row.user_id,row.client_key));}
   const normalizedCipher=cipher(d),catalogCipher=cipher(catalog.body);
   const claimed=atomic(()=>{same(ctx,row);return db.prepare("UPDATE crm_campaign_create_v1 SET phase='uncertain',normalized_ciphertext=?,normalized_sha256=?,catalog_ciphertext=?,catalog_sha256=?,prepared_at=?,updated_at=? WHERE user_id=? AND client_key=? AND phase='queued'").run(normalizedCipher,sha(d),catalogCipher,sha(catalog.body),t,t,row.user_id,row.client_key).changes===1;});

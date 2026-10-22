@@ -87,7 +87,7 @@ test('HTML keeps native Creators and old channels, compiles inline hooks, and in
   assert.equal(crypto.createHash('sha256').update(creators).digest('hex'), 'af0bf2f2f2c7d41baf796d212b8ceb30d1a92feab7ce4b24959d543cd6a2e79a');
   for (const id of ['canal-parceiros', 'canal-tiktok', 'canal-meli', 'canal-shopee', 'area-candidaturas', 'area-partners']) assert.ok(html.includes('id="' + id + '"'));
   assert.match(html, /let CANAL='parceiros'/);
-  assert.match(html, /MARCA=b.dataset.marca;if\(AFFILIATES_MOUNT\)AFFILIATES_MOUNT.sync\(\);pintaMarca\(\);renderTudo\(\)/, 'brand invalidates C1 before a legacy rendering failure can interrupt the handler');
+  assert.match(html, /MARCA=b.dataset.marca;if\(AFFILIATES_MOUNT\)AFFILIATES_MOUNT.sync\(\);pintaMarca\(\);if\(window.ShrigmaSimpleRead\)\{INFLU=null;INFLU_ULTIMA=null;carregarAbaAtiva\(\);\}else\{renderTudo\(\)/, 'brand invalidates C1 before a legacy rendering failure can interrupt the handler');
   assert.match(html, /if\(SEC==='afil'&&CANAL==='crm'\)return AFFILIATES_MOUNT\?AFFILIATES_MOUNT.sync\(\):Promise.resolve\(\)/);
   assert.doesNotMatch(html, /\.setGateway\(/);
   const inline = [...html.matchAll(/<script\s*>([\s\S]*?)<\/script>/g)]; assert.ok(inline.length > 0);

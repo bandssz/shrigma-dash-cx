@@ -7,7 +7,8 @@ const ASSETS=Object.freeze([
  Object.freeze({source:'crm-campaign-bff-client.cjs',compiled:'public/campaign-bff-client.js',publicName:'campaign-bff-client.js'}),
  Object.freeze({source:'public/campaign-edit.js',compiled:'public/campaign-edit.compiled.js',publicName:'campaign-edit.js'}),
  Object.freeze({source:'public/entry.js',compiled:'public/entry.compiled.js',publicName:'entry.js'}),
- Object.freeze({source:'public/guard.js',compiled:'public/guard.compiled.js',publicName:'guard.js'})
+ Object.freeze({source:'public/guard.js',compiled:'public/guard.compiled.js',publicName:'guard.js'}),
+ Object.freeze({source:'public/crm-preview/analytics.js',compiled:'public/crm-preview/analytics.compiled.js',publicName:'crm-analytics.js'})
 ]);
 const defaultRoot=path.resolve(__dirname,'../services/dashboard-operational');
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
@@ -15,7 +16,7 @@ function read(file){const stat=fs.lstatSync(file);if(!stat.isFile()||stat.isSymb
 function buildCampaignUi({root=defaultRoot,check=false}={}){
  const esbuild=require('./campaign-runtime-build/node_modules/esbuild');
  if(esbuild.version!==ESBUILD_VERSION)throw Error('Campaign UI compiler version mismatch');
- const generated=ASSETS.map(asset=>{const input=read(path.join(root,asset.source));const code=esbuild.transformSync('(function(){\n'+input.toString('utf8')+'\n})();\n',{loader:'js',target:'es2022',minify:true,legalComments:'none',charset:'utf8'}).code;return {...asset,sourceSha256:sha(input),compiledSha256:sha(code),code};});
+ const generated=ASSETS.map(asset=>{const input=read(path.join(root,asset.source));const options={target:'es2022',minify:true,legalComments:'none',charset:'utf8'};const code=['public/guard.js','public/crm-preview/analytics.js'].includes(asset.source)?esbuild.buildSync({entryPoints:[path.join(root,asset.source)],bundle:true,platform:'browser',format:'iife',write:false,...options}).outputFiles[0].text:esbuild.transformSync('(function(){\n'+input.toString('utf8')+'\n})();\n',{loader:'js',...options}).code;return {...asset,sourceSha256:sha(input),compiledSha256:sha(code),code};});
  const manifest={schema:'shrigma_campaign_ui_assets_v1',esbuildVersion:ESBUILD_VERSION,assets:generated.map(({code,...asset})=>asset)};
  const files=generated.map(a=>({file:path.join(root,a.compiled),bytes:Buffer.from(a.code)}));
  files.push({file:path.join(root,'campaign-ui-assets.json'),bytes:Buffer.from(JSON.stringify(manifest,null,2)+'\n')});

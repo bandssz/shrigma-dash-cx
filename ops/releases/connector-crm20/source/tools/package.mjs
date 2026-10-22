@@ -1,0 +1,21 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import zlib from 'node:zlib';
+import {createHash} from 'node:crypto';
+import {fileURLToPath} from 'node:url';
+const root=path.resolve(fileURLToPath(new URL('..',import.meta.url))),out=process.argv[2];
+if(!out)throw Error('OUTPUT_DIRECTORY_REQUIRED');
+fs.mkdirSync(out,{recursive:true,mode:0o700});
+const names=['package.json','pnpm-lock.yaml',...['admin','auth','campaigns','crm','config','listmonk','policy','server','store','test-fixture'].map(x=>'src/'+x+'.mjs')].sort();
+for(const name of names){const stat=fs.lstatSync(path.join(root,name));if(!stat.isFile()||stat.isSymbolicLink())throw Error('SOURCE_FILE_REFUSED');}
+const sha=x=>createHash('sha256').update(x).digest('hex'),files=Object.fromEntries(names.map(n=>[n,fs.readFileSync(path.join(root,n)).toString('base64')]));
+const compressed=zlib.gzipSync(Buffer.from(JSON.stringify(files)),{level:9}),hash=sha(compressed);
+const unpack="const fs=require('fs'),z=require('zlib'),c=require('crypto');let b=fs.readFileSync('/bundle.gz');if(c.createHash('sha256').update(b).digest('hex')!=='"+hash+"')throw Error('BUNDLE_SHA');for(const[p,v]of Object.entries(JSON.parse(z.gunzipSync(b)))){if(!/^(?:package\\.json|pnpm-lock\\.yaml|src\\/[a-z-]+\\.mjs)$/.test(p))throw Error('PATH');fs.mkdirSync(require('path').dirname(p),{recursive:true});fs.writeFileSync(p,Buffer.from(v,'base64'));}fs.unlinkSync('/bundle.gz');";
+const shell=x=>"'"+x.replaceAll("'","'\\''")+"'";
+const encoded=compressed.toString('base64'),chunks=[];for(let i=0;i<encoded.length;i+=12288)chunks.push(encoded.slice(i,i+12288));
+const inject=chunks.map(chunk=>'RUN node -e '+shell("require('fs').appendFileSync('/bundle.gz',Buffer.from('"+chunk+"','base64'))")).join('\n')+'\nRUN node -e '+shell(unpack);
+let docker=fs.readFileSync(path.join(root,'Dockerfile'),'utf8').replace('COPY package.json pnpm-lock.yaml ./',inject).replace('COPY src/ ./src/\n','');
+fs.writeFileSync(path.join(out,'Dockerfile.inline'),docker);
+const manifest={schema:'listmonk-mcp-source-package-v1',files:names.map(n=>({path:n,sha256:sha(Buffer.from(files[n],'base64'))})),bundle_sha256:hash,dockerfile_sha256:sha(docker),bundle_bytes:compressed.length,inline_dockerfile_bytes:Buffer.byteLength(docker),secrets_included:false,production_mutations:0};
+fs.writeFileSync(path.join(out,'manifest.safe.json'),JSON.stringify(manifest,null,2)+'\n');
+console.log(JSON.stringify({packaged:true,files:names.length,inlineDockerfileBytes:Buffer.byteLength(docker),sha256:manifest.dockerfile_sha256}));

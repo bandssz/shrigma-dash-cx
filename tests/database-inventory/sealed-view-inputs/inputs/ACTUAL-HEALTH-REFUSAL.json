@@ -1,0 +1,107 @@
+{
+  "schema": "shrigma-native-health-protocol-runtime-acceptance-v1",
+  "sourceHead": "910bdaa435884e9fb0651451c5412af7871c11ac",
+  "image": "ghcr.io/bandssz/shrigma-dash-native-connection@sha256:bbd6651424468f37f1741a2b0d77e94dc8e746c517f477248c6070aeb95e69a2",
+  "manifestSha256": "a6440993f4cbd02ff792f2e058dda8088a3d774fe769dc4e2992c074e440e65d",
+  "configImageId": "sha256:cad694ac84fcbb8d5e532ca6dab6d9c7f5c0191b3c6fd976c80871e149243192",
+  "actualNativeStatus": 200,
+  "originalRole": "superadmin",
+  "brands": [
+    "aristo",
+    "fish"
+  ],
+  "runtime": {
+    "nativeMcp": true,
+    "nativeBackendManifestSha256": "a6440993f4cbd02ff792f2e058dda8088a3d774fe769dc4e2992c074e440e65d",
+    "journeyPresentationManifestSha256": "2c12a4a028ccd0463a0cd766e8cadaa4a618cb86028a52464b107fc1920068bd",
+    "journeyConfiguredRead": true,
+    "journeyPublicFiles": [
+      {
+        "path": "growth.html",
+        "bytes": 113705,
+        "sha256": "af135d3f91d7e6b00f48444a74e3c06548ccd0d2e98cbd44f2d72eeb3965c130"
+      },
+      {
+        "path": "assets/panels/growth.js",
+        "bytes": 1000806,
+        "sha256": "7dcd45e9f3e59cec76082f4181187cbe65bd666d4113cee242e00249c4754dc2"
+      },
+      {
+        "path": "assets/panels/growth.css",
+        "bytes": 164609,
+        "sha256": "cdc4fef0ca423aae8a067ab95a7264bcf7fa903c290be12487954c1507be4ba3"
+      }
+    ]
+  },
+  "templateSources": [
+    {
+      "brand": "aristo",
+      "status": 200,
+      "total": 22,
+      "source": "original-registered-email-templates",
+      "checkedAt": "2026-10-09T00:20:20.516Z",
+      "readOnly": true
+    },
+    {
+      "brand": "fish",
+      "status": 200,
+      "total": 18,
+      "source": "original-registered-email-templates",
+      "checkedAt": "2026-10-09T00:20:20.866Z",
+      "readOnly": true
+    }
+  ],
+  "deliveryHealthReceipt": {
+    "status": 200,
+    "body": {
+      "schema": "shrigma-native-health-receipts-v1",
+      "sources": [
+        {
+          "brand": "fish",
+          "status": 503,
+          "body": {
+            "error": "HEALTH_PROTOCOL_REFUSED",
+            "diagnostic": {
+              "schema": "shrigma-email-health-protocol-refusal-v1",
+              "field": "brands",
+              "reason": "brand-set",
+              "actualType": "array"
+            }
+          },
+          "readOnly": true,
+          "operational": false
+        },
+        {
+          "brand": "aristo",
+          "status": 503,
+          "body": {
+            "error": "HEALTH_PROTOCOL_REFUSED",
+            "diagnostic": {
+              "schema": "shrigma-email-health-protocol-refusal-v1",
+              "field": "brands",
+              "reason": "brand-set",
+              "actualType": "array"
+            }
+          },
+          "readOnly": true,
+          "operational": false
+        }
+      ],
+      "automaticRetry": false,
+      "operational": false
+    }
+  },
+  "specificPurposeReadAccepted": true,
+  "actualHealthPayloadAccepted": false,
+  "sourceContractDiscrepancy": {
+    "field": "brands",
+    "reason": "brand-set",
+    "actualType": "array",
+    "inference": "Original brands array length is not exactly2; cardinality/contents/installed view definition are not yet known."
+  },
+  "automaticRetry": false,
+  "privateBindingsPreserved": true,
+  "originalWorkerChanged": false,
+  "ownerQaRequested": false,
+  "operational": false
+}

@@ -27,7 +27,7 @@ test('preflight authenticates the actor and durable readback precedes the only P
 test('a page death after first creation POST preserves the reservation across reload and changed local identity/payload/action',async()=>{
   const s=setup();await assert.rejects(s.run(input,{transport:async()=>{s.calls.push('POST');throw Error('timeout');}}),{code:'TPL_UNKNOWN'});
   const reload=setup({store:s.store,lock:s.lock,uuid:()=>ID2});
-  for(const next of [input,{...input,local_id:'different',request_payload:{acao:'rascunho',rascunho:{...content,nome:'different'}}},{local_id:'other',request_payload:{acao:'validar',draft_id:'other-server',expected_version:3}}])await assert.rejects(reload.run(next),{code:'TPL_PENDING'});
+  for(const next of [input,{...input,local_id:'different',request_payload:{acao:'rascunho',rascunho:{...content,corpo:'Conteúdo alterado'}}},{local_id:'other',resource_scope:{brand:'fish',channel:'email',name:'fixture'},request_payload:{acao:'validar',draft_id:'other-server',expected_version:3}}])await assert.rejects(reload.run(next),{code:'TPL_PENDING'});
   assert.equal(reload.calls.length,0);assert.equal(reload.api.inspect().operations.length,1);assert.equal(reload.api.inspect().operations[0].id,ID);
 });
 test('two tabs with different actors/endpoints cannot compete through preflight and POST',async()=>{
@@ -36,6 +36,14 @@ test('two tabs with different actors/endpoints cannot compete through preflight 
   const first=a.run(input,{lookup:async(...args)=>{await barrier;return a.lookup(...args);}});
   await assert.rejects(b.run(),{code:'TPL_BUSY'});assert.equal(b.calls.length,0);release();await first;
   assert.equal(a.calls.filter(x=>x==='POST').length,1);
+});
+test('an unknown operation blocks its own model while another model remains independent',async()=>{
+  const a=setup();await assert.rejects(a.run(input,{transport:async()=>{a.calls.push('POST');throw Error('timeout');}}),{code:'TPL_UNKNOWN'});
+  const before=JSON.stringify(a.api.inspect().operations[0]),b=setup({store:a.store,lock:a.lock,uuid:()=>ID2});
+  const other={local_id:'independent-model',request_payload:{acao:'rascunho',rascunho:{...content,nome:'another-fixture'}}};
+  assert.equal((await b.run(other)).ok,true);assert.equal(b.calls.filter(x=>x==='POST').length,1);
+  assert.equal(JSON.stringify(b.api.inspect().operations.find(x=>x.id===ID)),before);
+  assert.equal(b.api.inspect({local_id:input.local_id,brand:'fish',channel:'email',name:'fixture'}).blocked,true);
 });
 test('missing receipt, pending, unknown and malformed 2xx all remain blocked without POST replay',async()=>{
   for(const state of ['missing','pending','outcome_unknown','legacy_unverifiable','inconsistent','empty']){
@@ -83,10 +91,11 @@ test('failed preflight including invalid key or missing GET contract does not re
   }
 });
 test('confirmed receipt blocks new writes until applying the local identity is durably acknowledged',async()=>{
-  const s=setup();await s.run();assert.equal(s.api.inspect().blocked,true);
+  const scope={local_id:input.local_id,brand:content.marca,channel:content.canal,name:content.nome};
+  const s=setup();await s.run();assert.equal(s.api.inspect(scope).blocked,true);
   const reload=setup({store:s.store,lock:s.lock,uuid:()=>ID2});await assert.rejects(reload.run(),{code:'TPL_PENDING'});
-  await assert.rejects(reload.api.markApplied(ID,async()=>false),{code:'TPL_STORAGE'});assert.equal(reload.api.inspect().blocked,true);
-  await reload.api.markApplied(ID,async()=>true);assert.equal(reload.api.inspect().blocked,false);
+  await assert.rejects(reload.api.markApplied(ID,async()=>false),{code:'TPL_STORAGE'});assert.equal(reload.api.inspect(scope).blocked,true);
+  await reload.api.markApplied(ID,async()=>true);assert.equal(reload.api.inspect(scope).blocked,false);
   await reload.run({...input,local_id:'second-legitimate-draft'});assert.equal(reload.calls.filter(x=>x==='POST').length,1);assert.equal(reload.api.inspect().operations.length,2);
 });
 test('an older tab cannot replace a locally applied server identity with a second creation',async()=>{

@@ -2,7 +2,7 @@
 // Independent synthetic CREATE probes; actual core and SQLite, no sockets.
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
 const {fixture}=require('./dashboard-operational-campaign-create-fixture.cjs');
-const SOURCE_PIN='581590756252384e2c17da6ba2e390d5942b1528f1cd81d6eba18664a27ffd01';
+const SOURCE_PIN='09062c3d88c5545a970a9c9dcf7289c9cca0f1279650786aa206a8e97de44a1c';
 assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../services/dashboard-operational/crm-campaign-create.cjs'))).digest('hex'),SOURCE_PIN);
 const posts=f=>f.calls.filter(c=>c.method==='POST').length;
 test('lost ACK before core, restart and prolonged STATUS absence preserve one uncertain intent',async t=>{

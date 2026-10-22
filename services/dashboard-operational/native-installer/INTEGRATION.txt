@@ -1,0 +1,163 @@
+SHRIGMA — INSTALADOR NATIVO LIMITADO, FONTE C2
+07/10/2026 — prepared-not-integrated; operational=false
+
+Interface pública do módulo
+const installerModule = require('./services/dashboard-operational/native-installer/installer.cjs');
+const installer = installerModule.createInstaller({
+  enabled: false,
+  client, manifest: installerModule.manifest(), target,
+  admission, withInstallerSession, poisonSession
+});
+await installer.inspect();
+await installer.preview({migrationId, expectedSha256});
+await installer.apply({migrationId, expectedSha256, operationId});
+await installer.status({operationId});
+
+As quatro operações aceitam somente os DTOs acima. Não há parâmetro SQL,
+sourcePath, namespace, role, issuer ou credencial vindo da ferramenta. O catálogo
+está fechado aos três arquivos reais do head instalado PR243; manifesto, bytes
+e SQL original são conferidos por SHA256 antes de qualquer execução. Alterar o
+catálogo exige nova fonte revisada. O envelope BEGIN/COMMIT externo original é
+removido por posições estritas verificadas por executionSha256; corpos plpgsql,
+comentários, guards, GRANTs e fences históricos ficam intactos. A transação e o
+ledger do instalador passam a abranger a aplicação inteira.
+
+Contrato de custódia do Integrador Principal
+O client é uma sessão física pg existente, já conectada, exclusiva da autoridade
+de instalação admitida. O módulo não importa pg, cria pool, conecta, encerra,
+reconecta ou libera cliente. withInstallerSession(work) concede uma única lease,
+aguarda exatamente uma execução e retorna seu resultado por identidade. Nenhum
+consumidor de runtime usa essa lease. O gate genérico de uma única instrução
+SQL da sessão de reservas não serve para este instalador: as strings multilinha
+revisadas e DDL exigem o caminho próprio de custódia de instalação. Não habilitar
+SQL arbitrário no gate de runtime para fazer essa composição.
+
+poisonSession() deve invalidar a sessão física para todos os consumidores.
+Após ACK perdido/malformado, Root retira e encerra a conexão sob sua custódia;
+não reutiliza nem reconecta esse cliente automaticamente. A consulta STATUS usa
+outra sessão admitida e o MESMO destino, namespace, catálogo e manifesto. Não
+mudar o UUID de operação para superar uma recusa/ACK desconhecido.
+
+Target é configuração privada admitida, com exatamente:
+{project:'comunicacao',service:'postgres',database:'listmonk',
+ ownNamespace: <nome próprio explicitamente admitido>,
+ installerRole: <role de instalação real>,runtimeRole: <role runtime real distinta>}
+
+Não há default para ownNamespace ou roles. São identificadores ASCII fechados;
+public e pg_* não podem guardar o ledger. O namespace próprio deve já existir,
+pertencer ao instalador e não conceder CREATE a outra role/PUBLIC. O instalador
+não fabrica esse namespace: o bootstrap explicitamente admitido pertence a Root.
+A conexão real deve ser vinculada ao recurso comunicacao/postgres por Root; um
+current_database()='listmonk' isolado não prova o serviço. O inventário confere
+banco, sessão=current_user=installerRole, PostgreSQL17, ownership do schema,
+metadados e separação do runtime. Runtime não pode ser superuser, criar roles,
+banco/objetos em schemas próprios/públicos, replicar, bypass RLS ou ter memberships.
+Não inferir ownership de senha, token de painel ou nome do banco.
+
+admission(input) é callback privado de Root, nunca preenchido pelo modelo ou DTO
+MCP. Recebe action, target/targetHash, manifestHash, inventory/inventoryHash,
+migrationId/sourceSha256 e operationId. Retorna exatamente:
+{admitted:true,action,targetHash,manifestHash,inventoryHash,migrationId,operationId,
+ ownNamespace,installerRole,runtimeRole,ownedPublicObjects,reviewedRoles,
+ inputs,recoveryReady:true}
+
+Valores action/hashes/IDs/roles/namespace devem repetir a solicitação privada
+verificada. ownedPublicObjects e reviewedRoles enumeram objetos/roles próprios
+realmente revisados; inputs contém true somente para os pré-requisitos reais do
+manifesto. A implementação não substitui essas verificações: Root deve verificar
+ownership do recurso, atualidade do snapshot, shapes/ACLs/auth/FKs das duas tabelas
+próprias, HBA/TLS/logging, backup e recuperação admitidos e prova nativa PG17. O
+hash do inventário vincula a prova à fotografia relida dentro de cada transação.
+Publicação do módulo não torna esse callback admitido. Não fazer callback de
+produção que simplesmente ecoe hashes e true. Os ecos dos testes são sintéticos.
+
+SQLs históricos e recusas
+crm-read-provision-v1: cria quatro tabelas, dois índices e sete funções próprias
+public.shrigma_crm_manager_*. Não cria/grava issuer ou senha nem ativa CRM.
+crm-read-role-install-v1: depende do recibo applied da anterior e dos objetos
+originais ainda pertencentes ao instalador; seu SQL original verifica hashes,
+ACLs e guards antes de transferir ownership às roles próprias. Requer superuser
+real, sem SET ROLE. Roles e nomes previamente existentes são recusados.
+crm-writer-provision-v1: preserva guards de componente, public/default ACL,
+central_leitor, NOLOGIN e todos os fences históricos. Depende dos dados reais de
+ownership/admissão dos fences73a/832f. Exige exatamente o default SELECT revisado
+para central_leitor em public; não remove ACLs de terceiros/legado. Não instala
+novo issuer nem habilita login writer. Objetos já existentes nunca são adotados
+ou substituídos para fazer uma instalação histórica passar.
+
+Todas exigem ownership próprio comprovado para public.crm_dash_chave e
+public.shrigma_panel_permission_v1 e para TODOS os novos nomes públicos do
+manifesto. Essas tabelas não são assumidas como Listmonk: sem prova de que são
+próprias, a aplicação fecha. O instalador não toca tabelas, roles, dados ou ACLs
+Listmonk/terceiros. A única modificação nessas duas tabelas próprias nos SQLs de
+roles é o GRANT revisado ao novo definer. Dados de usuários não são inventariados.
+
+Histórico, concorrência e recuperação
+Dentro do mesmo banco: tabela fixa ownNamespace.migration_operation_v1; nove
+colunas fechadas, PK operation_id, UNIQUE migration_id e CHECK de state. Owner,
+shape, constraints (por hash), ausência de outros ACLs/triggers/RLS/herança são
+verificados inclusive antes de STATUS. Ledger criado somente após admissão e
+pré-requisitos. Falta de namespace/ownership/ACL ou shape incompatível fecha.
+Nenhuma adoção de histórico por table IF NOT EXISTS ou receipt externo.
+
+Uma lease abrange duas transações SERIALIZABLE. A primeira verifica contexto,
+pré-requisitos e dependências, cria ledger próprio quando ausente e persiste a
+fence attempted com hash de destino/manifesto/migração/UUID. Somente após COMMIT
+confirmado a continuação interna desta chamada pode aplicar o SQL. A segunda
+revalida tudo, executa o SQL real e confirma postcondições/authority, atualizando
+state=applied no MESMO COMMIT. Ledger e objetos migram atomicamente nessa segunda
+transação. Advisory xact lock por destino+namespace serializa instalação/STATUS;
+consultas somente leitura usam READ COMMITTED para obter snapshot após eventual
+espera pelo lock (STATUS não retém fotografia anterior ao COMMIT concorrente);
+SET LOCAL limita tempo e search_path. Não há retry automático de serialization.
+
+Repetir UUID ou migrationId retorna recibo original, sem executar DDL. Fence não
+pode ser retomada por outra chamada/processo. Falha conhecida de DDL reverte as
+mudanças e conserva attempted. ACK incerto pode conservar attempted OU applied;
+STATUS original distingue o histórico confirmado sem inferir estado por erro ou
+health. STATUS absent também não é permissão de replay. Nenhum endpoint apaga,
+libera ou rearma fences. Correção/recovery exige decisão privada/revisão de Root;
+uma migração sucessora deve ter catálogo revisado e preservar histórico. Não
+usar novo operationId/migrationId para contornar uma fence consumida.
+
+Inventário e saída
+Só metadados de catálogo: nomes/owners/flags de roles sem passwords, ownership,
+colunas/ACL flags, hashes de corpos/config de funções, hashes de constraints,
+flags de TLS/logging/default ACL e quantidade agregada de relações públicas
+fora do allowlist. Nenhum dado de autenticação, email, issuer, conexão, arquivo
+HBA, corpo SQL armazenado, configuração de função ou erro/log raw é retornado.
+Os erros são códigos fechados próprios, por identidade privada; prefixos do
+driver não viram erro autorizado. inspect/preview são transações somente leitura,
+sem criar ledger ou executar migrações. Nenhuma saída operacional=true.
+
+Validação nova executada
+node --test tests/native-installer/installer.test.cjs
+11 testes sintéticos, pass11/fail0/skip0, Node25.9.0. Modelo valida os novos guards,
+fence/DDL/ledger, duplicata/restart/unknown, dependências, revogação e recusa de
+privilégios de runtime. Não é PostgreSQL, conexão nativa, autoridade ou restore.
+Não repetir30/seisPG/CI de reservas para aceitar este bloco.
+
+Aceite ainda de Root
+1. Conferir blobs do head PR243, manifesto/SQL/executionSha256 e compor apenas
+novos arquivos; server.cjs/auth.cjs/runtime/shared são exclusivamente de Root.
+2. Executar os testes novos no runtime Node22/pg existente e cenários SQL reais
+em infraestrutura isolada já admitida (sem criar serviço/banco/helper por chat):
+READ+roles, WRITER/fences, duas sessões concorrentes, rollback após DDL, STATUS
+original/restart e fechamento de conexões. Os SQLs históricos têm pré-requisitos
+próprios; não simular suas admissões em produção nem modificar legado para teste.
+3. Vincular privadamente destino, roles, namespace e admissão real; inventário
+atual, backup/recuperação, catálogo/hash e preview devem estar concretos antes
+ de apply autorizado. Não testar ACK perdido ou restore destrutivo em produção.
+4. Apply autorizado e STATUS no mesmo UUID; reler objects/ownership/ACL/RPC no
+banco real. Issuer/password/identidade e habilitação de runtime permanecem etapas
+privadas separadas e admitidas, sem exportar segredos nos recibos.
+5. Provar IAM READ/WRITE/revogação e edição Mestre no CRM pela conexão de Root;
+este instalador não constitui a prova de aplicação.
+
+CORREÇÃO V2 DE FIDELIDADE NATIVA
+Os três snapshots Root tinham exatamente UM LF extra. V1 preservada e
+superada por este pacote V2; não consumir pins/SQLs V1. V2 foi lida pelo
+conector GitHub nativo no head PR243 completo e conferida por Gitblob.
+Nenhum source/ de Root foi modificado; os três originais nativos estão nos
+assets deste pacote. Novo manifesto e execução rederivados exclusivamente
+desses bytes. Não é repin de contrato congelado nem repetição de operação.

@@ -13,7 +13,7 @@ function boot(linhas=[]){
  const $=s=>{if(!elements.has(s))elements.set(s,{innerHTML:'',textContent:'',title:'',hidden:false,
   querySelectorAll:()=>[],querySelector:()=>null,setAttribute(){},classList:{toggle(){},add(){},remove(){}}});return elements.get(s);};
  const context=vm.createContext({console,Intl,OLegacy,API:{cx_organico_receita:linhas},PER:{ini:'2026-09-01',fim:'2026-09-19'},CMP:false,
-  G:{anterior:()=>({ini:'2026-08-13',fim:'2026-08-31'})},MARCA:'todas',
+  G:{anterior:()=>({ini:'2026-08-13',fim:'2026-08-31'})},MARCA:'todas',ORGANICO_GENERATION:0,ORGANICO_QUEUED:false,
   $: $,document:{querySelectorAll:()=>[]},posts:()=>[],stories:()=>[],conta:()=>[],classifica:x=>x,
   agregado:()=>({eq:null,mediana:null}),daMarca:()=>true,chip:()=>'',varia:(a,b)=>b?Math.round(100*(a-b)/b):null,
   nf:n=>n==null?'—':Number(n).toLocaleString('pt-BR'),pc:n=>n==null?'—':String(n)+'%',

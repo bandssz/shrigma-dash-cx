@@ -159,7 +159,9 @@ const G = {
       receita:medidos.length?sm('receita_recuperada'):null,
       valorMedido:sm('valor_em_jogo'),
       carrinhosMedidos:sm('carrinhos'),
-      voltaram:s('voltaram_72h'), receitaVoltaram:s('receita_voltaram'),
+      voltaram:s('voltaram_72h'),
+      receitaVoltaram:linhas.every(r=>r.receita_voltaram!==null&&r.receita_voltaram!==undefined&&Number.isFinite(Number(r.receita_voltaram)))?s('receita_voltaram'):null,
+      receitaVoltaramDiasIndisponiveis:new Set(linhas.filter(r=>r.receita_voltaram===null||r.receita_voltaram===undefined||!Number.isFinite(Number(r.receita_voltaram))).map(r=>String(r.dia).slice(0,10))).size,
       voltaramMedidos:sm('voltaram_72h'),
       porMarca:Object.values(porMarca).sort((a,b)=>b.valor-a.valor)};
   },

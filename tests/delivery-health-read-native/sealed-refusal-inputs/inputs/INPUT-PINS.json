@@ -1,0 +1,30 @@
+{
+  "sourceHead": "bb0e122df443abec5723b4577f49426438526f6b",
+  "files": [
+    {
+      "path": "services/dashboard-operational/native-delivery-health-operator.cjs",
+      "sha256": "e4434a0f95fabc5b69bfba73bbcaa31f42d0738556c87dc296c73cb697a95cd1",
+      "bytes": 12773
+    },
+    {
+      "path": "tests/delivery-health-read-native/operator.test.cjs",
+      "sha256": "165f5a8f9c1efccff9bd5d8e7588186cd9f4a34a3e2535e5de24621974184544",
+      "bytes": 3008
+    },
+    {
+      "path": "tests/delivery-health-read-native/ui.test.cjs",
+      "sha256": "9287663a7f3f8f1dea704e0de838a423463c33b7e1951714742d3b6241ca374d",
+      "bytes": 8199
+    },
+    {
+      "path": "tests/delivery-health-read-native/load-operator.cjs",
+      "sha256": "f4a0404c4d1266ee1a475470034bd65b71f2ee390eca268ce7e2c09f69512b2f",
+      "bytes": 1334
+    },
+    {
+      "path": "tests/delivery-health-read-native/fixture.cjs",
+      "sha256": "1a4c38291730bcae3e3ad80dfc2c942427518c51e14a9f19eed21de66da01ada",
+      "bytes": 5742
+    }
+  ]
+}

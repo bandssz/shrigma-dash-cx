@@ -30,6 +30,24 @@
   return Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
  }
  const actorHash=(key,crypto)=>hash({scope:'tts-manual-v1',credential:key},crypto);
+  async function readReceipt(r,op,crypto=globalThis.crypto){
+   const e=r.body,o=e?.operation;
+   if(r.status!==200||e?.contract!=='tts_manual_operation_v1'||!object(o)||!['operation_id','actor_sha256','marca','application_id'].every(k=>o[k]===op[k])||!['missing','reserved','in_flight','accepted','outcome_unknown','blocked'].includes(o.state))throw fail('TTS_RECEIPT','O recibo não corresponde à mesma operação e ao mesmo acesso.');
+   if(o.state==='missing'){if(o.request_payload!==null||o.response!==null)throw fail('TTS_RECEIPT','Recibo ausente inconsistente.');return {state:'unknown',missing:true};}
+   let payload;try{payload=normalize(o.request_payload);}catch{throw fail('TTS_RECEIPT','Conteúdo do recibo incompatível.');}
+   if(canonical(payload)!==canonical(o.request_payload)||await hash(payload,crypto)!==op.request_sha256||payload.resultado!==op.resultado||op.request_payload&&canonical(payload)!==canonical(op.request_payload))throw fail('TTS_RECEIPT','O conteúdo do recibo difere da tentativa preservada.');
+   if(['reserved','in_flight'].includes(o.state)){if(o.response!==null)throw fail('TTS_RECEIPT','Recibo pendente inconsistente.');return {state:'unknown'};}
+   const b=o.response?.body,status=o.response?.status;
+   if(!object(b)||b.operation_id!==op.operation_id||!Number.isInteger(status)||status<200||status>599)throw fail('TTS_RECEIPT','Resposta do recibo inválida.');
+   if(o.state==='accepted'){
+    const row=b.linhas?.[0],decision=payload.resultado==='APPROVE'?'manual_aprovada':'manual_rejeitada';
+    if(status!==200||b.ok!==true||!Array.isArray(b.linhas)||b.linhas.length!==1||row?.application_id!==op.application_id||row.decisao!==decision||typeof row.status!=='string'||!row.status||row.status.length>80)throw fail('TTS_RECEIPT','Aceite não conciliado com a decisão.');
+    return {state:'accepted',payload,receipt:{status,decision,sample_status:row.status}};
+   }
+   if(status<400||b.ok!==false)throw fail('TTS_RECEIPT','Recusa ou incerteza incompatível.');
+   return {state:o.state==='blocked'?'blocked':'unknown',payload,receipt:{status}};
+  }
+
  function create({storage,locks,endpoint:address,fetch:request=globalThis.fetch,crypto=globalThis.crypto}={}){
   let url;try{url=endpoint(address);}catch{}
   const memory=new Map();
@@ -84,23 +102,7 @@
    return {contract:c.contract,operation:true,write:c.write&&c.cutover_verified&&c.admission_verified,cutover_verified:c.cutover_verified,admission_verified:c.admission_verified};
   }
   const query=op=>({acao:'operacao',operation_id:op.operation_id,marca:op.marca,application_id:op.application_id});
-  async function receipt(r,op){
-   const e=r.body,o=e?.operation;
-   if(r.status!==200||e?.contract!=='tts_manual_operation_v1'||!object(o)||!['operation_id','actor_sha256','marca','application_id'].every(k=>o[k]===op[k])||!['missing','reserved','in_flight','accepted','outcome_unknown','blocked'].includes(o.state))throw fail('TTS_RECEIPT','O recibo não corresponde à mesma operação e ao mesmo acesso.');
-   if(o.state==='missing'){if(o.request_payload!==null||o.response!==null)throw fail('TTS_RECEIPT','Recibo ausente inconsistente.');return {state:'unknown',missing:true};}
-   let payload;try{payload=normalize(o.request_payload);}catch{throw fail('TTS_RECEIPT','Conteúdo do recibo incompatível.');}
-   if(canonical(payload)!==canonical(o.request_payload)||await hash(payload,crypto)!==op.request_sha256||payload.resultado!==op.resultado||op.request_payload&&canonical(payload)!==canonical(op.request_payload))throw fail('TTS_RECEIPT','O conteúdo do recibo difere da tentativa preservada.');
-   if(['reserved','in_flight'].includes(o.state)){if(o.response!==null)throw fail('TTS_RECEIPT','Recibo pendente inconsistente.');return {state:'unknown'};}
-   const b=o.response?.body,status=o.response?.status;
-   if(!object(b)||b.operation_id!==op.operation_id||!Number.isInteger(status)||status<200||status>599)throw fail('TTS_RECEIPT','Resposta do recibo inválida.');
-   if(o.state==='accepted'){
-    const row=b.linhas?.[0],decision=payload.resultado==='APPROVE'?'manual_aprovada':'manual_rejeitada';
-    if(status!==200||b.ok!==true||!Array.isArray(b.linhas)||b.linhas.length!==1||row?.application_id!==op.application_id||row.decisao!==decision||typeof row.status!=='string'||!row.status||row.status.length>80)throw fail('TTS_RECEIPT','Aceite não conciliado com a decisão.');
-    return {state:'accepted',payload,receipt:{status,decision,sample_status:row.status}};
-   }
-   if(status<400||b.ok!==false)throw fail('TTS_RECEIPT','Recusa ou incerteza incompatível.');
-   return {state:o.state==='blocked'?'blocked':'unknown',payload,receipt:{status}};
-  }
+  const receipt=(r,op)=>readReceipt(r,op,crypto);
   async function lookupLocked(op,key){
    if(op.legacy||!op.operation_id)throw fail('TTS_LEGACY','A tentativa antiga não possui UUID consultável. Preserve-a para conciliação.');
    if(op.endpoint!==url)throw fail('TTS_ENDPOINT','O endereço mudou. Concilie a operação original sem reenviar.');
@@ -135,5 +137,5 @@
   }
   return Object.freeze({available,inspect,list,capabilities,run,lookup});
  }
- return Object.freeze({create,identity,normalize,actorHash,canonical,hash,PREFIX,LEGACY_PREFIX,CLOSED,UNKNOWN});
+ return Object.freeze({create,identity,normalize,actorHash,canonical,hash,readReceipt,PREFIX,LEGACY_PREFIX,CLOSED,UNKNOWN});
 });

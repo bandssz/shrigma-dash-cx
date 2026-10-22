@@ -109,7 +109,7 @@ test('convite → aceite → preparação → pronto → renovação → expira�
  s.input('admin-email',email);s.select('admin-area','growth');s.select('admin-brand','fish');s.select('admin-access','edit');await s.submit('admin-invite-form');
  await until(()=>!s.el('admin-invite-result').hidden||/Não foi possível/.test(s.el('admin-message').textContent),'convite criado');
  const invite=s.calls.find(c=>c.method==='POST'&&c.path==='/auth/users'&&c.body?.action==='invite');
- assert.deepEqual(invite.body,{action:'invite',email,brand:'fish',role:'manager',areas:['growth'],permissions:{growth:{read:true,edit:false}},requestedAccess:'edit'},'convite começa em leitura; edição só solicitada');
+ assert.deepEqual(invite.body,{action:'invite',email,brands:['fish'],productFront:'growth',role:'manager',areas:['growth'],permissions:{growth:{read:true,edit:false}},requestedAccess:'edit'},'convite começa em leitura; edição só solicitada');
  assert.match(s.el('admin-message').textContent,/Convite com Edição criado para CRM · Fishermans\. A configuração da edição acontece após o aceite; confira o estado do acesso\./);
  const link=new URL(s.el('admin-invite-link').value);assert.equal(link.hostname,hosts.growth);
  await until(()=>rowOf(s,email),'linha do convite');assert.equal(label(s,email),'CRM · Fishermans · Conteúdo em leitura · criação, edição e agendamento aguardam validação · Convite pendente · CRM aguarda aceite');

@@ -19,7 +19,7 @@
   REGULAR_ADMISSION_UNAVAILABLE:'O serviço de agendamento deste público ainda não está disponível.',
   REGULAR_ADMISSION_ACCESS_CHANGED:'O acesso mudou. Restaure o acesso original para consultar a tentativa.',
   REGULAR_ADMISSION_HEADERS_UNAVAILABLE:'A configuração de envio desta campanha precisa de revisão. Salve a campanha novamente pelo editor e confira.',
-  REGULAR_ADMISSION_SENDER_UNAVAILABLE:'O remetente ainda não foi liberado para esta marca. Confira a configuração antes de agendar.',
+  REGULAR_ADMISSION_SENDER_UNAVAILABLE:'O envio por público salvo não admite o remetente ou a configuração de entrega desta campanha. Nada foi agendado. Confira o remetente configurado para esta marca. Código: REGULAR_ADMISSION_SENDER_UNAVAILABLE.',
   SEGMENT_BINDING_BASE_REQUIRED:'Selecione apenas a lista base indicada abaixo e salve a campanha antes de conferir este público.',
   SEGMENT_BINDING_VERSION_CONFLICT:'A campanha ou o público mudou. Reabra a campanha e confira novamente.',
   SEGMENT_BINDING_AUDIENCE_CHANGED:'O público mudou ou foi arquivado. Atualize a lista e confira a versão atual.',
@@ -40,7 +40,7 @@
  const fail=code=>{throw Object.assign(Error(code),{code});};
  function create({element,key,storage=localStorage,fetch:fetcher=fetch,locks=globalThis.navigator?.locks,identity,id,now=()=>Date.now(),onChange=()=>{},onBound=async()=>{},getCampaignContext=()=>null,Client=Binding,SegmentClient=Segments}={}){
   if(!element||typeof key!=='function'||!Client||!SegmentClient)throw Error('CAMPAIGN_AUDIENCE_UI_CONFIG');
-  let ctx=null,client=null,regular=null,segments=null,rows=[],catalog=null,offset=0,more=false,selected='',inspection=null,readConfirmed=false,busy=false,busyRead=false,confirmation=null,error='',notice='',baseList=null,fatal=false,reviewTimer=null,destroyed=false;
+  let ctx=null,client=null,regular=null,segments=null,rows=[],catalog=null,offset=0,more=false,selected='',inspection=null,readConfirmed=false,busy=false,busyRead=false,confirmation=null,error='',errorFromRead=false,notice='',baseList=null,fatal=false,reviewTimer=null,destroyed=false;
   const q=s=>element.querySelector(s),pending=()=>!!client?.pending()||!!regular?.pending(),selectedRow=()=>rows.find(r=>r.id===selected&&!r.archived&&r.semantic_context?.current===true);
   const available=x=>!!x&&!!x.token&&['fish','aristo'].includes(x.brand)&&Client.caps(x.api).read&&Client.caps(x.api).brands.includes(x.brand)&&SegmentClient.caps(x.api).read&&SegmentClient.caps(x.api).contract_version==='crm-audience-v2'&&SegmentClient.caps(x.api).brands.includes(x.brand);
   const eligible=()=>available(ctx)&&ctx.campaign?.id&&ctx.campaign.status==='draft'&&ctx.campaign.sent===0&&ctx.campaign.started_at===null;
@@ -52,7 +52,7 @@
   const unresolvedHistory=()=>history()&&(!available(ctx)||!ctx?.campaign);
   const canValidate=()=>eligible()&&ctx.clean&&!locked()&&readConfirmed&&!!state().binding?.campaign_current&&state().binding?.semantic_context?.current===true&&Client.caps(ctx.api).validate===true;
   const canSchedule=()=>{const r=regular?.snapshot().review;return !!(regular&&canValidate()&&regular.capabilities().schedule&&r&&r.campaign_version===ctx.campaign.version&&r.binding_hash===state().binding?.binding_hash&&Date.parse(r.expires_at)>now());};
-  const status=()=>({canSchedule:canSchedule(),canValidate:!!canValidate(),active:available(ctx),blocked:busy||!!confirmation||fatal||unresolvedHistory(),activeOperation:busy||!!confirmation,reading:busy&&busyRead&&!confirmation,confirming:!!confirmation,pending:pending(),bound:!!state().binding,readConfirmed,readError:!!error,recoveryRequired:fatal||unresolvedHistory(),legacyBlocked:!!ctx?.campaign&&(!!state().binding||pending()||((available(ctx)||history())&&(!readConfirmed||busy||!!confirmation||fatal)))});
+  const status=()=>({canSchedule:canSchedule(),canValidate:!!canValidate(),active:available(ctx),blocked:busy||!!confirmation||fatal||unresolvedHistory(),activeOperation:busy||!!confirmation,reading:busy&&busyRead&&!confirmation,confirming:!!confirmation,pending:pending(),bound:!!state().binding,readConfirmed,readError:!!error&&errorFromRead,errorMessage:error||null,errorPhase:error?(errorFromRead?'binding-read':'action'):null,recoveryRequired:fatal||unresolvedHistory(),legacyBlocked:!!ctx?.campaign&&(!!state().binding||pending()||((available(ctx)||history())&&(!readConfirmed||busy||!!confirmation||fatal)))});
   function audienceSummary(row){
    const contract=SegmentClient.contractFor(ctx.api),rule=row.definition.rule,value=(r,f)=>{if(f.type==='product')return catalog?.products.find(x=>x.id===r.value)?.name||'produto indisponível';if(f.type==='origin')return catalog?.origins.find(x=>x.key===r.value)?.name||'origem indisponível';if(f.type==='money')return `${r.value} ${row.semantic_context?.currency||catalog?.currency||''}`.trim();return r.value;};
    const walk=r=>{if(r.op==='confirmed')return walk(r.rule)+' · somente cadastros com dados confirmados';if(r.op==='in_list')return `lista ${catalog?.lists.find(x=>x.id===r.list_id)?.name||'indisponível'}`;if(r.op==='condition'){const f=contract.FIELDS[r.field];return `${f.label}: ${operatorName[r.operator]} ${value(r,f)}`;}return `(${r.rules.map(walk).join(r.op==='and'?' E ':' OU ')})`;};
@@ -102,7 +102,7 @@
   const identityContext=()=>({brand:ctx?.brand,campaign:ctx?.campaign?.id,version:ctx?.campaign?.version,token:key(),bindingEndpoint:Client.caps(ctx?.api).endpoint,segmentsEndpoint:SegmentClient.caps(ctx?.api).endpoint,caps:JSON.stringify(ctx?.api),clean:ctx?.clean,blocked:ctx?.blocked,campaignContext:getCampaignContext()});
   function current(before){return same(before,identityContext())&&ctx?.token===key();}
   function syncedVersion(){if(state().campaign_version!==ctx.campaign.version)fail('UI_CAMPAIGN_CHANGED');}
-  async function guarded(work,{read=false}={}){if(busy||confirmation)return;busy=true;busyRead=read;error='';notice='';baseList=null;changed();try{await work();}catch(e){error=(e?.code==='REGULAR_ADMISSION_SCHEDULE_TOO_SOON'&&!ctx?.campaign?.send_at?'Preencha a data e a hora de envio (horário de Brasília), salve a campanha e confira de novo antes de agendar.':messages[e?.code])||'Não foi possível confirmar esta ação. Preserve a tentativa e confira o estado atual.';if(e?.code==='SEGMENT_BINDING_BASE_REQUIRED'&&e.baseList)baseList=clone(e.baseList);}finally{busy=false;busyRead=false;changed();}}
+  async function guarded(work,{read=false}={}){if(busy||confirmation)return;busy=true;busyRead=read;error='';errorFromRead=false;notice='';baseList=null;changed();try{await work();}catch(e){errorFromRead=read&&!readConfirmed;error=(e?.code==='REGULAR_ADMISSION_SCHEDULE_TOO_SOON'&&!ctx?.campaign?.send_at?'Preencha a data e a hora de envio (horário de Brasília), salve a campanha e confira de novo antes de agendar.':messages[e?.code])||'Não foi possível confirmar esta ação. Preserve a tentativa e confira o estado atual.';if(e?.code==='SEGMENT_BINDING_BASE_REQUIRED'&&e.baseList)baseList=clone(e.baseList);}finally{busy=false;busyRead=false;changed();}}
   async function load(page=0){if(pending()||fatal)return;await guarded(async()=>{
    if(!eligible())fail('UI_CAMPAIGN_CHANGED');const before=identityContext();inspection=null;readConfirmed=false;
    await client.read(ctx.campaign.id);if(!current(before))fail('UI_CONTEXT_CHANGED');syncedVersion();
@@ -131,20 +131,20 @@
   async function confirmBinding(){
    if(!eligible()||!ctx.clean||locked()||!inspection||!selectedRow()||!client.canWrite())return;
    const caller=element.ownerDocument.activeElement,before=identityContext(),review=clone(inspection),row=selectedRow(),dialog=q('[data-ca-dialog]');
-   if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){error=messages.UI_CONFIRMATION_UNAVAILABLE;changed();return;}
-   if(Date.parse(review.expires_at)<=now()){inspection=null;error=messages.UI_INSPECTION_EXPIRED;changed();return;}
-   let accepted=false;error='';
+   if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){errorFromRead=false;error=messages.UI_CONFIRMATION_UNAVAILABLE;changed();return;}
+   if(Date.parse(review.expires_at)<=now()){inspection=null;errorFromRead=false;error=messages.UI_INSPECTION_EXPIRED;changed();return;}
+   let accepted=false;error='';errorFromRead=false;
    try{
     const request=JSON.stringify(review);confirmation={};onChange();
     accepted=await new Promise(resolve=>{
      let finished=false;const done=value=>{if(finished)return;finished=true;dialog.oncancel=null;dialog.onclose=null;q('[data-ca-yes]').onclick=null;q('[data-ca-no]').onclick=null;try{dialog.close();}catch{dialog.removeAttribute('open');}resolve(value);};
      q('[data-ca-confirm-text]').textContent=`Usar “${row.name}”, versão ${row.version}, na campanha “${ctx.campaign.definition.name}” de ${brandName(ctx.brand)}? A campanha permanecerá em rascunho, com envio indisponível para este público.`;
      q('[data-ca-yes]').onclick=()=>done(true);q('[data-ca-no]').onclick=()=>done(false);dialog.oncancel=e=>{e.preventDefault();done(false);};dialog.onclose=()=>done(false);confirmation.finish=done;
-     try{dialog.showModal();q('[data-ca-no]').focus();}catch{done(false);error=messages.UI_CONFIRMATION_UNAVAILABLE;}
+     try{dialog.showModal();q('[data-ca-no]').focus();}catch{done(false);errorFromRead=false;error=messages.UI_CONFIRMATION_UNAVAILABLE;}
     });
     if(accepted&&(!current(before)||ctx.token!==key()||JSON.stringify(inspection)!==request||selected!==row.id||!ctx.clean))fail('UI_CONTEXT_CHANGED');
     if(accepted&&Date.parse(review.expires_at)<=now())fail('UI_INSPECTION_EXPIRED');
-   }catch(e){accepted=false;error=messages[e?.code]||messages.UI_CONTEXT_CHANGED;}
+   }catch(e){accepted=false;errorFromRead=false;error=messages[e?.code]||messages.UI_CONTEXT_CHANGED;}
    finally{confirmation=null;changed();}
    if(accepted)await guarded(async()=>{await client.bind(review.intent);inspection=null;readConfirmed=true;notice='Público vinculado. Atualizando a versão salva da campanha…';await onBound(ctx.campaign.id);notice='Público vinculado. O disparo ainda aguarda liberação.';});
    refocus(caller);
@@ -152,18 +152,18 @@
   async function confirmRelease(){
    if(!eligible()||!ctx.clean||locked()||!state().binding||!client.canRelease())return;
    const caller=element.ownerDocument.activeElement,before=identityContext(),bound=clone(state().binding),dialog=q('[data-ca-dialog]');
-   if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){error=messages.UI_CONFIRMATION_UNAVAILABLE;changed();return;}
-   let accepted=false;error='';confirmation={};onChange();
+   if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){errorFromRead=false;error=messages.UI_CONFIRMATION_UNAVAILABLE;changed();return;}
+   let accepted=false;error='';errorFromRead=false;confirmation={};onChange();
    try{
     accepted=await new Promise(resolve=>{
      let finished=false;const done=value=>{if(finished)return;finished=true;dialog.oncancel=null;dialog.onclose=null;q('[data-ca-yes]').onclick=null;q('[data-ca-no]').onclick=null;try{dialog.close();}catch{dialog.removeAttribute('open');}resolve(value);};
      q('#ca-confirm-title').textContent='Voltar a listas existentes';q('[data-ca-yes]').textContent='Voltar às listas';
      q('[data-ca-confirm-text]').textContent=`Remover o uso do público salvo nesta campanha de ${brandName(ctx.brand)}? A campanha continuará em rascunho e voltará a usar somente as listas escolhidas. O histórico do vínculo será preservado.`;
      q('[data-ca-yes]').onclick=()=>done(true);q('[data-ca-no]').onclick=()=>done(false);dialog.oncancel=e=>{e.preventDefault();done(false);};dialog.onclose=()=>done(false);confirmation.finish=done;
-     try{dialog.showModal();q('[data-ca-no]').focus();}catch{done(false);error=messages.UI_CONFIRMATION_UNAVAILABLE;}
+     try{dialog.showModal();q('[data-ca-no]').focus();}catch{done(false);errorFromRead=false;error=messages.UI_CONFIRMATION_UNAVAILABLE;}
     });
     if(accepted&&(!current(before)||!ctx.clean||state().binding?.binding_hash!==bound.binding_hash||state().binding?.binding_version!==bound.binding_version))fail('UI_CONTEXT_CHANGED');
-   }catch(e){accepted=false;error=messages[e?.code]||messages.UI_CONTEXT_CHANGED;}finally{confirmation=null;changed();}
+   }catch(e){accepted=false;errorFromRead=false;error=messages[e?.code]||messages.UI_CONTEXT_CHANGED;}finally{confirmation=null;changed();}
    if(accepted)await guarded(async()=>{await client.release();inspection=null;readConfirmed=true;await onBound(ctx.campaign.id);notice='Vínculo removido. A campanha voltou a usar as listas existentes.';});
    refocus(caller);
   }
@@ -174,19 +174,19 @@
   async function schedule(){
    if(!canSchedule())return;
    const before=identityContext(),review=regular.snapshot().review,dialog=q('[data-ca-dialog]'),caller=element.ownerDocument.activeElement;
-   if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){error=messages.UI_CONFIRMATION_UNAVAILABLE;changed();return;}
-   let accepted=false;error='';confirmation={};onChange();
+   if(typeof dialog?.showModal!=='function'||typeof dialog?.close!=='function'){errorFromRead=false;error=messages.UI_CONFIRMATION_UNAVAILABLE;changed();return;}
+   let accepted=false;error='';errorFromRead=false;confirmation={};onChange();
    try{
     accepted=await new Promise(resolve=>{
      let done=false;const finish=value=>{if(done)return;done=true;dialog.oncancel=null;dialog.onclose=null;q('[data-ca-yes]').onclick=null;q('[data-ca-no]').onclick=null;try{dialog.close();}catch{dialog.removeAttribute('open');}resolve(value);};
      q('#ca-confirm-title').textContent='Confirmar agendamento';q('[data-ca-yes]').textContent='Agendar campanha';
      q('[data-ca-confirm-text]').textContent=`Agendar “${ctx.campaign.definition.name}” de ${brandName(ctx.brand)} para ${brasilia(review.send_at)}? ${review.eligible_count} pessoas estão elegíveis no público escolhido. O total pode mudar até o envio; descadastros serão respeitados.`;
      q('[data-ca-yes]').onclick=()=>finish(true);q('[data-ca-no]').onclick=()=>finish(false);dialog.oncancel=e=>{e.preventDefault();finish(false);};dialog.onclose=()=>finish(false);confirmation.finish=finish;
-     try{dialog.showModal();q('[data-ca-no]').focus();}catch{finish(false);error=messages.UI_CONFIRMATION_UNAVAILABLE;}
+     try{dialog.showModal();q('[data-ca-no]').focus();}catch{finish(false);errorFromRead=false;error=messages.UI_CONFIRMATION_UNAVAILABLE;}
     });
     if(accepted&&(!current(before)||!ctx.clean||regular.snapshot().review?.review_id!==review.review_id))fail('UI_CONTEXT_CHANGED');
     if(accepted&&Date.parse(review.expires_at)<=now())fail('UI_INSPECTION_EXPIRED');
-   }catch(e){accepted=false;error=messages[e?.code]||messages.UI_CONTEXT_CHANGED;}finally{confirmation=null;changed();}
+   }catch(e){accepted=false;errorFromRead=false;error=messages[e?.code]||messages.UI_CONTEXT_CHANGED;}finally{confirmation=null;changed();}
    if(accepted)await guarded(async()=>{await regular.schedule(review.review_id);await onBound(ctx.campaign.id);await regular.reconcile();notice='Campanha agendada com o público escolhido.';});
    refocus(caller);
   }
@@ -202,11 +202,11 @@
    if(!sameId&&(busy||confirmation||pending()))return false;
    const sameAccess=sameId&&ctx.token===target.token&&Client.caps(ctx.api).endpoint===Client.caps(target.api).endpoint&&SegmentClient.caps(ctx.api).endpoint===SegmentClient.caps(target.api).endpoint;
    if(!sameAccess){
-    if((busy||confirmation||pending())&&ctx){ctx={...ctx,api:target.api,token:target.token};client?.update(target.api);regular?.update(target.api);inspection=null;readConfirmed=false;error=messages.UI_CONTEXT_CHANGED;render();return false;}
-    client=null;regular=null;segments=null;rows=[];catalog=null;offset=0;more=false;selected='';inspection=null;readConfirmed=false;error='';notice='';baseList=null;fatal=false;ctx=target;
-    if(available(ctx)&&ctx.campaign?.id){try{client=Client.create({api:ctx.api,brand:ctx.brand,campaignId:ctx.campaign.id,key,storage,fetch:fetcher,locks,identity,id});if(Regular)regular=Regular.create({api:ctx.api,brand:ctx.brand,campaignId:ctx.campaign.id,key,storage,fetch:fetcher,locks,identity:identity||Client.fingerprint,id});segments=SegmentClient.create({api:ctx.api,brand:ctx.brand,key,storage,fetch:fetcher,locks,identity});}catch{fatal=true;error='O registro desta preparação não foi confirmado. Preserve os dados deste navegador e restaure o acesso original.';}}
+    if((busy||confirmation||pending())&&ctx){ctx={...ctx,api:target.api,token:target.token};client?.update(target.api);regular?.update(target.api);inspection=null;readConfirmed=false;errorFromRead=false;error=messages.UI_CONTEXT_CHANGED;render();return false;}
+    client=null;regular=null;segments=null;rows=[];catalog=null;offset=0;more=false;selected='';inspection=null;readConfirmed=false;error='';errorFromRead=false;notice='';baseList=null;fatal=false;ctx=target;
+    if(available(ctx)&&ctx.campaign?.id){try{client=Client.create({api:ctx.api,brand:ctx.brand,campaignId:ctx.campaign.id,key,storage,fetch:fetcher,locks,identity,id});if(Regular)regular=Regular.create({api:ctx.api,brand:ctx.brand,campaignId:ctx.campaign.id,key,storage,fetch:fetcher,locks,identity:identity||Client.fingerprint,id});segments=SegmentClient.create({api:ctx.api,brand:ctx.brand,key,storage,fetch:fetcher,locks,identity});}catch{fatal=true;errorFromRead=false;error='O registro desta preparação não foi confirmado. Preserve os dados deste navegador e restaure o acesso original.';}}
    }else{
-    if(ctx.campaign?.version!==target.campaign?.version||!same(ctx.api,target.api)){inspection=null;readConfirmed=false;catalog=null;regular?.invalidate();}
+    if(ctx.campaign?.version!==target.campaign?.version||!same(ctx.api,target.api)){inspection=null;readConfirmed=false;error='';errorFromRead=false;notice='';catalog=null;regular?.invalidate();}
     if(!target.clean)regular?.invalidate();
     ctx=target;client?.update(target.api);regular?.update(target.api);segments?.update(target.api);
    }
@@ -215,7 +215,7 @@
   function onClick(e){if(destroyed)return;const b=e.target.closest('[data-ca]');if(!b||b.disabled||!element.contains(b))return;const action=b.dataset.ca;
    if(action==='load')void load();if(action==='previous')void load(Math.max(0,offset-50));if(action==='next')void load(offset+50);if(action==='inspect')void inspect();if(action==='bind')void confirmBinding();if(action==='release')void confirmRelease();if(action==='consult')void consult();
   }
-  function onSelectionChange(e){if(destroyed||!e.target.matches('[data-ca-select]')||locked())return;selected=e.target.value;inspection=null;baseList=null;error='';notice='';changed();}
+  function onSelectionChange(e){if(destroyed||!e.target.matches('[data-ca-select]')||locked())return;selected=e.target.value;inspection=null;baseList=null;error='';errorFromRead=false;notice='';changed();}
   element.addEventListener('click',onClick);element.addEventListener('change',onSelectionChange);
   function destroy(){
    if(destroyed)return;

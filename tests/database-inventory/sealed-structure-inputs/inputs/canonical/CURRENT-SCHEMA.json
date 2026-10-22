@@ -1,0 +1,557 @@
+{
+  "schema": "shrigma-current-health-view-canonical-normalization-input-v1",
+  "resource": {
+    "project": "comunicacao",
+    "service": "postgres",
+    "database": "listmonk"
+  },
+  "actualDefinition": {
+    "fields": [
+      "oid",
+      "namespace",
+      "name",
+      "ownerRole",
+      "acl",
+      "definition_utf8_bytes",
+      "definition_sha256",
+      "fixed_fish_aristo_values_seed",
+      "empty_brands_literal",
+      "brands_jsonb_agg"
+    ],
+    "rows": [
+      [
+        "135626",
+        "public",
+        "shrigma_growth_email_ses_health_v1",
+        "postgres",
+        "{postgres=arwdDxtm/postgres,central_leitor=r/postgres}",
+        4930,
+        "781ffed2f3d8f671f6e2b179c1b451f4a4007886871fa24da83da2bc38087fd7",
+        false,
+        false,
+        true
+      ]
+    ]
+  },
+  "originalCatalogTypes": [
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "dispatch_id",
+      "type_oid": "2950",
+      "type_modifier": -1,
+      "ordinal": 1
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "brand",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 2
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "flow",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 3
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "piece",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 4
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "dedupe_key",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 5
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "payload_sha256",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 6
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "account_id",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 7
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "region",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 8
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "configuration_set",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 9
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "recipient_key",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 10
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "recipient_key_version",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 11
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "is_test",
+      "type_oid": "16",
+      "type_modifier": -1,
+      "ordinal": 12
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "transport_state",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 13
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "reserved_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 14
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "started_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 15
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "accepted_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 16
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "outcome_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 17
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "claim_token",
+      "type_oid": "2950",
+      "type_modifier": -1,
+      "ordinal": 18
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "error_code",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 19
+    },
+    {
+      "table": "shrigma_email_dispatch",
+      "name": "send_log_id",
+      "type_oid": "20",
+      "type_modifier": -1,
+      "ordinal": 20
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "ingest_id",
+      "type_oid": "20",
+      "type_modifier": -1,
+      "ordinal": 1
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "topic_arn",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 2
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "sns_message_id",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 3
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "first_queue_arn",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 4
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "first_sqs_message_id",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 5
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "message_sha256",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 6
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "received_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 7
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "last_received_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 8
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "result",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 9
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "error_code",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 10
+    },
+    {
+      "table": "shrigma_email_event_ingest",
+      "name": "event_payload",
+      "type_oid": "3802",
+      "type_modifier": -1,
+      "ordinal": 11
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "event_key",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 1
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "first_ingest_id",
+      "type_oid": "20",
+      "type_modifier": -1,
+      "ordinal": 2
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "account_id",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 3
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "region",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 4
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "message_id",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 5
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "status",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 6
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "ocorreu_em",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 7
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "recebido_em",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 8
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "timestamp_basis",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 9
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "tipo_bounce",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 10
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "subtipo_bounce",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 11
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "complaint_type",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 12
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "error_code",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 13
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "recipient_key",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 14
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "recipient_key_version",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 15
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "dispatch_id_claim",
+      "type_oid": "2950",
+      "type_modifier": -1,
+      "ordinal": 16
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "dispatch_id",
+      "type_oid": "2950",
+      "type_modifier": -1,
+      "ordinal": 17
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "is_test_claim",
+      "type_oid": "16",
+      "type_modifier": -1,
+      "ordinal": 18
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "is_test",
+      "type_oid": "16",
+      "type_modifier": -1,
+      "ordinal": 19
+    },
+    {
+      "table": "shrigma_email_status",
+      "name": "reconciliation_status",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 20
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "coverage_id",
+      "type_oid": "20",
+      "type_modifier": -1,
+      "ordinal": 1
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "brand",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 2
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "flow",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 3
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "piece",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 4
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "is_test",
+      "type_oid": "16",
+      "type_modifier": -1,
+      "ordinal": 5
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "starts_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 6
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "ends_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 7
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "state",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 8
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "verified_through",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 9
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "checked_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 10
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "reason_code",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 11
+    },
+    {
+      "table": "shrigma_email_coverage",
+      "name": "evidence_ref",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 12
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "key",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 1
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "last_poll_ok_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 2
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "last_poll_count",
+      "type_oid": "23",
+      "type_modifier": -1,
+      "ordinal": 3
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "last_error_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 4
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "last_error_code",
+      "type_oid": "25",
+      "type_modifier": -1,
+      "ordinal": 5
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "queue_checked_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 6
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "queue_visible",
+      "type_oid": "23",
+      "type_modifier": -1,
+      "ordinal": 7
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "queue_inflight",
+      "type_oid": "23",
+      "type_modifier": -1,
+      "ordinal": 8
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "queue_delayed",
+      "type_oid": "23",
+      "type_modifier": -1,
+      "ordinal": 9
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "queue_error_at",
+      "type_oid": "1184",
+      "type_modifier": -1,
+      "ordinal": 10
+    },
+    {
+      "table": "shrigma_email_consumer_health",
+      "name": "queue_diagnostic",
+      "type_oid": "3802",
+      "type_modifier": -1,
+      "ordinal": 11
+    }
+  ],
+  "note": "Schema only, no table rows, credentials, payload, raw original definition or health grant. Isolated PostgreSQL17 normalization may be compared only if all canonical columns and types are reproduced."
+}

@@ -44,7 +44,7 @@ for(const brand of ['fish','aristo'])test(brand+': Gestor saves, reopens and cou
  assert.equal((await x.db.query('SELECT count(*)::int n FROM shrigma_email_dispatch')).rows[0].n,0);
 
  await x.db.query("UPDATE crm_audience_v2.shopify_batch SET started_at=clock_timestamp()-interval '27 hours' WHERE brand=$1",[brand]);await x.click('refresh');
- assert.match(x.q('[data-gs-shopify-snapshot]').textContent,/venceu/);assert.equal(x.q('[data-gs="count"]').disabled,true);assert.equal(x.q('[data-gs="save"]').disabled,true);
+ assert.match(x.q('[data-gs-shopify-snapshot]').textContent,/Os dados venceram em/);assert.equal(x.q('[data-gs="count"]').disabled,true);assert.equal(x.q('[data-gs="save"]').disabled,true);
  assert.doesNotMatch(x.q('[data-gs-count]').textContent,/0 pessoas/);
  const persisted=(await x.db.query('SELECT definition FROM crm_audience_v2.audience WHERE id=$1',[id])).rows[0].definition;assert.equal(persisted.rule.value,PRODUCT);assert.equal(persisted.rule.operator,'not_purchased');
  assert.equal(x.calls.filter(c=>c.action==='segmento_criar').length,1);assert.equal(x.calls.filter(c=>c.action==='segmento_salvar').length,1);assert.ok(x.calls.every(c=>/^segment/.test(c.action)));
@@ -61,3 +61,4 @@ for(const brand of ['fish','aristo'])test(brand+': Gestor explicitly selects con
  await x.db.query("UPDATE subscriber_lists SET status='unsubscribed' WHERE subscriber_id=1 AND list_id=$1",[brand==='fish'?17:16]);await x.click('count');assert.match(x.q('[data-gs-count]').textContent,/1 pessoas/);
  assert.equal((await x.db.query('SELECT count(*)::int n FROM shrigma_email_dispatch')).rows[0].n,0);
 });
+

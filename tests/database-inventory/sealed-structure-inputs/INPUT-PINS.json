@@ -1,0 +1,65 @@
+{
+  "schema": "shrigma-original-health-view-structure-inputs-v1",
+  "sourceHead": "e88330bb25d731209fe2b3dd8c96f8fc4f63663d",
+  "actualOriginalPostgreSQLVersionNum": 170010,
+  "canonicalIsolatedPostgreSQLVersionNum": 170005,
+  "inputs": [
+    {
+      "path": "inputs/services/dashboard-operational/native-database-inventory.cjs",
+      "bytes": 24724,
+      "sha256": "8d9c1ffd1a07074359fa449f624d62759537e326b7dcf5a61152185f38e1403f",
+      "source": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-connection-20261007-principal/source/services/dashboard-operational/native-database-inventory.cjs"
+    },
+    {
+      "path": "inputs/services/dashboard-operational/native-pg-driver.cjs",
+      "bytes": 2995,
+      "sha256": "c73dda78e231e1ea41f6c236bdf0f465c0fdedf3fdc4553170c00a9224b2bec9",
+      "source": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-connection-20261007-principal/source/services/dashboard-operational/native-pg-driver.cjs"
+    },
+    {
+      "path": "inputs/services/dashboard-operational/native-database-operator.cjs",
+      "bytes": 9491,
+      "sha256": "c665b570e2c07499e0e5098335aa072f5d6e9714b9251769c430091eaf9a6f09",
+      "source": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-connection-20261007-principal/source/services/dashboard-operational/native-database-operator.cjs"
+    },
+    {
+      "path": "inputs/services/dashboard-operational/native-delivery-health.cjs",
+      "bytes": 15565,
+      "sha256": "2e6b86d6ae9576f200e928c50591b8d2c13555ab0559000ae1e98e2f0dd73f58",
+      "source": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-connection-20261007-principal/source/services/dashboard-operational/native-delivery-health.cjs"
+    },
+    {
+      "path": "inputs/tests/database-inventory/health-view-contract.test.cjs",
+      "bytes": 15598,
+      "sha256": "7638dfad736592334b23c41bd5b98626d6311389cb65fe6b76067279a34f6535",
+      "source": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-connection-20261007-principal/source/tests/database-inventory/health-view-contract.test.cjs"
+    },
+    {
+      "path": "inputs/canonical/CANONICAL-NORMALIZED.sql",
+      "bytes": 4739,
+      "sha256": "c36b1077a333457782d944f28e8435120862833fbc9a34ab3bbc1fca0134fd28",
+      "source": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/CANONICAL-NORMALIZED.sql"
+    },
+    {
+      "path": "inputs/canonical/NORMALIZATION.json",
+      "bytes": 16991,
+      "sha256": "7a20832be395d2cad73c369ff73bd4aae7e13b45d5f073919c20c7680838c18e",
+      "source": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/NORMALIZATION.json"
+    },
+    {
+      "path": "inputs/canonical/CURRENT-SCHEMA.json",
+      "bytes": 12551,
+      "sha256": "5a09e89f308f9f445e4e84f306095a6a9ed048571dfbf882549b957eff0d2fa3",
+      "source": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/canonical-view-normalization-v1/INPUT.json"
+    },
+    {
+      "path": "inputs/CURRENT-RUNTIME-ACCEPTANCE.json",
+      "bytes": 3878,
+      "sha256": "0714b3fcca0cbaa316e3db07541829ba6525a100d20b46c93f6539b38d8231aa",
+      "source": "deliverables/mvp-tres-frentes-cowork-20261006/root-integration/native-connection-20261007-principal/delivery-health-read-v1/original-view-contract-v1/root-integration-v1/RUNTIME-ACCEPTANCE.json"
+    }
+  ],
+  "credentialsIncluded": false,
+  "rawOriginalDefinitionIncluded": false,
+  "productionMutationAllowed": false
+}
