@@ -3090,8 +3090,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-comparison-ui.cjs",
-      "bytes": 13032,
-      "sha256": "4b5a8720ed1231ade5499cfb9b2efdd4f564d6020b8239f7b1f37aa670036e90"
+      "bytes": 13223,
+      "sha256": "0abd3b4b98b28288bf66b00bf81a88b3aeb332658a9ce008617fa6b719e5f771"
     },
     {
       "path": "tests/crm-paid-comparison.test.cjs",

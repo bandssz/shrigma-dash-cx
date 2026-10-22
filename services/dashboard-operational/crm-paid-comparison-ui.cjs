@@ -2,7 +2,8 @@
 // Como os resultados de e-mail mudaram contra o período anterior? comparacao-periodos.spec.md.
 function html(kind){
  const home=kind==='home',base=require(home?'./crm-paid-home-ui.cjs':'./crm-paid-results-ui.cjs').HTML;
- return base.replace('Voltar ao CRM</a>', 'Voltar ao CRM</a> · <a id="analysis-home" href="/app/crm/restrito/inicio/">Início</a> · <a id="analysis-results" href="/app/crm/restrito/resultados/">Resultados</a>')
+ return base.replace('<span class="badge bg-yellow-lt">Restrito</span>','')
+  .replace('<a href="/app/crm/" class="text-secondary">Voltar ao CRM</a>', '<nav class="d-flex flex-wrap gap-3 mt-3"><a href="/app/crm/" class="text-secondary">Voltar ao CRM</a><a id="analysis-home" href="/app/crm/restrito/inicio/">Início</a><a id="analysis-results" href="/app/crm/restrito/resultados/">Resultados</a></nav>')
   .replace('<body>','<body data-view="'+(home?'home':'results')+'">')
   .replace('1fr 1fr 1.3fr .7fr auto','1.1fr 1fr 1fr 1.1fr .7fr auto')
   .replace('<label class="form-label">De','<label class="form-label">Período<select id="preset" class="form-select"></select></label><label class="form-label">De')
