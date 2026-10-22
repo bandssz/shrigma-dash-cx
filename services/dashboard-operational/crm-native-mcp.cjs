@@ -8,9 +8,6 @@ const brand={type:'string',enum:BRANDS},id={type:'integer',minimum:1},key={type:
 const sourceRequestId={type:'string',pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'};
 const tools=[
  ['crm_status','Verificar acesso CRM','crm.read',obj(),false,false],
- ['crm_issue_list','Consultar pedidos e problemas da marca','crm.read',obj({brand,offset:{type:'integer',minimum:0}},['brand']),true,false],
- ['crm_issue_update','Atualizar estado de pedido próprio do produto','crm.iam',obj({brand,id:sourceRequestId,state:{type:'string',enum:['Aberto','Em correção','Instalado']},expectedState:{type:'string',enum:['Aberto','Em correção','Instalado']},responsible:{type:'string',minLength:2,maxLength:100}},['brand','id','state','expectedState','responsible']),false,false],
-
  ['affiliate_read','Consultar dados atuais de Afiliados por marca','crm.read',obj({brand,ini:{type:'string',pattern:'^\\d{4}-\\d{2}-\\d{2}$'},fim:{type:'string',pattern:'^\\d{4}-\\d{2}-\\d{2}$'}},['brand','ini','fim']),true,false],
  ['crm_campaign_catalog','Consultar catálogo da marca','crm.read',obj({brand},['brand']),true,false],
  ['crm_template_catalog','Consultar templates de e-mail registrados da marca','crm.read',obj({brand,offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1}},['brand']),true,false],
@@ -80,11 +77,11 @@ function dispatchJson(dispatch,{method,path,body,context}){
   try{dispatch(req,res,context);}catch(e){clearTimeout(timer);settled=true;reject(e);}
  });
 }
-function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false,affiliateReadEnabled=false,publicReadKeyInstallEnabled=false,dashboardReadSummary,affiliateServiceRead,affiliateServiceAvailability,journeyTestAvailability,journeyActivationReviewInbox,issuesInbox}={}){
+function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnabled=false,publishedJourneyReadEnabled=false,masterTemplateReadEnabled=false,sourceDiagnosticsEnabled=false,deliveryHealthEnabled=false,schedulerStateEnabled=false,affiliateReadEnabled=false,publicReadKeyInstallEnabled=false,dashboardReadSummary,affiliateServiceRead,affiliateServiceAvailability,journeyTestAvailability,journeyActivationReviewInbox}={}){
  if(!auth?.nativeConnections||typeof invoke!=='function'||typeof managerHost!=='string')throw Error('NATIVE_CONFIG_INVALID');
  const store=auth.nativeConnections;
  const serviceAffiliateRead=typeof affiliateServiceRead==='function';
- const availableTools=tools.filter(t=>(typeof issuesInbox==='function'||!t.name.startsWith('crm_issue_'))&&(publicReadKeyInstallEnabled===true||!t.name.startsWith('crm_publics_read_key_'))&&(serviceAffiliateRead||affiliateReadEnabled===true&&auth.affiliateNativeConsent||t.name!=='affiliate_read')&&(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||!t.name.startsWith('crm_source_diagnostics'))&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
+ const availableTools=tools.filter(t=>(publicReadKeyInstallEnabled===true||!t.name.startsWith('crm_publics_read_key_'))&&(serviceAffiliateRead||affiliateReadEnabled===true&&auth.affiliateNativeConsent||t.name!=='affiliate_read')&&(schedulerStateEnabled===true&&auth.nativeSchedulerStateChatApproval||!t.name.startsWith('crm_scheduler_state_approval_'))&&(createCampaignEnabled===true||t.name!=='crm_campaign_create')&&(sourceDiagnosticsEnabled===true||!t.name.startsWith('crm_source_diagnostics'))&&(deliveryHealthEnabled===true||t.name!=='crm_email_health')&&(masterTemplateReadEnabled===true||t.name!=='crm_template_catalog'));
  async function call(name,args,bearer){
   const tool=availableTools.find(t=>t.name===name);if(!tool)fail('NATIVE_TOOL_NOT_FOUND');validate(tool.inputSchema,args);
   store.authenticate(bearer,{scope:tool.scope,brand:args.brand});
@@ -99,8 +96,6 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
   let result;
   if(name==='crm_publics_read_key_install')result=await run('POST','/api/native/publics-read-key',args);
   else if(name==='crm_publics_read_key_status')result=await run('GET','/api/native/publics-read-key?'+new URLSearchParams({operationId:args.operationId}));
-  else if(name==='crm_issue_list')result=await run('GET','/api/product-issues?'+new URLSearchParams({action:'list',front:'growth',brand:args.brand,scope:'all',offset:String(args.offset||0)}));
-  else if(name==='crm_issue_update')result=await run('POST','/api/product-issues',{action:'update',front:'growth',...args});
   else if(name==='crm_status'){
    const state=await run('GET','/auth/session');
    const health=state.status===200?await run('GET','/healthz'):null;
@@ -134,9 +129,8 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
    const dashboardSources=state.status===200&&state.body?.user?.role==='superadmin'&&typeof dashboardReadSummary==='function'?await dashboardReadSummary(context,[...store.authenticate(bearer).brands]):undefined;
    const internalJourneyTest=state.status===200&&state.body?.user?.role==='superadmin'&&typeof journeyTestAvailability==='function'?await journeyTestAvailability(context,[...store.authenticate(bearer).brands]):undefined;
    let activationReviewInbox;if(state.status===200&&state.body?.user?.role==='superadmin'&&typeof journeyActivationReviewInbox==='function'){try{activationReviewInbox=await journeyActivationReviewInbox(context,[...store.authenticate(bearer).brands]);}catch{activationReviewInbox={schema:'journey-activation-review-v1',scope:'owner',unavailable:true,records:null,commercialActivation:false,sends:false};}}
-   let productIssuesInbox;if(state.status===200&&state.body?.user?.role==='superadmin'&&typeof issuesInbox==='function'){try{productIssuesInbox=await issuesInbox(context,[...store.authenticate(bearer).brands]);}catch{productIssuesInbox={schema:'product-issues-v1',unavailable:true,records:null};}}
    store.authenticate(bearer,{scope:'crm.read'});
-   result={status:state.status,body:{...(productIssuesInbox?{productIssuesInbox}:{}),...(activationReviewInbox?{activationReviewInbox}:{}),...(internalJourneyTest?{internalJourneyTest}:{}),...(dashboardSources?{dashboardSources}:{}),...(serviceAffiliateRead||affiliateReadEnabled?{affiliateAvailability}:{}),...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
+   result={status:state.status,body:{...(activationReviewInbox?{activationReviewInbox}:{}),...(internalJourneyTest?{internalJourneyTest}:{}),...(dashboardSources?{dashboardSources}:{}),...(serviceAffiliateRead||affiliateReadEnabled?{affiliateAvailability}:{}),...(schedulerStateReceipt?{schedulerStateReceipt}:{}),...(schedulerBindingReceipt?{schedulerBindingReceipt}:{}),authenticated:state.body?.authenticated===true,role:state.body?.user?.role,brands:store.authenticate(bearer).brands,permissions:state.body?.user?.permissions,features:state.body?.features,runtime,...(sourcePeer?{sourcePeer}:{}),...(masterTemplateReadEnabled?{templateSources}:{}),...(deliveryHealthReceipt?{deliveryHealthReceipt}:{}),operational:false}};
   }else if(name==='affiliate_read'){
    // Simple login uses the already admitted service READ key. The callback
    // requires the actual Master and rechecks front/brand through simpleReader.

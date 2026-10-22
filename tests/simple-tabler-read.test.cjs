@@ -157,3 +157,10 @@ test('CRM available window retains selected proven daily clicks even without sen
  data.crm_diario[0].cliques=null;a.deepEqual(H.availableWindow(data,'fish','2026-10-15','2026-10-15'),{start:'2026-10-14',end:'2026-10-14'});
  data.crm_diario[0].cliques=25;delete data.crm_diario[0].janela;a.deepEqual(H.availableWindow(data,'fish','2026-10-15','2026-10-15'),{start:'2026-10-14',end:'2026-10-14'});
 });
+
+test('unapproved Home layout remains QA-only while accepted analysis stays open',async t=>{
+ const paid=require(runtime+'/crm-paid-facts.cjs'),original=paid.create;t.mock.method(paid,'create',options=>original({...options,clientFactory:()=>({connect:async()=>{},end:async()=>{},query:async()=>({rows:[]})})}));
+ const f=await fixture(t,{fronts:['growth'],brands:['fish'],writeFronts:['growth'],paidFacts:true}),host='crm.synthetic.invalid';
+ for(const route of ['/app/crm/restrito/inicio-layout/?brand=fish','/app/crm/restrito/inicio-layout.js?brand=fish'])a.equal((await f.request(route,{host})).status,403);
+ a.equal((await f.request('/app/crm/restrito/inicio/?brand=fish',{host})).status,200);
+});
