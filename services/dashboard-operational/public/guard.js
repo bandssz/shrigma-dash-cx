@@ -1,6 +1,6 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['crm-purchases','crm-features','cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces']);
+ const ROUTES=new Set(['product-issues','crm-purchases','crm-features','cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces']);
  const nativeFetch=window.fetch.bind(window);
  // A release flag is independent from WRITE permission or source capability.
  // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
@@ -135,7 +135,18 @@
  // Await the existing session read before a panel captures its first brand.
  window.ShrigmaPrepareRead=async()=>{let timer;try{return await Promise.race([csrf().then(()=>true,()=>false),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),8000);})]);}finally{clearTimeout(timer);}};
  // Public session projection for browser-local tools. No CSRF or source key.
- window.ShrigmaReadSession=async options=>{const state=await refreshSession(options);return {authenticated:state.authenticated,user:state.user};};
+ window.ShrigmaReadSession=async options=>{
+  let state;
+  try{state=await refreshSession(options);}
+  catch(error){
+   if(error.message!=='session_replaced'||!csrfPromise)throw error;
+   // A panel may refresh while a local form checks its identity. Follow the
+   // existing successor read; do not start another read or replay a mutation.
+   await csrf();state=sessionState;
+  }
+  if(state?.authenticated!==true)throw Error('session_expired');
+  return {authenticated:state.authenticated,user:state.user};
+ };
  window.fetch=async function(input,init={}){
   let url;try{url=new URL(input instanceof Request?input.url:input,location.href);}catch(_){return reject();}
   if(url.origin!==location.origin)return reject();
@@ -143,6 +154,14 @@
   if(!ROUTES.has(route))return reject();
   const method=String(init.method||(input instanceof Request?input.method:'GET')).toUpperCase();
   if(!['GET','HEAD','POST','PUT','PATCH','DELETE'].includes(method))return reject(405);
+  if(route==='product-issues'){
+   if(!['GET','POST'].includes(method))return reject(405);
+   try{await csrf();}catch(_){return reject(401);}
+   let q;try{q=method==='GET'?Object.fromEntries(url.searchParams):JSON.parse(init.body);}catch(_){return reject(400);}
+   const u=sessionState?.user;if(!u?.brands?.includes(q.brand)||!u.productFronts?.includes(q.front))return reject(403);
+   if(method==='GET'&&!['list','image'].includes(q.action)||method==='POST'&&!['create','update'].includes(q.action))return reject(400);
+   if((q.scope==='all'||q.action==='update')&&u.role!=='superadmin')return reject(403);
+  }
   if(route==='crm-features'){if(method!=='GET')return reject(405);if(url.searchParams.size!==1||!['fish','aristo'].includes(url.searchParams.get('brand')))return reject(400);}
   if(route==='campaigns_media'&&method!=='GET')return reject(405);
   // Resolve the authenticated brand before any panel response can be applied.
