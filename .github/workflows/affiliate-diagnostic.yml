@@ -1,0 +1,31 @@
+name: Read-only affiliate gate diagnosis
+on:
+  push:
+    branches: [codex/affiliate-gate-diagnosis-20261022]
+permissions:
+  contents: read
+concurrency:
+  group: affiliate-readonly-diagnosis
+  cancel-in-progress: false
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Read affiliate data and render stages serially, without deployment or mail
+        env:
+          CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          diagnosis_dir="$(mktemp -d "$RUNNER_TEMP/affiliate-diagnosis.XXXXXX")"
+          export DIAGNOSIS_DIR="$diagnosis_dir"
+          trap 'rm -rf "$DIAGNOSIS_DIR"' EXIT
+          node -e 'const fs=require("fs"),p=process.env.DIAGNOSIS_DIR;fs.mkdirSync(p+"/proof",{mode:0o700});fs.writeFileSync(p+"/qa.json",process.env.CRM_QA_ACCOUNTS_JSON,{mode:0o600});'
+          unset CRM_QA_ACCOUNTS_JSON
+          npm install --prefix "$diagnosis_dir/qa" --ignore-scripts --no-audit --no-fund --package-lock=false playwright@1.64.0
+          docker run --rm --init --read-only --user "$(id -u):$(id -g)" --memory 2g --shm-size 1g --tmpfs /tmp:rw,nosuid,mode=1777,size=512m --env XDG_CONFIG_HOME=/tmp/qa-config --env XDG_CACHE_HOME=/tmp/qa-cache --mount "type=bind,src=$diagnosis_dir/qa,dst=/qa,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/tools/crm-qa,dst=/runner,readonly" --mount "type=bind,src=$diagnosis_dir/qa.json,dst=/run/secrets/qa-accounts,readonly" --mount "type=bind,src=$diagnosis_dir/proof,dst=/proof" mcr.microsoft.com/playwright@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f node /runner/diagnose-affiliate.cjs
