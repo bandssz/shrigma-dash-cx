@@ -1755,8 +1755,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
-      "bytes": 7832,
-      "sha256": "897644f30661b48b613eac010de7c90060a5cd899814daa81571e58ff3f5d021"
+      "bytes": 8011,
+      "sha256": "0ede1273ab2db279b848c62def679e4598b7bbf90cbec542ea5f4f71f95097ba"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-ui.cjs",
