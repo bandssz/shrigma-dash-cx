@@ -3030,8 +3030,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 16695,
-      "sha256": "d9b1f3101f90d235f7e25cd2d100c8334937066a986108885b83c8cef49e8d08"
+      "bytes": 19009,
+      "sha256": "3cbf7c92d8a8e2fb46ed56bda81fec7bfb75a6909f95640510cf4a0dd6731821"
     },
     {
       "path": "tools/crm-qa/paid-acquisition-sql.cjs",
@@ -3055,8 +3055,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 11628,
-      "sha256": "d3d6644688fc4fa2579651f2ccb611701318d3b3390b43b38ca779b4de0d2cd9"
+      "bytes": 11672,
+      "sha256": "fefbd11662747eeb6745d00595b540e78ae038545fb2e75d179d5157336c2b57"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
