@@ -24,14 +24,19 @@
       "sha256": "916086452b6cb89b3503da28109f0f32294c435abfcdbcfd91b87abf60baee9d"
     },
     {
+      "path": ".github/workflows/crm-layout6-preview.yml",
+      "bytes": 2922,
+      "sha256": "418690437e9d4ad69c231c3189d22e81fa771bffcfbe76d5cab05c92f6205ca8"
+    },
+    {
       "path": ".github/workflows/crm-links19.yml",
       "bytes": 5027,
       "sha256": "72d2ebb9120110f3c4a7528a45106b37917250767cf3d606fbfcde541a5f0023"
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 48703,
-      "sha256": "46fb7960f7b008baa8c23b1627a3d0b79607f085590a9eafd815c9ca609e75d5"
+      "bytes": 48742,
+      "sha256": "4918429ffa45f69387640698ad8ebcc5130e0034fd49e817795283cef5083494"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -415,8 +420,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 16285,
-      "sha256": "68fd5f0532980cf65fd5a4df839b366608c5ecb0cbc96034257424b69b6be696"
+      "bytes": 16315,
+      "sha256": "6db4a689d17d5f01d873ce25d4c0860e59ccbc155462bb60389976ac95036672"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -425,13 +430,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 8614,
-      "sha256": "92c2ee204c2b1afa3dfec66231a7660c900e7ac80e4641172dab32eea22f0ed9"
+      "bytes": 8644,
+      "sha256": "07436df53b9cf386cd916acf546bc1e2e8fa85e29d94ced68ecfa9918c722d58"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 10480,
-      "sha256": "5fc3d2f35fb39e0f5b28537ae6014cf096f89f2b1cc014b20f231ec440168db2"
+      "bytes": 10539,
+      "sha256": "3b5d27f7f512394b7efa5a55367b3a536641c5699f50622dcd56e2ad2288c3fd"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -1749,6 +1754,11 @@
       "sha256": "116e67ee032f92494f878fbe447a75689a9322d57f46b75211d318094ae79152"
     },
     {
+      "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
+      "bytes": 7643,
+      "sha256": "76560ab9ac4ccb7f9d46e27e508511613b7a31953009b41c376942a43b879255"
+    },
+    {
       "path": "services/dashboard-operational/crm-paid-home-ui.cjs",
       "bytes": 13272,
       "sha256": "b6a247bb004cab2d4fdd769073b7456a3faf52c05ca9b3959c3ee0123d7ba0db"
@@ -2110,8 +2120,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 237669,
-      "sha256": "3c2df832968f0a5f796159bcd42a64a3f00fb579723af178970f195840bd02eb"
+      "bytes": 238656,
+      "sha256": "f073504e4bf5fe296778ca392e4a7b6dca22ecaf89f325a13c32af7beea9f2d8"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2457,6 +2467,11 @@
       "path": "tests/crm-freeze-scale20.test.cjs",
       "bytes": 2222,
       "sha256": "aead481a6fe1f6f68629d07d1cf22d9c045682fe3647c053144cc42c025d725d"
+    },
+    {
+      "path": "tests/crm-home-layout.test.cjs",
+      "bytes": 4111,
+      "sha256": "72918f0936fa4ece86038caccaf4cf39b1424916ef4a04271b653cdb5ea72591"
     },
     {
       "path": "tests/crm-legacy-library-plan.test.cjs",
