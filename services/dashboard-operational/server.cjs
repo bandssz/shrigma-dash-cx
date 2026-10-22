@@ -962,7 +962,9 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           const ui=require('./crm-paid-facts-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:ui.HTML);return;
         }
         let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
-        if(req.method==='GET'&&['results','acquisition'].includes(q.action))paidFacts.authorizeAnalysis(ctx,q.brand);else paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&['home','results','acquisition'].includes(q.action))paidFacts.authorizeAnalysis(ctx,q.brand);else paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&q.action==='compare-home')return sendJson(req,res,200,await paidFacts.compareHome(ctx,q.brand,q));
+        if(req.method==='GET'&&q.action==='compare-results')return sendJson(req,res,200,await paidFacts.compare(ctx,q.brand,q));
         if(req.method==='GET'&&q.action==='home')return sendJson(req,res,200,await paidFacts.home(ctx,q.brand,q));
         if(req.method==='GET'&&q.action==='results')return sendJson(req,res,200,await paidFacts.results(ctx,q.brand,q));
         if(req.method==='GET'&&q.action==='acquisition-backup-file'){
@@ -980,8 +982,12 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         throw jsonError(400,'PAID_FACTS_ACTION_INVALID');
       }
       if(['/app/crm/restrito/inicio/','/app/crm/restrito/inicio.js'].includes(url.pathname)){
-        if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');const session=auth.session(ctx);if(!session.authenticated||!require('./crm-paid-facts.cjs').canUse(session.user))throw jsonError(403,'RESTRICTED_AREA_REQUIRED');
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');const session=auth.session(ctx);if(!session.authenticated)throw jsonError(403,'AUTH_REQUIRED');if(url.pathname.endsWith('.js'))auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});else paidFacts.authorizeAnalysis(ctx,url.searchParams.get('brand')||(session.user.viewBrands||session.user.brands||[])[0]||'aristo');
         const ui=require('./crm-paid-home-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:ui.HTML);return;
+      }
+      if(['/app/crm/restrito/comparacao-inicio/','/app/crm/restrito/comparacao-resultados/','/app/crm/restrito/comparacao.js'].includes(url.pathname)){
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');const session=auth.session(ctx);if(!session.authenticated||!require('./crm-paid-facts.cjs').canUse(session.user))throw jsonError(403,'RESTRICTED_AREA_REQUIRED');
+        const brand=url.searchParams.get('brand')||(session.user.viewBrands||session.user.brands||[])[0]||'aristo';paidFacts.authorize(ctx,brand);const ui=require('./crm-paid-comparison-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:ui.html(url.pathname.includes('comparacao-inicio')?'home':'results'));return;
       }
       if(['/app/crm/restrito/resultados/','/app/crm/restrito/resultados.js'].includes(url.pathname)){
         if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');const session=auth.session(ctx);if(!session.authenticated)throw jsonError(403,'AUTH_REQUIRED');if(url.pathname.endsWith('.js'))auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});else paidFacts.authorizeAnalysis(ctx,url.searchParams.get('brand')||(session.user.viewBrands||session.user.brands||[])[0]||'aristo');

@@ -44,4 +44,10 @@ test('analysis release grants editors only its read routes and preserves brand a
  a.equal(service.authorizeAnalysis({},'fish'),user);a.throws(()=>service.authorize({},'fish'),{code:'RESTRICTED_AREA_REQUIRED'});a.throws(()=>service.authorizeAnalysis({},'aristo'),{code:'BRAND_DENIED'});user={...user,permissions:{growth:{edit:false}}};a.throws(()=>service.authorizeAnalysis({},'fish'),{code:'ANALYSIS_EDITOR_REQUIRED'});user={role:'superadmin'};a.equal(service.authorizeAnalysis({},'fish'),user);
 });
 
-test('Home keeps ordinary editors outside even after Results release',async()=>{const user={role:'manager',permissions:{growth:{edit:true}},productWriteFronts:['growth']},service=create({auth:{authorizeBrand:()=>user},store:{}});await a.rejects(service.home({},'fish'),{code:'RESTRICTED_AREA_REQUIRED'});});
+test('accepted Home read opens to editors; comparisons and writes remain restricted',async t=>{
+ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'paid-home-read-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const file=path.join(dir,'config.json');fs.writeFileSync(file,JSON.stringify({CRM_SHOPIFY_ARISTO_CLIENT_ID:'synthetic',CRM_SHOPIFY_ARISTO_CLIENT_SECRET:'synthetic',CRM_SHOPIFY_FISH_CLIENT_ID:'synthetic',CRM_SHOPIFY_FISH_CLIENT_SECRET:'synthetic',PGPASSWORD:'synthetic'}),{mode:0o600});
+ let user={role:'manager',permissions:{growth:{edit:true}},productWriteFronts:['growth']};const service=create({file,auth:{authorizeBrand:(_ctx,brand)=>{if(brand!=='fish')throw Object.assign(Error('BRAND_DENIED'),{code:'BRAND_DENIED'});return user;}},store:{coverage:()=>null},clientFactory:()=>({connect:async()=>{},end:async()=>{},query:async()=>({rows:[]})})});
+ const value=await service.home({},'fish');a.equal(value.brand,'fish');a.equal(value.revenueObservedAt,null);await a.rejects(service.home({},'aristo'),{code:'BRAND_DENIED'});await a.rejects(service.compareHome({},'fish'),{code:'RESTRICTED_AREA_REQUIRED'});await a.rejects(service.compare({},'fish'),{code:'RESTRICTED_AREA_REQUIRED'});a.throws(()=>service.authorize({},'fish',true),{code:'RESTRICTED_AREA_REQUIRED'});
+ user={...user,permissions:{growth:{edit:false}}};await a.rejects(service.home({},'fish'),{code:'ANALYSIS_EDITOR_REQUIRED'});
+});

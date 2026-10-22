@@ -7,6 +7,12 @@ function marker(term){if(typeof term!=='string')return null;const text=term.trim
 function cents(value){if(typeof value!=='string'||!/^\d{1,12}(?:\.\d{1,2})?$/.test(value))return null;const [whole,fraction='']=value.split('.');return BigInt(whole)*100n+BigInt(fraction.padEnd(2,'0'));}
 const DAY_FORMATTER=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'});
 const localDay=stamp=>DAY_FORMATTER.format(new Date(stamp));
+const Period=require('./public/read-workspace.js').Period;
+function calendarRange(p){return {from:new Date(p.ini+'T00:00:00-03:00').toISOString(),until:new Date(Date.parse(p.fim+'T00:00:00-03:00')+DAY).toISOString(),fallback:false};}
+function comparisonCalendar(input,now){
+ try{let custom;if(input.ini!==undefined||input.fim!==undefined)custom={ini:input.ini,fim:input.fim};else if(input.from!==undefined||input.until!==undefined){const r=range(input,now);custom={ini:localDay(r.from),fim:localDay(Date.parse(r.until)-1)};}
+ return Period.resolve(input.preset||(custom?'custom':'last30'),now,custom);}catch{fail('PAID_RESULTS_PERIOD_INVALID');}
+}
 function range(input={},now=Date.now()){
  let from,until;
  if(input.from!==undefined||input.until!==undefined){const bound=value=>{const m=typeof value==='string'&&/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.exec(value),stamp=Date.parse(value);if(!m||!Number.isFinite(stamp)||+m[2]>23||+m[3]>59||+m[4]>59||!Number.isFinite(Date.parse(m[1]+'T00:00:00Z'))||new Date(m[1]+'T00:00:00Z').toISOString().slice(0,10)!==m[1])fail('PAID_RESULTS_PERIOD_INVALID');return stamp;};from=bound(input.from);until=bound(input.until);}
@@ -39,8 +45,25 @@ function aggregate(rows,brand,period,input={},sourceCoverage=null){
  const series=[];for(let at=Date.parse(localDay(from)+'T00:00:00-03:00');at<until;at+=DAY){const day=localDay(at),point=daily.get(day),zero=coverage.windowConfirmed&&!partial;series.push(point?{day,orders:point.orders,revenueCents:point.validAmounts?point.revenue.toString():null}:{day,orders:zero?0:null,revenueCents:zero?'0':null});}
  return {ok:true,brand,period,currency,currencies:availableCurrencies,policy:POLICY,source:'crm_attribution_order_v2.paid_fact',available:coverage.paidOrders>0,partial,coverage,totals:{orders:coverage.paidOrders&&(!partial||totals.orders)?totals.orders:null,revenueCents:totals.validAmounts?totals.revenue.toString():coverage.paidOrders&&!partial?'0':null,firstPurchases:coverage.unknownFirstPurchases&&totals.firstPurchases===0||!totals.orders&&partial?null:coverage.paidOrders?totals.firstPurchases:null,storeRevenueCents:coverage.paidOrders&&coverage.invalidAmounts<coverage.paidOrders?totals.storeRevenue.toString():null,storeShareBasisPoints:totals.validAmounts?percent(totals.revenue):null},campaigns,series,sourceCoverage:sourceCoverage?{from:sourceCoverage.from,until:sourceCoverage.until,checkedAt:sourceCoverage.checkedAt}:null,acquisitionObservedAt:observedAt,contributingObservedAt,observedAt:sourceCoverage?.checkedAt||null};
 }
-function create({authorize,database,coverage=()=>null,now=Date.now}){
+function create({authorize,authorizeComparison=authorize,database,coverage=()=>null,now=Date.now}){
  async function results(context,brand,input={}){authorize(context,brand);let period=range(input,now());campaignIds(input.campaigns);const value=await database(async c=>{let rows=(await c.query(SELECT,[brand,period.from,period.until])).rows;authorize(context,brand);if(!rows.length){const latest=(await c.query(LATEST,[brand])).rows[0]?.latest;authorize(context,brand);if(latest&&Number.isFinite(Date.parse(latest))){const span=Date.parse(period.until)-Date.parse(period.from),until=Date.parse(latest)+1;period={from:new Date(until-span).toISOString(),until:new Date(until).toISOString(),fallback:true};rows=(await c.query(SELECT,[brand,period.from,period.until])).rows;authorize(context,brand);}}return aggregate(rows,brand,period,input,coverage(brand));});authorize(context,brand);return {...value,checkedAt:new Date(now()).toISOString()};}
- return {results};
+ async function compare(context,brand,input={}){
+  const allowed=()=>{authorizeComparison(context,brand);authorize(context,brand);};allowed();
+  let calendar=comparisonCalendar(input,now()),period=calendarRange(calendar);campaignIds(input.campaigns);
+  const value=await database(async c=>{
+   await c.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');allowed();
+   const sourceCoverage=coverage(brand),covered=p=>!!sourceCoverage&&Date.parse(sourceCoverage.from)<=Date.parse(p.from)&&Date.parse(sourceCoverage.until)>=Date.parse(p.until);
+   let rows=(await c.query(SELECT,[brand,period.from,period.until])).rows;allowed();
+   if(!rows.length&&!covered(period)){const latest=(await c.query(LATEST,[brand])).rows[0]?.latest;allowed();if(latest&&Number.isFinite(Date.parse(latest))){const fim=localDay(latest),ini=new Date(Date.parse(fim+'T12:00:00Z')-(calendar.days-1)*DAY).toISOString().slice(0,10);calendar=Period.resolve('custom',now(),{ini,fim});period={...calendarRange(calendar),fallback:true};rows=(await c.query(SELECT,[brand,period.from,period.until])).rows;allowed();}}
+   const current=aggregate(rows,brand,period,input,sourceCoverage),previousPeriod=calendarRange(calendar.previous);
+   const priorRows=(await c.query(SELECT,[brand,previousPeriod.from,previousPeriod.until])).rows;allowed();
+   const prior=aggregate(priorRows,brand,previousPeriod,{...input,currency:current.currency},sourceCoverage);
+   // A complete import can confirm an empty previous window. No import means unknown.
+   for(const v of [current,prior])if(!v.coverage.paidOrders&&v.coverage.windowConfirmed&&!v.partial){Object.assign(v.totals,{orders:0,revenueCents:'0',firstPurchases:0,storeRevenueCents:'0'});v.available=true;}
+   const available=['orders','revenueCents','firstPurchases','storeShareBasisPoints'].some(k=>current.totals[k]!==null&&prior.totals[k]!==null),partial=current.partial||prior.partial;
+   return {...current,calendar:{preset:calendar.preset,ini:calendar.ini,fim:calendar.fim},comparison:{period:previousPeriod,calendar:calendar.previous,currency:current.currency,available,partial,totals:prior.totals,coverage:prior.coverage,series:prior.series,campaigns:prior.campaigns,observedAt:prior.observedAt,contributingObservedAt:prior.contributingObservedAt,reason:available?null:'Um dos períodos não tem valores confirmados para comparação.'}};
+  });allowed();return {...value,checkedAt:new Date(now()).toISOString()};
+ }
+ return {results,compare};
 }
-module.exports={create,aggregate,range,marker,cents,campaignIds,SELECT,LATEST,POLICY};
+module.exports={create,aggregate,range,marker,cents,campaignIds,SELECT,LATEST,POLICY,comparisonCalendar,calendarRange};
