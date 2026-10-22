@@ -24,19 +24,14 @@
       "sha256": "916086452b6cb89b3503da28109f0f32294c435abfcdbcfd91b87abf60baee9d"
     },
     {
-      "path": ".github/workflows/crm-layout6-preview.yml",
-      "bytes": 2922,
-      "sha256": "418690437e9d4ad69c231c3189d22e81fa771bffcfbe76d5cab05c92f6205ca8"
-    },
-    {
       "path": ".github/workflows/crm-links19.yml",
       "bytes": 5027,
       "sha256": "72d2ebb9120110f3c4a7528a45106b37917250767cf3d606fbfcde541a5f0023"
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 48782,
-      "sha256": "6582bea23c4c6203112febf33828181665b821d2bc22b59d68dc5797d8f368ab"
+      "bytes": 48199,
+      "sha256": "ba048f9e9b2ccefe6bb4e26bae3ecc52cf74b2f42caab0f67de191ce0d197af8"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -420,8 +415,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 16315,
-      "sha256": "6db4a689d17d5f01d873ce25d4c0860e59ccbc155462bb60389976ac95036672"
+      "bytes": 16256,
+      "sha256": "c50d908e26e86e1cb9473105559e9448e1a5233c68cf4a4ea403bc8772767053"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -430,13 +425,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 8644,
-      "sha256": "07436df53b9cf386cd916acf546bc1e2e8fa85e29d94ced68ecfa9918c722d58"
+      "bytes": 8585,
+      "sha256": "a0a880d803cf5c3da2edbd990ae158000352fb9f614853afaf68b7dbb2a2a650"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 10539,
-      "sha256": "3b5d27f7f512394b7efa5a55367b3a536641c5699f50622dcd56e2ad2288c3fd"
+      "bytes": 10422,
+      "sha256": "04e412a3a3d225e27613d0bd5049860a2c5b0d9c5f5a99727bc404a88a2cbfa1"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -1720,23 +1715,18 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition-service.cjs",
-      "bytes": 7661,
-      "sha256": "b21444a2a553740d4359373bcc7b2cd73e10299ae4a6458f0439118f246d473c"
+      "bytes": 5983,
+      "sha256": "0c53277666fa9832e2e970f66f7424c3a92152c32e2a6c258cb51cfd47d93118"
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition-ui.cjs",
-      "bytes": 10060,
-      "sha256": "bfd058235315a9813e475ab5fd9bbd453c2cadd2c68cc94f1f02a7f112439702"
+      "bytes": 9168,
+      "sha256": "8dffad8ff1a6a802c93ae4e78dbb54b1bd8d558df1cca5b653ed00e41881056e"
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition.cjs",
-      "bytes": 9315,
-      "sha256": "c895ef46c40d969a8830dc6580e59668f2839491f7f3ef25f7aa389c6f9b0ebf"
-    },
-    {
-      "path": "services/dashboard-operational/crm-paid-comparison-ui.cjs",
-      "bytes": 11867,
-      "sha256": "aafbb66f83fe5c213354c31f99091de5efb3a5eb3d1f1e5c19b79e931190c40e"
+      "bytes": 8434,
+      "sha256": "93d4dccb0b482060c396083e28028f7a70fb92df06ce30e86c02d8f4aa9ea49d"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-store.cjs",
@@ -1750,13 +1740,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 20034,
-      "sha256": "116e67ee032f92494f878fbe447a75689a9322d57f46b75211d318094ae79152"
-    },
-    {
-      "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
-      "bytes": 7643,
-      "sha256": "76560ab9ac4ccb7f9d46e27e508511613b7a31953009b41c376942a43b879255"
+      "bytes": 19752,
+      "sha256": "a319aa2d46fa8f185d216887fb9f2f6d156274773a9757cd8218cf4558a660f7"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-ui.cjs",
@@ -1770,8 +1755,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-results.cjs",
-      "bytes": 12836,
-      "sha256": "8da4494659baa780ad5c382dd56344aa5e572e65c452c19ab5c75b88d83b75d5"
+      "bytes": 9680,
+      "sha256": "debe735d2c5c4eb807e895a866382b6a52fc983eb32c62ade797b11d8f155923"
     },
     {
       "path": "services/dashboard-operational/crm-payload-shape.cjs",
@@ -2120,8 +2105,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 239024,
-      "sha256": "acf7f3fe835fbf7f4944b7e7b19c5fffa6db982ac9ab899ab01b699479d38a31"
+      "bytes": 236141,
+      "sha256": "e847cba11c283d13f579f4ef6031b91ddb1e5ed51e899722050c7346b6d94cea"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2469,11 +2454,6 @@
       "sha256": "aead481a6fe1f6f68629d07d1cf22d9c045682fe3647c053144cc42c025d725d"
     },
     {
-      "path": "tests/crm-home-layout.test.cjs",
-      "bytes": 4111,
-      "sha256": "72918f0936fa4ece86038caccaf4cf39b1424916ef4a04271b653cdb5ea72591"
-    },
-    {
       "path": "tests/crm-legacy-library-plan.test.cjs",
       "bytes": 9525,
       "sha256": "6660ad592fba6577b5cddddeec2b507a82284a47c826f04772081938bbc8248b"
@@ -2500,13 +2480,8 @@
     },
     {
       "path": "tests/crm-paid-acquisition.test.cjs",
-      "bytes": 15564,
-      "sha256": "a72e7b1bf5c55b7996fcb9ab4a6fe03d7a47daae231fea3d5dbf0f0d887cd831"
-    },
-    {
-      "path": "tests/crm-paid-comparison.test.cjs",
-      "bytes": 6590,
-      "sha256": "294a7f1519092f184907b6469d66c4ec976a7c06e8e1a1b517e621da682d1842"
+      "bytes": 15561,
+      "sha256": "d9409b772cde8d6cf47aa5f8420687170cc023aa440a56afcec8f4063de30c04"
     },
     {
       "path": "tests/crm-paid-facts-ui.test.cjs",
@@ -2515,13 +2490,8 @@
     },
     {
       "path": "tests/crm-paid-facts.test.cjs",
-      "bytes": 11229,
-      "sha256": "07f39e5bc7e2c44fa1b10978ce979bd690734b0703f3bdfc68fa3acaa659417d"
-    },
-    {
-      "path": "tests/crm-paid-origins.test.cjs",
-      "bytes": 8316,
-      "sha256": "90d633a1df420f2a6d8562ded5aa8096307b07cb6f56081965e354019288c716"
+      "bytes": 10047,
+      "sha256": "a66c7f201f3a47a473f2027003b321bc5c3507f504cd5d9bd03d38f54c37c583"
     },
     {
       "path": "tests/crm-paid-results.test.cjs",
@@ -2955,8 +2925,8 @@
     },
     {
       "path": "tests/simple-tabler-read.test.cjs",
-      "bytes": 30586,
-      "sha256": "b6a7c31bb055593b452823c6f121834eabc3f1ad245fa708801c231790a7f6cb"
+      "bytes": 28444,
+      "sha256": "a0290d8070fba419ab93de0f80327f2423e1ae3f3ba92fa1255217aed43b75f8"
     },
     {
       "path": "tests/simple-tts-manual.test.cjs",
@@ -3040,8 +3010,8 @@
     },
     {
       "path": "tools/crm-qa/four-front.cjs",
-      "bytes": 7033,
-      "sha256": "3885b989713784ce24b2d9a96f664ca3316206a2c17c61f7d6bacf3c3270bd9d"
+      "bytes": 5126,
+      "sha256": "e08602b70136e664771806ca3bb112a2deaf218fa64696d13b25591e539bbec8"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
@@ -3050,8 +3020,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 19009,
-      "sha256": "3cbf7c92d8a8e2fb46ed56bda81fec7bfb75a6909f95640510cf4a0dd6731821"
+      "bytes": 16695,
+      "sha256": "d9b1f3101f90d235f7e25cd2d100c8334937066a986108885b83c8cef49e8d08"
     },
     {
       "path": "tools/crm-qa/paid-acquisition-sql.cjs",
@@ -3075,8 +3045,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 11672,
-      "sha256": "fefbd11662747eeb6745d00595b540e78ae038545fb2e75d179d5157336c2b57"
+      "bytes": 9792,
+      "sha256": "4c9c5e675e1f453a6c483da2d0efe41a2085980af20cf84c5112b5bbcd0fa415"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -3123,5 +3093,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Origens Pago: explicit paid classification, residual Outros, observed webhook evidence, metadata-only conditional repair with durable backup; accepted Home layout6 preserved"
+  "candidatePurpose": "Fatia4b: main equals published application; preserve both histories and main-only sources; same application and immutable custody; deployment only from main."
 }

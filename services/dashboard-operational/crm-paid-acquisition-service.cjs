@@ -50,23 +50,6 @@ function create({authorize,database,graphql,openBackup,now=Date.now}){
    authorize(context,brand,true);return {ok:true,brand,period:p,pages,orders,stored,skipped,complete,incomplete,backup:backup.name,checkedAt:new Date(now()).toISOString()};
   }finally{backup.close();}
  }
- async function reclassify(context,brand,input={},onProgress=()=>{}){
-  authorize(context,brand,true);const p=range(now()),selected=ids(input.ids);if(typeof openBackup!=='function')fail('PAID_ACQUISITION_BACKUP_UNAVAILABLE');
-  const backup=openBackup(brand);let after='',pages=0,orders=0,stored=0,unchanged=0,skipped=0;
-  const progress=()=>({brand,...p,backup:backup.name,pages,orders,stored,unchanged,skipped});
-  try{
-   onProgress(progress());
-   for(;;){
-    authorize(context,brand,true);const rows=await database(async c=>(await c.query(SELECT,[brand,p.from,p.until,after,selected])).rows);if(!rows.length)break;
-    if(++pages>5000)fail('PAID_ACQUISITION_RANGE_TOO_LARGE');const writes=[];
-    for(const row of rows){orders++;const value=M.reclassify(row.prior_acquisition);if(!value){skipped++;continue;}if(JSON.stringify(value)===JSON.stringify(row.prior_acquisition)){unchanged++;continue;}writes.push({row,value});}
-    backup.append(writes.map(({row,value})=>({brand,orderId:row.order_id,baseHash:row.base_hash,before:row.prior_acquisition,after:value})));
-    const result=await database(async c=>{let changed=0,raced=0;for(const {row,value}of writes){authorize(context,brand,true);const r=await c.query(UPDATE,[brand,row.order_id,JSON.stringify(value),row.base_hash,JSON.stringify(row.prior_acquisition)]);if(r.rowCount===1)changed++;else raced++;}authorize(context,brand,true);return {changed,raced};},true);
-    stored+=result.changed;skipped+=result.raced;after=rows.at(-1).order_id;onProgress(progress());
-   }
-   authorize(context,brand,true);return {ok:true,...progress(),checkedAt:new Date(now()).toISOString()};
-  }finally{backup.close();}
- }
- return {acquisition,enrich,reclassify};
+ return {acquisition,enrich};
 }
 module.exports={create,SELECT,UPDATE,BASE,range,ids};
