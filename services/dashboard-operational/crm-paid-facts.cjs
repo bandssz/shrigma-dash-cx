@@ -123,6 +123,7 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  const origin=require('./crm-paid-acquisition-service.cjs').create({authorize,database,graphql:(brand,q,v)=>require('./crm-paid-acquisition.cjs').pacedRead(()=>graphql(brand,q,v,{withCost:true})),now,openBackup:brand=>require('./crm-paid-acquisition-backup.cjs').open(backupDirectory,brand)});
  const acquisitionBackup=async(context,brand,input)=>{authorize(context,brand);const result=await require('./crm-paid-acquisition-backup.cjs').read(backupDirectory,brand,input.name,input.offset??0);authorize(context,brand);return result;};
  const acquisitionBackupFile=(context,brand,input)=>require('./crm-paid-acquisition-backup.cjs').file(backupDirectory,brand,input.name,()=>authorize(context,brand));
- return {ingest,status,publics,products,count,save,backfill,subscribe,subscriptions,authorize,acquisitionBackup,acquisitionBackupFile,...origin};
+ const results=require('./crm-paid-results.cjs').create({authorize,database,now,coverage:brand=>store.coverage(brand)});
+ return {ingest,status,publics,products,count,save,backfill,subscribe,subscriptions,authorize,acquisitionBackup,acquisitionBackupFile,...origin,...results};
 }
 module.exports={create,streamBackfill,canUse,fromGraphql,period,rule,audienceSql,UPSERT,ORDERS_QUERY,ITEMS_QUERY,WEBHOOKS_QUERY,WEBHOOK_CREATE,WEBHOOK_DELETE};

@@ -369,7 +369,7 @@ jobs:
       - name: Prove acquisition backup and metadata-only updates on isolated PostgreSQL17
         run: node tools/crm-qa/paid-acquisition-sql.cjs
       - name: Prove restricted paid-order admission in the actual image
-        run: docker run --rm --network none --read-only --user 1000:1000 --memory 256m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/shopify-paid-order.test.cjs /source/tests/crm-paid-facts.test.cjs /source/tests/crm-paid-acquisition.test.cjs
+        run: docker run --rm --network none --read-only --user 1000:1000 --memory 256m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/shopify-paid-order.test.cjs /source/tests/crm-paid-facts.test.cjs /source/tests/crm-paid-acquisition.test.cjs /source/tests/crm-paid-results.test.cjs
       - name: Prove Master delegation and compiled four-front signup in Node22 UID1000
         shell: bash
         run: |
@@ -410,8 +410,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: e14945a1e6d3ccf4ba2f651b377fe8708b18599b
-          CRM_QA_EXPECT_MANIFEST: ca2efdfa7573f4872dc172db30b74a1ff599bad340d43fe9aefc08f096ef12c9
+          CRM_QA_EXPECT_REVISION: 688f401a0d4f16100ff514a102a33d4f7288ebe5
+          CRM_QA_EXPECT_MANIFEST: 5fb2f30dd93a6df872cfde6d0680554b7418fc81daf0f5e274b4c793e6b08476
         shell: bash
         run: |
           set -euo pipefail
