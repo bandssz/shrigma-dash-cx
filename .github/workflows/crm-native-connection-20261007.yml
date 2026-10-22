@@ -411,7 +411,7 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_EXPECT_REVISION: 20471ab51b56b17650ed15849af2be952fadf48f
-          CRM_QA_EXPECT_MANIFEST: 790728b69642e6d3ffa4653d571fb1c5fc63845de3ee00ea28dba27957fb18aa
+          CRM_QA_EXPECT_MANIFEST: e70f4981e7dd15abe4add4f2abc5329fc555f627edfc24302c8c945898b48149
         shell: bash
         run: |
           set -euo pipefail
@@ -422,7 +422,7 @@ jobs:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
           CRM_QA_EXPECT_REVISION: 20471ab51b56b17650ed15849af2be952fadf48f
-          CRM_QA_EXPECT_MANIFEST: 790728b69642e6d3ffa4653d571fb1c5fc63845de3ee00ea28dba27957fb18aa
+          CRM_QA_EXPECT_MANIFEST: e70f4981e7dd15abe4add4f2abc5329fc555f627edfc24302c8c945898b48149
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
