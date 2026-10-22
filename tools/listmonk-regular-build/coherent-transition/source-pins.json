@@ -1,0 +1,42 @@
+[
+  {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/CONTRACT.json",
+    "bytes": 8763,
+    "sha256": "32261dc406794335dbcd511ad52c3e1def2d4dd80651e719392b2756a9959f02"
+  },
+  {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/inputs/readiness-original.sql",
+    "bytes": 6875,
+    "sha256": "dd615cbab8e97f0c9fedf1fd41f61ea300cecb1717b4c2f330d566c1ac1edd79"
+  },
+  {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/inputs/delivery-original.md",
+    "bytes": 8845,
+    "sha256": "e1422e761ad43294a9fad8bd52c403c06da7f3f8994002427cdd7d0ffa94df12"
+  },
+  {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/inputs/delivery-original.sql",
+    "bytes": 17219,
+    "sha256": "765636e2c027b8c4f88dde60c26b3a9aada1a0eb775cf1601f6de150c1943cf4"
+  },
+  {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/worker-lease-original.sql",
+    "bytes": 10262,
+    "sha256": "bb015bb07fd1172c7a1594acca53e27a90b4602d8d3623c13ddd4062e6dad90d"
+  },
+  {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/manager-store-original.go",
+    "bytes": 4485,
+    "sha256": "37f4892f4beda8a3ca20bc9d5ce7c1cf9d4a5bece0ba36146a4c47afa5fe8240"
+  },
+  {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/batch-native-proof-profile-v2/inputs/ab-regular-original.sql",
+    "bytes": 75286,
+    "sha256": "899029d7dcb0485d7613c234a04a36ca6962067052850c260881548a067a9706"
+  },
+  {
+    "path": "deliverables/mvp-tres-frentes-cowork-20261006/incidentes/campaign-fish-20261008-1100/operational-health-v1/root-engagement-repair-v1/root-runtime-transition-v1/INSTALLED-CONTEXT-SOURCE.json",
+    "bytes": 1058,
+    "sha256": "1c5a91005f12e1b82d096011a474370f0a3df80ef56ec9c590d787c3eb60b0b4"
+  }
+]

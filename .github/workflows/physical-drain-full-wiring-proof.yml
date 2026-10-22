@@ -1,0 +1,191 @@
+name: Physical drain full executable and direct callback SOURCE proof
+on:
+  pull_request:
+    paths:
+      - 'tools/listmonk-physical-drain/**'
+      - 'tests/physical-drain-full-wiring/**'
+      - '.github/workflows/physical-drain-full-wiring-proof.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      fixture:
+        image: postgres:17.10
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: listmonk
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - '127.0.0.1:55432:5432'
+        options: >-
+          --health-cmd "pg_isready -U postgres -d listmonk"
+          --health-interval 1s --health-timeout 3s --health-retries 30
+      mailpit:
+        image: axllent/mailpit:v1.31.4
+        ports:
+          - '127.0.0.1:51025:1025'
+          - '127.0.0.1:58025:8025'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Prepare exact public HEAD and pinned archives only
+        shell: bash
+        run: |
+          set -euo pipefail
+          id -u 1000
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          root="$(mktemp -d /tmp/physical-drain-full.XXXXXXXX)"
+          mkdir "$root/source" "$root/inputs" "$root/tools" "$root/evidence"
+          git archive HEAD | tar -xf - -C "$root/source"
+          test ! -e "$root/source/.git"
+          test ! -e "$root/source/.private"
+          sudo chown -R 1000 "$root"
+          sudo chmod 755 "$root" "$root/evidence"
+          printf 'PHYSICAL_ROOT=%s\n' "$root" >> "$GITHUB_ENV"
+          printf 'PHYSICAL_GO=%s\n' "$(command -v go)" >> "$GITHUB_ENV"
+          sudo -u '#1000' env PATH="$PATH" curl --fail --silent --show-error --location --max-time 60 'https://api.github.com/repos/knadh/listmonk/tarball/1b5e8d38c778e869003486d3c38bc7a964661e91' -o "$root/inputs/listmonk-upstream.tar.gz"
+          sudo -u '#1000' env PATH="$PATH" curl --fail --silent --show-error --location --max-time 60 'https://proxy.golang.org/github.com/knadh/smtppool/v2/@v/v2.0.2.zip' -o "$root/inputs/smtppool.zip"
+          for name in listmonk_6.1.0_linux_amd64.tar.gz listmonk_6.1.0_checksums.txt; do
+            sudo -u '#1000' env PATH="$PATH" curl --fail --silent --show-error --location --max-time 60 "https://github.com/knadh/listmonk/releases/download/v6.1.0/$name" -o "$root/inputs/$name"
+          done
+          sudo -u '#1000' env PATH="$PATH" npm install --prefix "$root/tools" --no-save --ignore-scripts --no-audit --no-fund pg@8.23.1
+      - name: Compile full new executable and new manager cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PHYSICAL_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" PHYSICAL_DRAIN_FIXTURE_ISOLATED=1 python3 tests/physical-drain-full-wiring/run.py prepare --repo-root "$PHYSICAL_ROOT/source" --inputs "$PHYSICAL_ROOT/inputs" --go "$PHYSICAL_GO" --out "$PHYSICAL_ROOT/runtime" --report "$PHYSICAL_ROOT/evidence/compile.json"
+      - name: Reuse public schema and constructor with all delivery states OFF
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PHYSICAL_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" NODE_PATH="$PHYSICAL_ROOT/tools/node_modules" CRM_AUDIENCE_TEST_ISOLATED=1 REGULAR_NATIVE_PROOF_ISOLATED=1 TEST_DATABASE_URL='postgresql://postgres@127.0.0.1:55432/listmonk' node tests/own-startup-recovery/bootstrap.cjs
+      - name: Run only NEW delta within common 60 seconds
+        id: proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PHYSICAL_ROOT/source"
+          sudo -u '#1000' env PATH="$PATH" NODE_PATH="$PHYSICAL_ROOT/tools/node_modules" PHYSICAL_DRAIN_FIXTURE_ISOLATED=1 python3 tests/physical-drain-full-wiring/run.py proof --repo-root "$PHYSICAL_ROOT/source" --inputs "$PHYSICAL_ROOT/inputs" --go "$PHYSICAL_GO" --out "$PHYSICAL_ROOT/runtime" --report "$PHYSICAL_ROOT/evidence/proof.json"
+      - name: Stop both isolated servers and verify closure
+        id: close
+        if: always()
+        env:
+          PG_CONTAINER: ${{ job.services.fixture.id }}
+          MAILPIT_CONTAINER: ${{ job.services.mailpit.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PG_CONTAINER"; test -n "$MAILPIT_CONTAINER"
+          docker stop --time 5 "$PG_CONTAINER" "$MAILPIT_CONTAINER" > /dev/null
+          for container in "$PG_CONTAINER" "$MAILPIT_CONTAINER"; do
+            test "$(docker inspect --format '{{.State.Running}}' "$container")" = false
+            test "$(docker inspect --format '{{.State.OOMKilled}}' "$container")" = false
+          done
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$PG_CONTAINER")" = 0
+          status="$(docker inspect --format '{{.State.ExitCode}}' "$MAILPIT_CONTAINER")"
+          test "$status" = 0 -o "$status" = 143
+      - name: Accept only closed synthetic full-process proof
+        if: ${{ success() && steps.proof.outcome == 'success' && steps.close.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u '#1000' env PHYSICAL_ROOT="$PHYSICAL_ROOT" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ['PHYSICAL_ROOT'])/'evidence'
+          r=json.loads((p/'proof.json').read_text())
+          assert r['ok'] and r['caseCount']==6 and r['newManagerCaseCount']==3
+          assert r['newEmailerCaseCount']==1 and r['totalNewCaseCount']==10
+          assert r['directPushHeldUntilAck'] and r['directPushAfterBarrierRefused']
+          assert r['node']=='v22.23.3' and r['uid']==1000 and r['executionWithManagerSeconds']<=60
+          assert r['originalCalls']==0 and r['originalWrites']==0 and not r['operational']
+          assert not r['originalPhysicalDrainProved'] and not r['candidate639Changed']
+          assert r['clientsEnded'] and r['workerProcessEnded'] and r['smtpFrontendClosed']
+          assert r['heldSmtpAckObserved'] and r['finishSqlLockObserved'] and r['realSigtermExitZero']
+          assert r['mailpitAcceptedCount']==2 and r['dispatchAcceptedCount']==1 and r['noRetransmission']
+          assert r['protectedMailpitAcceptedCount']==1 and r['directMailpitAcceptedCount']==1
+          assert r['realImportPostCBObserved'] and r['realNotifySystemEmailerOutsideManager']
+          assert r['directCallbackHeldBeforeSigterm'] and r['mainEmailerJoinReachedAfterManager']
+          assert r['mainEmailerDeadlineRefusedWithoutExit'] and r['directAckReleasedBeforeExit']
+          assert r['sigtermRequestsSameProcess']==2
+          r.update(fixtureServersEnded=True,acceptedNewSyntheticExecutableOnly=True)
+          target=p/'accepted.json';target.write_text(json.dumps(r,indent=2)+'\n');target.chmod(0o644)
+          print(json.dumps({'acceptedNewSyntheticExecutableOnly':True,'cases':10,'originalCalls':0}))
+          PY
+      - name: Retain the exact tested executable only after the closed proof
+        if: ${{ success() && steps.proof.outcome == 'success' && steps.close.outcome == 'success' }}
+        env:
+          TESTED_CHECKOUT: ${{ github.sha }}
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u '#1000' env PHYSICAL_ROOT="$PHYSICAL_ROOT" TESTED_CHECKOUT="$TESTED_CHECKOUT" SOURCE_HEAD="$SOURCE_HEAD" python3 - <<'PYRETAIN'
+          import hashlib,json,os,re,shutil
+          from pathlib import Path
+          root=Path(os.environ['PHYSICAL_ROOT'])
+          report=json.loads((root/'evidence/accepted.json').read_text())
+          build=json.loads((root/'runtime/compile.json').read_text())
+          assert report['ok'] and report['totalNewCaseCount']==10
+          assert report['fixtureServersEnded'] and report['clientsEnded'] and report['workerProcessEnded']
+          assert report['smtpFrontendClosed'] and report['realSigtermExitZero']
+          assert not report.get('forcedProcessKill',False)
+          assert report['originalCalls']==0 and not report['operational']
+          assert report['heldSmtpAckObserved'] and report['finishSqlLockObserved']
+          assert report['directAckReleasedBeforeExit'] and report['noRetransmission']
+          assert report['measuredExecutableIdentity'] and report['realNotifySystemEmailerOutsideManager']
+          digest=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          executable=root/'runtime/listmonk.bin'
+          assert digest(executable)==build['binarySha256']==report['binarySha256']
+          target=root/'tested-executable';target.mkdir(mode=0o755)
+          originals={'listmonk.bin':executable,'compile.json':root/'runtime/compile.json','accepted.json':root/'evidence/accepted.json'}
+          files={}
+          for name,source in originals.items():
+              dest=target/name;shutil.copyfile(source,dest);dest.chmod(0o644)
+              assert digest(dest)==digest(source)
+              files[name]={'bytes':dest.stat().st_size,'sha256':digest(dest)}
+          assert set(p.name for p in target.iterdir())==set(originals)
+          checkout=os.environ['TESTED_CHECKOUT'];head=os.environ['SOURCE_HEAD']
+          assert re.fullmatch('[a-f0-9]{40}',checkout) and re.fullmatch('[a-f0-9]{40}',head)
+          assets=root/'source/tests/physical-drain-full-wiring/ASSETS.json'
+          profile=root/'source/crm-scheduler-batch-profile.json'
+          assert build['querySha256']==json.loads(profile.read_text())['querySha256']
+          manifest={'schema':'physical-drain-same-tested-executable-artifact-v1','testedCheckout':checkout,'sourceHead':head,
+            'files':files,'querySha256':build['querySha256'],'futureGraphSourceSha256':build['futureGraphSourceSha256'],
+            'sourceAssetsSha256':digest(assets),'batchProfileSha256':digest(profile),'nativeCases':10,
+            'binaryRecompiledAfterProof':False,'configOrCredentialsIncluded':False,'originalCalls':0,'originalPromoted':False,'operational':False}
+          (target/'MANIFEST.json').write_text(json.dumps(manifest,indent=2)+'\n');(target/'MANIFEST.json').chmod(0o644)
+          print(json.dumps({'sameTestedExecutableRetained':True,'files':4,'originalCalls':0}))
+          PYRETAIN
+      - name: Upload only the accepted tested executable and its public pins
+        if: ${{ success() && steps.proof.outcome == 'success' && steps.close.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: physical-drain-same-tested-executable
+          path: ${{ env.PHYSICAL_ROOT }}/tested-executable/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Upload only sanitised reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: physical-drain-full-wiring-focal
+          path: ${{ env.PHYSICAL_ROOT }}/evidence/*.json
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 0

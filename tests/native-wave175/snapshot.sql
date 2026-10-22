@@ -1,0 +1,16 @@
+SELECT jsonb_build_object(
+ 'campaigns',(SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM public.campaigns c WHERE c.id BETWEEN 171 AND 177),
+ 'campaignLists',(SELECT coalesce(jsonb_agg(to_jsonb(cl) ORDER BY cl.campaign_id,cl.list_id),'[]'::jsonb) FROM public.campaign_lists cl WHERE cl.campaign_id BETWEEN 171 AND 177),
+ 'list156',(SELECT to_jsonb(l) FROM public.lists l WHERE id=156),
+ 'template175',(SELECT to_jsonb(t) FROM public.templates t JOIN public.campaigns c ON c.template_id=t.id WHERE c.id=175),
+ 'campaignMedia',(SELECT coalesce(jsonb_agg(to_jsonb(cm) ORDER BY cm.media_id),'[]'::jsonb) FROM public.campaign_media cm WHERE cm.campaign_id=175),
+ 'media',(SELECT coalesce(jsonb_agg(to_jsonb(m) ORDER BY m.id),'[]'::jsonb) FROM public.media m WHERE EXISTS(SELECT 1 FROM public.campaign_media cm WHERE cm.campaign_id=175 AND cm.media_id=m.id)),
+ 'bindings',(SELECT coalesce(jsonb_agg(to_jsonb(b) ORDER BY campaign_id),'[]'::jsonb) FROM crm_audience_v2.campaign_binding b WHERE campaign_id BETWEEN 171 AND 177),
+ 'controls',(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY campaign_id),'[]'::jsonb) FROM crm_audience_v2.regular_delivery_campaign d WHERE campaign_id BETWEEN 171 AND 177),
+ 'alias',(SELECT coalesce(jsonb_agg(to_jsonb(f)),'[]'::jsonb) FROM public.crm_familia_campanha f WHERE marca='aristo' AND utm_campaign='black-antecipada-1010'),
+ 'selection175',crm_audience_v2.selection_worker_context(175),
+ 'maternalOptouts',(SELECT count(*) FROM public.subscriber_lists sl JOIN public.subscribers s ON s.id=sl.subscriber_id WHERE sl.list_id=156 AND s.status::text='enabled' AND sl.status::text IN('confirmed','unconfirmed') AND EXISTS(SELECT 1 FROM public.subscriber_lists m WHERE m.subscriber_id=sl.subscriber_id AND m.list_id IN(7,10,16,19,21) AND m.status::text='unsubscribed')),
+ 'constraints',(SELECT coalesce(jsonb_agg(jsonb_build_object('relation',c.conrelid::regclass::text,'name',c.conname,'definition',pg_get_constraintdef(c.oid)) ORDER BY c.conrelid,c.conname),'[]'::jsonb) FROM pg_constraint c WHERE c.conrelid IN('public.campaigns'::regclass,'public.campaign_lists'::regclass,'public.campaign_media'::regclass,'public.lists'::regclass,'public.templates'::regclass,'public.media'::regclass,'public.crm_familia_campanha'::regclass)),
+ 'relations',(SELECT jsonb_agg(jsonb_build_object('relation',c.oid::regclass::text,'kind',c.relkind,'rls',c.relrowsecurity,'forceRls',c.relforcerowsecurity) ORDER BY c.oid) FROM pg_class c WHERE c.oid IN('public.campaigns'::regclass,'public.campaign_lists'::regclass,'public.campaign_media'::regclass,'public.lists'::regclass,'public.templates'::regclass,'public.media'::regclass,'public.crm_familia_campanha'::regclass)),
+ 'triggers',(SELECT jsonb_agg(jsonb_build_object('relation',c.relname,'name',t.tgname,'enabled',t.tgenabled,'definition',pg_get_triggerdef(t.oid),'function',pg_get_functiondef(t.tgfoid)) ORDER BY c.relname,t.tgname) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE NOT t.tgisinternal AND t.tgrelid IN('public.campaigns'::regclass,'public.campaign_lists'::regclass,'public.campaign_media'::regclass,'public.lists'::regclass,'public.templates'::regclass,'public.media'::regclass,'public.crm_familia_campanha'::regclass))
+);

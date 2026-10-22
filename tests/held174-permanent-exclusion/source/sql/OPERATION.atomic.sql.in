@@ -1,0 +1,169 @@
+-- SOURCE only: authentic CURRENT is provided by Root, not minted here.
+DO $permanent_disposition$
+#variable_conflict use_variable
+DECLARE
+ e jsonb:=current_setting('shrigma.private_permanent_exclusion_envelope',true)::jsonb;
+ plan jsonb:=__PLAN__::jsonb; pins jsonb:=__PINS__::jsonb;
+ before_state jsonb;after_state jsonb;expected jsonb;item jsonb;d public.shrigma_email_dispatch%ROWTYPE;
+ c public.campaigns%ROWTYPE;ctl crm_audience_v2.regular_delivery_campaign%ROWTYPE;
+ binding record;f record;ctx jsonb;initial_context jsonb;at timestamptz:=clock_timestamp();
+ sid integer;first_id integer;changed integer;cid integer;phase text;
+BEGIN
+ phase:=plan->>'stage';cid:=(plan->>'campaignId')::integer;
+ IF phase NOT IN('install','dispose','resume') OR phase IS NULL OR cid NOT IN(171,174) OR cid IS NULL
+  OR phase IN('install','dispose') AND cid<>174 THEN RAISE EXCEPTION 'PERMANENT_EXCLUSION_STAGE_REFUSED'; END IF;
+ IF jsonb_typeof(e) IS DISTINCT FROM 'object' OR e->'plan' IS DISTINCT FROM plan
+  OR jsonb_typeof(e->'snapshot') IS DISTINCT FROM 'object'
+  OR jsonb_typeof(e->'privateAdmission') IS DISTINCT FROM 'object'
+  OR e#>>'{privateAdmission,operationId}' IS DISTINCT FROM plan->>'operationId'
+  OR e#>>'{privateAdmission,purpose}' IS DISTINCT FROM 'crm.fish174.permanent-exclusion-and-fish-resume'
+  OR e#>>'{privateAdmission,stage}' IS DISTINCT FROM phase
+  OR e#>>'{privateAdmission,actor}' IS NULL
+  OR length(e#>>'{privateAdmission,actor}') NOT BETWEEN 1 AND 200
+  OR e#>'{privateAdmission,candidate}' IS DISTINCT FROM plan->'candidate'
+  OR e#>'{privateAdmission,privateReferences}' IS DISTINCT FROM plan->'privateReferences'
+  OR e#>'{privateAdmission,scope}' IS DISTINCT FROM plan->'scope'
+  OR e#>'{privateAdmission,sourcePins}' IS DISTINCT FROM plan->'sourcePins'
+  OR e#>>'{privateAdmission,checkedAt}' IS NULL OR e#>>'{privateAdmission,expiresAt}' IS NULL
+  OR NOT isfinite((e#>>'{privateAdmission,checkedAt}')::timestamptz)
+  OR NOT isfinite((e#>>'{privateAdmission,expiresAt}')::timestamptz)
+  OR (e#>>'{privateAdmission,checkedAt}')::timestamptz>at
+  OR (e#>>'{privateAdmission,expiresAt}')::timestamptz<=at
+  OR (e#>>'{privateAdmission,expiresAt}')::timestamptz>(e#>>'{privateAdmission,checkedAt}')::timestamptz+interval '5 minutes' THEN
+  RAISE EXCEPTION 'PERMANENT_EXCLUSION_CURRENT_ADMISSION_REQUIRED'; END IF;
+ IF current_database()<>'listmonk' OR current_setting('server_version_num')::integer<>170010
+  OR current_setting('TimeZone')<>'Etc/UTC' OR session_user IS DISTINCT FROM current_user
+  OR current_setting('transaction_isolation')<>'read committed'
+  OR current_setting('statement_timeout')::interval<>interval '5 seconds'
+  OR current_setting('lock_timeout')::interval<>interval '500 milliseconds' THEN
+  RAISE EXCEPTION 'PERMANENT_EXCLUSION_ORIGINAL_BOUNDARY_REFUSED'; END IF;
+ PERFORM 1 FROM crm_audience_v2.regular_worker_deployment WHERE singleton FOR SHARE;
+ PERFORM pg_advisory_xact_lock(hashtextextended('crm-audience-v2-regular-worker-lease',0));
+ PERFORM 1 FROM crm_audience_v2.regular_worker_lease WHERE singleton FOR SHARE;
+ PERFORM 1 FROM crm_audience_v2.selection_runtime WHERE singleton FOR SHARE;
+ LOCK TABLE crm_audience_v2.regular_delivery_campaign IN SHARE ROW EXCLUSIVE MODE;
+ LOCK TABLE public.campaigns IN SHARE ROW EXCLUSIVE MODE;
+ PERFORM 1 FROM public.campaigns WHERE id IN(171,172,173,174) ORDER BY id FOR UPDATE;
+ LOCK TABLE crm_audience_v2.campaign_binding,crm_audience_v2.campaign_binding_revision IN SHARE MODE;
+ LOCK TABLE public.shrigma_email_dispatch IN SHARE ROW EXCLUSIVE MODE;
+ LOCK TABLE public.crm_ab_arm_v2 IN SHARE MODE;
+ PERFORM 1 FROM crm_audience_v2.config ORDER BY brand FOR SHARE;
+ PERFORM 1 FROM crm_audience_v2.shopify_source ORDER BY brand FOR SHARE;
+ PERFORM 1 FROM crm_audience_v2.audience ORDER BY id FOR SHARE;
+ LOCK TABLE public.campaign_lists,public.campaign_media,public.lists,public.templates,public.media IN SHARE MODE;
+ __BEFORE_SNAPSHOT__ INTO before_state;
+ IF before_state IS DISTINCT FROM e->'snapshot' THEN RAISE EXCEPTION 'PERMANENT_EXCLUSION_SNAPSHOT_DRIFT'; END IF;
+ IF before_state->'mutationTriggers' IS DISTINCT FROM '[]'::jsonb
+  OR jsonb_array_length(before_state->'campaignGuard')<>3
+  OR EXISTS(SELECT 1 FROM jsonb_array_elements(before_state->'campaignGuard') g
+    WHERE g->>'enabled' IS DISTINCT FROM 'O' OR NOT EXISTS(
+     SELECT 1 FROM (VALUES ('crm_audience_v2.campaign_send_guard()',27),('public.shrigma_campaign_guard()',31),('public.crm_ab_campaign_guard_v2()',27)) x(signature,tgtype)
+     WHERE g->>'function'=to_regprocedure(x.signature)::oid::text
+      AND g->>'function'=before_state->'functionMetadata'->x.signature->>'oid'
+      AND (g->>'type')::integer=x.tgtype))
+  OR EXISTS(SELECT 1 FROM (VALUES ('crm_audience_v2.campaign_send_guard()'),('public.shrigma_campaign_guard()'),('public.crm_ab_campaign_guard_v2()')) x(signature)
+    WHERE (SELECT count(*) FROM jsonb_array_elements(before_state->'campaignGuard') g WHERE g->>'function'=to_regprocedure(x.signature)::oid::text)<>1)
+  OR EXISTS(SELECT 1 FROM public.crm_ab_arm_v2 WHERE campaign_id IN(171,172,173,174)) THEN
+  RAISE EXCEPTION 'PERMANENT_EXCLUSION_GUARD_OR_AB_DRIFT'; END IF;
+ FOR f IN SELECT key,value FROM jsonb_each(before_state->'functionMetadata') LOOP
+  IF f.value='null'::jsonb OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(pins) p
+   WHERE p->>'signature'=f.key AND p->>'md5'=md5(f.value->>'prosrc')) THEN
+   RAISE EXCEPTION 'PERMANENT_EXCLUSION_FUNCTION_DRIFT'; END IF;
+ END LOOP;
+ IF EXISTS(SELECT 1 FROM (VALUES
+ ('crm_audience_v2.regular_delivery_claim(integer,integer,uuid,text,text,text,text,text,jsonb)',false,'["search_path=pg_catalog","TimeZone=UTC","lock_timeout=500ms"]'::jsonb),
+ ('crm_audience_v2.regular_delivery_recover(integer,integer,uuid,boolean)',false,'["search_path=pg_catalog","lock_timeout=500ms"]'::jsonb),
+ ('crm_audience_v2.campaign_send_guard()',true,'["search_path=pg_catalog"]'::jsonb)) q(signature,definer,settings)
+ WHERE (before_state->'functionMetadata'->q.signature->>'prosecdef')::boolean IS DISTINCT FROM q.definer
+  OR before_state->'functionMetadata'->q.signature->'proconfig' IS DISTINCT FROM q.settings
+  OR before_state->'functionMetadata'->q.signature->>'provolatile' IS DISTINCT FROM 'v') THEN
+ RAISE EXCEPTION 'PERMANENT_EXCLUSION_FUNCTION_CONTRACT_DRIFT'; END IF;
+ IF (SELECT count(*) FROM jsonb_each(before_state->'functionMetadata'))<>jsonb_array_length(pins)
+  OR jsonb_array_length(before_state->'campaigns')<>7 OR jsonb_array_length(before_state->'controls')<>3
+  OR EXISTS(SELECT 1 FROM jsonb_each(before_state->'relationMetadata') r WHERE r.value->>'oid' IS NULL
+   OR r.value->>'kind' NOT IN('r','p') OR r.value->>'rls' IS DISTINCT FROM 'false'
+   OR r.value->>'forceRls' IS DISTINCT FROM 'false') THEN RAISE EXCEPTION 'PERMANENT_EXCLUSION_METADATA_DRIFT'; END IF;
+ IF before_state#>>'{deployment,enabled}' IS DISTINCT FROM 'true'
+  OR before_state#>>'{deployment,database_role}' IS DISTINCT FROM session_user::text
+  OR before_state#>>'{deployment,worker_sha256}' IS DISTINCT FROM plan#>>'{candidate,workerSha256}'
+  OR before_state#>>'{deployment,runtime_sha256}' IS DISTINCT FROM plan#>>'{candidate,runtimeSha256}'
+  OR before_state#>>'{deployment,query_sha256}' IS DISTINCT FROM plan#>>'{candidate,querySha256}'
+  OR before_state#>>'{deployment,approved_at}' IS NULL
+  OR NOT isfinite((before_state#>>'{deployment,approved_at}')::timestamptz)
+  OR (before_state#>>'{deployment,approved_at}')::timestamptz>at
+  OR before_state#>>'{lease,suspended}' IS DISTINCT FROM 'false'
+  OR before_state#>>'{lease,suspension_reason}' IS NOT NULL
+  OR before_state#>>'{lease,heartbeat_at}' IS NULL OR before_state#>>'{lease,expires_at}' IS NULL
+  OR NOT isfinite((before_state#>>'{lease,heartbeat_at}')::timestamptz)
+  OR NOT isfinite((before_state#>>'{lease,expires_at}')::timestamptz)
+  OR (before_state#>>'{lease,expires_at}')::timestamptz IS DISTINCT FROM (before_state#>>'{lease,heartbeat_at}')::timestamptz+interval '60 seconds'
+  OR before_state#>>'{lease,worker_sha256}' IS DISTINCT FROM plan#>>'{candidate,workerSha256}'
+  OR before_state#>>'{lease,runtime_sha256}' IS DISTINCT FROM plan#>>'{candidate,runtimeSha256}'
+  OR before_state#>>'{lease,database_role}' IS DISTINCT FROM session_user::text
+  OR before_state#>>'{lease,instance_id}' IS NULL
+  OR before_state#>>'{lease,instance_id}'='00000000-0000-0000-0000-000000000000'
+  OR (before_state#>>'{lease,heartbeat_at}')::timestamptz>at
+  OR (before_state#>>'{lease,expires_at}')::timestamptz<=at
+  OR before_state#>>'{selectionRuntime,enabled}' IS DISTINCT FROM 'true'
+  OR before_state#>>'{selectionRuntime,candidate_query_sha256}' IS DISTINCT FROM plan#>>'{candidate,querySha256}'
+  OR before_state#>>'{selectionRuntime,verified_at}' IS NULL
+  OR NOT isfinite((before_state#>>'{selectionRuntime,verified_at}')::timestamptz)
+  OR (before_state#>>'{selectionRuntime,verified_at}')::timestamptz>at
+  OR (before_state#>>'{selectionRuntime,verified_at}')::timestamptz<at-interval '5 minutes'
+  OR (before_state->'functionMetadata'->'crm_audience_v2.regular_worker_heartbeat(uuid,text,text)'->'proconfig') IS DISTINCT FROM '["search_path=pg_catalog","lock_timeout=2s"]'::jsonb
+  OR before_state->'regularRunning' IS DISTINCT FROM '[]'::jsonb
+  OR EXISTS(SELECT 1 FROM public.shrigma_email_dispatch WHERE transport_state IN('reserved','in_flight')) THEN
+  RAISE EXCEPTION 'PERMANENT_EXCLUSION_CURRENT_QUIESCENCE_REQUIRED'; END IF;
+ IF phase<>'install' AND (
+  before_state->'exclusionObjects'->>'table' IS NULL
+  OR before_state->'exclusionTableMetadata'->>'relrowsecurity' IS DISTINCT FROM 'false'
+  OR before_state->'exclusionTableMetadata'->>'relforcerowsecurity' IS DISTINCT FROM 'false'
+  OR EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid IN(to_regprocedure('crm_audience_v2.regular_delivery_permanently_excluded(uuid,integer)'),to_regprocedure('crm_audience_v2.regular_delivery_exclusion_immutable()'))
+   AND (p.prosecdef OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog']::text[] OR p.proowner IS DISTINCT FROM (SELECT oid FROM pg_roles WHERE rolname=session_user)
+    OR EXISTS(SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)))
+  OR before_state->'exclusionTableMetadata'->>'relowner' IS DISTINCT FROM (SELECT oid::text FROM pg_roles WHERE rolname=session_user)
+  OR EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=to_regclass('crm_audience_v2.regular_delivery_permanent_exclusion') AND NOT tgisinternal
+   AND (tgenabled<>'O' OR tgfoid<>to_regprocedure('crm_audience_v2.regular_delivery_exclusion_immutable()') OR tgtype NOT IN(27,34)))
+  OR (SELECT count(*) FROM pg_trigger WHERE tgrelid=to_regclass('crm_audience_v2.regular_delivery_permanent_exclusion') AND NOT tgisinternal)<>2
+ ) THEN RAISE EXCEPTION 'PERMANENT_EXCLUSION_OWN_OBJECT_DRIFT'; END IF;
+ -- Every accepted receipt stays authoritative. No sent/to_send/MAX/history reset.
+ FOREACH cid IN ARRAY ARRAY[171,174] LOOP
+  SELECT * INTO STRICT c FROM public.campaigns WHERE id=cid;
+  SELECT * INTO STRICT ctl FROM crm_audience_v2.regular_delivery_campaign WHERE campaign_id=cid;
+  SELECT * INTO STRICT binding FROM crm_audience_v2.campaign_binding_effective(cid);
+  IF c.status::text NOT IN('paused','finished') OR c.type::text<>'regular' OR c.messenger<>'email'
+   OR c.attribs#>>'{crm,brand}' IS DISTINCT FROM 'fish' OR c.attribs#>>'{crm,policy}' IS DISTINCT FROM 'crm-campaign-v1'
+   OR NOT ctl.enabled OR ctl.binding_version IS DISTINCT FROM binding.binding_version
+   OR ctl.binding_hash IS DISTINCT FROM binding.binding_hash OR binding.brand IS DISTINCT FROM 'fish'
+   OR ctl.worker_sha256 IS DISTINCT FROM plan#>>'{candidate,workerSha256}'
+   OR ctl.runtime_sha256 IS DISTINCT FROM plan#>>'{candidate,runtimeSha256}'
+   OR ctl.acknowledged_sent IS DISTINCT FROM c.sent OR ctl.acknowledged_subscriber_id IS DISTINCT FROM c.last_subscriber_id
+   OR ctl.material IS DISTINCT FROM crm_audience_v2.regular_delivery_material(cid)
+   OR c.started_at IS NULL OR NOT isfinite(c.started_at) OR c.started_at>at
+   OR c.sent<1 OR c.sent>c.to_send OR c.last_subscriber_id>c.max_subscriber_id THEN
+   RAISE EXCEPTION 'PERMANENT_EXCLUSION_PROGRESS_OR_BINDING_DRIFT'; END IF;
+  IF EXISTS(SELECT 1 FROM public.shrigma_email_dispatch x WHERE x.flow='campaign' AND x.piece='audience-regular-v1:'||cid::text AND (
+    x.brand IS DISTINCT FROM 'fish' OR x.is_test IS DISTINCT FROM false OR x.claim_token IS NULL
+    OR jsonb_typeof(x.dedupe_key::jsonb) IS DISTINCT FROM 'array' OR jsonb_array_length(x.dedupe_key::jsonb)<>3
+    OR (x.dedupe_key::jsonb->>0)::integer IS DISTINCT FROM cid
+    OR (x.dedupe_key::jsonb->>1)::integer IS DISTINCT FROM ctl.binding_version
+    OR (x.dedupe_key::jsonb->>2)::integer<1
+    OR x.dedupe_key IS DISTINCT FROM jsonb_build_array(cid,ctl.binding_version,(x.dedupe_key::jsonb->>2)::integer)::text
+    OR (x.transport_state IS DISTINCT FROM 'accepted' AND NOT(cid=174 AND x.dispatch_id='0d8c77b2-18e7-474f-b9b7-bbfc733bac2f' AND x.transport_state='outcome_unknown'))
+    OR x.transport_state='accepted' AND (x.accepted_at IS NULL OR NOT isfinite(x.accepted_at) OR x.accepted_at>at OR x.error_code IS NOT NULL
+      OR x.outcome_at IS NULL OR NOT isfinite(x.outcome_at) OR x.outcome_at>at OR (x.dedupe_key::jsonb->>2)::integer>c.last_subscriber_id)))
+   OR (SELECT count(*) FROM public.shrigma_email_dispatch WHERE flow='campaign' AND piece='audience-regular-v1:'||cid::text AND transport_state='accepted') IS DISTINCT FROM c.sent::bigint
+   OR (SELECT count(DISTINCT (dedupe_key::jsonb->>2)::integer) FROM public.shrigma_email_dispatch WHERE flow='campaign' AND piece='audience-regular-v1:'||cid::text AND transport_state='accepted') IS DISTINCT FROM c.sent::bigint THEN
+   RAISE EXCEPTION 'PERMANENT_EXCLUSION_LEDGER_DRIFT'; END IF;
+  ctx:=crm_audience_v2.selection_worker_context(cid);
+  IF ctx IS NULL OR ctx->'bound' IS DISTINCT FROM 'true'::jsonb THEN RAISE EXCEPTION 'PERMANENT_EXCLUSION_CONTEXT_REQUIRED'; END IF;
+ END LOOP;
+ cid:=(plan->>'campaignId')::integer;
+ expected:=before_state;
+ __FIXED_STAGE__
+ __AFTER_SNAPSHOT__ INTO after_state;
+ __FIXED_POSTCHECK__
+ IF (e#>>'{privateAdmission,expiresAt}')::timestamptz<=clock_timestamp()
+  OR (SELECT suspended OR expires_at<=clock_timestamp() FROM crm_audience_v2.regular_worker_lease WHERE singleton) IS DISTINCT FROM false THEN
+  RAISE EXCEPTION 'PERMANENT_EXCLUSION_FINAL_CURRENT_DRIFT'; END IF;
+END $permanent_disposition$;

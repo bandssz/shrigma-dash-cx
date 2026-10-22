@@ -1,0 +1,54 @@
+{
+  "originalCatalogReadStillRequired": true,
+  "functions": [
+    {
+      "name": "CLAIM",
+      "original": {
+        "definitionSha256": "33d1fc3981402d468f86660222ce02116576db0193e7edf8c10cbc233b65df5f",
+        "bodySha256": "8daf45e60da254d3c0baa49032ee5f474949eb206f4146f93473dc433b1c2ed9",
+        "bodyMd5": "118d939e857e8a5d610bb82cd226a30e",
+        "bodyBytes": 8606
+      },
+      "proposed": {
+        "definitionSha256": "413405c54e3ad1c10b586c027494fa3be3e26cddc469d670762acea4adc8a709",
+        "bodySha256": "66f8f7002772161c288a5c73b88b78fab6d8ba89b173116fc15b73dab927e765",
+        "bodyMd5": "b6eb89aa853fb662c356ba1ccf56bd8d",
+        "bodyBytes": 9315
+      },
+      "signature": "crm_audience_v2.regular_delivery_claim(integer,integer,uuid,text,text,text,text,text,jsonb)"
+    },
+    {
+      "name": "RECOVER",
+      "original": {
+        "definitionSha256": "0c38364a5a351f61349fe4c6aef25dbf3ac90c3896a09da1f7eb871d69b7959a",
+        "bodySha256": "71968e7d6a6a90324cd6b679aa314ae1fe537e8d947a3fdb8e92ed3b314c0a41",
+        "bodyMd5": "bdc2c0dbbc7ff81ca91651b0732470b0",
+        "bodyBytes": 10120
+      },
+      "proposed": {
+        "definitionSha256": "d9a428584dcf5f3284062f17bcc7bea4117b27cec7bf33c6db98c5f7f03bae12",
+        "bodySha256": "bdd2d611fd39bea32694d3bc7eae31fa1fea75fd49c78f1217231a23be502c73",
+        "bodyMd5": "59a85f9745fcf61e7d1f21a121e10bfa",
+        "bodyBytes": 10363
+      },
+      "currentOriginalMetadataReceiptRequired": true,
+      "signature": "crm_audience_v2.regular_delivery_recover(integer,integer,uuid,boolean)"
+    },
+    {
+      "name": "GUARD",
+      "original": {
+        "definitionSha256": "85647e4e1e7c6c009a2caad4cee8ad9505d4dd232de488f617c6c8f4cd4c3122",
+        "bodySha256": "d225ceb7b16a85adb9bc50c705ca3b584e389a1a0181fe7b694f47128292af13",
+        "bodyMd5": "353a824140b3fd5cba9290cdf0d8dec5",
+        "bodyBytes": 6006
+      },
+      "proposed": {
+        "definitionSha256": "5fed102b61c871678eb2b14eee73f81d764bdbce066128b378c16c2f5a7442c8",
+        "bodySha256": "950a6aa356520b84cc8d402d3932446c653548888d8ccd9df0393260f7e14d1e",
+        "bodyMd5": "0701f405a11c2ffef9341a8ed3a65394",
+        "bodyBytes": 6094
+      },
+      "signature": "crm_audience_v2.campaign_send_guard()"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "schema": "nps-delete-public-source-pins-v1",
+  "baseSourceHead": "9b2faea4a09081f61693d75c622053e44cc042ac",
+  "producerSealSha256": "5d630343119ac8506c718b471d457bca4644902298d7459fabf1bb4bdb75ad0a",
+  "pins": [
+    {
+      "path": "tests/subscriber-delete-nps/contract/prepare.cjs",
+      "bytes": 2407,
+      "sha256": "003e6d05f947ca1f689920ab4276062b0d77f2f6c3803c58b9a7cc06f3ed571d"
+    },
+    {
+      "path": "tests/subscriber-delete-nps/contract/SNAPSHOT.catalog-read.sql",
+      "bytes": 4049,
+      "sha256": "c1c22efca8f3b34caaddae3df9f441642e24583dd2e303fc4a14db893884259c"
+    },
+    {
+      "path": "tests/subscriber-delete-nps/contract/APPLY.atomic.sql",
+      "bytes": 29506,
+      "sha256": "d757af2612c0ed9917eab7c79bdb6ed393802e3516adfc781a9c16047b8e22ec"
+    },
+    {
+      "path": "tests/subscriber-delete-nps/contract/RESTORE.structural.sql",
+      "bytes": 27960,
+      "sha256": "c48b5ff67bdfa91ac6ac09247828dda37afafd9ecbb04c970140ead337ab14c8"
+    },
+    {
+      "path": "tests/subscriber-delete-nps/contract/ASSETS.json",
+      "bytes": 537,
+      "sha256": "64cc5a5b5052961552193e4a13fce318ffe729570610af2c75c1079107bf32f1"
+    },
+    {
+      "path": "tests/subscriber-delete-nps/contract/CLAIM.original.sql",
+      "bytes": 1127,
+      "sha256": "dd35b6d10cb49f939f7cc1a063c8466eb5de6eb271135de897904c4c95565805"
+    },
+    {
+      "path": "tests/subscriber-delete-nps/contract/FUNCTION-PINS.json",
+      "bytes": 633,
+      "sha256": "be041dcd161987cc37bd41d2545b23d5e5d7cf6cf978d6be94507dc5dcfd2325"
+    },
+    {
+      "path": "n8n/growth/nps-native.sql",
+      "bytes": 9010,
+      "sha256": "40ac382b1d828c5cd6459d35f801401e96be43949e642be847d87a21e4bb1f43"
+    },
+    {
+      "path": "n8n/growth/nps-vote-sync.js",
+      "bytes": 2850,
+      "sha256": "5f36d8749c252410bb244e6ecfe7dafc36a09973fd00cad5f569a63a3547ee4b"
+    },
+    {
+      "path": "tests/subscriber-delete-nps/source-inputs/nps-native.sql",
+      "bytes": 7284,
+      "sha256": "2a17c57c13f3d7aee4b1a8e8e82d09c21946a4865d53495e3566ba6da9a487e0"
+    },
+    {
+      "path": "tests/subscriber-delete-nps/equivalence.cjs",
+      "bytes": 12400,
+      "sha256": "28cb85e001623a9963f0cebb2fa670576c7d880ce435cb04fea7198bade784a6"
+    },
+    {
+      "path": "tests/subscriber-delete-nps/native-concurrency.cjs",
+      "bytes": 5438,
+      "sha256": "1018917d8d109994ee0329dac28811d9440e99e907c09e975e31829d9c771af4"
+    }
+  ]
+}
