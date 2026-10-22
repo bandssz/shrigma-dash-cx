@@ -20,11 +20,11 @@ test('last unknown visit blocks an earlier known non-direct channel',()=>{
 test('30-day boundary is inclusive and visits after order creation never win',()=>{
  const nodes=[visit(1,'2026-09-21T17:59:59.999Z',{utmParameters:{medium:'email'}}),visit(2,'2026-09-21T18:00:00.000Z',{utmParameters:{medium:'affiliate'}}),visit(3,'2026-10-21T18:00:00.001Z',{utmParameters:{medium:'email'}})];a.equal(project(order(nodes)).origin,'affiliate');
 });
-test('paid sources stay other; coupon alone never invents an influencer or affiliate',()=>{
- a.equal(project(order([visit(1,undefined,{source:'Instagram',utmParameters:{medium:'paid_social'}})])).origin,'other');a.equal(project(order()).origin,'direct');
+test('paid sources are identified;  coupon alone never invents an influencer or affiliate',()=>{
+ a.equal(project(order([visit(1,undefined,{source:'Instagram',utmParameters:{medium:'paid_social'}})])).origin,'paid');a.equal(project(order()).origin,'direct');
  for(const [patch,expected]of [[{utm:{medium:'organic'}},'organic'],[{utm:{medium:'influencer'}},'influencer'],[{source:'TikTok'},'tiktok'],[{sourceType:'AFFILIATE'},'affiliate']])a.equal(M.classify(patch),expected);
 });
-test('explicit paid medium cannot receive organic credit even with SEO or POST tactic',()=>{for(const sourceType of ['SEO','POST'])for(const medium of ['cpc','paid','paid-social','paid_social','cpm'])a.equal(M.classify({source:'Google',sourceType,utm:{medium}}),'other');a.equal(M.classify({utm:{medium:' Organic '}}),'organic');});
+test('explicit paid medium cannot receive organic credit even with SEO or POST tactic',()=>{for(const sourceType of ['SEO','POST'])for(const medium of ['cpc','paid','paid-social','paid_social','cpm'])a.equal(M.classify({source:'Google',sourceType,utm:{medium}}),'paid');a.equal(M.classify({utm:{medium:' Organic '}}),'organic');});
 test('webhook optional metadata never fabricates a complete journey or direct origin',()=>{
  const raw={updated_at:stamp,landing_site:'https://synthetic.invalid/?utm_source=listmonk&utm_medium=email&utm_campaign=lm-281&utm_content=hero&utm_term=words',discount_codes:[{code:'SYNTHETIC'}]},v=M.webhook(raw,stamp);a.equal(v.origin,'unknown');a.equal(v.journey.complete,false);a.equal(v.utm.campaign,'lm-281');a.deepEqual(v.discountCodes,['SYNTHETIC']);a.equal(M.webhook({},stamp).discountCodes,null);a.equal(M.webhook({...raw,discount_codes:[]},stamp).discountCodes.length,0);
 });
