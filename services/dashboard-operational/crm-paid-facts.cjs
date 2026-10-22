@@ -78,6 +78,8 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  const tokens=new Map();let config;
  const cfg=()=>config||=(configuration(file));
  const authorize=(context,brand,write=false,workspace=false)=>{if(!BRANDS.includes(brand))fail('PAID_FACTS_BRAND_INVALID');const user=auth.authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},brand);if(!workspace&&!canUse(user))fail('RESTRICTED_AREA_REQUIRED',403);if(write&&(user.permissions?.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))fail('PRODUCT_WRITE_DENIED',403);return user;};
+ const authorizeAnalysis=(context,brand)=>{const user=authorize(context,brand,false,true);if(!canUse(user)&&(user.permissions?.growth?.edit!==true||!user.productWriteFronts?.includes('growth')))fail('ANALYSIS_EDITOR_REQUIRED',403);return user;};
+ const analysisAuthorize=(context,brand,write=false)=>write?authorize(context,brand,true):authorizeAnalysis(context,brand);
  async function database(work,write=false){
   let client;try{
    const settings={...cfg().pg,application_name:'shrigma-paid-facts',connectionTimeoutMillis:3000,query_timeout:20000,statement_timeout:15000};
@@ -120,10 +122,10 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  }
  async function subscriptions(context,brand){authorize(context,brand);const rows=[];let after=null;do{const d=await graphql(brand,WEBHOOKS_QUERY,{after}),v=d.webhookSubscriptions;rows.push(...v.nodes);after=v.pageInfo.hasNextPage?v.pageInfo.endCursor:null;if(rows.length>500)fail('PAID_FACTS_SUBSCRIPTIONS_UNAVAILABLE',503);}while(after);return rows;}
  async function subscribe(context,brand){authorize(context,brand,true);const uri='https://crm.shrigma.com.br/webhooks/shopify/orders-paid',existing=await subscriptions(context,brand),same=existing.filter(x=>x.uri===uri);if(same.length)return {brand,existing:true,subscriptions:same};const d=await graphql(brand,WEBHOOK_CREATE,{input:{uri,format:'JSON'}}),r=d.webhookSubscriptionCreate;if(r.userErrors?.length||!r.webhookSubscription)fail('PAID_FACTS_SUBSCRIPTION_REFUSED',409);return {brand,existing:false,subscription:r.webhookSubscription};}
- const origin=require('./crm-paid-acquisition-service.cjs').create({authorize,database,graphql:(brand,q,v)=>require('./crm-paid-acquisition.cjs').pacedRead(()=>graphql(brand,q,v,{withCost:true})),now,openBackup:brand=>require('./crm-paid-acquisition-backup.cjs').open(backupDirectory,brand)});
+ const origin=require('./crm-paid-acquisition-service.cjs').create({authorize:analysisAuthorize,database,graphql:(brand,q,v)=>require('./crm-paid-acquisition.cjs').pacedRead(()=>graphql(brand,q,v,{withCost:true})),now,openBackup:brand=>require('./crm-paid-acquisition-backup.cjs').open(backupDirectory,brand)});
  const acquisitionBackup=async(context,brand,input)=>{authorize(context,brand);const result=await require('./crm-paid-acquisition-backup.cjs').read(backupDirectory,brand,input.name,input.offset??0);authorize(context,brand);return result;};
  const acquisitionBackupFile=(context,brand,input)=>require('./crm-paid-acquisition-backup.cjs').file(backupDirectory,brand,input.name,()=>authorize(context,brand));
- const results=require('./crm-paid-results.cjs').create({authorize,database,now,coverage:brand=>store.coverage(brand)});
- return {ingest,status,publics,products,count,save,backfill,subscribe,subscriptions,authorize,acquisitionBackup,acquisitionBackupFile,...origin,...results};
+ const results=require('./crm-paid-results.cjs').create({authorize:analysisAuthorize,database,now,coverage:brand=>store.coverage(brand)});
+ return {ingest,status,publics,products,count,save,backfill,subscribe,subscriptions,authorize,authorizeAnalysis,acquisitionBackup,acquisitionBackupFile,...origin,...results};
 }
 module.exports={create,streamBackfill,canUse,fromGraphql,period,rule,audienceSql,UPSERT,ORDERS_QUERY,ITEMS_QUERY,WEBHOOKS_QUERY,WEBHOOK_CREATE,WEBHOOK_DELETE};

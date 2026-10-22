@@ -410,8 +410,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 688f401a0d4f16100ff514a102a33d4f7288ebe5
-          CRM_QA_EXPECT_MANIFEST: 5fb2f30dd93a6df872cfde6d0680554b7418fc81daf0f5e274b4c793e6b08476
+          CRM_QA_EXPECT_REVISION: 8031021e8531410bdfec767f7dbc5132cc37fd49
+          CRM_QA_EXPECT_MANIFEST: a291cff177acb88f159eef96f2f71027b5d642c86c3965fc4b562089ee8163bf
         shell: bash
         run: |
           set -euo pipefail

@@ -962,7 +962,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           const ui=require('./crm-paid-facts-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:ui.HTML);return;
         }
         let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
-        paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&['results','acquisition'].includes(q.action))paidFacts.authorizeAnalysis(ctx,q.brand);else paidFacts.authorize(ctx,q.brand,req.method==='POST');
         if(req.method==='GET'&&q.action==='results')return sendJson(req,res,200,await paidFacts.results(ctx,q.brand,q));
         if(req.method==='GET'&&q.action==='acquisition-backup-file'){
           const file=paidFacts.acquisitionBackupFile(ctx,q.brand,{name:q.name});
@@ -970,7 +970,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           require('node:stream').pipeline(file.stream,res,()=>{});return;
         }
         if(req.method==='GET'&&q.action==='acquisition-backup')return sendJson(req,res,200,await paidFacts.acquisitionBackup(ctx,q.brand,{name:q.name,offset:Number(q.offset||0)}));
-        if(req.method==='GET'&&q.action==='acquisition')return sendJson(req,res,200,await paidFacts.acquisition(ctx,q.brand,q.ids?{ids:JSON.parse(q.ids)}:{}));
+        if(req.method==='GET'&&q.action==='acquisition'){const value=await paidFacts.acquisition(ctx,q.brand,q.ids?{ids:JSON.parse(q.ids)}:{}),user=paidFacts.authorizeAnalysis(ctx,q.brand),restricted=require('./crm-paid-facts.cjs').canUse(user),canRefresh=restricted&&user.permissions?.growth?.edit===true&&(user.role==='superadmin'||user.productWriteFronts?.includes('growth'));const samples=restricted?value.samples:value.samples.map(row=>({...row,acquisition:row.acquisition?{origin:row.acquisition.origin,utm:row.acquisition.utm,discountCodes:row.acquisition.discountCodes,journey:{complete:row.acquisition.journey?.complete===true},observedAt:row.acquisition.observedAt,snapshotMatchesFact:row.acquisition.snapshotMatchesFact}:null}));return sendJson(req,res,200,{...value,samples,canRefresh:!!canRefresh});}
         if(req.method==='POST'&&q.action==='enrich'&&q.progress===true)return require('./crm-paid-facts.cjs').streamBackfill(res,onProgress=>paidFacts.enrich(ctx,q.brand,q,onProgress));
         if(req.method==='POST'&&q.action==='enrich')return sendJson(req,res,200,await paidFacts.enrich(ctx,q.brand,q));
         if(req.method==='GET'&&['status','products','subscriptions'].includes(q.action))return sendJson(req,res,200,await paidFacts[q.action](ctx,q.brand));
@@ -979,12 +979,12 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         throw jsonError(400,'PAID_FACTS_ACTION_INVALID');
       }
       if(['/app/crm/restrito/resultados/','/app/crm/restrito/resultados.js'].includes(url.pathname)){
-        if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');const session=auth.session(ctx);if(!session.authenticated||!require('./crm-paid-facts.cjs').canUse(session.user))throw jsonError(403,'RESTRICTED_AREA_REQUIRED');
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');const session=auth.session(ctx);if(!session.authenticated)throw jsonError(403,'AUTH_REQUIRED');if(url.pathname.endsWith('.js'))auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});else paidFacts.authorizeAnalysis(ctx,url.searchParams.get('brand')||(session.user.viewBrands||session.user.brands||[])[0]||'aristo');
         const ui=require('./crm-paid-results-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:ui.HTML);return;
       }
       if(['/app/crm/restrito/origens/','/app/crm/restrito/origens.js'].includes(url.pathname)){
         if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');
-        const session=auth.session(ctx);if(!session.authenticated||!require('./crm-paid-facts.cjs').canUse(session.user))throw jsonError(403,'RESTRICTED_AREA_REQUIRED');
+        const session=auth.session(ctx);if(!session.authenticated)throw jsonError(403,'AUTH_REQUIRED');if(url.pathname.endsWith('.js'))auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});else paidFacts.authorizeAnalysis(ctx,url.searchParams.get('brand')||(session.user.viewBrands||session.user.brands||[])[0]||'aristo');
         const ui=require('./crm-paid-acquisition-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:ui.HTML);return;
       }
       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./crm-native-operator.cjs').handleOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
