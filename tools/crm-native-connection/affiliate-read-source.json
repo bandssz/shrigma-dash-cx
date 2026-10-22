@@ -31,7 +31,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 48660,
-      "sha256": "e87b3ef6dc98e251ecea15f9bcdf21f226e7bf698b35729f94157a8257542d53"
+      "sha256": "17592374b60f05eebf0bc58ff7e8ef7cb3eb14082a0aede0e8a3f0db1ff34c53"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1990,8 +1990,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 157059,
-      "sha256": "14cebfd68ccd15b31370d63c7ab394ff2c2058b3c947035fea33cdcf98a03865"
+      "bytes": 157610,
+      "sha256": "e6f5cc00797179412702e703e2c68fa3ee2e98907b994aec97aea2bc61ae3e4a"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -2140,8 +2140,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 23985,
-      "sha256": "4ef5704c32ac04637baead7c85061a051a4623bec0e6c798d7a93d5a2ff8bc94"
+      "bytes": 26421,
+      "sha256": "122aac330897cdaf27d9f094e300c78af80d0f4586c01d8055149821abe46d8a"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -2895,13 +2895,13 @@
     },
     {
       "path": "tests/simple-crm-native-direct-ui.test.cjs",
-      "bytes": 18469,
-      "sha256": "88763999ca5f5a0dbee1331219d9c96f6669b1ea03e369673738575f16f01bec"
+      "bytes": 20607,
+      "sha256": "4ae752cbe0aa49a7504a0966f29c9998c7eca8343b62ab46d4ffdc348e690917"
     },
     {
       "path": "tests/simple-crm-native-direct.test.cjs",
-      "bytes": 15530,
-      "sha256": "00502fffa4850a4689ec08b7d9f778a5f23cf1317a91557a8dc855c827f1b153"
+      "bytes": 23005,
+      "sha256": "fb94f9dd9d69e4a726d5d62bb3ae17344b86f2ea81c4249eec8abab674720553"
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",

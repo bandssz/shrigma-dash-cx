@@ -92,6 +92,20 @@ module.exports={allowedOperator,allowedEditor,create,requireCouponDestinations,E
 
 // Current campaign operator. Listmonk owns the campaign and its state. Each
 // action makes one native write. Existing campaign reads preserve brand authorization; no local attempt is reserved.
+function nativeListBrand(list){
+ const aliases={__proto__:null,fish:'fish',fishermans:'fish',aristo:'aristo',aristocrata:'aristo',olivas:'olivas'};
+ if(list?.tags!==undefined&&list.tags!==null&&!Array.isArray(list.tags))return null;
+ const brands=new Set((list?.tags||[]).filter(t=>typeof t==='string').map(t=>aliases[t.trim().toLowerCase()]).filter(Boolean));
+ // Original structured tags are authoritative. "cross" describes a campaign,
+ // not another brand; names are a fallback only when no brand tag exists.
+ if(brands.size)return brands.size===1&&!brands.has('olivas')?[...brands][0]:null;
+ const name=typeof list?.name==='string'?list.name.trim():'';
+ const namedBrands=new Set((name.match(/\b(?:FISH|FISHERMANS|ARISTO|ARISTOCRATA|OLIVAS)\b/gi)||[]).map(t=>aliases[t.toLowerCase()]));
+ if(namedBrands.size!==1||namedBrands.has('olivas'))return null;
+ if(/^(?:BASE\s+)?(?:FISH|FISHERMANS)\s*[—–:·|\-]\s*\S/i.test(name))return 'fish';
+ if(/^(?:BASE\s+)?(?:ARISTO|(?:O\s+)?ARISTOCRATA)\s*[—–:·|\-]\s*\S/i.test(name))return 'aristo';
+ return null;
+}
 function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.now}){
  const bases={aristo:16,fish:17},domains={aristo:'oaristocrata.com',fish:'fishermans.com.br'};
  const actions=new Set(['campanha_capacidade','campanha_catalogo','campanha_lista_contagem','campanha_listar','campanha_obter','campanha_criar','campanha_salvar','campanha_teste','campanha_agendar','campanha_cancelar']);
@@ -99,16 +113,19 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
  const future=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&Date.parse(value)>=now()+20*60000&&Date.parse(value)<=now()+7*86400000;
  const address=value=>String(value||'').match(/<([^<>]+)>$/)?.[1]||String(value||'');
  const ids=c=>(c.lists||c.list_ids||[]).map(x=>typeof x==='object'?x.id:x);
- const binding=brand=>{const value=credentials?.[brand];if(!value||typeof value.username!=='string'||!value.username||typeof value.token!=='string'||!value.token||!Array.isArray(value.listIds)||!value.listIds.includes(bases[brand]))throw error(503,'LISTMONK_UNAVAILABLE');return value;};
- function campaign(c,brand){
-  const lists=ids(c),allowed=binding(brand).listIds;
-  if(!idOk(c?.id)||!lists.length||lists.some(id=>!allowed.includes(id)))throw error(403,'CAMPAIGN_BRAND_REFUSED');
+ const binding=brand=>{const value=credentials?.[brand];if(!value||typeof value.username!=='string'||!value.username||typeof value.token!=='string'||!value.token)throw error(503,'LISTMONK_UNAVAILABLE');return value;};
+ function requireLists(lists,scope,active=false){
+  if(!Array.isArray(lists)||!lists.length||lists.some(id=>!idOk(id)||!scope.has(id)))throw error(403,'CAMPAIGN_BRAND_REFUSED');
+  if(active&&lists.some(id=>scope.get(id).status!=='active'))throw error(409,'CAMPAIGN_LIST_UNAVAILABLE');
+ }
+ function campaign(c,brand,scope,active=false){
+  const lists=ids(c);if(!idOk(c?.id))throw error(403,'CAMPAIGN_BRAND_REFUSED');requireLists(lists,scope,active);
   const meta=c.attribs?.shrigma||{},previous=c.attribs?.crm||{},headers=Array.isArray(c.headers)?Object.assign({},...c.headers):c.headers||{};
   return {id:c.id,version:c.updated_at||c.created_at,status:c.status,sent:c.sent??0,started_at:c.started_at??null,send_at:c.send_at??null,attribs:c.attribs??{},media:(c.media||[]).map(x=>typeof x==='object'?x.id:x),headers:c.headers||[],content_type:c.content_type,type:c.type,messenger:c.messenger,definition:{schema_version:'crm-campaign-v1',brand,channel:'email',name:c.name,subject:c.subject,from_email:c.from_email,reply_to:headers['Reply-To']||'contato@'+domains[brand],list_ids:lists,template_id:c.template_id,html:c.body||'',text:c.altbody||'',tags:c.tags||[],initiative:meta.initiative||(previous.initiative_key?{key:previous.initiative_key,name:previous.initiative_name||c.name}:{key:'campanha',name:c.name}),utm_campaign:meta.utm_campaign||previous.utm_campaign||'campanha',send_at:c.send_at??null},audience_id:meta.audience_id||null,audience_name:meta.audience_name||null};
  }
  const idOk=n=>Number.isSafeInteger(n)&&n>0&&n<=2147483647;
  function payload(d,brand,q){
-  if(!d||d.brand!==brand||typeof d.name!=='string'||!d.name.trim()||typeof d.subject!=='string'||!d.subject.trim()||typeof d.html!=='string'||!d.html.trim()||!Array.isArray(d.list_ids)||!d.list_ids.length||d.list_ids.some(id=>!binding(brand).listIds.includes(id)))throw error(400,'CAMPAIGN_INPUT');
+  if(!d||d.brand!==brand||typeof d.name!=='string'||!d.name.trim()||typeof d.subject!=='string'||!d.subject.trim()||typeof d.html!=='string'||!d.html.trim()||!Array.isArray(d.list_ids)||!d.list_ids.length||d.list_ids.some(id=>!idOk(id)))throw error(400,'CAMPAIGN_INPUT');
   const sender=address(d.from_email).toLowerCase(),domain=domains[brand];
   if(!['avisos@'+domain,'contato@'+domain].includes(sender)||d.reply_to!=='contato@'+domain)throw error(403,'CAMPAIGN_BRAND_REFUSED');
   if(d.template_id!==null&&(!Number.isSafeInteger(d.template_id)||d.template_id<0))throw error(400,'CAMPAIGN_INPUT');
@@ -128,59 +145,69 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   let data;try{data=JSON.parse(Buffer.concat(parts).toString('utf8'));}catch{throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');}
   if(!Object.hasOwn(data,'data'))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');return data.data;
  }
+ async function readLists(brand){
+  const data=await request(brand,'GET','/lists?minimal=true&per_page=all'),rows=Array.isArray(data)?data:data?.results;
+  if(!Array.isArray(rows)||rows.some(list=>!list||!idOk(list.id))||new Set(rows.map(list=>list.id)).size!==rows.length)throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
+  if(!Array.isArray(data)&&(!Number.isSafeInteger(data.total)||data.total!==rows.length))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
+  return new Map(rows.filter(list=>nativeListBrand(list)===brand).map(list=>[list.id,list]));
+ }
  async function handle(context,method,q){
   if(!q||!actions.has(q.acao)||!Object.hasOwn(bases,q.brand))throw error(400,'CAMPAIGN_INPUT');
   const brand=q.brand,action=q.acao,write=writing(action),user=authorize(context,brand,write),released=admitted(context,brand,user);
   if(write&&(!released||!allowedEditor(user)))throw error(403,'CAMPAIGN_RELEASE_CLOSED');
   if(method!==(write?'POST':'GET'))throw error(405,'METHOD_DENIED');
+  // Authorization is derived from original Listmonk metadata on every action,
+  // shared only within this request. No manual ID binding or persistent cache.
+  let scope;const currentScope=async()=>scope||(scope=await readLists(brand));
+  const writeRequest=async(method,path,body)=>{const current=authorize(context,brand,true);if(!admitted(context,brand,current)||!allowedEditor(current))throw error(403,'CAMPAIGN_RELEASE_CLOSED');return request(brand,method,path,body);};
   if(action==='campanha_capacidade')return {status:200,body:{schema:'crm-listmonk-direct-v1',brand,read:true,draft:released&&allowedEditor(user),send:false,native_direct:true}};
   if(action==='campanha_catalogo'){
-   const data=await request(brand,'GET','/lists?minimal=true&per_page=all'),rows=Array.isArray(data)?data:data.results;
-   if(!Array.isArray(rows))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
-   const lists=rows.filter(list=>binding(brand).listIds.includes(list.id)).map(list=>({id:list.id,name:list.name,brand,available:list.status==='active'}));
+   const lists=[...(await currentScope()).values()].map(list=>({id:list.id,name:list.name,brand,available:list.status==='active'}));
    // A null layout delegates selection to Listmonk when the campaign is
    // created. The existing campaign role does not read the template catalog.
    const templates=[{id:null,name:'Padrão do Listmonk',brand,type:'campaign',available:true,native_default:true}];
    return {status:200,body:{brand,current:true,read_at:new Date(now()).toISOString(),lists,templates,initiatives:[]}};
   }
   if(action==='campanha_lista_contagem'){
-   if(!idOk(q.list_id)||!binding(brand).listIds.includes(q.list_id))throw error(403,'CAMPAIGN_BRAND_REFUSED');
-   const list=await request(brand,'GET','/lists/'+q.list_id);if(list.id!==q.list_id||list.status!=='active')throw error(409,'CAMPAIGN_LIST_UNAVAILABLE');
+   if(!idOk(q.list_id))throw error(403,'CAMPAIGN_BRAND_REFUSED');
+   const list=await request(brand,'GET','/lists/'+q.list_id);if(list?.id!==q.list_id)throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');if(nativeListBrand(list)!==brand)throw error(403,'CAMPAIGN_BRAND_REFUSED');if(list.status!=='active')throw error(409,'CAMPAIGN_LIST_UNAVAILABLE');
    const members=await request(brand,'GET','/subscribers?list_id='+q.list_id+'&per_page=1&page=1');
    if(!Number.isSafeInteger(members?.total)||members.total<0)throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
    return {status:200,body:{brand,list_id:q.list_id,member_count:members.total,checked_at:new Date(now()).toISOString(),source:'listmonk'}};
   }
   if(action==='campanha_listar'){
+   await currentScope();
    const data=await request(brand,'GET','/campaigns?no_body=true&per_page=100&page='+Math.max(1,Number(q.page)||1));
    const rows=Array.isArray(data)?data:data.results;if(!Array.isArray(rows))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
-   const campaigns=[];for(const row of rows)try{campaigns.push(campaign(row,brand));}catch(e){if(e.code!=='CAMPAIGN_BRAND_REFUSED')throw e;}
+   const campaigns=[];for(const row of rows)try{campaigns.push(campaign(row,brand,scope));}catch(e){if(e.code!=='CAMPAIGN_BRAND_REFUSED')throw e;}
    const page=Math.max(1,Number(q.page)||1),total=Array.isArray(data)?data.length:data.total;
    return {status:200,body:{campaigns,total,page,has_more:!Array.isArray(data)&&page*100<total}};
   }
   if(action!=='campanha_criar'&&!idOk(q.id))throw error(400,'CAMPAIGN_INPUT');
-  if(action==='campanha_obter')return {status:200,body:{campaign:campaign(await request(brand,'GET','/campaigns/'+q.id),brand)}};
+  if(action==='campanha_obter'){await currentScope();return {status:200,body:{campaign:campaign(await request(brand,'GET','/campaigns/'+q.id),brand,scope)}};}
   if(['campanha_salvar','campanha_cancelar'].includes(action)&&(!q.attribs||typeof q.attribs!=='object'||Array.isArray(q.attribs)||!Array.isArray(q.media)||q.acao==='campanha_salvar'&&!Array.isArray(q.headers)))throw error(400,'CAMPAIGN_INPUT');
   let data;
-  const existing=async()=>campaign(await request(brand,'GET','/campaigns/'+q.id),brand);
-  if(action==='campanha_criar'||action==='campanha_salvar'){const body=payload(q.definition,brand,q);if(action==='campanha_salvar')await existing();data=await request(brand,action==='campanha_criar'?'POST':'PUT','/campaigns'+(action==='campanha_criar'?'':'/'+q.id),body);}
+  const existing=async(active=false)=>{await currentScope();return campaign(await request(brand,'GET','/campaigns/'+q.id),brand,scope,active);};
+  if(action==='campanha_criar'||action==='campanha_salvar'){const body=payload(q.definition,brand,q);requireLists(q.definition.list_ids,await currentScope(),true);if(action==='campanha_salvar')await existing(true);data=await writeRequest(action==='campanha_criar'?'POST':'PUT','/campaigns'+(action==='campanha_criar'?'':'/'+q.id),body);}
   else if(action==='campanha_teste'){
    const target=String(q.recipient||'').trim().toLowerCase();
    if(target.length>254||target.includes('..')||!/^[a-z0-9][a-z0-9._+\-]*@(oaristocrata\.com|fishermans\.com\.br|shrigma\.com\.br)$/.test(target))throw error(400,'CAMPAIGN_TEST_RECIPIENT');
    const body=payload(q.definition,brand,q);body.subject='[TESTE] '+body.subject.replace(/^(?:\[TESTE\] )+/,'');body.subscribers=[target];delete body.send_at;
-   await existing();data=await request(brand,'POST','/campaigns/'+q.id+'/test',body);if(data!==true)throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
+   requireLists(q.definition.list_ids,await currentScope(),true);await existing(true);data=await writeRequest('POST','/campaigns/'+q.id+'/test',body);if(data!==true)throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
    return {status:200,body:{accepted:true,brand,campaign_id:q.id,recipient:target,subject:body.subject}};
   }else if(action==='campanha_agendar'){
    if(q.confirm!=='agendar')throw error(400,'CAMPAIGN_INPUT');
    if(!future(q.send_at))throw error(400,'NATIVE_INTERNAL_DATE');
-   const current=await existing();if(!future(current.send_at)||Date.parse(current.send_at)!==Date.parse(q.send_at))throw error(400,'NATIVE_INTERNAL_DATE');
-   data=await request(brand,'PUT','/campaigns/'+q.id+'/status',{status:'scheduled'});
+   const current=await existing(true);if(!future(current.send_at)||Date.parse(current.send_at)!==Date.parse(q.send_at))throw error(400,'NATIVE_INTERNAL_DATE');
+   data=await writeRequest('PUT','/campaigns/'+q.id+'/status',{status:'scheduled'});
   }else if(action==='campanha_cancelar'){
-   if(q.confirm!=='cancelar'||!Array.isArray(q.list_ids)||!q.list_ids.length||q.list_ids.some(id=>!binding(brand).listIds.includes(id)))throw error(400,'CAMPAIGN_INPUT');
-   await existing();data=await request(brand,'PUT','/campaigns/'+q.id,{lists:q.list_ids,send_at:null,attribs:q.attribs??{},media:q.media||[]});
+   if(q.confirm!=='cancelar'||!Array.isArray(q.list_ids)||!q.list_ids.length||q.list_ids.some(id=>!idOk(id)))throw error(400,'CAMPAIGN_INPUT');
+   requireLists(q.list_ids,await currentScope());await existing();data=await writeRequest('PUT','/campaigns/'+q.id,{lists:q.list_ids,send_at:null,attribs:q.attribs??{},media:q.media||[]});
   }
   if(!data||typeof data!=='object')throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
-  return {status:action==='campanha_criar'?201:200,body:{campaign:campaign(data,brand)}};
+  return {status:action==='campanha_criar'?201:200,body:{campaign:campaign(data,brand,scope)}};
  }
  return Object.freeze({handle,actions});
 }
 module.exports.createDirect=createDirect;
+module.exports.nativeListBrand=nativeListBrand;

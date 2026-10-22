@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto'),{parseHTML}=require('linkedom');
 const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational'),source=fs.readFileSync(runtime+'/public/crm-preview/drafts.js','utf8');
-async function fixture(brand,{lost=false,pages=false,countLost=false,recipientCount=12,importing=false,historicalSenders=[],nativeList=null,nativeCountLost=false}={}){
+async function fixture(brand,{lost=false,pages=false,countLost=false,recipientCount=12,importing=false,historicalSenders=[],nativeList=null,nativeCountLost=false,catalogState={lists:[],fail:false}}={}){
  const {window,document}=parseHTML('<html><body>'+['new-campaign','new-audience'].map(id=>'<button id="'+id+'"></button>').join('')+['crm-pending','campaign-editor','audience-editor','campaign-drafts','audience-draft-status','campaign-draft-status'].map(id=>'<div id="'+id+'" class="d-none"></div>').join('')+'</body></html>');
  Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){const o=this.querySelector('option[selected]')||this.querySelector('option');return o?(o.getAttribute('value')??o.textContent):'';},set(v){for(const o of this.querySelectorAll('option'))o.selected=(o.getAttribute('value')??o.textContent)===String(v);}});
  const domain=brand==='fish'?'fishermans.com.br':'oaristocrata.com',base=brand==='fish'?17:16,posts=[],calls=[],storage=[],state={brand,view:'campaigns',ticket:1},rows=new Map(),audience={id:'synthetic-public',brand,name:'Base inteira',version:1,archived:false,definition:{rule:{op:'in_list',list_id:base}}};let current;
@@ -9,7 +9,7 @@ async function fixture(brand,{lost=false,pages=false,countLost=false,recipientCo
  const read=async(url,b,t,options={})=>{a.equal(b,brand);const method=options.method||'GET',q=method==='POST'?JSON.parse(options.body):Object.fromEntries(new URL(url,'https://synthetic.invalid').searchParams);calls.push(q.acao);if(method==='POST')posts.push(q);
   switch(q.acao){
    case'campanha_capacidade':return{brand,read:true,draft:true,send:false,native_direct:true};
-   case'campanha_catalogo':return{brand,current:true,initiatives:[],templates:[{id:null,name:'Padrão do Listmonk',available:true,native_default:true}],lists:[{id:base,name:'Base',brand,available:true},...(nativeList?[{id:nativeList,name:'Grupo VIP real',brand,available:true}]:[])]};
+   case'campanha_catalogo':if(catalogState.wait)await catalogState.wait;if(catalogState.fail)throw Error('Native catalog unavailable');return{brand,current:true,initiatives:[],templates:[{id:null,name:'Padrão do Listmonk',available:true,native_default:true}],lists:[{id:base,name:'Base',brand,available:true},...(nativeList?[{id:nativeList,name:'Grupo VIP real',brand,available:true}]:[]),...catalogState.lists]};
    case'campanha_lista_contagem':if(nativeCountLost)throw Error('Native membership unavailable');return{brand,list_id:Number(q.list_id),member_count:12437,checked_at:'2026-10-21T19:00:00Z',source:'listmonk'};
    case'campanha_listar':return pages?{campaigns:Number(q.page||1)===3?[{id:900,status:'draft',definition:{brand,name:'Página final'}}]:[],has_more:Number(q.page||1)<3,total:201}:{campaigns:[...rows.values()],has_more:false};
    case'campanha_obter':return{campaign:rows.get(Number(q.id))};
@@ -32,8 +32,24 @@ async function fixture(brand,{lost=false,pages=false,countLost=false,recipientCo
  const change=(id,value)=>{const n=document.getElementById(id);n.value=value;n.dispatchEvent(new window.Event('input',{bubbles:true}));if(n.tagName==='SELECT')n.dispatchEvent(new window.Event('change',{bubbles:true}));};
  const fill=async()=>{document.getElementById('new-campaign').click();await settle(()=>document.getElementById('campaign-first-audience')?.options.length>1);change('campaign-first-audience',audience.id);await settle(()=>document.getElementById('campaign-first-count').textContent===recipientCount+' destinatários');change('draft-name','[QA] editor');change('draft-subject','Olá {{ .Subscriber.FirstName }}');change('draft-html','<p>Olá {{ .Subscriber.FirstName }}</p>');change('draft-text','Olá {{ .Subscriber.FirstName }}');};
  const save=async()=>{document.getElementById('campaign-draft-form').dispatchEvent(new window.Event('submit',{cancelable:true}));await settle(()=>!editor.hasUnsaved());};
- return{window,document,editor,posts,calls,storage,fill,save,change,settle,get current(){return current;}};
+ return{window,document,editor,posts,calls,storage,state,fill,save,change,settle,get current(){return current;}};
 }
+for(const brand of ['aristo','fish'])test(brand+': opening New campaign refreshes native lists created after the CRM tab was loaded',async()=>{
+ const catalogState={lists:[],fail:false},f=await fixture(brand,{catalogState});a.equal(f.calls.filter(c=>c==='campanha_catalogo').length,1);
+ catalogState.lists.push({id:9001,name:'Nova lista no Listmonk',brand,available:true});f.document.getElementById('new-campaign').click();
+ await f.settle(()=>f.document.querySelector('option[value="listmonk:9001"]'));
+ a.equal(f.calls.filter(c=>c==='campanha_catalogo').length,2);f.change('campaign-first-audience','listmonk:9001');await f.settle(()=>f.document.getElementById('campaign-first-count').textContent.startsWith('12437 inscritos na lista'));
+ a.equal(f.posts.filter(q=>q.acao==='campanha_criar').length,0);
+});
+test('native catalog refresh failure keeps the selector disabled instead of using its old catalog',async()=>{
+ const catalogState={lists:[],fail:false},f=await fixture('fish',{nativeList:284,catalogState});catalogState.fail=true;f.document.getElementById('new-campaign').click();
+ await f.settle(()=>f.document.getElementById('campaign-first-count').textContent.includes('leitura das listas'));
+ a.equal(f.document.getElementById('campaign-first-audience').disabled,true);a.equal(f.document.querySelector('option[value="listmonk:284"]'),null);a.equal(f.posts.length,0);
+});
+test('a late native catalog response cannot populate a different brand or navigation ticket',async()=>{
+ const catalogState={lists:[],fail:false},f=await fixture('fish',{catalogState});let release;catalogState.wait=new Promise(resolve=>release=resolve);f.document.getElementById('new-campaign').click();f.state.brand='aristo';f.state.ticket++;release();
+ for(let i=0;i<5;i++)await new Promise(setImmediate);a.equal(f.document.getElementById('campaign-first-audience').disabled,true);a.equal(f.document.querySelector('option[value="listmonk:17"]'),null);a.equal(f.posts.length,0);
+});
 for(const brand of ['aristo','fish'])test(brand+': ordinary editor saves, TESTs, saves time, schedules and cancels without a key or recovery click',async()=>{
  const f=await fixture(brand);await f.fill();a.deepEqual([...f.document.querySelectorAll('[data-campaign-step]>h3')].map(n=>n.textContent),['1. Para quem','2. O quê','3. Teste','4. Quando']);a.equal(f.document.querySelectorAll('[name=draft-list]').length,0);
  a.equal(f.document.getElementById('draft-template').value,'null');
