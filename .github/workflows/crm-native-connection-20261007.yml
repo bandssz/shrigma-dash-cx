@@ -390,7 +390,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/production-envelope.test.cjs /source/tests/crm-legacy-parity.test.cjs /source/tests/crm-legacy-library-plan.test.cjs /source/tests/simple-crm-service-draft.test.cjs /source/tests/simple-crm-models.test.cjs /source/tests/crm-model-import.test.cjs /source/tests/simple-crm-model-pieces.test.cjs /source/tests/simple-crm-model-tests.test.cjs /source/tests/simple-crm-campaign-tests.test.cjs /source/tests/crm-product-positive-ui.test.cjs /source/tests/private-test-diagnostics.test.cjs /source/tests/native-test-error-envelope.test.cjs /source/tests/simple-tts-manual.test.cjs /source/tests/simple-tabler-read.test.cjs /source/tests/shared-period.test.cjs
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/production-envelope.test.cjs /source/tests/crm-legacy-parity.test.cjs /source/tests/crm-legacy-library-plan.test.cjs /source/tests/simple-crm-service-draft.test.cjs /source/tests/simple-crm-models.test.cjs /source/tests/crm-model-import.test.cjs /source/tests/simple-crm-model-pieces.test.cjs /source/tests/simple-crm-model-tests.test.cjs /source/tests/simple-crm-campaign-tests.test.cjs /source/tests/crm-product-positive-ui.test.cjs /source/tests/private-test-diagnostics.test.cjs /source/tests/native-test-error-envelope.test.cjs /source/tests/simple-tts-manual.test.cjs /source/tests/simple-tabler-read.test.cjs /source/tests/shared-period.test.cjs /source/tests/product-issues.test.cjs
       - name: Prove TEST safety and retention diagnostics in the same Node22 UID1000 image
         shell: bash
         run: |
@@ -410,7 +410,7 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 1ed6160e987386b8725b6b817df8567558fac6b7
+          CRM_QA_EXPECT_REVISION: 20471ab51b56b17650ed15849af2be952fadf48f
           CRM_QA_EXPECT_MANIFEST: 790728b69642e6d3ffa4653d571fb1c5fc63845de3ee00ea28dba27957fb18aa
         shell: bash
         run: |
@@ -421,7 +421,7 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
-          CRM_QA_EXPECT_REVISION: 1ed6160e987386b8725b6b817df8567558fac6b7
+          CRM_QA_EXPECT_REVISION: 20471ab51b56b17650ed15849af2be952fadf48f
           CRM_QA_EXPECT_MANIFEST: 790728b69642e6d3ffa4653d571fb1c5fc63845de3ee00ea28dba27957fb18aa
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact

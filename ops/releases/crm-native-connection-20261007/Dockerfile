@@ -2,6 +2,7 @@ FROM ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b30
 USER 0:0
 WORKDIR /source
 ARG GIT_SHA
+COPY services/dashboard-operational/product-issues.cjs services/dashboard-operational/product-issues-ui.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/campaign-editorial-policy.cjs services/dashboard-operational/crm-campaign-editorial-admission.cjs services/dashboard-operational/crm-payload-shape.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/crm-ui-features.cjs services/dashboard-operational/shopify-paid-order.cjs services/dashboard-operational/crm-paid-facts.cjs services/dashboard-operational/crm-paid-facts-store.cjs services/dashboard-operational/crm-paid-facts-ui.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/crm-paid-home-ui.cjs services/dashboard-operational/crm-paid-comparison-ui.cjs ./services/dashboard-operational/
