@@ -1,6 +1,25 @@
 'use strict';
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),http=require('node:http'),{DatabaseSync}=require('node:sqlite');
 const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational'),Issues=require(runtime+'/product-issues.cjs');
+function concurrentSessionFixture(){
+ const vm=require('node:vm'),calls=[],pending=[],origin='https://crm.synthetic.invalid',window={dispatchEvent(){},open(){}};window.parent=window;
+ window.fetch=(url,options)=>{calls.push({url,method:options.method});return new Promise(resolve=>pending.push(resolve));};
+ const realm=vm.createContext({window,location:{origin,href:origin+'/app/crm/?brand=fish&view=campaigns'},document:{querySelector(){return null;},querySelectorAll(){return[];},body:{dataset:{}},addEventListener(){}},navigator:{},URL,URLSearchParams,Headers,Request,Response,FormData,CustomEvent,AbortController,setTimeout,clearTimeout,HTMLFormElement:class{}});
+ vm.runInContext(fs.readFileSync(runtime+'/public/guard.compiled.js','utf8'),realm);
+ const answer=(index,{id='new-author',authenticated=true,status=200}={})=>{const data={authenticated,csrf:'synthetic-csrf',features:{simpleRead:true},user:{id,email:'synthetic@invalid.test',role:'manager',areas:['growth'],brand:'fish',brands:['fish'],brandAccess:'single',permissions:{growth:{read:true,edit:true}}}},r=new Response(JSON.stringify(data),{status});r.json=async()=>vm.runInContext('JSON.parse('+JSON.stringify(JSON.stringify(data))+')',realm);pending[index](r);};
+ return {window,calls,answer};
+}
+test('concurrent form and panel identity reads use the newest author without extra GET or POST',async()=>{
+ const f=concurrentSessionFixture(),form=f.window.ShrigmaReadSession(),panel=f.window.ShrigmaReadSession();a.equal(f.calls.length,2);f.answer(0,{id:'old-author'});await new Promise(setImmediate);f.answer(1,{id:'new-author'});
+ const states=await Promise.all([form,panel]);for(const state of states){a.equal(state.authenticated,true);a.equal(state.user.id,'new-author');a.equal(Object.hasOwn(state,'csrf'),false);}a.equal(f.calls.length,2);a(f.calls.every(x=>x.url==='/auth/session'&&x.method==='GET'));
+});
+test('a denied or revoked successor never revives a stale form identity or starts another read',async()=>{
+ for(const [failure,successorFirst] of [[{status:503},false],[{authenticated:false},false],[{status:503},true]]){
+  const f=concurrentSessionFixture(),form=f.window.ShrigmaReadSession(),panel=f.window.ShrigmaReadSession(),results=Promise.allSettled([form,panel]);
+  if(successorFirst){f.answer(1,failure);await new Promise(setImmediate);f.answer(0,{id:'stale-author'});}else{f.answer(0,{id:'stale-author'});await new Promise(setImmediate);f.answer(1,failure);}
+  a((await results).every(x=>x.status==='rejected'));a.equal(f.calls.length,2);a(f.calls.every(x=>x.method==='GET'));
+ }
+});
 const request={action:'create',brand:'fish',front:'growth',screen:'/app/crm/?brand=fish&view=campaigns',screenTitle:'Campanhas',kind:'Problema',message:'O botão não responde.'};
 const author={id:'author',role:'manager'},other={id:'other',role:'manager'},master={id:'master',role:'superadmin'},ctx={method:'POST',user:author,csrf:true,origin:true};
 function fixture(t,dbPath=':memory:'){

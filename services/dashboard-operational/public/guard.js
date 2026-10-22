@@ -135,7 +135,18 @@
  // Await the existing session read before a panel captures its first brand.
  window.ShrigmaPrepareRead=async()=>{let timer;try{return await Promise.race([csrf().then(()=>true,()=>false),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),8000);})]);}finally{clearTimeout(timer);}};
  // Public session projection for browser-local tools. No CSRF or source key.
- window.ShrigmaReadSession=async options=>{const state=await refreshSession(options);return {authenticated:state.authenticated,user:state.user};};
+ window.ShrigmaReadSession=async options=>{
+  let state;
+  try{state=await refreshSession(options);}
+  catch(error){
+   if(error.message!=='session_replaced'||!csrfPromise)throw error;
+   // A panel may refresh while a local form checks its identity. Follow the
+   // existing successor read; do not start another read or replay a mutation.
+   await csrf();state=sessionState;
+  }
+  if(state?.authenticated!==true)throw Error('session_expired');
+  return {authenticated:state.authenticated,user:state.user};
+ };
  window.fetch=async function(input,init={}){
   let url;try{url=new URL(input instanceof Request?input.url:input,location.href);}catch(_){return reject();}
   if(url.origin!==location.origin)return reject();
