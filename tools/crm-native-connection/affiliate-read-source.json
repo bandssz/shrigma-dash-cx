@@ -30,8 +30,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 48199,
-      "sha256": "ba048f9e9b2ccefe6bb4e26bae3ecc52cf74b2f42caab0f67de191ce0d197af8"
+      "bytes": 48660,
+      "sha256": "e87b3ef6dc98e251ecea15f9bcdf21f226e7bf698b35729f94157a8257542d53"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -3010,8 +3010,8 @@
     },
     {
       "path": "tools/crm-qa/four-front.cjs",
-      "bytes": 5126,
-      "sha256": "e08602b70136e664771806ca3bb112a2deaf218fa64696d13b25591e539bbec8"
+      "bytes": 7033,
+      "sha256": "3885b989713784ce24b2d9a96f664ca3316206a2c17c61f7d6bacf3c3270bd9d"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
@@ -3020,8 +3020,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 16695,
-      "sha256": "d9b1f3101f90d235f7e25cd2d100c8334937066a986108885b83c8cef49e8d08"
+      "bytes": 20361,
+      "sha256": "05c2c7cf59de65e2d30e21b968e951e75a132e94e22036ebb562c1c51f8dd3a4"
     },
     {
       "path": "tools/crm-qa/paid-acquisition-sql.cjs",
@@ -3045,8 +3045,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 9792,
-      "sha256": "4c9c5e675e1f453a6c483da2d0efe41a2085980af20cf84c5112b5bbcd0fa415"
+      "bytes": 11672,
+      "sha256": "fefbd11662747eeb6745d00595b540e78ae038545fb2e75d179d5157336c2b57"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -3080,8 +3080,8 @@
     },
     {
       "path": "tools/production-release/production-request.json",
-      "bytes": 71,
-      "sha256": "a1e57d39efaa7286fa8c198f3b03f0a941666b760bdcf34b861977fa19ec8933"
+      "bytes": 62,
+      "sha256": "47aa49eea1fe4151d2cb16cd1685d151f5d8fa61c6a824f3166b1dcddaa9d182"
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
