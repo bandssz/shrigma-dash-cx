@@ -963,6 +963,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }
         let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
         if(req.method==='GET'&&['results','acquisition'].includes(q.action))paidFacts.authorizeAnalysis(ctx,q.brand);else paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&q.action==='home')return sendJson(req,res,200,await paidFacts.home(ctx,q.brand,q));
         if(req.method==='GET'&&q.action==='results')return sendJson(req,res,200,await paidFacts.results(ctx,q.brand,q));
         if(req.method==='GET'&&q.action==='acquisition-backup-file'){
           const file=paidFacts.acquisitionBackupFile(ctx,q.brand,{name:q.name});
@@ -977,6 +978,10 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(req.method==='POST'&&q.action==='backfill'&&q.progress===true)return require('./crm-paid-facts.cjs').streamBackfill(res,onProgress=>paidFacts.backfill(ctx,q.brand,q.days,{onProgress}));
         if(req.method==='POST'&&['count','save','backfill','subscribe'].includes(q.action))return sendJson(req,res,200,await paidFacts[q.action](ctx,q.brand,q.action==='backfill'?q.days:q));
         throw jsonError(400,'PAID_FACTS_ACTION_INVALID');
+      }
+      if(['/app/crm/restrito/inicio/','/app/crm/restrito/inicio.js'].includes(url.pathname)){
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');const session=auth.session(ctx);if(!session.authenticated||!require('./crm-paid-facts.cjs').canUse(session.user))throw jsonError(403,'RESTRICTED_AREA_REQUIRED');
+        const ui=require('./crm-paid-home-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:ui.HTML);return;
       }
       if(['/app/crm/restrito/resultados/','/app/crm/restrito/resultados.js'].includes(url.pathname)){
         if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');const session=auth.session(ctx);if(!session.authenticated)throw jsonError(403,'AUTH_REQUIRED');if(url.pathname.endsWith('.js'))auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});else paidFacts.authorizeAnalysis(ctx,url.searchParams.get('brand')||(session.user.viewBrands||session.user.brands||[])[0]||'aristo');

@@ -43,3 +43,5 @@ test('analysis release grants editors only its read routes and preserves brand a
  let user={role:'manager',permissions:{growth:{edit:true}},productWriteFronts:['growth']};const service=create({auth:{authorizeBrand:(_ctx,brand)=>{if(brand!=='fish')throw Object.assign(Error('brand denied'),{code:'BRAND_DENIED'});return user;}},store:{}});
  a.equal(service.authorizeAnalysis({},'fish'),user);a.throws(()=>service.authorize({},'fish'),{code:'RESTRICTED_AREA_REQUIRED'});a.throws(()=>service.authorizeAnalysis({},'aristo'),{code:'BRAND_DENIED'});user={...user,permissions:{growth:{edit:false}}};a.throws(()=>service.authorizeAnalysis({},'fish'),{code:'ANALYSIS_EDITOR_REQUIRED'});user={role:'superadmin'};a.equal(service.authorizeAnalysis({},'fish'),user);
 });
+
+test('Home keeps ordinary editors outside even after Results release',async()=>{const user={role:'manager',permissions:{growth:{edit:true}},productWriteFronts:['growth']},service=create({auth:{authorizeBrand:()=>user},store:{}});await a.rejects(service.home({},'fish'),{code:'RESTRICTED_AREA_REQUIRED'});});
