@@ -8,6 +8,7 @@ function allow(method,address,body){
  if(method==='GET'||method==='HEAD'){
   if(u.pathname.startsWith('/auth/'))return u.pathname==='/auth/session';
   if(!u.pathname.startsWith('/api/'))return ['/healthz','/guard.js','/favicon.ico'].includes(u.pathname)||u.pathname.startsWith('/app/')||u.pathname.startsWith('/assets/');
+  if(u.pathname==='/api/crm-restricted/compras'){const keys=[...u.searchParams.keys()];return method==='GET'&&['crm.shrigma.com.br','gerencial.shrigma.com.br'].includes(u.hostname)&&!u.hash&&keys.length===7&&new Set(keys).size===7&&keys.every(k=>['action','brand','preset','ini','fim','currency','campaigns'].includes(k))&&u.searchParams.get('action')==='compare-home'&&['aristo','fish'].includes(u.searchParams.get('brand'))&&['today','yesterday','last7','last30','week','lastWeek','month','lastMonth','custom'].includes(u.searchParams.get('preset'))&&['ini','fim'].every(k=>/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(u.searchParams.get(k)||''))&&/^[A-Z]{3}$/.test(u.searchParams.get('currency')||'')&&/^(?:[1-9][0-9]{0,8}(?:,[1-9][0-9]{0,8}){0,19})?$/.test(u.searchParams.get('campaigns')||'');}
   if(u.pathname==='/api/crm-features')return u.searchParams.size===1&&['fish','aristo'].includes(u.searchParams.get('brand'));
   if(u.pathname==='/api/crm-purchases')return u.searchParams.size===2&&['fish','aristo'].includes(u.searchParams.get('brand'))&&['interface','publics','products'].includes(u.searchParams.get('action'));
   if(u.pathname==='/api/crm-ab-plans')return u.searchParams.size===1&&['fish','aristo'].includes(u.searchParams.get('brand'));

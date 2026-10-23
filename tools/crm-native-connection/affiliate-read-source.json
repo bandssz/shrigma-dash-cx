@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 49068,
-      "sha256": "6b030f9641d707fc152c839a527fad63c8ff8e83b7439bdab85b00b0d14b887c"
+      "bytes": 49110,
+      "sha256": "bee747e0da14b1a71e87dddd468edc1917e9d7c564390d602cb2585356667d29"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1755,8 +1755,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
-      "bytes": 8257,
-      "sha256": "ae348d0eaa0e0dddc6376b07bd0b12d469c27eb71052186b413ab3d67d7946c1"
+      "bytes": 8314,
+      "sha256": "65749570ea33f1171594fa7a8938511b021c0468065d5a97a5eb63a2b907bdff"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-ui.cjs",
@@ -2480,8 +2480,8 @@
     },
     {
       "path": "tests/crm-home-layout.test.cjs",
-      "bytes": 4442,
-      "sha256": "3df444f030f64df2e62a7bd7611973b612d638b23b5bc8df65c637ed8115c5ca"
+      "bytes": 4510,
+      "sha256": "16039d7c46a9ee98d3286c288ed514dac94b33f190ec788c74874d5c3120d969"
     },
     {
       "path": "tests/crm-legacy-library-plan.test.cjs",
@@ -2562,6 +2562,11 @@
       "path": "tests/crm-purchase-workspace.test.cjs",
       "bytes": 8100,
       "sha256": "5567e4ab210d862ec71acf3c13cbb862eec5e654f771c17626fc7714b3b9ab9e"
+    },
+    {
+      "path": "tests/crm-qa-read-policy.test.cjs",
+      "bytes": 1437,
+      "sha256": "84fcbb645c4b7e377201f8cf0ee7bc5a21e76015054e39d72bc1e73e732e3bcc"
     },
     {
       "path": "tests/crm-read-inflight.test.cjs",
@@ -3040,8 +3045,8 @@
     },
     {
       "path": "tools/crm-qa/editor-home.cjs",
-      "bytes": 3476,
-      "sha256": "aeae123aef918132e68fb90d112396caae2042fb2287fdcb66eed0a22e101e24"
+      "bytes": 3608,
+      "sha256": "ae356fd95b1178f0ef8cf596fd5c2513ee740b1397dc442a1da76977f947ab04"
     },
     {
       "path": "tools/crm-qa/editor-journey.cjs",
@@ -3100,8 +3105,8 @@
     },
     {
       "path": "tools/crm-qa/read-policy.cjs",
-      "bytes": 3409,
-      "sha256": "59d369a13c351967e162c5f834b296a85f8753b18f825bf3532b0e67b0eb4141"
+      "bytes": 4202,
+      "sha256": "c0d6775c7fa6e3dcd794a32d218f61a0b41a3ce606778656ed9e7eaf9ff6aa2a"
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
