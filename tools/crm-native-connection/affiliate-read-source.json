@@ -36,7 +36,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 50511,
-      "sha256": "a3771886160e6c786161550b82299f2b9b5d8a6421e865b0f8dd44c177f049f9"
+      "sha256": "9fe572ceeb99a49eb2490114603281b6495b5bdb7535521584114ef1089840e9"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -2600,8 +2600,8 @@
     },
     {
       "path": "tests/crm-qa-read-policy.test.cjs",
-      "bytes": 1437,
-      "sha256": "84fcbb645c4b7e377201f8cf0ee7bc5a21e76015054e39d72bc1e73e732e3bcc"
+      "bytes": 2315,
+      "sha256": "b477303be7d6a5bb58850f7fc3b8b78ee49fe34c4357559e53e14aacdf3838c2"
     },
     {
       "path": "tests/crm-read-inflight.test.cjs",
@@ -3150,8 +3150,8 @@
     },
     {
       "path": "tools/crm-qa/read-policy.cjs",
-      "bytes": 4202,
-      "sha256": "c0d6775c7fa6e3dcd794a32d218f61a0b41a3ce606778656ed9e7eaf9ff6aa2a"
+      "bytes": 4812,
+      "sha256": "a099f80dd722a038178407450934fc3e4bc74133ac89f97eefb9094087601973"
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
