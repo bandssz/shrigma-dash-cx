@@ -6,6 +6,8 @@ const BRANDS=['fish','aristo'];
 const obj=(properties={},required=[])=>({type:'object',properties,required,additionalProperties:false});
 const brand={type:'string',enum:BRANDS},id={type:'integer',minimum:1},key={type:'string',pattern:'^[A-Za-z0-9_-]{16,100}$'},audienceId={type:'string',pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'},audienceHash={type:'string',pattern:'^[a-f0-9]{64}$'},audienceVersion={type:'integer',minimum:1};
 const sourceRequestId={type:'string',pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'};
+const campaignTimestamp='[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,9})?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])';
+const nativeCampaignVersion=new RegExp('^'+campaignTimestamp+'$'),campaignVersion={type:'string',pattern:'^(?:[a-f0-9]{32}|'+campaignTimestamp+')$'};
 const tools=[
  ['crm_status','Verificar acesso CRM','crm.read',obj(),false,false],
  ['crm_maintenance_notice_get','Consultar aviso de manutenção','crm.read',obj({brand,front:{type:'string',enum:['growth','organico','influs','afiliados']}},['brand','front']),true,false],
@@ -21,7 +23,7 @@ const tools=[
  ['crm_campaign_get','Reler campanha original','crm.read',obj({brand,id},['brand','id']),true,false],
  ['crm_campaign_create','Criar rascunho de campanha','crm.draft',obj({brand,definition:{type:'object'},idempotency_key:key},['brand','definition','idempotency_key']),false,false],
  ['crm_campaign_create_operation','Consultar a intenção de criação','crm.draft',obj({brand,idempotency_key:key},['brand','idempotency_key']),false,false],
- ['crm_campaign_save','Salvar rascunho existente','crm.draft',obj({brand,id,expected_version:{type:'string',pattern:'^[a-f0-9]{32}$'},definition:{type:'object'},idempotency_key:key},['brand','id','expected_version','definition','idempotency_key']),false,false],
+ ['crm_campaign_save','Salvar rascunho existente','crm.draft',obj({brand,id,expected_version:campaignVersion,definition:{type:'object'},idempotency_key:key},['brand','id','expected_version','definition','idempotency_key']),false,false],
  ['crm_campaign_operation','Consultar a tentativa original','crm.draft',obj({brand,idempotency_key:key},['brand','idempotency_key']),false,false],
  ['crm_audience_catalog','Consultar públicos e catálogo original da marca','crm.read',obj({brand,offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1}},['brand']),false,false],
  ['crm_audience_get','Reler público original da marca','crm.read',obj({brand,id:audienceId},['brand','id']),false,false],
@@ -178,7 +180,20 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
   }else if(name.startsWith('crm_campaign_')){
    const actions={crm_campaign_catalog:'campanha_catalogo',crm_campaign_list:'campanha_listar',crm_campaign_get:'campanha_obter',crm_campaign_save:'campanha_salvar',crm_campaign_operation:'campanha_operacao'},action=actions[name];
    if(!action)fail('NATIVE_TOOL_NOT_FOUND');
-   if(name==='crm_campaign_save')result=await run('POST','/api/campaigns',{acao:action,...args});
+   if(name==='crm_campaign_save'){
+    let command={acao:action,...args};
+    if(nativeCampaignVersion.test(args.expected_version)){
+     const date=new Date(args.expected_version.slice(0,10)+'T00:00:00.000Z');if(!Number.isFinite(Date.parse(args.expected_version))||!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==args.expected_version.slice(0,10))fail('NATIVE_ARGUMENTS_INVALID',400);
+     // The native operator returns its original updated_at timestamp. Preserve
+     // metadata from that same server read; never accept it in MCP arguments.
+     const read=await run('GET','/api/campaigns?'+new URLSearchParams({acao:'campanha_obter',brand:args.brand,id:String(args.id)}));
+     if(read.status!==200)return redact(read);const c=read.body?.campaign;
+     if(c?.id!==args.id||c.definition?.brand!==args.brand||c.version!==args.expected_version||c.status!=='draft'||c.sent!==0||c.started_at!==null)fail('CAMPAIGN_VERSION_CONFLICT',409);
+     if(!plain(c.attribs)||!Array.isArray(c.media)||!Array.isArray(c.headers))fail('CAMPAIGN_METADATA_UNCONFIRMED',502);
+     command={...command,attribs:c.attribs,media:c.media,headers:c.headers};
+    }
+    result=await run('POST','/api/campaigns',command);
+   }
    else{const q=new URLSearchParams({acao:action,...Object.fromEntries(Object.entries(args).map(([k,v])=>[k,String(v)]))});result=await run('GET','/api/campaigns?'+q);}
    if(name==='crm_campaign_catalog'&&result.status===200){
     // The campaign catalog remains usable when configured journeys are absent.

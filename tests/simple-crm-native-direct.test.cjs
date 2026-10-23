@@ -15,17 +15,17 @@ test('native list count reads actual membership only after brand admission and n
 test('inactive native list cannot be counted',async()=>{
  let calls=0;const adapter=createDirect({authorize:()=>({role:'manager'}),admitted:()=>false,credentials:{fish:{username:'synthetic',token:'synthetic',listIds:[17,284]}},fetchImpl:async()=>{calls++;return Response.json({data:{id:284,status:'archived',tags:['fish']}});}});await a.rejects(adapter.handle({},'GET',{acao:'campanha_lista_contagem',brand:'fish',list_id:284}),e=>e.code==='CAMPAIGN_LIST_UNAVAILABLE');a.equal(calls,1);
 });
-function fixture(brand,{released=true,edit=true,fail=false,boolStatus=false}={}){
+function fixture(brand,{released=true,edit=true,fail=false,boolStatus=false,failPut=false,onCampaignRead}={}){
  const id=brand==='aristo'?16:17,domain=brand==='aristo'?'oaristocrata.com':'fishermans.com.br',calls=[],source=new Map(),lists=[{id:16,name:'Aristo',status:'active',tags:['aristo']},{id:17,name:'Fish',status:'active',tags:['fish']}];
  const credentials={aristo:{username:'synthetic-aristo',token:'synthetic-aristo-token',listIds:[999]},fish:{username:'synthetic-fish',token:'synthetic-fish-token',listIds:[999]}};
  const adapter=createDirect({now:()=>now,credentials,admitted:()=>released,authorize:(_ctx,b,write)=>{a.equal(b,brand);if(write&&!edit)throw Object.assign(Error('PRODUCT_WRITE_DENIED'),{code:'PRODUCT_WRITE_DENIED',status:403});return{id:'synthetic-editor',role:'manager',permissions:{growth:{read:true,edit}}};},fetchImpl:async(url,options)=>{
   calls.push({url,method:options.method,body:options.body&&JSON.parse(options.body)});a.equal(options.headers.Authorization,'Basic '+Buffer.from(credentials[brand].username+':'+credentials[brand].token).toString('base64'));if(fail)throw Error('A private upstream error must never be returned');
-  const u=new URL(url),q=calls.at(-1).body;let result;
+  const u=new URL(url),q=calls.at(-1).body;let result;if(failPut===true&&options.method==='PUT'&&u.pathname==='/api/campaigns/700')throw Error('synthetic lost response');
   if(options.method==='POST'&&u.pathname==='/api/campaigns'){const row={...q,template_id:q.template_id??1,id:700,lists:q.lists.map(id=>({id})),status:'draft',sent:0,started_at:null,updated_at:'2026-10-20T18:00:00Z'};source.set(row.id,row);result=row;}
   else if(options.method==='POST'&&u.pathname==='/api/campaigns/700/test')result=true;
   else if(options.method==='PUT'&&u.pathname==='/api/campaigns/700/status'){const row=source.get(700);row.status=q.status;result=boolStatus?true:row;}
-  else if(options.method==='PUT'&&u.pathname==='/api/campaigns/700'){const row=source.get(700);Object.assign(row,q,{lists:q.lists.map(id=>({id}))});if(row.status==='scheduled'&&q.send_at===null)row.status='draft';result=row;}
-  else if(options.method==='GET'&&u.pathname==='/api/campaigns/700')result=source.get(700);
+  else if(options.method==='PUT'&&u.pathname==='/api/campaigns/700'){const row=source.get(700);Object.assign(row,q,{lists:q.lists.map(id=>({id}))});if(row.status==='scheduled'&&q.send_at===null)row.status='draft';if(failPut==='after-apply')throw Error('synthetic response lost after commit');result=row;}
+  else if(options.method==='GET'&&u.pathname==='/api/campaigns/700'){onCampaignRead?.(source.get(700));result=source.get(700);}
   else if(options.method==='GET'&&u.pathname==='/api/lists')result={total:lists.length,results:lists};
   else if(options.method==='GET'&&u.pathname.startsWith('/api/lists/'))result=lists.find(l=>l.id===Number(u.pathname.split('/').at(-1)));
   else if(options.method==='GET'&&u.pathname==='/api/subscribers')result={total:42,results:[]};
@@ -167,4 +167,36 @@ test('release removed during the original metadata read prevents the native writ
 for(const data of [{total:2,results:[{id:17,name:'Fish',tags:['fish'],status:'active'}]},{total:2,results:[]},{results:[]}])test('an incomplete native catalog is unavailable instead of current: '+JSON.stringify(data),async()=>{
  const adapter=createDirect({authorize:()=>({role:'manager'}),admitted:()=>false,credentials:{fish:{username:'synthetic',token:'synthetic'}},fetchImpl:async()=>Response.json({data})});
  await a.rejects(adapter.handle({},'GET',{acao:'campanha_catalogo',brand:'fish'}),e=>e.code==='LISTMONK_RESPONSE_UNCONFIRMED');
+});
+function nativeMcpFor(invoke,{scope=true}={}){
+ const {createNativeMcp}=require(runtime+'/crm-native-mcp.cjs');
+ return createNativeMcp({managerHost:'manager.synthetic.invalid',auth:{nativeConnections:{authenticate:(_bearer,q={})=>{if(q.scope==='crm.draft'&&!scope)throw Object.assign(Error('NATIVE_SCOPE_DENIED'),{code:'NATIVE_SCOPE_DENIED',status:403});return {scopes:scope?['crm.read','crm.draft']:['crm.read'],brands:['fish','aristo']};},context:()=>({host:'manager.synthetic.invalid',nativeBearer:'synthetic'})}},invoke});
+}
+const mcpSave=(brand,version,definition)=>({brand,id:700,expected_version:version,definition,idempotency_key:'synthetic-save-key-12345'});
+for(const brand of ['aristo','fish'])test(brand+': native MCP GET-to-save accepts the original timestamp and preserves server metadata',async()=>{
+ const f=fixture(brand),d={...f.definition,send_at:null},created=await f.adapter.handle({},'POST',{acao:'campanha_criar',brand,definition:d});
+ Object.assign(f.source.get(700),{attribs:{...f.source.get(700).attribs,external:{keep:'source-only'}},media:[{id:42}],headers:[{'X-Source':'preserved'},{'Reply-To':d.reply_to}]});
+ const calls=[],m=nativeMcpFor(async request=>{calls.push(request);const q=request.body??Object.fromEntries(new URL(request.path,'https://manager.synthetic.invalid').searchParams);if(q.id!==undefined)q.id=Number(q.id);return f.adapter.handle({},request.method,q);});
+ const saved=await m.call('crm_campaign_save',mcpSave(brand,created.body.campaign.version,{...d,name:'[QA] saved through native MCP'}),'synthetic');
+ a.equal(saved.status,200);a.equal(saved.body.campaign.definition.name,'[QA] saved through native MCP');a.deepEqual(calls.map(x=>x.method),['GET','POST']);a.deepEqual(calls[1].body.attribs.external,{keep:'source-only'});a.deepEqual(calls[1].body.media,[42]);a(calls[1].body.headers.some(x=>x['X-Source']==='preserved'));a.equal(f.calls.filter(x=>x.method==='PUT').length,1);
+});
+for(const brand of ['aristo','fish'])test(brand+': stale timestamp is refused before any native PUT',async()=>{
+ const f=fixture(brand),d={...f.definition,send_at:null},created=await f.adapter.handle({},'POST',{acao:'campanha_criar',brand,definition:d});f.source.get(700).updated_at='2026-10-20T18:01:00Z';
+ await a.rejects(f.adapter.handle({},'POST',{acao:'campanha_salvar',brand,id:700,expected_version:created.body.campaign.version,definition:d,attribs:{},media:[],headers:[]}),e=>e.code==='CAMPAIGN_VERSION_CONFLICT');a.equal(f.calls.filter(x=>x.method==='PUT').length,0);a.equal(f.source.get(700).name,d.name);
+ const m=nativeMcpFor(async()=>({status:200,body:{campaign:{...created.body.campaign,version:'2026-10-20T18:01:00Z'}}}));await a.rejects(m.call('crm_campaign_save',mcpSave(brand,created.body.campaign.version,d),'synthetic'),e=>e.code==='CAMPAIGN_VERSION_CONFLICT');
+});
+for(const brand of ['aristo','fish'])test(brand+': uncertain native save makes exactly one PUT and never retries',async()=>{
+ const f=fixture(brand,{failPut:'after-apply'}),d={...f.definition,send_at:null},created=await f.adapter.handle({},'POST',{acao:'campanha_criar',brand,definition:d}),m=nativeMcpFor(async request=>{const q=request.body??Object.fromEntries(new URL(request.path,'https://manager.synthetic.invalid').searchParams);if(q.id!==undefined)q.id=Number(q.id);return f.adapter.handle({},request.method,q);});
+ await a.rejects(m.call('crm_campaign_save',mcpSave(brand,created.body.campaign.version,{...d,name:'[QA] response uncertain'}),'synthetic'),e=>e.code==='LISTMONK_RESULT_UNCONFIRMED');a.equal(f.calls.filter(x=>x.method==='PUT').length,1);const observed=await f.adapter.handle({},'GET',{acao:'campanha_obter',brand,id:700});a.equal(observed.body.campaign.id,700);a.equal(observed.body.campaign.definition.name,'[QA] response uncertain');a.equal(f.calls.filter(x=>x.method==='PUT').length,1);
+});
+for(const brand of ['aristo','fish'])test(brand+': change between MCP read and direct reread refuses the save before PUT',async()=>{
+ let reads=0;const f=fixture(brand,{onCampaignRead:row=>{if(++reads===2){row.updated_at='2026-10-20T18:01:00Z';row.attribs.external={changed:'another writer'};}}}),d={...f.definition,send_at:null},created=await f.adapter.handle({},'POST',{acao:'campanha_criar',brand,definition:d}),m=nativeMcpFor(async request=>{const q=request.body??Object.fromEntries(new URL(request.path,'https://manager.synthetic.invalid').searchParams);if(q.id!==undefined)q.id=Number(q.id);return f.adapter.handle({},request.method,q);});
+ await a.rejects(m.call('crm_campaign_save',mcpSave(brand,created.body.campaign.version,{...d,name:'[QA] stale after first read'}),'synthetic'),e=>e.code==='CAMPAIGN_VERSION_CONFLICT');a.equal(reads,2);a.equal(f.calls.filter(x=>x.method==='PUT').length,0);a.deepEqual(f.source.get(700).attribs.external,{changed:'another writer'});a.equal(f.source.get(700).name,d.name);
+});
+test('native MCP version schema keeps MD5 legacy forwarding and refuses malformed timestamps before dispatch',async()=>{
+ const calls=[],m=nativeMcpFor(async q=>{calls.push(q);return {status:200,body:{campaign:{id:700}}};}),args=mcpSave('fish','a'.repeat(32),{});await m.call('crm_campaign_save',args,'synthetic');a.equal(calls.length,1);a.equal(calls[0].method,'POST');a.deepEqual(calls[0].body,{acao:'campanha_salvar',...args});
+ calls.length=0;for(const version of ['any-string','2026-02-31T12:00:00Z','2026-13-01T12:00:00Z','2026-10-20T25:00:00Z','2026-10-20T18:00:00Z\n','2026-10-20'])await a.rejects(m.call('crm_campaign_save',mcpSave('fish',version,{}),'synthetic'),e=>e.code==='NATIVE_ARGUMENTS_INVALID');a.equal(calls.length,0);
+});
+test('native MCP timestamp save cannot bypass the draft scope or supply its own metadata',async()=>{
+ let dispatches=0;const invoke=async()=>{dispatches++;return {status:200,body:{}};},args=mcpSave('fish','2026-10-20T18:00:00.123456Z',{}),readOnly=nativeMcpFor(invoke,{scope:false});await a.rejects(readOnly.call('crm_campaign_save',args,'synthetic'),e=>e.code==='NATIVE_SCOPE_DENIED');const m=nativeMcpFor(invoke);for(const extra of [{attribs:{}},{headers:[]},{media:[]},{url:'https://other.invalid'}])await a.rejects(m.call('crm_campaign_save',{...args,...extra},'synthetic'),e=>e.code==='NATIVE_ARGUMENTS_INVALID');a.equal(dispatches,0);
 });

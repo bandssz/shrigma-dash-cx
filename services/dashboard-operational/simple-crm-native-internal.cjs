@@ -202,7 +202,7 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   if(['campanha_salvar','campanha_cancelar'].includes(action)&&(!q.attribs||typeof q.attribs!=='object'||Array.isArray(q.attribs)||!Array.isArray(q.media)||q.acao==='campanha_salvar'&&!Array.isArray(q.headers)))throw error(400,'CAMPAIGN_INPUT');
   let data;
   const existing=async(active=false)=>{await currentScope();return campaign(await request(brand,'GET','/campaigns/'+q.id),brand,scope,active);};
-  if(action==='campanha_criar'||action==='campanha_salvar'){const body=payload(q.definition,brand,q);requireLists(q.definition.list_ids,await currentScope(),true);if(action==='campanha_salvar')await existing(true);data=await writeRequest(action==='campanha_criar'?'POST':'PUT','/campaigns'+(action==='campanha_criar'?'':'/'+q.id),body);}
+  if(action==='campanha_criar'||action==='campanha_salvar'){const body=payload(q.definition,brand,q);requireLists(q.definition.list_ids,await currentScope(),true);if(action==='campanha_salvar'){const current=await existing(true);if(q.expected_version!==undefined&&current.version!==q.expected_version)throw error(409,'CAMPAIGN_VERSION_CONFLICT');}data=await writeRequest(action==='campanha_criar'?'POST':'PUT','/campaigns'+(action==='campanha_criar'?'':'/'+q.id),body);}
   else if(action==='campanha_teste'){
    const target=String(q.recipient||'').trim().toLowerCase();
    if(target.length>254||target.includes('..')||!/^[a-z0-9][a-z0-9._+\-]*@(oaristocrata\.com|fishermans\.com\.br|shrigma\.com\.br)$/.test(target))throw error(400,'CAMPAIGN_TEST_RECIPIENT');

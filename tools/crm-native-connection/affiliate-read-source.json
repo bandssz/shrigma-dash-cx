@@ -36,7 +36,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 51082,
-      "sha256": "1c8e5f0dbc996382d37297744d4da172e05f7cb3db737b9604bcfb5b84814015"
+      "sha256": "54287c2252dfa93cea817b14b4a41d8ec1edac933598e59e79c1e4c0d56ba5e0"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1720,8 +1720,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-native-mcp.cjs",
-      "bytes": 35720,
-      "sha256": "74e7f21cd31bfc5e81e1a6989bad196d9dd7099e18287eaee13a9838c9a616d9"
+      "bytes": 37124,
+      "sha256": "b857c7f2b122b2207d76b2772bd257e3a631733c56fc0e729f6ce5c6437a8ece"
     },
     {
       "path": "services/dashboard-operational/crm-native-operator.cjs",
@@ -2200,8 +2200,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 27712,
-      "sha256": "a02afa88b5955d5aa7c877c0e1c3b9f484396a739940cd1fc227177cfa044daf"
+      "bytes": 27845,
+      "sha256": "9e9e26b2e553eb62ef40f16fc2306624effcdf450bc2611cd4ab287cbb6be8ba"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -3040,8 +3040,8 @@
     },
     {
       "path": "tests/simple-crm-native-direct.test.cjs",
-      "bytes": 24390,
-      "sha256": "80214d23ad38dda815885094f274f33b9008ba44459548ff6c9b63fbb19ed93c"
+      "bytes": 30895,
+      "sha256": "949bacb44efe7d9eae1cd224ed53f765f28364fb3491feac7e388beb0c78a677"
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
@@ -3293,5 +3293,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Owner-only browser entry for one new Meta system-user token. GET granted permissions and both fixed WABA identities before atomic brand-specific encrypted-vault admission. No n8n extraction, mirror write, template submission, messages, worker activation or customer change."
+  "candidatePurpose": "Repair native MCP GET-to-save compatibility with original Listmonk updated_at version and server-sourced campaign metadata; recheck expected version before the single PUT. Preserve legacy MD5 dispatch, brand tags and existing controls. No SQL/function/trigger removal, no new claim, lock, key, journal, worker or customer send. The 16-function/5-trigger retirement remains blocked by active shared consumers."
 }
