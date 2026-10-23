@@ -118,10 +118,12 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   if(!Array.isArray(lists)||!lists.length||lists.some(id=>!idOk(id)||!scope.has(id)))throw error(403,'CAMPAIGN_BRAND_REFUSED');
   if(active&&lists.some(id=>scope.get(id).status!=='active'))throw error(409,'CAMPAIGN_LIST_UNAVAILABLE');
  }
- function campaign(c,brand,scope,active=false){
+ function campaign(c,brand,scope,active=false,contentReview=false){
   const lists=ids(c);if(!idOk(c?.id))throw error(403,'CAMPAIGN_BRAND_REFUSED');requireLists(lists,scope,active);
   const meta=c.attribs?.shrigma||{},previous=c.attribs?.crm||{},headers=Array.isArray(c.headers)?Object.assign({},...c.headers):c.headers||{};
-  return {id:c.id,version:c.updated_at||c.created_at,status:c.status,sent:c.sent??0,started_at:c.started_at??null,send_at:c.send_at??null,attribs:c.attribs??{},media:(c.media||[]).map(x=>typeof x==='object'?x.id:x),headers:c.headers||[],content_type:c.content_type,type:c.type,messenger:c.messenger,definition:{schema_version:'crm-campaign-v1',brand,channel:'email',name:c.name,subject:c.subject,from_email:c.from_email,reply_to:headers['Reply-To']||'contato@'+domains[brand],list_ids:lists,template_id:c.template_id,html:c.body||'',text:c.altbody||'',tags:c.tags||[],initiative:meta.initiative||(previous.initiative_key?{key:previous.initiative_key,name:previous.initiative_name||c.name}:{key:'campanha',name:c.name}),utm_campaign:meta.utm_campaign||previous.utm_campaign||'campanha',send_at:c.send_at??null},audience_id:meta.audience_id||null,audience_name:meta.audience_name||null};
+  const value={id:c.id,version:c.updated_at||c.created_at,status:c.status,sent:c.sent??0,started_at:c.started_at??null,send_at:c.send_at??null,attribs:c.attribs??{},media:(c.media||[]).map(x=>typeof x==='object'?x.id:x),headers:c.headers||[],content_type:c.content_type,type:c.type,messenger:c.messenger,definition:{schema_version:'crm-campaign-v1',brand,channel:'email',name:c.name,subject:c.subject,from_email:c.from_email,reply_to:headers['Reply-To']||'contato@'+domains[brand],list_ids:lists,template_id:c.template_id,html:c.body||'',text:c.altbody||'',tags:c.tags||[],initiative:meta.initiative||(previous.initiative_key?{key:previous.initiative_key,name:previous.initiative_name||c.name}:{key:'campanha',name:c.name}),utm_campaign:meta.utm_campaign||previous.utm_campaign||'campanha',send_at:c.send_at??null},audience_id:meta.audience_id||null,audience_name:meta.audience_name||null};
+  if(contentReview){try{const rows=require('./campaign-editorial-policy.cjs').review({brand,html:c.body||'',text:c.altbody||'',campaign:value.definition.utm_campaign}).diagnostics.filter(x=>x.code==='EXTERNAL_CTA');if(rows.length)value.content_diagnostics=rows;}catch{value.content_diagnostics=[{code:'CONTENT_REVIEW_UNAVAILABLE',severity:'warning',field:'html',line:1,message:'Revisão do conteúdo indisponível.'}];}}
+  return value;
  }
  const idOk=n=>Number.isSafeInteger(n)&&n>0&&n<=2147483647;
  function payload(d,brand,q){
@@ -184,7 +186,7 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
    return {status:200,body:{campaigns,total,page,has_more:!Array.isArray(data)&&page*100<total}};
   }
   if(action!=='campanha_criar'&&!idOk(q.id))throw error(400,'CAMPAIGN_INPUT');
-  if(action==='campanha_obter'){await currentScope();return {status:200,body:{campaign:campaign(await request(brand,'GET','/campaigns/'+q.id),brand,scope)}};}
+  if(action==='campanha_obter'){await currentScope();return {status:200,body:{campaign:campaign(await request(brand,'GET','/campaigns/'+q.id),brand,scope,false,true)}};}
   if(['campanha_salvar','campanha_cancelar'].includes(action)&&(!q.attribs||typeof q.attribs!=='object'||Array.isArray(q.attribs)||!Array.isArray(q.media)||q.acao==='campanha_salvar'&&!Array.isArray(q.headers)))throw error(400,'CAMPAIGN_INPUT');
   let data;
   const existing=async(active=false)=>{await currentScope();return campaign(await request(brand,'GET','/campaigns/'+q.id),brand,scope,active);};
@@ -205,7 +207,7 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
    requireLists(q.list_ids,await currentScope());await existing();data=await writeRequest('PUT','/campaigns/'+q.id,{lists:q.list_ids,send_at:null,attribs:q.attribs??{},media:q.media||[]});
   }
   if(!data||typeof data!=='object')throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
-  return {status:action==='campanha_criar'?201:200,body:{campaign:campaign(data,brand,scope)}};
+  return {status:action==='campanha_criar'?201:200,body:{campaign:campaign(data,brand,scope,false,true)}};
  }
  return Object.freeze({handle,actions});
 }

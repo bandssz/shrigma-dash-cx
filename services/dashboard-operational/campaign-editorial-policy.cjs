@@ -113,7 +113,7 @@ function review({html='',text='',brand,campaign}={}){
   else{truncated=true;if(severity==='block'&&!diagnostics.some(x=>x.severity==='block'))diagnostics[199]=item;}
  }
  const scriptProtocol=value=>/^(?:javascript|vbscript):/i.test(decode(value).replace(/[\u0000-\u0020\u007f]/g,''));
- function destination(raw,offset,field,base){
+ function destination(raw,offset,field,base,externalCta=false){
   const rawValue=String(raw||'').trim(),decoded=decode(rawValue).trim(),literal=staticTrackLink(rawValue)||staticTrackLink(decoded),value=literal?decode(literal.url).trim():decoded;
   if(/^(?:javascript|vbscript):/i.test(value.replace(/[\u0000-\u0020\u007f]/g,''))){add('SCRIPT','block',offset,'Remova o código executável deste destino.',field);return;}
   if(!value||value[0]==='#'||/^\{\{\s*\.?UnsubscribeURL\s*\}\}$/.test(value))return;
@@ -123,20 +123,23 @@ function review({html='',text='',brand,campaign}={}){
   const masked=value.replace(/\{\{[\s\S]*?(?:\}\}|$)/g,marker).replace(/\}\}/g,marker);
   let u;try{u=new URL(masked,base);}catch{add('DESTINATION_SYNTAX','warning',offset,'Confira a sintaxe deste destino.',field);return;}
   const local=target=>target.hostname.includes(marker)?null:![store,'www.'+store].includes(target.hostname)||target.port?false:target.protocol.includes(marker)?null:['https:','http:'].includes(target.protocol);
-  if(local(u)===false){add('OUTSIDE_STORE','block',offset,'O destino precisa permanecer na loja desta marca.',field);return;}
+  const externalHost=u.hostname.replace(/\.+$/,''),otherStore=Object.values(STORES).some(host=>host!==store&&(externalHost===host||externalHost.endsWith('.'+host))),own=local(u),permittedExternal=externalCta&&own===false&&!otherStore&&!dynamic&&/^https:\/\//i.test(value)&&u.protocol==='https:'&&!u.username&&!u.password&&!u.port;
+  if(own===false&&!permittedExternal){add('OUTSIDE_STORE','block',offset,'O destino precisa permanecer na loja desta marca.',field);return;}
   if(u.username||u.password)add('URL_CREDENTIALS','warning',offset,'Confira as credenciais presentes neste endereço.',field);
   if(u.protocol==='http:')add('HTTP_DESTINATION','warning',offset,'Prefira HTTPS neste destino.',field);
   let target=u;
   if(u.searchParams.has('redirect')){
+   if(permittedExternal){add('REDIRECT','block',offset,'O redirecionamento precisa permanecer na loja desta marca.',field);return;}
    let rawTarget=u.searchParams.get('redirect');
    for(let n=0;n<3;n++){let next;try{next=decodeURIComponent(rawTarget);}catch{break;}if(next===rawTarget)break;rawTarget=next;}
    try{target=new URL(rawTarget,u.origin);}catch{target=null;}
    if(!target||local(target)===false){add('REDIRECT','block',offset,'O redirecionamento precisa permanecer na loja desta marca.',field);return;}
   }else if(u.pathname.startsWith('/discount/'))add('COUPON_DESTINATION_REQUIRED','warning',offset,'Confira o destino deste cupom antes do envio.',field);
-  if(/^\/(?:products|pages|collections)\//.test(target.pathname))commercial++;
+  if(permittedExternal)add('EXTERNAL_CTA','warning',offset,'Destino externo. Confira o endereço antes do envio.',field);
+  if(local(target)===true&&/^\/(?:products|pages|collections)\//.test(target.pathname))commercial++;
   if(campaign&&target.searchParams.getAll('utm_campaign').some(v=>v&&v!==campaign))add('UTM_CONFLICT','warning',offset,'O link usa outra identificação de campanha.',field);
  }
- function inspect(source,{offset=0,fixedOffset=null,depth=0,base='https://'+store+'/'}={}){
+ function inspect(source,{offset=0,fixedOffset=null,depth=0,base='https://'+store+'/',allowExternalCtas=true}={}){
   if(depth>12)throw Object.assign(Error('EDITORIAL_STRUCTURE_LIMIT'),{code:'EDITORIAL_STRUCTURE_LIMIT',status:413});
   const parsed=scan(source),at=position=>fixedOffset===null?offset+position:fixedOffset;
   if(parsed.malformed)add('HTML_SYNTAX','warning',at(0),'Confira o fechamento das tags e aspas.');
@@ -144,7 +147,7 @@ function review({html='',text='',brand,campaign}={}){
   if(firstBase)try{base=new URL(decode(firstBase.attrs.href.value),base).href;}catch{}
   for(const t of parsed.tokens){
    if(t.kind==='comment'){
-    if(/^\s*\[if\b/i.test(t.content))inspect(t.content,{offset:offset+t.start+4,fixedOffset,depth:depth+1,base});
+    if(/^\s*\[if\b/i.test(t.content))inspect(t.content,{offset:offset+t.start+4,fixedOffset,depth:depth+1,base,allowExternalCtas});
     continue;
    }
    if(t.kind==='raw'){
@@ -162,8 +165,8 @@ function review({html='',text='',brand,campaign}={}){
    }
    if(name==='meta'&&decode(attrs['http-equiv']?.value).replace(/[\u0000-\u0020\u007f]/g,'').toLowerCase()==='refresh')add('REDIRECT','block',where,'Remova o redirecionamento automático do e-mail.');
    const nav=name==='a'||name==='area'||name==='base'?['href','xlink:href']:name==='form'?['action']:name==='iframe'||name==='embed'?['src']:name==='object'?['data']:[];
-   for(const key of [...nav,'formaction'])if(attrs[key])destination(attrs[key].value,at(attrs[key].start),'html',base);
-   if(name==='iframe'&&attrs.srcdoc)inspect(decode(attrs.srcdoc.value),{fixedOffset:where,depth:depth+1,base});
+   for(const key of [...nav,'formaction'])if(attrs[key])destination(attrs[key].value,at(attrs[key].start),'html',base,allowExternalCtas&&t.ns==='html'&&t.name==='a'&&key==='href');
+   if(name==='iframe'&&attrs.srcdoc)inspect(decode(attrs.srcdoc.value),{fixedOffset:where,depth:depth+1,base,allowExternalCtas:false});
    if(['animate','set','animatetransform','animatemotion'].includes(name)&&/^(?:href|xlink:href|src)$/i.test(decode(attrs.attributename?.value)))for(const key of ['to','from','values'])if(attrs[key]?.value.split(';').some(scriptProtocol))add('SCRIPT','block',where,'Remova o destino executável desta animação.');
    if(['iframe','object','embed','form','input','button','select','textarea','svg','math','base'].includes(name))add('EMAIL_INTERACTIVE','warning',where,'Este elemento pode não funcionar em alguns leitores de e-mail.');
    if(name==='link')add('EXTERNAL_RESOURCE','warning',where,'Confira a disponibilidade deste recurso no leitor de e-mail.');
@@ -176,10 +179,10 @@ function review({html='',text='',brand,campaign}={}){
  while((textMatch=textCandidates.exec(plain))){
   if(textMatch[0]==='{{'){
    const end=templateEnd(plain,textMatch.index),action=plain.slice(textMatch.index,end),literal=staticTrackLink(action);
-   if(literal)destination(literal.url,textMatch.index,'text','https://'+store+'/');
+   if(literal)destination(literal.url,textMatch.index,'text','https://'+store+'/',true);
    else if(!/^\{\{\s*\.?UnsubscribeURL\s*\}\}$/.test(action))add('TEMPLATE_EXPRESSION','warning',textMatch.index,'Confira a variável ou expressão na prévia nativa.','text');
    textCandidates.lastIndex=end;
-  }else{const end=urlEnd(plain,textMatch.index),raw=plain.slice(textMatch.index,end);destination(raw,textMatch.index,'text','https://'+store+'/');textCandidates.lastIndex=end;}
+  }else{const end=urlEnd(plain,textMatch.index),raw=plain.slice(textMatch.index,end);destination(raw,textMatch.index,'text','https://'+store+'/',true);textCandidates.lastIndex=end;}
  }
  if(!commercial)add('NO_COMMERCIAL_LINK','warning',0,'Confira se a peça precisa de um link de produto, página ou coleção.');
  diagnostics.sort((x,y)=>x.field.localeCompare(y.field)||x.line-y.line||x.code.localeCompare(y.code));
