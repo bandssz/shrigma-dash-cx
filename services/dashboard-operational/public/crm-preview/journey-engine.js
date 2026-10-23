@@ -91,10 +91,9 @@
  const paidDay=at=>{if(!Number.isSafeInteger(at)||at<0)fail('LAB_CLOCK_INVALID');const parts=new Intl.DateTimeFormat('en-CA',{timeZone:PAID_POLICY.timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(at);return ['year','month','day'].map(k=>parts.find(p=>p.type===k).value).join('-');};
  // Evidence here is exclusively synthetic. No provider, identity lookup or
  // transport is admitted by this laboratory policy.
- function paidDecision(r,e,rounds,now){
+ function messageCapDecision(r,e,rounds,now){
   const day=paidDay(now),out=(code,count=null)=>({code,day,count,mode:'synthetic',realSends:0});
   if(e?.mode!=='synthetic'||e.brand!==r.draft.brand||typeof e.person!=='string'||!/^synthetic:[a-zA-Z0-9:_-]{1,180}$/.test(e.person))return out('identity-unknown');
-  if(!e.payment||e.payment.state!=='paid'||e.payment.orderId!==e.entryOrderId||!/^synthetic-order:[a-zA-Z0-9:_-]+$/.test(e.entryOrderId||'')||e.payment.occurredAt!==r.startedAt)return out(e.payment?.state==='unknown'?'payment-unknown':'payment-not-paid');
   if(!Number.isSafeInteger(e.observedAt)||e.observedAt>now||now-e.observedAt>300000)return out('evidence-stale');
   const c=e.coverage;if(c?.day!==day||c.complete!==true||!['campaigns','journeys','ses'].every(k=>c[k]===true)||JSON.stringify(c.brands)!=='["aristo","fish"]'||!Array.isArray(e.receipts)||e.receipts.length>100)return out('receipts-incomplete');
   const messages=new Map();
@@ -102,7 +101,7 @@
    if(!x||typeof x.id!=='string'||!x.id.startsWith('synthetic-message:')||x.person!==e.person||!Number.isSafeInteger(x.at)||x.at<0||x.at>now||!['campaign','journey','ses'].includes(x.kind))return out('receipts-incomplete');
    const prior=messages.get(x.id);if(prior&&prior.at!==x.at)return out('identity-unknown');messages.set(x.id,{at:x.at});
   }
-  if(!Array.isArray(rounds)||rounds.length>40)return out('receipts-incomplete');
+  if(!Array.isArray(rounds)||rounds.length>80)return out('receipts-incomplete');
   for(const row of [...rounds,{person:e.person,run:r}]){
    if(row.person!==e.person)continue;
    try{validateRun(row.run);if(row.run.now>now)return out('receipts-incomplete');}catch{return out('receipts-incomplete');}
@@ -111,6 +110,12 @@
   const count=[...messages.values()].filter(x=>paidDay(x.at)===day).length;
   return out(count>=1?'daily-limit':'eligible',count);
  }
+ function paidDecision(r,e,rounds,now){
+  const day=paidDay(now),out=(code,count=null)=>({code,day,count,mode:'synthetic',realSends:0});
+  if(e?.mode!=='synthetic'||e.brand!==r.draft.brand||typeof e.person!=='string'||!/^synthetic:[a-zA-Z0-9:_-]{1,180}$/.test(e.person))return out('identity-unknown');
+  if(!e.payment||e.payment.state!=='paid'||e.payment.orderId!==e.entryOrderId||!/^synthetic-order:[a-zA-Z0-9:_-]+$/.test(e.entryOrderId||'')||e.payment.occurredAt!==r.startedAt)return out(e.payment?.state==='unknown'?'payment-unknown':'payment-not-paid');
+  return messageCapDecision(r,e,rounds,now);
+ }
  function advancePaid(input,{now,evidence,rounds=[]}={}){
   validateRun(input);if(input.draft.trigger!=='order_paid')fail('LAB_PAID_TRIGGER_REQUIRED');
   const decisions=[],decision=()=>paidDecision(input,evidence,rounds,now);
@@ -118,5 +123,5 @@
   if(!decisions.length){const code=r.status==='excluded'?r.trace.at(-1)?.reason==='opt_out'?'opt-out':'purchase-after-entry':r.status==='finished'?'finished':r.status==='uncertain'?'uncertain-message':observation(evidence?.afterEntryPurchase,now)===null||observation(evidence?.emailAllowed,now)===null?'conditions-unknown':null;const d=decision();decisions.push({...d,code:code||(d.code==='eligible'?'waiting-time':d.code)});}
   return {run:r,decisions,policy:{...PAID_POLICY},mode:'synthetic',realSends:0};
  }
- return Object.freeze({SCHEMA,validateDraft,duplicate,createDraft,duplicateDraft,saveDraft,newRun,validateRun,fact,advance,togglePause,startOnce,readStore,PAID_POLICY,paidDay,paidDecision,advancePaid});
+ return Object.freeze({SCHEMA,validateDraft,duplicate,createDraft,duplicateDraft,saveDraft,newRun,validateRun,fact,advance,togglePause,startOnce,readStore,PAID_POLICY,paidDay,observation,messageCapDecision,paidDecision,advancePaid});
 });

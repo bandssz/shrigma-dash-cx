@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 51082,
-      "sha256": "54287c2252dfa93cea817b14b4a41d8ec1edac933598e59e79c1e4c0d56ba5e0"
+      "bytes": 51214,
+      "sha256": "f2da4f1a39780842a32d69fe1494e4d90279c3be31a1f7d0921f3d811427a2f3"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -420,8 +420,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 16632,
-      "sha256": "ad93fe39b9194618b0a40ffe785690eeed17451c784a20759da7c32ea93621ba"
+      "bytes": 16685,
+      "sha256": "9c259feb4adb0b2256849389c824404ed005cf6f7cf34bfbc2cb743d6f30175d"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -430,13 +430,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 8920,
-      "sha256": "01426968499fd389ef75204beba82bc75392f6c45dcce5358c7a89897b019519"
+      "bytes": 8973,
+      "sha256": "bccf18a84e788bd4df463f49016193d347928132a4d4130a0651a863d33fb2b0"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 11832,
-      "sha256": "61f09bb5413dc92bbae301a768d0fe69abd1d6e457a3a3c3f10c83025940af2f"
+      "bytes": 11982,
+      "sha256": "e11220f3f2f750d9add7da82db676a1391b2505f5ea1e4843b38329a55e11d5d"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -1681,7 +1681,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "307fda36113fe16a57a2b0658c21e27932ed529544a27f4f4cc463f88e2b9f0b"
+      "sha256": "cd112d10f8c5250f89df1a5a574a7d6da08b43eaa02eeff968944bf5881fbbdd"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1827,6 +1827,16 @@
       "path": "services/dashboard-operational/journey-activation-review.cjs",
       "bytes": 7455,
       "sha256": "a934d5a6816ea68ad8125af68425835af1829f3d28d1a66c47a63d19ae8fb6ac"
+    },
+    {
+      "path": "services/dashboard-operational/journey-entry-qa-engine.cjs",
+      "bytes": 12825,
+      "sha256": "140933290edd30b51f58fb71fba2701a3ac8166d79b2a69d90a54739fe6cb8d4"
+    },
+    {
+      "path": "services/dashboard-operational/journey-entry-qa.cjs",
+      "bytes": 10374,
+      "sha256": "275ed8588b44a18c2b7bd91ac755a85af04486e7e435cd7ac68c84a5806319bb"
     },
     {
       "path": "services/dashboard-operational/journey-internal-html-binding.cjs",
@@ -2065,13 +2075,13 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
-      "bytes": 15522,
-      "sha256": "3693413b90a68168bb099c4fdbd59a89f90a585d7bc4c7d14c44bc8bed1cf1ff"
+      "bytes": 15909,
+      "sha256": "8a899dd7ec109c747dd24f49bc4fc2b671738551aefddf7b66f7086f1837a12a"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 77270,
-      "sha256": "e7653b2cdcb1c22e04723674b5733e76f09209d6837b5d3eb053f4a0be841142"
+      "bytes": 93543,
+      "sha256": "8e3eb61b74e805992c044b71d99a6b2508ddea89349fa99d8d2df4594ea6f9dd"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/message-preview.js",
@@ -2115,13 +2125,13 @@
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 23001,
-      "sha256": "886660cb9fcef184d3b0dc8b1533c9c40fb982b06e44128f53ff432d76a75a27"
+      "bytes": 23020,
+      "sha256": "b138b4ae773f6dc85c63e52c85736644abcc266bdd45daafb02e9bdd29a73356"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 22272,
-      "sha256": "9a505ef372a8b48596120ee5ac8157da83e0fd2f86bcfec97af1ad915f66958f"
+      "bytes": 22291,
+      "sha256": "52dfb006d0d7a2172905c608cc86ab589501b77a6f143e1487c3c63df672e004"
     },
     {
       "path": "services/dashboard-operational/public/influs-workspace/app.js",
@@ -2165,8 +2175,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 245906,
-      "sha256": "5c40af40300e62db0b89b430c16b6b4fb20177bf7c1c6d8871a59553bc20e4de"
+      "bytes": 248344,
+      "sha256": "e432ed5e0b969e8d2654ff2f71fe3ba94bd4a548d4302b488a9b51de57796a66"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2210,8 +2220,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
-      "bytes": 34834,
-      "sha256": "1f610bc082fca0981874bd3e7c999e8b593f1e615ca950a4fc7f7852220d6bde"
+      "bytes": 35060,
+      "sha256": "64e69426af4331bd771fac37646588afa02d3babd9552340fa018fabe5feec45"
     },
     {
       "path": "services/dashboard-operational/simple-tts-manual.cjs",
@@ -2759,6 +2769,11 @@
       "sha256": "815d669a74bdf6a0b587b0e660cb43d50a59e8595dd674e55bb98ea2b5184dc8"
     },
     {
+      "path": "tests/editor-entry-journey-gate.test.cjs",
+      "bytes": 2036,
+      "sha256": "4e8a8c309e5177c4539ab98da929dd98d17de6bf46665b5593f6fe2da6d4e599"
+    },
+    {
       "path": "tests/editor-paid-journey-gate.test.cjs",
       "bytes": 1636,
       "sha256": "cc93bd994a15926692a5421b458dd4cf989c8f5d5b27048b21d742bdfaffcfd7"
@@ -2837,6 +2852,16 @@
       "path": "tests/influs-affiliates-mount.test.cjs",
       "bytes": 8076,
       "sha256": "78ae0f6a0d54ffebcdaa796a62b33dacc8f7ac43206153688553801bbeb0fd52"
+    },
+    {
+      "path": "tests/journey-entry-qa-ui.test.cjs",
+      "bytes": 8597,
+      "sha256": "7e654bbde3ccf71520f6faa783b40ab36ae2803bcb66902938520ae355e48eee"
+    },
+    {
+      "path": "tests/journey-entry-qa.test.cjs",
+      "bytes": 15668,
+      "sha256": "83a31d36a381b2dbf7015aaf11d76faaddbdb40e463ffd418e62f7b82d39c559"
     },
     {
       "path": "tests/journey-html-http.test.cjs",
@@ -3055,8 +3080,8 @@
     },
     {
       "path": "tests/simple-login-gateway.test.cjs",
-      "bytes": 43990,
-      "sha256": "969043a26fb102505a7bd267458c1e814cd6ba52802589008b9812e46f89f390"
+      "bytes": 48700,
+      "sha256": "f91f90321b2041f15d0c428806cfa8837abc1100f2a41b994381795aecabd0d3"
     },
     {
       "path": "tests/simple-login-ui.test.cjs",
@@ -3129,6 +3154,11 @@
       "sha256": "f3d7809bb09c872b9fcf2777167753a21416dd9bc0fb16e830315f1123354e0b"
     },
     {
+      "path": "tools/crm-qa/editor-entry-journey.cjs",
+      "bytes": 8762,
+      "sha256": "5a40049d76adeac41d1dbedee21ead8adba07d3f7c5d76fdfc7fb281e1530b9b"
+    },
+    {
       "path": "tools/crm-qa/editor-findability.cjs",
       "bytes": 3201,
       "sha256": "a0fad30e6c9336e0197884340bd7fe9f6c5d9caacc4cf703d2217c71a71e495c"
@@ -3180,8 +3210,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 20877,
-      "sha256": "df8b80f232d019a004e4ba789a3794181b87d5ef6c2bd83f5a21c8e4c6a5d97e"
+      "bytes": 21251,
+      "sha256": "5c5f393f60c2d845502757ec51c170d031728ea4274358602724de80e09dbc58"
     },
     {
       "path": "tools/crm-qa/paid-acquisition-restore-sql.cjs",
@@ -3205,13 +3235,13 @@
     },
     {
       "path": "tools/crm-qa/read-policy.cjs",
-      "bytes": 5318,
-      "sha256": "281a4543381a0dbfab8d6a72af6e2c65d6a499c7ac2c832e10e5534637386ae7"
+      "bytes": 5352,
+      "sha256": "b523f0aec4d8d4119c4ea7b0b9b6312e55dfa5e244b57a6d29d780f456f4a324"
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 13931,
-      "sha256": "d90be4085e238e18b6c1abbc511e3f81bc80f30719e4bae45754d02c7b559685"
+      "bytes": 14426,
+      "sha256": "f117004c49fbcf89231fcddb82371d4d624754f7d3ba7cec0f56428324504ecd"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -3240,8 +3270,8 @@
     },
     {
       "path": "tools/prepared-worker/image-smoke.cjs",
-      "bytes": 6866,
-      "sha256": "9b827b0523732ea8b0d281dacd78cee29f8dae5260a6afb75ce854a68e440570"
+      "bytes": 7015,
+      "sha256": "70085636b17725a3dac69868fd05f0cad90843f61ac09f34e88c4f14a896aec8"
     },
     {
       "path": "tools/prepared-worker/queue-smoke.cjs",
@@ -3293,5 +3323,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Repair native MCP GET-to-save compatibility with original Listmonk updated_at version and server-sourced campaign metadata; recheck expected version before the single PUT. Preserve legacy MD5 dispatch, brand tags and existing controls. No SQL/function/trigger removal, no new claim, lock, key, journal, worker or customer send. The 16-function/5-trigger retirement remains blocked by active shared consumers."
+  "candidatePurpose": "Restricted QA entry definitions and saved synthetic simulations for daily rolling audience entry and N elapsed days after lastPaidAt. Original public identity/version/canonical hash is read by the server; no member reads. Separate append-only QA family and frozen round snapshots; shared one-email/person/BRT-day cap across paid/entry QA and both brands, including unattributed SES receipts. No activation, scheduling, provider transport, Listmonk SQL, worker, n8n or customer changes. Real entry sources and commercial activation remain unproved and disabled."
 }

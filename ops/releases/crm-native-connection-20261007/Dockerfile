@@ -22,6 +22,7 @@ COPY services/dashboard-operational/public/influs-workspace/ ./services/dashboar
 COPY services/dashboard-operational/public/organico-workspace/index.html services/dashboard-operational/public/organico-workspace/app.js services/dashboard-operational/public/organico-workspace/organico-attribution.js ./services/dashboard-operational/public/organico-workspace/
 COPY services/dashboard-operational/public/crm-preview/ /source/services/dashboard-operational/public/crm-preview/
 COPY services/dashboard-operational/public/entry.html services/dashboard-operational/public/entry.css ./services/dashboard-operational/public/
+COPY services/dashboard-operational/journey-entry-qa.cjs services/dashboard-operational/journey-entry-qa-engine.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/dashboard-individual-read.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/afiliados-read.cjs services/dashboard-operational/afiliados-read-contract.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/afiliados-native-consent.cjs services/dashboard-operational/afiliados-source-operator.cjs ./services/dashboard-operational/

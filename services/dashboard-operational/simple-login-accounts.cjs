@@ -200,7 +200,7 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
     const old=action==='update'?q.definitions.find(d=>d.id===args.draftId):null;if(action==='update'&&!old)fail('PAID_QA_NOT_FOUND',404);if(!old&&q.definitions.length>=20)fail('PAID_QA_LIMIT',409);
     const d=old?JSON.parse(JSON.stringify(old)):paidEngine.createDraft({brand,id:crypto.randomUUID()});d.trigger='order_paid';d.name=args.name.trim();d.audience='Pessoa sintética · pedido pago';d.steps=args.waitMinutes.map((waitMinutes,i)=>({id:'step-'+(i+1),channel:'email',waitMinutes,enabled:true,templateName:'Mensagem QA '+(i+1),subject:'[TESTE] Pedido pago · '+(i+1),text:'[TESTE] Ensaio sintético sem transporte.'}));const saved=old?paidEngine.saveDraft(old,d):paidEngine.validateDraft(d);q.definitions=old?q.definitions.map(x=>x.id===old.id?saved:x):[...q.definitions,saved];
    }else{
-    const all=['aristo','fish'].flatMap(b=>paidHead(user.id,b).qa.rounds),globalNow=Math.max(stamp(),...all.map(r=>r.run.now));
+    const all=[...['aristo','fish'].flatMap(b=>paidHead(user.id,b).qa.rounds),...entryQa.capRounds(user.id)],globalNow=Math.max(stamp(),...all.map(r=>r.run.now));
     if(action==='start'){
      if(q.rounds.length>=20)fail('PAID_QA_LIMIT',409);const d=q.definitions.find(d=>d.id===args.draftId);if(!d)fail('PAID_QA_NOT_FOUND',404);if(!/^[a-z0-9_-]{1,40}$/.test(args.personId||''))fail('PAID_QA_PERSON_INVALID');
      const id=crypto.randomUUID(),run=paidEngine.newRun(d,{eventId:'synthetic:'+id,startedAt:globalNow});q.rounds.push({id,person:'synthetic:'+user.id+':'+args.personId,entryOrderId:'synthetic-order:'+id,run,receipts:[],decisions:[],policy:{...paidEngine.PAID_POLICY},mode:'synthetic',realSends:0});
@@ -213,6 +213,7 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
    q.lastMutationId=mutationId;const serialized=JSON.stringify(q);if(serialized.length>500000)fail('PAID_QA_LIMIT',409);db.prepare('INSERT INTO simple_journey_paid_qa_v1(user_id,brand,revision,qa_json,created_at) VALUES(?,?,?,?,?)').run(user.id,brand,expected_revision+1,serialized,stamp());return paidQaRead({context,brand,...(action==='resolve'?{mutationId:args.originalMutationId}:{})});
   });
  }
+ const entryQa=require('./journey-entry-qa.cjs').create({db,authorize:paidOwner,transaction,now:stamp,paidRounds:userId=>['aristo','fish'].flatMap(b=>paidHead(userId,b).qa.rounds)});
  // Existing v1 is an immutable baseline; new saves append a whole revision.
  // A later rollback writer changing that baseline is detected, never merged.
  function labHead(userId,brand){
@@ -281,6 +282,6 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
  }});
  const abRegistry=createAbRegistry({db,authorize:authorizeUser,now});
 
- return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,paidQaRead,paidQaMutate,journeyTest,journeyActivationReview,abRegistry,modelPieces});
+ return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,paidQaRead,paidQaMutate,entryQa,journeyTest,journeyActivationReview,abRegistry,modelPieces});
 }
 module.exports={createSimpleAccounts,createAbRegistry,profile,FRONTS,BRANDS};

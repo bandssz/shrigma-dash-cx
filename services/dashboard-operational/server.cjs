@@ -1400,6 +1400,23 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(req.method!=='GET'||url.search)throw jsonError(405,'METHOD_DENIED');
         return sendJson(req,res,200,auth.simpleAccounts.journeyActivationReview.inbox({context:ctx}));
       }
+      if(url.pathname==='/api/journey-entry-qa'&&s.simpleReadMode===true&&auth.simpleAccounts?.entryQa){
+        if(nativeContext)throw jsonError(403,'ENTRY_QA_COOKIE_REQUIRED');
+        const entryBrand=brand=>{if(req.headers['x-shrigma-view-brand']&&req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'ENTRY_QA_BRAND_MISMATCH');return brand;},qa=auth.simpleAccounts.entryQa;
+        if(req.method==='GET'&&url.searchParams.has('brand')&&[1,2].includes(url.searchParams.size)&&new Set(url.searchParams.keys()).size===url.searchParams.size&&[...url.searchParams.keys()].every(k=>['brand','mutationId'].includes(k)))return sendJson(req,res,200,qa.read({context:ctx,brand:entryBrand(url.searchParams.get('brand')),...(url.searchParams.has('mutationId')?{mutationId:url.searchParams.get('mutationId')}:{})}));
+        if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
+        if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,10000);if(!body||Object.getPrototypeOf(body)!==Object.prototype||!Object.hasOwn(body,'brand')||Object.hasOwn(body,'context'))throw jsonError(400,'ENTRY_QA_ARGUMENTS');entryBrand(body.brand);
+        const prepared=qa.prepare({...body,context:ctx});let audienceRef=null;
+        if(prepared.audienceLookup){
+          if(!simpleReader)throw jsonError(503,'ENTRY_QA_AUDIENCE_UNAVAILABLE');
+          const q=new URLSearchParams({acao:'segmento_obter',brand:body.brand,id:prepared.audienceLookup.id}),result=await simpleReader.read({context:{...ctx,method:'GET'},route:'segments',method:'GET',query:q,origin});
+          if(result.status!==200)return sendJson(req,res,result.status,result.body);const segment=result.body?.segment;
+          if(segment?.id!==prepared.audienceLookup.id||segment.brand!==body.brand||segment.version!==prepared.audienceLookup.version||segment.archived!==false||segment.semantic_context?.current!==true)throw jsonError(409,'ENTRY_QA_AUDIENCE_CHANGED');
+          const H=require('./segment-audience-review.cjs');audienceRef={id:segment.id,version:segment.version,name:segment.name,definitionHash:H.digest(AudienceContract.normalize(segment.definition)),hashContract:H.HASH_CONTRACT,readAt:Date.now()};
+        }
+        return sendJson(req,res,200,qa.mutate({context:ctx,body,audienceRef}));
+      }
       if(url.pathname==='/api/journey-paid-qa'&&s.simpleReadMode===true&&auth.simpleAccounts){
         if(nativeContext)throw jsonError(403,'PAID_QA_COOKIE_REQUIRED');
         const paidBrand=brand=>{if(req.headers['x-shrigma-view-brand']&&req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'PAID_QA_BRAND_MISMATCH');return brand;};

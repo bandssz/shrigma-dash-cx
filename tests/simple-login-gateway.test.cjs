@@ -4,7 +4,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
 const {createAuth}=require(runtime+'/auth.cjs'),{createServer}=require(runtime+'/server.cjs'),{FIXED_DESTINATIONS}=require(runtime+'/proxy.cjs');
 const HOST='gerencial.synthetic.invalid',PASS='synthetic-password-2026',STAMP='2026-10-12T15:00:00-03:00';
-async function fixture(t,{fronts=['growth','organico','influs','afiliados'],brands=['fish','aristo','olivas'],missing=false,revoke=false,unscoped=false,leak=false,leakJourney=false,ownPartners=false,writeFronts=[],writer=false,uncertainWrite=false,badWriteReceipt=false,hooks={},adminWrite=false}={}){
+async function fixture(t,{fronts=['growth','organico','influs','afiliados'],brands=['fish','aristo','olivas'],missing=false,revoke=false,unscoped=false,leak=false,leakJourney=false,ownPartners=false,writeFronts=[],writer=false,uncertainWrite=false,badWriteReceipt=false,hooks={},adminWrite=false,entryAudience=false}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'simple-gateway-')),boot='synthetic-bootstrap-token',areaHosts={growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influs.synthetic.invalid'};
  const auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),managerHost:HOST,areaHosts,allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'admin@synthetic.invalid',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,8),simpleReadMode:true});
  await auth.completeBootstrap({email:'admin@synthetic.invalid',token:boot,password:PASS,host:HOST,origin:'https://'+HOST});
@@ -16,9 +16,13 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
  const keys={growth:'synthetic-service-crm-key',organico:'synthetic-service-organico-key',influs:'synthetic-service-influs-key',afiliados:'synthetic-service-afiliados-key'};
  if(missing)delete keys.organico;
  const upstreams=Object.fromEntries(['crm-read','cx','cache','influ','tts'].map(k=>[k,new URL(FIXED_DESTINATIONS[k])]));let reads=0;
+ const audienceDefinition=require(runtime+'/segment-audience-contract.js').normalize({schema_version:'crm-audience-v2',brand:'fish',name:'Público QA HTTP',rule:{op:'in_list',list_id:17}}),audienceRow={id:'00000000-0000-4000-8000-000000000001',brand:'fish',name:audienceDefinition.name,definition:audienceDefinition,version:1,archived:false,created_at:STAMP,updated_at:STAMP,updated_by:'panel:synthetic-audience',semantic_context:{currency:'BRL',timezone:'America/Sao_Paulo',current:true}};
+ if(entryAudience){keys.audiences='synthetic-service-audience-key';upstreams.segments=new URL(require(runtime+'/proxy.cjs').REVIEWED_DYNAMIC.routes.segments);}
  const writerKey='synthetic-private-affiliate-write-key',receipts=new Map();let writes=0;const candidate={marca:'fish',id:'10000000-0000-4000-8000-000000000001',name:'Synthetic affiliate',handle:'@synthetic',source:'manual',source_reference:'synthetic-reference',state:'novo',note:'synthetic note preserved',version:1};
  const fetchImpl=async(url,options)=>{
-  reads++;assert(!options.headers.Cookie);assert(!options.headers.Origin);const target=new URL(url),journeys=target.href.startsWith('https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd'),front=journeys||target.href.startsWith(FIXED_DESTINATIONS['crm-read'])?'growth':target.href.startsWith(FIXED_DESTINATIONS.influ)?'influs':target.href.startsWith(FIXED_DESTINATIONS.tts)?'afiliados':'organico';
+  reads++;assert(!options.headers.Cookie);assert(!options.headers.Origin);const target=new URL(url);
+  if(entryAudience&&target.origin+target.pathname===upstreams.segments.origin+upstreams.segments.pathname){assert.equal(options.method,'GET');assert.equal(options.headers.Authorization,'Bearer '+keys.audiences);assert(!options.body);assert(!target.searchParams.has('k'));assert.equal(target.searchParams.get('acao'),'segmento_obter');assert.equal(target.searchParams.get('brand'),'fish');assert.equal(target.searchParams.get('id'),audienceRow.id);return new Response(JSON.stringify({segment:audienceRow}),{headers:{'content-type':'application/json'}});}
+  const journeys=target.href.startsWith('https://n8n.shrigma.com.br/webhook/crm-modelos-20261014-14a1976f59cd'),front=journeys||target.href.startsWith(FIXED_DESTINATIONS['crm-read'])?'growth':target.href.startsWith(FIXED_DESTINATIONS.influ)?'influs':target.href.startsWith(FIXED_DESTINATIONS.tts)?'afiliados':'organico';
   const command=JSON.parse(options.body||'{}');
   if(front==='influs'&&['piloto_salvar','piloto_operacao'].includes(command.acao)){
    assert.equal(command.k,writerKey);assert(!Object.hasOwn(command,'autor'));assert(!options.headers.Authorization);
@@ -44,7 +48,7 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
   await hooks.afterRead?.();
   return new Response(JSON.stringify(data),{headers:{'content-type':'application/json'}});
  };
- const settings={mode:'operational',simpleReadMode:true,simpleReadSources:keys,...(writer?{simpleAffiliateWriteKey:writerKey}:{}),managerHost:HOST,areaHosts,allowedEmailDomains:['synthetic.invalid'],upstreamProfile:'production',upstreams,allowedUpstreamHosts:[...new Set(Object.values(upstreams).map(u=>u.hostname))],publicDir:dir,port:0,host:'127.0.0.1'};
+ const settings={mode:'operational',simpleReadMode:true,simpleReadSources:keys,...(writer?{simpleAffiliateWriteKey:writerKey}:{}),managerHost:HOST,areaHosts,allowedEmailDomains:['synthetic.invalid'],upstreamProfile:'production',upstreams,...(entryAudience?{dynamicRouteManifest:{schema:require(runtime+'/proxy.cjs').DYNAMIC_MANIFEST_SCHEMA,sourceRevision:require(runtime+'/proxy.cjs').REVIEWED_DYNAMIC.sourceRevision,routes:{segments:upstreams.segments.href}}}:{}),allowedUpstreamHosts:[...new Set(Object.values(upstreams).map(u=>u.hostname))],publicDir:dir,port:0,host:'127.0.0.1'};
  const server=createServer(settings,{auth,fetchImpl});await new Promise(r=>server.listen(0,'127.0.0.1',r));
  t.after(async()=>{await new Promise(r=>server.close(r));auth.close();fs.rmSync(dir,{recursive:true,force:true});});
  const request=(url,{method='GET',body,asAdmin=false,csrf=true,brand,cookie}={})=>new Promise((resolve,reject)=>{
@@ -52,8 +56,23 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
   const headers={Host:HOST,Origin:'https://'+HOST,Cookie:cookie||login.cookie.split(';')[0],...(csrf?{'X-CSRF-Token':login.csrf}:{}),...(brand?{'X-Shrigma-View-Brand':brand}:{}),...(bytes?{'content-type':'application/json','content-length':bytes.length}:{})};
   const req=http.request({host:'127.0.0.1',port:server.address().port,path:url,method,headers},res=>{let out='';res.on('data',b=>out+=b);res.on('end',()=>resolve({status:res.statusCode,body:res.headers['content-type']?.startsWith('application/json')?JSON.parse(out):out,cookie:res.headers['set-cookie']}));});req.on('error',reject);req.end(bytes);
  });
- return {request,reads:()=>reads,keys,analyst,created,auth,adminContext,fetchImpl,upstreams,writes:()=>writes,candidate,receipts,writerKey};
+ return {request,reads:()=>reads,keys,analyst,created,auth,adminContext,fetchImpl,upstreams,writes:()=>writes,candidate,receipts,writerKey,audienceRow};
 }
+test('entry QA HTTP confines synthetic mutations to authorized brand and CSRF; reload and CAS receipt survive',async t=>{
+ const f=await fixture(t,{adminWrite:true}),url='/api/journey-entry-qa',body={brand:'aristo',action:'create',expected_revision:0,mutationId:crypto.randomUUID(),name:'Reativação QA HTTP',kind:'after_purchase',days:90,waitMinutes:[0,4320],audienceId:null,audienceVersion:null};
+ assert.equal((await f.request(url+'?brand=aristo')).status,403);assert.equal((await f.request(url+'?brand=aristo',{asAdmin:true})).body.revision,0);
+ for(const [opts,status]of [[{csrf:false},403],[{body:{...body,context:f.adminContext}},400],[{brand:'fish'},403],[{body:{...body,audienceRef:{definitionHash:'a'.repeat(64)}}},400]])assert.equal((await f.request(url,{method:'POST',body,asAdmin:true,...opts})).status,status);
+ assert.equal((await f.request(url+'?brand=aristo',{asAdmin:true,brand:'fish'})).status,403);
+ const saved=await f.request(url,{method:'POST',body,asAdmin:true,brand:'aristo'});assert.equal(saved.status,200,JSON.stringify(saved.body));assert.equal(saved.body.revision,1);assert.equal(saved.body.qa.definitions[0].entrySpec.delayDays,90);assert.deepEqual(saved.body.qa.definitions[0].draft.steps.map(x=>x.waitMinutes),[0,4320]);assert.equal(saved.body.executes,false);assert.equal(saved.body.sends,0);
+ assert.deepEqual((await f.request(url+'?brand=aristo',{asAdmin:true})).body,saved.body);assert.equal((await f.request(url+'?brand=aristo&mutationId='+body.mutationId,{asAdmin:true})).body.mutationReceipt.confirmed,true);assert.equal((await f.request(url,{method:'POST',body,asAdmin:true})).status,409);assert.equal(f.reads(),0);assert.equal(f.writes(),0);
+});
+test('entry QA HTTP binds the original audience version and canonical hash from a read-only server lookup',async t=>{
+ const f=await fixture(t,{adminWrite:true,entryAudience:true}),url='/api/journey-entry-qa',body={brand:'fish',action:'create',expected_revision:0,mutationId:crypto.randomUUID(),name:'Entrada diária QA HTTP',kind:'audience_entry',days:90,waitMinutes:[0,4320],audienceId:f.audienceRow.id,audienceVersion:1};
+ assert.equal((await f.request(url,{method:'POST',body})).status,403);assert.equal(f.reads(),0);
+ const saved=await f.request(url,{method:'POST',body,asAdmin:true,brand:'fish'});assert.equal(saved.status,200,JSON.stringify(saved.body));const ref=saved.body.qa.definitions[0].entrySpec.audienceRef;assert.equal(ref.definitionHash,require(runtime+'/segment-audience-review.cjs').digest(f.audienceRow.definition));assert.equal(ref.name,f.audienceRow.name);assert.equal(ref.version,1);assert(Number.isSafeInteger(ref.readAt));assert.equal(f.reads(),1);assert.equal(f.writes(),0);
+ for(const change of [{version:2},{archived:true},{semantic_context:{...f.audienceRow.semantic_context,current:false}}]){const old=structuredClone(f.audienceRow);Object.assign(f.audienceRow,change);const r=await f.request(url,{method:'POST',body:{...body,expected_revision:1,mutationId:crypto.randomUUID()},asAdmin:true});assert.equal(r.status,409,JSON.stringify(r.body));Object.assign(f.audienceRow,old);assert.equal((await f.request(url+'?brand=fish',{asAdmin:true})).body.revision,1);}
+ assert.equal(f.reads(),4);assert.equal(f.writes(),0);
+});
 test('paid QA HTTP refuses forged context, scope mismatch, ordinary users and missing CSRF; CAS ACK is readable',async t=>{
  const f=await fixture(t,{adminWrite:true});const url='/api/journey-paid-qa';assert.equal((await f.request(url+'?brand=aristo')).status,403);assert.equal((await f.request(url+'?brand=aristo',{asAdmin:true})).body.revision,0);
  const body={brand:'aristo',action:'create',expected_revision:0,mutationId:crypto.randomUUID(),name:'QA HTTP',waitMinutes:[0,60]};assert.equal((await f.request(url,{method:'POST',body,asAdmin:true,csrf:false})).status,403);assert.equal((await f.request(url,{method:'POST',body:{...body,context:f.adminContext},asAdmin:true})).status,400);assert.equal((await f.request(url,{method:'POST',body,asAdmin:true,brand:'fish'})).status,403);assert.equal((await f.request(url+'?brand=aristo',{asAdmin:true,brand:'fish'})).status,403);
