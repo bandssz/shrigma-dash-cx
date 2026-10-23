@@ -43,6 +43,6 @@ function createBroker({db,encrypt,decrypt,serviceBinding,fetchImpl=fetch,sourceU
  // Consent readiness belongs to the campaign. The native caller separately authenticates current editor, front and brand.
  function ready({brand,campaignId}){if(closing)return false;try{return store.list().some(r=>r.brand===brand&&r.campaignId===campaignId);}catch{return false;}}
  async function close(){closing=true;await Promise.allSettled([task.close(),...[...registrations.values()].map(x=>x.promise)]);contexts.clear();}
- return Object.freeze({register,ready,tick:task.tick,close});
+ return Object.freeze({register,ready,tick:task.tick,status:task.status,close});
 }
 module.exports={createBroker,SOURCE};

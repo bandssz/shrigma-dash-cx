@@ -690,6 +690,7 @@ else (function(){'use strict';
   }catch{if(ticket===version&&session===original)box.replaceChildren(document.createTextNode('Não foi possível consultar as solicitações. Tente atualizar; nenhuma ativação foi feita.'));}
   finally{if(ticket===version&&session===original)button.disabled=false;}
  });
+ $('admin-consent-status')?.addEventListener('click',()=>{if(session?.user?.role!=='superadmin'||requested!=='todos')return;location.assign('/app/crm/restrito/descadastro/?brand=aristo');});
  manage.addEventListener('click',async()=>{
   if(session?.user?.role!=='superadmin'||requested!=='todos')return;
   if(!admin.hidden){openPanel(selected||session.user.areas[0]);return;}

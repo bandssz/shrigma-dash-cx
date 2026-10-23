@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 49110,
-      "sha256": "bee747e0da14b1a71e87dddd468edc1917e9d7c564390d602cb2585356667d29"
+      "bytes": 49162,
+      "sha256": "48003d5de53024cf8d36627833c64506cc295e0b521f0857858972193a31ffd2"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -420,8 +420,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 16360,
-      "sha256": "5877611e19b8bb8414050644778026cd34995e9dfb732ef568474a2f96c8c396"
+      "bytes": 16474,
+      "sha256": "6c2f0250c4c223d9c38751c49c5a298fc937a171bfd8057ff0c8c65dcb975eb4"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -430,13 +430,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 8689,
-      "sha256": "99a6a0e35e8b939f05614f15055cbd7670cd3c6426879700ce1bc1a8117e096f"
+      "bytes": 8803,
+      "sha256": "66d28a74c2d159f4fb39d6c45a79c4b8c041658f7c6c79b99a68ae1cb06cadb5"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 10681,
-      "sha256": "e2e9ffe644f6014d529942022efa8fcc11bf269c60538c820cd7a95b7404c1bf"
+      "bytes": 10882,
+      "sha256": "58eab12729207507a7727300918b4b16677abac7e55829747a60133d11614a32"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -1635,8 +1635,23 @@
     },
     {
       "path": "services/dashboard-operational/campaign-consent-broker.cjs",
-      "bytes": 5631,
-      "sha256": "e366ab02af38fe880cb617f8d374037e1e821f97d0201ec76358ebc9b998c86d"
+      "bytes": 5650,
+      "sha256": "f4aba522e070498ff1c460ae38381babb4977c591d60d91da457471c3cbd5cb2"
+    },
+    {
+      "path": "services/dashboard-operational/campaign-consent-observation-route.cjs",
+      "bytes": 1807,
+      "sha256": "a463994d7665c6aa33099d334603ea9b8a31b8db8633649bfccc84241f31f817"
+    },
+    {
+      "path": "services/dashboard-operational/campaign-consent-observation-ui.cjs",
+      "bytes": 6882,
+      "sha256": "cd0a3d0d89a5ae8f73f609e3854554fe9d68b41714a921026ff7ceb0fe5a3514"
+    },
+    {
+      "path": "services/dashboard-operational/campaign-consent-observation.cjs",
+      "bytes": 2470,
+      "sha256": "8f7cdede7fb3e4e129bfb152858400917c27ca05960570688816fe13728bc9d0"
     },
     {
       "path": "services/dashboard-operational/campaign-consent-policy.json",
@@ -1655,8 +1670,8 @@
     },
     {
       "path": "services/dashboard-operational/campaign-consent-task.cjs",
-      "bytes": 6922,
-      "sha256": "0cb68b9d5c1d3a1a9cfbe58431ccd227e0a1b9951710d9e52c39256ee31df24d"
+      "bytes": 7327,
+      "sha256": "7ea0dd3ef8d1638575d31b1103409858f7b27cf6fc73f2efa6b63f8e974076a5"
     },
     {
       "path": "services/dashboard-operational/campaign-editorial-policy.cjs",
@@ -1666,7 +1681,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "b1d9dd02f80ec379e8660955fa6d10b24eb94ba0bedcbaaafde7cd54f77a26ce"
+      "sha256": "e6b354852d0ae8d783f24b044883b899fc6a302a5fbf07a6b598fba0a9e20877"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -2060,8 +2075,8 @@
     },
     {
       "path": "services/dashboard-operational/public/entry.compiled.js",
-      "bytes": 60730,
-      "sha256": "c516ebd1f4f4c478c4029355681b85a74fe693d288f1bfd65ae7c97e985d3fe9"
+      "bytes": 60895,
+      "sha256": "cc88646d5550a5b5f6d889af4d9f970d9835431aa7491edf8fa189b9a6902b58"
     },
     {
       "path": "services/dashboard-operational/public/entry.css",
@@ -2070,13 +2085,13 @@
     },
     {
       "path": "services/dashboard-operational/public/entry.html",
-      "bytes": 11650,
-      "sha256": "43b272424051e983e0dcec1dde4e10febac319aa72a38120cbd4351cfa10f9d9"
+      "bytes": 11723,
+      "sha256": "1b8891b88e177d8c0d3e50652206245b5754681ec89f05d2f22f637e0205d279"
     },
     {
       "path": "services/dashboard-operational/public/entry.js",
-      "bytes": 81433,
-      "sha256": "a35b0987b803c5568248879339b5079ff01f92e85d3284d09540a2a041c15196"
+      "bytes": 81624,
+      "sha256": "d44b8a2a609ed6166587078a8c882cf2025eea58a51c2585de319c84a449e10b"
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
@@ -2130,8 +2145,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 242672,
-      "sha256": "583bea5289c086106ef5947ae251ce0976f75df6bd7a6bafc9d260d600869f4f"
+      "bytes": 242838,
+      "sha256": "87deb2ca08bfdd51053636f3cc78947b3a4ff89c06a32edac630e46d72231cbd"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2247,6 +2262,11 @@
       "path": "tests/campaign-account-operator.test.cjs",
       "bytes": 6179,
       "sha256": "ac8386dc92b65e5fe810327edc86fd0bc102a98bacae636c11c8307fde06fb46"
+    },
+    {
+      "path": "tests/campaign-consent-observation.test.cjs",
+      "bytes": 7290,
+      "sha256": "121fb4fe28a3eeb7161bb6ed58a20426155828e25db8ce7b8dc1f375964c77fe"
     },
     {
       "path": "tests/campaign-create-native/gateway.test.cjs",
@@ -2400,8 +2420,8 @@
     },
     {
       "path": "tests/consent19/task.test.cjs",
-      "bytes": 5868,
-      "sha256": "dea5d4747e5856e9cab5253a654cf3867f54bed836a82965b31dd578fc49bc75"
+      "bytes": 6195,
+      "sha256": "a3715891571ca6440cd822bb528f2c9fe07502188d17438bdcd53e70f27d4a6f"
     },
     {
       "path": "tests/consent19/transport.cjs",

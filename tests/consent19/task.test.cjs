@@ -1,5 +1,5 @@
 'use strict';
-const test=require('node:test'),a=require('node:assert/strict'),C=require('./task.cjs');
+const test=require('node:test'),a=require('node:assert/strict'),path=require('node:path'),C=require((process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../../services/dashboard-operational'))+'/campaign-consent-task.cjs');
 const uid=n=>String(n).padStart(8,'0')+'-0000-4000-8000-000000000000';
 function fixture(brand='aristo'){
  let clock=1000000,status='confirmed',frozen='unsubscribed',backupAllowed=true,effects=0,confirmed=0,backupWrites=0,failAfterEffect=false,failBeforeEffect=false;
@@ -10,7 +10,7 @@ function fixture(brand='aristo'){
  const task=C.createTask({store,source,now:()=>clock,enabled:true});
  return{task,store,source,plan,record,backups,pending,calls,member,setClock:v=>clock=v,advance:()=>clock+=C.INTERVAL_MS,setStatus:v=>status=v,setFrozen:v=>frozen=v,setBackup:v=>backupAllowed=v,setFailure:(before,after)=>{failBeforeEffect=before;failAfterEffect=after;},stats:()=>({effects,confirmed,backupWrites})};
 }
-for(const brand of ['aristo','fish'])test('narrow unsubscribe is backed up first and second cycle is a no-op '+brand,async()=>{const f=fixture(brand),r=await f.task.tick();a.equal(r.changed,1);a.deepEqual(f.calls,['backup','unsubscribe','confirm']);a.equal([...f.backups.values()][0].beforeStatus,'confirmed');f.advance();a.equal((await f.task.tick()).changed,0);a.deepEqual(f.stats(),{effects:1,confirmed:1,backupWrites:1});});
+for(const brand of ['aristo','fish'])test('narrow unsubscribe is backed up first and second cycle is a no-op '+brand,async()=>{const f=fixture(brand),r=await f.task.tick();a.equal(r.changed,1);a.deepEqual(f.task.status(brand).counts,{campaigns:1,changed:1,pending:0});a.deepEqual(f.task.status(brand==='aristo'?'fish':'aristo').counts,{campaigns:0,changed:0,pending:0});a.deepEqual(f.calls,['backup','unsubscribe','confirm']);a.equal([...f.backups.values()][0].beforeStatus,'confirmed');f.advance();a.equal((await f.task.tick()).changed,0);a.deepEqual(f.stats(),{effects:1,confirmed:1,backupWrites:1});});
 test('task runs only every10minutes and coalesces an active cycle',async()=>{const f=fixture(),first=f.task.tick();a.equal(f.task.tick(),first);await first;a.equal(await f.task.tick(),null);f.advance();a.equal((await f.task.tick()).changed,0);});
 test('failed backup forbids a membership mutation',async()=>{const f=fixture();f.setBackup(false);a.equal((await f.task.tick()).pending,1);a.equal(f.stats().effects,0);a.equal(f.pending[0].code,'CONSENT_BACKUP_UNCONFIRMED');});
 test('uncertain successful PUT is discovered by GET next cycle without repeating PUT',async()=>{const f=fixture();f.setFailure(false,true);a.equal((await f.task.tick()).pending,1);a.equal(f.stats().effects,1);f.advance();f.setFailure(false,false);a.equal((await f.task.tick()).changed,0);a.equal(f.stats().effects,1);a.equal(f.stats().confirmed,1);a.equal([...f.backups.values()][0].beforeStatus,'confirmed');});
