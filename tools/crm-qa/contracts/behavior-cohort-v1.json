@@ -1,0 +1,22 @@
+{
+  "schema": "crm-behavior-cohort-preparation-v1",
+  "runtimeWired": false,
+  "deployable": false,
+  "sourceAdmissionPending": true,
+  "campaignIdentity": ["brand", "id", "uuid"],
+  "receivedEvidence": "Historical SES Delivery, original Listmonk campaign/subscriber UUID headers and verified recipient identity",
+  "timeFormat": "Canonical ISO8601 UTC with milliseconds; readers normalize verified timestamps before projection",
+  "nativeEventEvidence": "Individual open/click events with original campaign/person identity and timestamp at the same asOf",
+  "countRule": "R, R intersect O, R intersect C, R minus O, R minus C; deduplicated by canonical subscriber UUID",
+  "coverage": "All receipt PK pages through the fixed cap, zero unresolved identities, complete native event projection at the same asOf",
+  "unknown": "Every count is null and audience eligibility is false until all source and identity proofs are complete",
+  "currentListMembershipIsHistoricalReceipt": false,
+  "nativeActivityAggregatesAreHistoricalSnapshot": false,
+  "proposedReceiptDescriptor": "behavior-receipts-page.proposed.sql",
+  "productionBlockers": [
+    "No admitted receipt projection joining campaign and subscriber identities in the gateway",
+    "infra_leitura has no SELECT columns on campaign_views or link_clicks",
+    "API16 activity returns count/max without a common asOf; it cannot prove negative audiences"
+  ],
+  "forbiddenWorkarounds": ["Credential transplant", "New grants", "Raw SQL through the closed transport", "Current-list denominator", "Missing source as zero"]
+}

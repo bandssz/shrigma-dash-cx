@@ -2419,6 +2419,11 @@
       "sha256": "ea2397070cdd1f579be42cedd2537bb16060d91e15bb4d0f454162ad4daf09a1"
     },
     {
+      "path": "tests/crm-behavior-cohort-policy.test.cjs",
+      "bytes": 4573,
+      "sha256": "e3ac173c8037f03eea23b7f11e182b37cf43579689757abbe4409534fb0048be"
+    },
+    {
       "path": "tests/crm-campaign-draft-links-source.test.cjs",
       "bytes": 6021,
       "sha256": "3c8089f4cb17ce8c4355b28c0c72ff23ee307d1b8784823ff82dcc3cfc0b8ae4"
@@ -3037,6 +3042,21 @@
       "path": "tools/crm-native-connection/verify-affiliate-read-source.cjs",
       "bytes": 3508,
       "sha256": "f3d7809bb09c872b9fcf2777167753a21416dd9bc0fb16e830315f1123354e0b"
+    },
+    {
+      "path": "tools/crm-qa/behavior-cohort-policy.cjs",
+      "bytes": 2866,
+      "sha256": "e98787ffb7404c955398e0a6c2fa483124c966e15f0acd504087294f717792fe"
+    },
+    {
+      "path": "tools/crm-qa/contracts/behavior-cohort-v1.json",
+      "bytes": 1574,
+      "sha256": "3169b92c6aa4cde5be5db7cb547444232cf1bcb7ec5230c81c0fd894f8ee3d7b"
+    },
+    {
+      "path": "tools/crm-qa/contracts/behavior-receipts-page.proposed.sql",
+      "bytes": 1737,
+      "sha256": "92a42dffb6bbd0aee57cb1e729922ca6030cd22976c4d594a828585ee86d3216"
     },
     {
       "path": "tools/crm-qa/editor-journey.cjs",
