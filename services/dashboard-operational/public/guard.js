@@ -1,6 +1,6 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['product-issues','crm-purchases','crm-features','cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces']);
+ const ROUTES=new Set(['maintenance-notice','product-issues','crm-purchases','crm-features','cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces']);
  const nativeFetch=window.fetch.bind(window);
  // A release flag is independent from WRITE permission or source capability.
  // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
@@ -154,6 +154,10 @@
   if(!ROUTES.has(route))return reject();
   const method=String(init.method||(input instanceof Request?input.method:'GET')).toUpperCase();
   if(!['GET','HEAD','POST','PUT','PATCH','DELETE'].includes(method))return reject(405);
+  if(route==='maintenance-notice'){
+   if(method!=='GET')return reject(405);
+   if(url.searchParams.size!==2||!['fish','aristo'].includes(url.searchParams.get('brand'))||!['growth','organico','influs','afiliados'].includes(url.searchParams.get('front')))return reject(400);
+  }
   if(route==='product-issues'){
    if(!['GET','POST'].includes(method))return reject(405);
    try{await csrf();}catch(_){return reject(401);}

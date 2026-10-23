@@ -27,8 +27,8 @@
       "source": "public/guard.js",
       "compiled": "public/guard.compiled.js",
       "publicName": "guard.js",
-      "sourceSha256": "f0e5abc50caa587cb7fcddb1452b1172ed25b476826ca95f961e9a6d4a0bdbbb",
-      "compiledSha256": "5f35621519be26c15c90417f07548d556ab18468088c36c33f9000f72ccaef99"
+      "sourceSha256": "fd0bc55130c67afad2a005317d76cbd5325796280f2d2a1386fd4d3af2b6e5d1",
+      "compiledSha256": "525b8d88fde3fe5765c62d6a8a5b1ddff6deae7d99a1e414e5f34d5c9a43f720"
     },
     {
       "source": "public/crm-preview/analytics.js",

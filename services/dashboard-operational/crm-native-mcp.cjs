@@ -8,6 +8,8 @@ const brand={type:'string',enum:BRANDS},id={type:'integer',minimum:1},key={type:
 const sourceRequestId={type:'string',pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'};
 const tools=[
  ['crm_status','Verificar acesso CRM','crm.read',obj(),false,false],
+ ['crm_maintenance_notice_get','Consultar aviso de manutenção','crm.read',obj({brand,front:{type:'string',enum:['growth','organico','influs','afiliados']}},['brand','front']),true,false],
+ ['crm_maintenance_notice_set','Programar aviso de manutenção nas duas marcas','crm.iam',obj({targetRevision:{type:'string',pattern:'^[a-f0-9]{40}$'},restartAt:{type:'string'},expiresAt:{type:'string'},audience:{type:'string',enum:['qa','editors']}},['targetRevision','restartAt','expiresAt','audience']),false,false],
  ['crm_issue_list','Consultar pedidos e problemas da marca','crm.read',obj({brand,offset:{type:'integer',minimum:0}},['brand']),true,false],
  ['crm_issue_update','Atualizar estado de pedido próprio do produto','crm.iam',obj({brand,id:sourceRequestId,state:{type:'string',enum:['Aberto','Em correção','Instalado']},expectedState:{type:'string',enum:['Aberto','Em correção','Instalado']},responsible:{type:'string',minLength:2,maxLength:100}},['brand','id','state','expectedState','responsible']),false,false],
 
@@ -99,6 +101,11 @@ function createNativeMcp({auth,managerHost,invoke,installer,createCampaignEnable
   let result;
   if(name==='crm_publics_read_key_install')result=await run('POST','/api/native/publics-read-key',args);
   else if(name==='crm_publics_read_key_status')result=await run('GET','/api/native/publics-read-key?'+new URLSearchParams({operationId:args.operationId}));
+  else if(name==='crm_maintenance_notice_get')result=await run('GET','/api/maintenance-notice?'+new URLSearchParams(args));
+  else if(name==='crm_maintenance_notice_set'){
+   if(!['aristo','fish'].every(b=>store.authenticate(bearer).brands.includes(b)))fail('MAINTENANCE_BOTH_BRANDS_REQUIRED',403);
+   result=await run('POST','/api/maintenance-notice',args);
+  }
   else if(name==='crm_issue_list')result=await run('GET','/api/product-issues?'+new URLSearchParams({action:'list',front:'growth',brand:args.brand,scope:'all',offset:String(args.offset||0)}));
   else if(name==='crm_issue_update')result=await run('POST','/api/product-issues',{action:'update',front:'growth',...args});
   else if(name==='crm_status'){

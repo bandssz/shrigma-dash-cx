@@ -297,6 +297,7 @@ async function serveFile(req,res,url,host,s,auth){
     if(!spec.files.includes(name)&&name!=='workspace.js'&&!shared)throw jsonError(404,'NOT_FOUND');
     const file=path.join(__dirname,'public',shared?'afiliados-preview':name==='workspace.js'?'':spec.directory,name==='workspace.js'?'read-workspace.js':name);let data;
     try{const st=fs.lstatSync(file);if(fs.realpathSync(file)!==file||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size<1||st.size>2*1024*1024)throw Error();data=fs.readFileSync(file);}catch{throw jsonError(503,'WORKSPACE_ASSET_UNAVAILABLE');}
+    if(name.endsWith('.html'))data=Buffer.from(require('./maintenance-notice-ui.cjs').decorate(data));
     const metadata=typeAndCsp(name,data);res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);res.setHeader('Cache-Control','no-store');return staticEnd(req,res,name,data,()=>auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area:spec.area,productFront:spec.front,edit:false}));
   }
   if(s.simpleReadMode===true&&url.searchParams.get('legacy')!=='1'&&['/growth.html','/organico.html','/influs.html'].includes(url.pathname)){
@@ -317,6 +318,7 @@ async function serveFile(req,res,url,host,s,auth){
     // Reuse the installed kit; CRM-only accounts receive it through their own route.
     const root=path.join(__dirname,crm&&CRM_PREVIEW_OWN_FILES.includes(name)?'public/crm-preview':'public/afiliados-preview'),file=name==='workspace.js'?path.join(__dirname,'public/read-workspace.js'):path.join(root,name);let data;
     try{const st=fs.lstatSync(file);if(fs.realpathSync(file)!==file||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size<1||st.size>2*1024*1024)throw Error();data=fs.readFileSync(file);}catch{throw jsonError(503,'AFFILIATE_PREVIEW_ASSET_UNAVAILABLE');}
+    if(name.endsWith('.html'))data=Buffer.from(require('./maintenance-notice-ui.cjs').decorate(data));
     const metadata=typeAndCsp(name,data);res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);res.setHeader('Cache-Control','no-store');return staticEnd(req,res,name,data,()=>auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area,productFront:crm?'growth':'afiliados',edit:false}));
   }
   const file=fileForHost(url.pathname,host,s);
@@ -335,6 +337,7 @@ async function serveFile(req,res,url,host,s,auth){
   }else if(file==='/assets/panels/growth.css'&&s.crmPresentationStyle!==undefined)data=presentationStyle(s);
   else if(['/assets/panels/organico.css','/assets/panels/influs.css'].includes(file)&&s.workspacePresentationStyles?.[path.basename(file,'.css')])data=presentationStyle(s,path.basename(file,'.css'));
   else try{const real=fs.realpathSync(candidate);if(!real.startsWith(realRoot+path.sep)||fs.lstatSync(candidate).isSymbolicLink()||!fs.statSync(candidate).isFile())throw Error();data=fs.readFileSync(candidate);}catch{throw jsonError(404,'NOT_FOUND');}
+  if(s.simpleReadMode===true&&file.endsWith('.html'))data=Buffer.from(require('./maintenance-notice-ui.cjs').decorate(data));
   const metadata=typeAndCsp(file,data);if(!metadata)throw jsonError(404,'NOT_FOUND');
   res.statusCode=200;res.setHeader('Content-Type',metadata.type);res.setHeader('Content-Security-Policy',metadata.csp);
   res.setHeader('Cache-Control',file.endsWith('.html')||file==='/guard.js'&&s.dashboardAffiliateRead===true?'no-store':'public, max-age=300');return staticEnd(req,res,file,data,()=>{if(area)auth.authorize({cookieHeader:req.headers.cookie,host,method:'GET',area});});
@@ -721,6 +724,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   if(s.mode==='operational'&&!Object.keys(upstreams).length)throw Error('Operational mode needs explicit upstreams');
   const affiliateReader=dashboardAffiliateRead?AffiliateRead.createReader({auth,upstreams,fetchImpl}):null;
   const simpleReader=s.simpleReadMode===true?require('./simple-dashboard-read.cjs').createReader({auth,upstreams,keys:s.simpleReadSources||{},fetchImpl,projectGrowth:projectBrandCache,growthDiagnostics:cartContractSummary,timings:true,onReadFailure:row=>process.stderr.write(JSON.stringify(row)+'\n')}):null;
+  const maintenanceNotice=s.simpleReadMode===true?auth.maintenanceNoticeStore?.():null;
   const productIssues=s.simpleReadMode===true?auth.productIssueStore?.():null;
   const paidFacts=s.paidFactsFile?require('./crm-paid-facts.cjs').create({file:s.paidFactsFile,auth,store:auth.restrictedPurchaseStore(),fetchImpl,backupDirectory:path.join(path.dirname(s.dbPath),'paid-acquisition-backups')}):null;
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
@@ -941,12 +945,25 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       const browserReadOrigin=req.method==='GET'&&req.headers.origin===undefined&&req.headers['sec-fetch-site']==='same-origin'&&['cors','same-origin'].includes(req.headers['sec-fetch-mode'])&&req.headers['sec-fetch-dest']==='empty'&&typeof req.headers['x-csrf-token']==='string'?origin:undefined;
       if(!nativeContext&&nativeMcp&&await nativeMcp.handle(req,res,url))return;
       const ctx=nativeContext||{cookieHeader:req.headers.cookie,host,method:req.method,origin:req.headers.origin??browserReadOrigin,csrf:req.headers['x-csrf-token']};
+      if(url.pathname==='/app/maintenance-notice.js'){
+        if(!maintenanceNotice||nativeContext||req.method!=='GET'||url.search)throw jsonError(404,'NOT_FOUND');
+        auth.authorize(ctx);res.setHeader('Content-Type','text/javascript; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(require('./maintenance-notice-ui.cjs').JS);return;
+      }
+      if(url.pathname==='/api/maintenance-notice'){
+        if(!maintenanceNotice)throw jsonError(503,'MAINTENANCE_UNAVAILABLE');
+        if(req.method==='GET')return sendJson(req,res,200,maintenanceNotice.read(ctx,Object.fromEntries(url.searchParams)));
+        if(req.method==='POST'&&!url.search){
+          if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
+          return sendJson(req,res,200,maintenanceNotice.set(ctx,await readJson(req,1024)));
+        }
+        throw jsonError(405,'METHOD_DENIED');
+      }
       if(['/app/issues-ui.js','/app/issues-ui.css','/app/pedidos-problemas/','/api/product-issues'].includes(url.pathname)){
         if(!productIssues)throw jsonError(503,'ISSUES_UNAVAILABLE');
         if(url.pathname!=='/api/product-issues'){
           if(nativeContext||req.method!=='GET')throw jsonError(404,'NOT_FOUND');
           auth.authorize(ctx);const ui=require('./product-issues-ui.cjs');let data;
-          if(url.pathname==='/app/pedidos-problemas/'){const q=Object.fromEntries(url.searchParams);productIssues.authorize(ctx,q);data=ui.html(q.front);res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");}
+          if(url.pathname==='/app/pedidos-problemas/'){const q=Object.fromEntries(url.searchParams);productIssues.authorize(ctx,q);data=require('./maintenance-notice-ui.cjs').decorate(ui.html(q.front));res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");}
           else{if(url.search)throw jsonError(400,'ISSUE_QUERY_INVALID');const js=url.pathname.endsWith('.js');data=js?ui.JS:ui.CSS;res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/css; charset=utf-8');}
           res.setHeader('Cache-Control','no-store');res.end(data);return;
         }
