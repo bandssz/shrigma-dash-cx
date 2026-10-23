@@ -22,6 +22,7 @@ function checkedMember(m,p,id){
 function createTask({store,source,now=Date.now,enabled=false}){
  if(!store||!source||!['list','prior','backup','confirm','pending'].every(k=>typeof store[k]==='function')||!['binding','plan','member','unsubscribe'].every(k=>typeof source[k]==='function')||typeof now!=='function')throw Error('CONSENT_TASK_CONFIG');
  let active=null,nextAt=0,closed=false;
+ const observation=require('./campaign-consent-observation.cjs').createObservation({now,enabled});
  const guard=()=>{if(closed||enabled!==true)fail('CONSENT_TASK_DISABLED');};
  async function campaign(record,result){
   guard();const binding=await source.binding(record);guard();
@@ -61,15 +62,15 @@ function createTask({store,source,now=Date.now,enabled=false}){
  async function run(){
   const result={schema:'crm-campaign-consent-task-v1',campaigns:0,changed:0,pending:0,customerFieldsExported:false};
   guard();const records=await store.list();if(!Array.isArray(records)||records.length>1000)fail('CONSENT_CAMPAIGNS_UNCONFIRMED');
-  for(const record of records){guard();try{if(!plain(record)||!['aristo','fish'].includes(record.brand)||!positive(record.campaignId))fail('CONSENT_CAMPAIGN_UNCONFIRMED');await campaign(record,result);result.campaigns++;}catch(e){if(closed)throw e;result.pending++;try{await store.pending(record,{code:safe(e),at:now()});}catch{/* A full/unconfirmed metadata row must not stop other admitted campaigns. */}}}
+  for(const record of records){guard();const before={campaigns:result.campaigns,changed:result.changed,pending:result.pending};try{if(!plain(record)||!['aristo','fish'].includes(record.brand)||!positive(record.campaignId))fail('CONSENT_CAMPAIGN_UNCONFIRMED');await campaign(record,result);result.campaigns++;}catch(e){if(closed)throw e;result.pending++;try{await store.pending(record,{code:safe(e),at:now()});}catch{/* A full/unconfirmed metadata row must not stop other admitted campaigns. */}}finally{observation.record(record?.brand,before,result);}}
   return Object.freeze(result);
  }
  function tick(){
   if(closed||enabled!==true)return Promise.resolve(null);if(active)return active;
   const time=now();if(!Number.isSafeInteger(time)||time<0)return Promise.reject(Error('CONSENT_CLOCK_INVALID'));if(time<nextAt)return Promise.resolve(null);nextAt=time+INTERVAL_MS;
-  active=run().finally(()=>{active=null;});return active;
+  observation.start(time);active=run().then(result=>{observation.finish(result);return result;},error=>{observation.finish(null,error);throw error;}).finally(()=>{active=null;});return active;
  }
  function close(){closed=true;return active?.catch(()=>{})||Promise.resolve();}
- return Object.freeze({tick,close});
+ return Object.freeze({tick,close,status:observation.status});
 }
 module.exports={createTask,checkedPlan,checkedMember,INTERVAL_MS};
