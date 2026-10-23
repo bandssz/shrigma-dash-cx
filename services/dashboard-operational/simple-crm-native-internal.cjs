@@ -10,6 +10,18 @@ const IDS=Object.freeze({aristo:'23b3132a-a00b-41d3-ac31-0216a37f6100',fish:'6b0
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const HASH=/^[a-f0-9]{64}$/;
 const error=(status,code)=>Object.assign(Error(code),{status,code});
+function requireRenderedTest(definition){
+ const {templateEnd}=require('./campaign-write-tracking.js');
+ for(const field of ['subject','html','text']){
+  const source=typeof definition?.[field]==='string'?definition[field]:'';
+  for(let start=source.indexOf('{{');start!==-1;){
+   const end=templateEnd(source,start);let action=source.slice(start+2,end).replace(/\}\}$/,'').replace(/^-?\s*/,'').replace(/\s*-?$/,'');
+   while(action.startsWith('/*')){const close=action.indexOf('*/',2);if(close<0)break;action=action.slice(close+2).trimStart();}
+   if(/^(?:if|range|with|else|end|define|block|template|break|continue)\b/.test(action))throw error(400,'CAMPAIGN_TEST_UNRENDERED_CONTROL');
+   start=source.indexOf('{{',Math.max(start+2,end));
+  }
+ }
+}
 function requireCouponDestinations(definition,brand){
  const pending=require('./campaign-write-tracking.js').review({body:definition.html,altbody:definition.text},{brand,campaign:definition.utm_campaign}).issues.some(x=>x.code.startsWith('COUPON_'));
  if(pending)throw error(409,'COUPON_DESTINATION_REQUIRED');
@@ -88,7 +100,7 @@ function create({binding,remoteKey,delivery,fetchImpl=fetch,enabled=false,editor
  }
  return Object.freeze({handle,transport});
 }
-module.exports={allowedOperator,allowedEditor,create,requireCouponDestinations,EMAIL,IDS};
+module.exports={allowedOperator,allowedEditor,create,requireCouponDestinations,requireRenderedTest,EMAIL,IDS};
 
 // Current campaign operator. Listmonk owns the campaign and its state. Each
 // action makes one native write. Existing campaign reads preserve brand authorization; no local attempt is reserved.
@@ -194,6 +206,7 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   else if(action==='campanha_teste'){
    const target=String(q.recipient||'').trim().toLowerCase();
    if(target.length>254||target.includes('..')||!/^[a-z0-9][a-z0-9._+\-]*@(oaristocrata\.com|fishermans\.com\.br|shrigma\.com\.br)$/.test(target))throw error(400,'CAMPAIGN_TEST_RECIPIENT');
+   requireRenderedTest(q.definition);
    const body=payload(q.definition,brand,q);body.subject='[TESTE] '+body.subject.replace(/^(?:\[TESTE\] )+/,'');body.subscribers=[target];delete body.send_at;
    requireLists(q.definition.list_ids,await currentScope(),true);await existing(true);data=await writeRequest('POST','/campaigns/'+q.id+'/test',body);if(data!==true)throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
    return {status:200,body:{accepted:true,brand,campaign_id:q.id,recipient:target,subject:body.subject}};
