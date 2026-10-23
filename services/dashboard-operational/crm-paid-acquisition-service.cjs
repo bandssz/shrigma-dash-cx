@@ -7,7 +7,7 @@ const UPDATE=`UPDATE public.crm_attribution_order_v2 SET paid_fact=jsonb_set(pai
 const fail=code=>{throw Object.assign(Error(code),{code,status:409});};
 function range(now){return {from:new Date(now-30*86400000).toISOString(),until:new Date(now).toISOString(),days:30};}
 function ids(input){if(input===undefined)return null;if(!Array.isArray(input)||input.length<1||input.length>10||new Set(input).size!==input.length||input.some(x=>!/^gid:\/\/shopify\/Order\/[1-9][0-9]{0,19}$/.test(x)))fail('PAID_ACQUISITION_IDS_INVALID');return input;}
-function create({authorize,database,graphql,openBackup,now=Date.now}){
+function create({authorize,database,graphql,openBackup,readBackup,now=Date.now}){
  async function availableWindow(brand){const p=range(now()),row=await database(async c=>(await c.query("SELECT max(paid_fact->>'createdAt') latest FROM public.crm_attribution_order_v2 WHERE brand=$1 AND paid_fact->>'financialStatus'='paid' AND paid_fact->>'test'='false'",[brand])).rows[0]);if(row?.latest&&Date.parse(row.latest)<Date.parse(p.from)){const until=Date.parse(row.latest)+1;return {...range(until),fallback:true};}return {...p,fallback:false};}
  async function acquisition(context,brand,input={}){
   authorize(context,brand);const p=await availableWindow(brand),selected=ids(input.ids);
@@ -67,6 +67,27 @@ function create({authorize,database,graphql,openBackup,now=Date.now}){
    authorize(context,brand,true);return {ok:true,...progress(),checkedAt:new Date(now()).toISOString()};
   }finally{backup.close();}
  }
- return {acquisition,enrich,reclassify};
+ async function restore(context,brand,input={}){
+  authorize(context,brand,true);const dryRun=input.dryRun!==false;
+  if(typeof readBackup!=='function')fail('PAID_ACQUISITION_BACKUP_UNAVAILABLE');
+  if(Object.keys(input).some(key=>!['action','brand','name','offset','dryRun'].includes(key))||input.dryRun!==undefined&&typeof input.dryRun!=='boolean'||typeof input.name!=='string'||!Number.isSafeInteger(input.offset??0)||(input.offset??0)<0)fail('PAID_ACQUISITION_RESTORE_INPUT_INVALID');
+  const page=await readBackup(brand,input.name,input.offset??0);authorize(context,brand,true);
+  const B=require('./crm-paid-acquisition-backup.cjs'),equal=require('node:util').isDeepStrictEqual;
+  const statements=page.rows.map(row=>{if(row.brand!==brand)fail('PAID_ACQUISITION_RESTORE_BRAND_MISMATCH');return {row,...B.rollback(row)};});
+  const result=await database(async c=>{
+   let restored=0,wouldRestore=0,alreadyRestored=0,conflicts=0;
+   for(const command of statements){
+    authorize(context,brand,true);
+    if(!dryRun){const updated=await c.query(command.sql,command.values);if(updated.rowCount===1){restored++;continue;}}
+    const current=(await c.query("SELECT paid_fact->'acquisition' acquisition FROM public.crm_attribution_order_v2 WHERE brand=$1 AND order_id=$2",[brand,command.row.orderId])).rows;
+    if(current.length===1&&equal(current[0].acquisition??null,command.row.before??null))alreadyRestored++;
+    else if(dryRun&&current.length===1&&equal(current[0].acquisition,command.row.after))wouldRestore++;
+    else conflicts++;
+   }
+   authorize(context,brand,true);return {restored,wouldRestore,alreadyRestored,conflicts};
+  },!dryRun);
+  authorize(context,brand,true);return {ok:result.conflicts===0,brand,name:page.name,dryRun,rows:page.rows.length,...result,more:page.more,nextOffset:page.nextOffset,checkedAt:new Date(now()).toISOString()};
+ }
+ return {acquisition,enrich,reclassify,restore};
 }
 module.exports={create,SELECT,UPDATE,BASE,range,ids};

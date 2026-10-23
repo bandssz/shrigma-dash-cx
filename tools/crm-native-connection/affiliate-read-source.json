@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 48873,
-      "sha256": "3f17a1f5138c837bda2e51b97460a959ca87a62dd838c6186ef9c4d6090abde3"
+      "bytes": 49068,
+      "sha256": "2b74abc92b1055100aa27b6f0b1b10ab058b9813d9791f9b36d9faded378bc8e"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1720,8 +1720,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition-service.cjs",
-      "bytes": 7790,
-      "sha256": "f8df494337ec4939f1d9f6f489b190ac48714a791de5ab51b95e83eaebdef48a"
+      "bytes": 9672,
+      "sha256": "582608fc844739ea41139b3eab4ddc606afc2f951d5d8d3111617afd4db8988d"
     },
     {
       "path": "services/dashboard-operational/crm-paid-acquisition-ui.cjs",
@@ -1750,8 +1750,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 20058,
-      "sha256": "3b6d835a52602f95d74a5b98780c21436abcf5c5fa765cc71a32593292f57ef2"
+      "bytes": 20175,
+      "sha256": "635325d2dd762bf05077bd7400556cbe93516c3a2429f5840e033ae2acbf17c9"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
@@ -2130,8 +2130,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 242178,
-      "sha256": "f054dac6af04578711a12984d0de4b1f724a5b645ae8173ebf3d6675ef2ffe45"
+      "bytes": 242312,
+      "sha256": "44a49a68eae76f2b3e4292e05851bb6ed7d5cc4867406ca379dc8a111b017173"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2507,6 +2507,11 @@
       "path": "tests/crm-native-night18.test.cjs",
       "bytes": 10538,
       "sha256": "65b4cc9a8463febec5becd35240e713f32b6c326661483d93b6ab3d974b0f53b"
+    },
+    {
+      "path": "tests/crm-paid-acquisition-restore.test.cjs",
+      "bytes": 10180,
+      "sha256": "94879b24419a904dcc0dd5787ae1b9671d94a6216122186ea2781ff21b1b20a9"
     },
     {
       "path": "tests/crm-paid-acquisition.test.cjs",
@@ -3069,6 +3074,11 @@
       "sha256": "05c2c7cf59de65e2d30e21b968e951e75a132e94e22036ebb562c1c51f8dd3a4"
     },
     {
+      "path": "tools/crm-qa/paid-acquisition-restore-sql.cjs",
+      "bytes": 3646,
+      "sha256": "7d6aa8442a3b95938069174ac149f5247e7c85c1e91a286745ddd4f3ea37eec1"
+    },
+    {
       "path": "tools/crm-qa/paid-acquisition-sql.cjs",
       "bytes": 7326,
       "sha256": "a7e47766c1826d08f68ed4e68be4b6679964a5d239f562644b3d3678a3e98c51"
@@ -3090,8 +3100,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 11672,
-      "sha256": "fefbd11662747eeb6745d00595b540e78ae038545fb2e75d179d5157336c2b57"
+      "bytes": 12085,
+      "sha256": "247a587937e439512fadf76f8a39050b4f1bded52403804434661fefb87a09a5"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",

@@ -368,6 +368,8 @@ jobs:
         run: node tools/crm-qa/paid-publics-sql.cjs
       - name: Prove acquisition backup and metadata-only updates on isolated PostgreSQL17
         run: node tools/crm-qa/paid-acquisition-sql.cjs
+      - name: Prove restricted metadata return over real HTTP and PostgreSQL17
+        run: PAID_RESTORE_TEST_IMAGE="$IMAGE:source-$GITHUB_SHA" node tools/crm-qa/paid-acquisition-restore-sql.cjs
       - name: Prove restricted paid-order admission in the actual image
         run: docker run --rm --network none --read-only --user 1000:1000 --memory 256m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/shopify-paid-order.test.cjs /source/tests/crm-paid-facts.test.cjs /source/tests/crm-paid-acquisition.test.cjs /source/tests/crm-paid-results.test.cjs /source/tests/crm-paid-comparison.test.cjs
       - name: Prove Master delegation and compiled four-front signup in Node22 UID1000
@@ -410,8 +412,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 16cbbd3ab6872db9a41591cfe71930f74cf5c84f
-          CRM_QA_EXPECT_MANIFEST: 5ac7bef12247e3b0e4ee5072357a302af8e747c1a9925f7c9dfed729012d43f7
+          CRM_QA_EXPECT_REVISION: 0e4fc4fd8f4b71fc91ec78fbb41dc9f96d351855
+          CRM_QA_EXPECT_MANIFEST: 0d4a8a306365a7f4c0c3c3994d8d4f30ca59ff9a2c2844782faa2d07b6f906ed
         shell: bash
         run: |
           set -euo pipefail
@@ -421,8 +423,8 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
-          CRM_QA_EXPECT_REVISION: 16cbbd3ab6872db9a41591cfe71930f74cf5c84f
-          CRM_QA_EXPECT_MANIFEST: 5ac7bef12247e3b0e4ee5072357a302af8e747c1a9925f7c9dfed729012d43f7
+          CRM_QA_EXPECT_REVISION: 0e4fc4fd8f4b71fc91ec78fbb41dc9f96d351855
+          CRM_QA_EXPECT_MANIFEST: 0d4a8a306365a7f4c0c3c3994d8d4f30ca59ff9a2c2844782faa2d07b6f906ed
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
