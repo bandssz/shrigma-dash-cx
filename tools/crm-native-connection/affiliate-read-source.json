@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 49204,
-      "sha256": "aa288378c1155b13c14baae9f256ff49ee7a006612be0e484b59d58045d5e49a"
+      "bytes": 50469,
+      "sha256": "e2d61e53a0c6d42fa09a6d33719aa40f4673835dab0df3bece42373c1c123380"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -435,8 +435,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 10882,
-      "sha256": "58eab12729207507a7727300918b4b16677abac7e55829747a60133d11614a32"
+      "bytes": 11521,
+      "sha256": "feabf03dcac0e46fb833a7c8cf8e785c006809c580b16d62663d355e313a5dff"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -3157,6 +3157,36 @@
       "path": "tools/panel-build/manifest.json",
       "bytes": 4856,
       "sha256": "468453eaf38a1a5b78e69cbaea82543478a093bcae0d2fca49522108ad493ea2"
+    },
+    {
+      "path": "tools/prepared-worker/build.cjs",
+      "bytes": 1898,
+      "sha256": "94031480022c28152b4040ca2da42d76d21f8b22289d435c4ce8951f87798cc0"
+    },
+    {
+      "path": "tools/prepared-worker/command.cjs",
+      "bytes": 6126,
+      "sha256": "4f0ae8fac7b2f2e32717ac42dc964a6f4c76c1a40038e1e3af960b16d4e94856"
+    },
+    {
+      "path": "tools/prepared-worker/image-smoke.cjs",
+      "bytes": 6583,
+      "sha256": "2da42d12826752462d94e0a34b2db1c0da61c1702917db347a803b38e126a419"
+    },
+    {
+      "path": "tools/prepared-worker/queue-smoke.cjs",
+      "bytes": 7284,
+      "sha256": "2c6912d2c2782c4c68ebbe3a5035244d0dcecde069180c4ea001ae70b5a5da47"
+    },
+    {
+      "path": "tools/prepared-worker/queue.sql",
+      "bytes": 2419,
+      "sha256": "fc66813eea3f9fd54ebc2c2f94ce16d71928f9d6ee7449f4ba007e2e434dec96"
+    },
+    {
+      "path": "tools/prepared-worker/README.md",
+      "bytes": 3588,
+      "sha256": "97f19f24db8eb5eb29cd7fbcc754e785f30328e2682e1d82d2af025108343fc9"
     },
     {
       "path": "tools/production-release/build-envelope.cjs",

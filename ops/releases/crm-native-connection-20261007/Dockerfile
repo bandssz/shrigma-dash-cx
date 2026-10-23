@@ -43,8 +43,10 @@ COPY services/dashboard-operational/crm-presentation.css services/dashboard-oper
 COPY services/dashboard-operational/own-foundation/ ./services/dashboard-operational/own-foundation/
 COPY tools/native-pg-dependency/package.json tools/native-pg-dependency/package-lock.json tools/native-pg-dependency/build-driver.cjs ./tools/native-pg-dependency/
 RUN cd tools/native-pg-dependency && npm ci --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org
+COPY tools/prepared-worker/build.cjs tools/prepared-worker/command.cjs tools/prepared-worker/queue.sql ./tools/prepared-worker/
 COPY ops/releases/crm-native-connection-20261007/bootstrap.cjs ops/releases/crm-native-connection-20261007/build-release.cjs ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs ops/releases/crm-native-connection-20261007/start-existing.cjs ops/releases/crm-native-connection-20261007/health-existing.cjs ./ops/releases/crm-native-connection-20261007/
-RUN node ops/releases/crm-native-connection-20261007/build-release.cjs /source /app /native-output "$GIT_SHA"
+RUN node ops/releases/crm-native-connection-20261007/build-release.cjs /source /app /native-output "$GIT_SHA" \
+ && node tools/prepared-worker/build.cjs /source/tools/prepared-worker /native-output /prepared-worker-output "$GIT_SHA"
 
 FROM ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911 AS runtime
 ARG GIT_SHA
@@ -56,8 +58,14 @@ USER 0:0
 COPY --from=native-build /native-output/ /app/native-backend/
 COPY --from=native-build /native-output-presentation/ /app/presentation-release/
 COPY --from=native-build /native-output-pg-driver/ /app/native-pg-driver/
-RUN chmod 0555 /app/native-backend /app/native-backend/runtime /app/native-backend/runtime/own-foundation /app/native-backend/runtime/journey-read /app/native-pg-driver /app/presentation-release /app/presentation-release/public /app/presentation-release/public/assets /app/presentation-release/public/assets/panels
+COPY --from=native-build /prepared-worker-output/ /app/prepared-worker/
+RUN chmod 0555 /app/prepared-worker /app/native-backend /app/native-backend/runtime /app/native-backend/runtime/own-foundation /app/native-backend/runtime/journey-read /app/native-pg-driver /app/presentation-release /app/presentation-release/public /app/presentation-release/public/assets /app/presentation-release/public/assets/panels
 USER 1000:1000
 # Native startup is admitted separately by Root on the existing Compose gateway.
 # The historical pack/controller and public V2 files stay intact. Production uses
 # the fresh immutable start-existing entrypoint, never the inherited old CMD.
+
+# Existing Compose/envelope command and health overrides retain their admission.
+ENV SHRIGMA_PROCESS_ROLE=api
+CMD ["node","/app/prepared-worker/command.cjs","start"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["node","/app/prepared-worker/command.cjs","health"]

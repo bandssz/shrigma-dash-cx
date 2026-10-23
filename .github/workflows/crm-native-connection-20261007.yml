@@ -364,6 +364,14 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/afiliados-native-consent.test.cjs /source/tests/afiliados-native-source.test.cjs /source/tests/afiliados-read-contract.test.cjs /source/tests/afiliados-read-gateway.test.cjs /source/tests/afiliados-session-read.test.cjs /source/tests/afiliados-panel-read.test.cjs /source/tests/afiliados-creator-share.test.cjs /source/tests/product-front-split.test.cjs
+      - name: Prove prepared API and worker commands in the actual image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE/tools/prepared-worker/image-smoke.cjs,dst=/tmp/prepared-smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" /tmp/prepared-smoke.cjs > "$AFFILIATE_CI_DIR/prepared-worker.json"
+          node -e 'const fs=require("node:fs"),a=require("node:assert/strict"),r=JSON.parse(fs.readFileSync(process.argv[1],"utf8").trim().split(/\r?\n/).at(-1));a.equal(r.ok,true);a.equal(r.sourceRevision,process.env.GITHUB_SHA);a.equal(r.uid,1000);a.equal(r.workerExecutionEnabled,false);a.equal(r.workerDatabaseConnected,false);a.equal(r.workerHandlers,0);a.equal(r.apiAdapterRealAuth,true);a.equal(r.apiHealth,true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);console.log(JSON.stringify(r));' "$AFFILIATE_CI_DIR/prepared-worker.json"
+      - name: Prove the uninstalled queue contract on isolated PostgreSQL17
+        run: node tools/prepared-worker/queue-smoke.cjs
       - name: Compare negative-public membership on isolated PostgreSQL17
         run: node tools/crm-qa/paid-publics-sql.cjs
       - name: Prove acquisition backup and metadata-only updates on isolated PostgreSQL17
@@ -412,8 +420,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: e082929330864d87da4195fffd7fa880d76ee96b
-          CRM_QA_EXPECT_MANIFEST: cfb0c868b1a645e67ba4aa4fee4834a355432db481f5cf6ff947af6c80be2f08
+          CRM_QA_EXPECT_REVISION: c294a3b4082fdb294325de6b5e0114c93a81fedc
+          CRM_QA_EXPECT_MANIFEST: d3a4b4f6cfe1672f566616e98934344ce6f4a0b2d1512d0c648320be8ecbe622
         shell: bash
         run: |
           set -euo pipefail
@@ -423,8 +431,8 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
-          CRM_QA_EXPECT_REVISION: e082929330864d87da4195fffd7fa880d76ee96b
-          CRM_QA_EXPECT_MANIFEST: cfb0c868b1a645e67ba4aa4fee4834a355432db481f5cf6ff947af6c80be2f08
+          CRM_QA_EXPECT_REVISION: c294a3b4082fdb294325de6b5e0114c93a81fedc
+          CRM_QA_EXPECT_MANIFEST: d3a4b4f6cfe1672f566616e98934344ce6f4a0b2d1512d0c648320be8ecbe622
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
