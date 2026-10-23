@@ -20,7 +20,7 @@ function plan(snapshot,GEC){
  for(const [source,html] of [[t.subject,false],[t.body,true]]){
   const expressions=GEC.templateExpressions(source,html);
   // Arbitrary Go expressions/functions and Subscriber fields are not fabricated or executed.
-  if(expressions.unsupported)return {eligible:false,code:'unsupported_template_expression'};
+  if(expressions.unsupported||expressions.native)return {eligible:false,code:'unsupported_template_expression'};
   expressions.keys.forEach(key=>used.add(key));
  }
  if([...used].some(k=>!Object.hasOwn(samples,k)))return {eligible:false,code:'unsupported_test_variable'};
@@ -34,3 +34,4 @@ function plan(snapshot,GEC){
 function preview(p){return {contract:CONTRACT,eligible:p.eligible,code:p.code,...(p.eligible?Object.fromEntries(['recipient','brand','draft_id','version','template_id','subject','rendered_subject','from_email','reply_to','data','variables','body_html','differences'].map(k=>[k,p[k]])):{} )};}
 function transportOutcome(response){return response?.statusCode===200&&response?.body?.data===true?'accepted':'outcome_unknown';}
 module.exports={RECIPIENT,PREFIX,CONTRACT,UUID,request,plan,preview,transportOutcome};
+
