@@ -36,7 +36,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 50511,
-      "sha256": "9fe572ceeb99a49eb2490114603281b6495b5bdb7535521584114ef1089840e9"
+      "sha256": "a3771886160e6c786161550b82299f2b9b5d8a6421e865b0f8dd44c177f049f9"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1860,8 +1860,8 @@
     },
     {
       "path": "services/dashboard-operational/maintenance-notice-ui.cjs",
-      "bytes": 3341,
-      "sha256": "2c7e2cb37953d3a0c53fb8d1a63db37c66fc84afab0648dfd2d739e7ec3feaea"
+      "bytes": 3365,
+      "sha256": "0dfea70bb99e9518605ee20d78cabaa9163141ba4b9e52f434b94c8e8b5b8e2c"
     },
     {
       "path": "services/dashboard-operational/maintenance-notice.cjs",
@@ -2860,8 +2860,8 @@
     },
     {
       "path": "tests/maintenance-notice.test.cjs",
-      "bytes": 9252,
-      "sha256": "76b83f82675bd4533b576ac7e559ab8ed98b0a9cf408da268da0a4e1d2b7662d"
+      "bytes": 9531,
+      "sha256": "11ced154f2bfda9dcc2437f9a967ccbe92e6efdd5338b657cfaf49c23b88f6e6"
     },
     {
       "path": "tests/master-template-read-native/root-fixture.cjs",

@@ -1,7 +1,7 @@
 'use strict';
 function browser(){
  'use strict';
- if(window.ShrigmaMaintenanceNotice)return;window.ShrigmaMaintenanceNotice=true;
+ if(window.parent!==window||window.ShrigmaMaintenanceNotice)return;window.ShrigmaMaintenanceNotice=true;
  let timer,expires=0,pending=false;
  function hide(){document.getElementById('maintenance-notice')?.remove();clearTimeout(timer);expires=0;}
  function render(data){
