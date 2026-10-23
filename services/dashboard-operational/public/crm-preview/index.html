@@ -41,7 +41,6 @@ body.crm-workspace #audience-editor [data-rule-node]{border-color:#dfe7d9;backgr
 body.crm-workspace #audience-editor [data-kind="leaf"]{background:#fff}
 body.crm-workspace #audience-editor [data-rule-confirm]{border-color:#86977e}
 body.crm-workspace #audience-editor [data-confirm-label]{font-size:11px;color:#596851;line-height:1.5}
-body.crm-workspace #audience-edit-count{border:1px solid #dfe7d9;border-radius:6px;background:#f1f5eb;padding:11px 13px;font-size:12px;color:#40583c}
 body.crm-workspace .flow-node{border-color:#dce5d0;border-radius:9px;box-shadow:0 1px 2px #26301f08}
 body.crm-workspace .flow-node-head{font-size:13px;font-weight:600;color:#354c36}
 body.crm-workspace .flow-canvas{background:#f5f7f2}
@@ -134,19 +133,8 @@ body.crm-workspace #campaign-list,body.crm-workspace #template-list{max-height:5
 body.crm-workspace #campaign-list thead,body.crm-workspace #template-list thead{position:sticky;top:0;z-index:1;background:#f7f9f4}
 body.crm-workspace #model-image-list{max-height:240px;overflow:auto;scrollbar-gutter:stable}
 body.crm-workspace #campaigns:has(#campaign-editor:not(.d-none))>#campaign-summary,body.crm-workspace #campaigns:has(#campaign-editor:not(.d-none))>#campaign-drafts,body.crm-workspace #campaigns:has(#campaign-editor:not(.d-none))>.card:not(#campaign-editor){display:none}
-body.crm-workspace #audiences:has(#audience-editor:not(.d-none))>#audience-editor~.card{display:none}
-body.crm-workspace #audience-editor form.card-body{display:grid;grid-template-columns:minmax(0,1fr) 248px;column-gap:20px;align-items:start}
-body.crm-workspace #audience-edit-status{grid-column:1/-1}
-body.crm-workspace #audience-editor label[for=audience-edit-name]{grid-column:1;grid-row:2}
-body.crm-workspace #audience-edit-name{grid-column:1;grid-row:3}
-body.crm-workspace #audience-rule-root{grid-column:1;grid-row:4;min-width:0}
-body.crm-workspace #audience-editor form.card-body>.d-flex{grid-column:1;grid-row:5}
-body.crm-workspace #audience-edit-count{grid-column:2;grid-row:2/span 4;align-self:start;margin-top:0!important;min-height:150px;padding:18px;font-size:14px;line-height:1.7}
-body.crm-workspace #audience-edit-count:before{content:'Contagem do público';display:block;font-size:12px;font-weight:600;color:#40583c;margin-bottom:14px}
+body.crm-workspace #audience-general:has(#audience-editor:not(.d-none))>#audience-editor~.card{display:none}
 @media(max-width:991px){
-body.crm-workspace #audience-editor form.card-body{grid-template-columns:minmax(0,1fr)}
-body.crm-workspace #audience-edit-count{grid-column:1;grid-row:5;min-height:0;margin-top:16px!important}
-body.crm-workspace #audience-editor form.card-body>.d-flex{grid-column:1;grid-row:6}
 body.crm-workspace #campaign-list,body.crm-workspace #template-list{max-height:500px}
 }
 @media(max-width:767px){body.crm-workspace #audience-list{max-width:100%;overflow:auto}body.crm-workspace #audience-list .table{min-width:900px}}

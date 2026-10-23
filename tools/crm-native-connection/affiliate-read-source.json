@@ -2040,8 +2040,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 158429,
-      "sha256": "72132d00c83f54172ff6a274598c97d9fe5cd57f416d632c0e19cde1c6a0a3d7"
+      "bytes": 158777,
+      "sha256": "2aacfd3b941e9356750fb0e647a80ec1a6eba5dff5990e320076798289a7f5d1"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -2050,8 +2050,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 34572,
-      "sha256": "24d4dd40ac7a4a1b66f7ea597dae1f3c289de0d8350d1201c5a636bd40df0e97"
+      "bytes": 33301,
+      "sha256": "0dce624a4b79af287620ac36b1105db0689548db737f3d1d4f1bd13f11b37bc3"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
@@ -3273,5 +3273,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Restricted synthetic paid-entry journeys in an additive QA sidecar; daily cross-brand/person quota, no transport. CI requires ten-minute visible maintenance plus original-owner notice manifest and exact candidate binding. Publisher maintenance wait is asynchronous; one transient-transport retry for immutable reads, unchanged ten-minute and fresh-window guards, safe phase diagnostics and original observed notice receipt."
+  "candidatePurpose": "Branch-only Tabler campaign and audience creators preview; unchanged business handlers; visual approval required before installation."
 }
