@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 51214,
-      "sha256": "f2da4f1a39780842a32d69fe1494e4d90279c3be31a1f7d0921f3d811427a2f3"
+      "bytes": 51263,
+      "sha256": "7b6601edbd07f0e1c808284c45447012774ba455a1210ee258d7c1138f7ee391"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -2624,6 +2624,11 @@
       "sha256": "5567e4ab210d862ec71acf3c13cbb862eec5e654f771c17626fc7714b3b9ab9e"
     },
     {
+      "path": "tests/crm-qa-permission-failure.test.cjs",
+      "bytes": 1768,
+      "sha256": "0351e2e66a584ecfc115109c63cf7b37ae334397c75e9037f6f5492b9ab57d39"
+    },
+    {
       "path": "tests/crm-qa-read-policy.test.cjs",
       "bytes": 2857,
       "sha256": "148265903f47cb98fcb6dc8cf93a4d99a255c19999cc1a762f4a68193f84a705"
@@ -3229,9 +3234,14 @@
       "sha256": "87f1f94197c54bc75c8c4470df7a17515a63adb3b9c35b5c54c5c9d585829717"
     },
     {
+      "path": "tools/crm-qa/permission-failure.cjs",
+      "bytes": 1849,
+      "sha256": "7474190d0f5b5b3ed33d33e5848d20e0e81d3ae69ae52b6278e2d5d5f39d8ed6"
+    },
+    {
       "path": "tools/crm-qa/permissions.cjs",
-      "bytes": 3897,
-      "sha256": "ba7e6ce5551ff91b311dcc0192bf9b72066fcb7425229a0edd927a444bd76abd"
+      "bytes": 5766,
+      "sha256": "d735d34e94c82fe5039bbf78969e7c6faf8b1732d1961c862f18b39a07ec20ae"
     },
     {
       "path": "tools/crm-qa/read-policy.cjs",
@@ -3240,8 +3250,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 14426,
-      "sha256": "f117004c49fbcf89231fcddb82371d4d624754f7d3ba7cec0f56428324504ecd"
+      "bytes": 14615,
+      "sha256": "2ce9002e9d18d7cf57d592600f88423d49f37c56083a91c8753bfca0b79b9816"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
