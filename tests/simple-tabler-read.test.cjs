@@ -158,9 +158,19 @@ test('CRM available window retains selected proven daily clicks even without sen
  data.crm_diario[0].cliques=25;delete data.crm_diario[0].janela;a.deepEqual(H.availableWindow(data,'fish','2026-10-15','2026-10-15'),{start:'2026-10-14',end:'2026-10-14'});
 });
 
-test('unapproved Home layout remains QA-only while accepted analysis stays open',async t=>{
+test('approved Home layout opens read-only to the authorized brand and embeds only on the same origin',async t=>{
  const paid=require(runtime+'/crm-paid-facts.cjs'),original=paid.create;t.mock.method(paid,'create',options=>original({...options,clientFactory:()=>({connect:async()=>{},end:async()=>{},query:async()=>({rows:[]})})}));
  const f=await fixture(t,{fronts:['growth'],brands:['fish'],writeFronts:['growth'],paidFacts:true}),host='crm.synthetic.invalid';
- for(const route of ['/app/crm/restrito/inicio-layout/?brand=fish','/app/crm/restrito/inicio-layout.js?brand=fish'])a.equal((await f.request(route,{host})).status,403);
+ for(const route of ['/app/crm/restrito/inicio-layout/?brand=fish','/app/crm/restrito/inicio-layout.js?brand=fish']){const r=await f.request(route,{host});a.equal(r.status,200);a.match(r.headers['content-security-policy'],/frame-ancestors 'self'/);}
+ a.equal((await f.request('/app/crm/restrito/inicio-layout/?brand=aristo',{host})).status,403);
  a.equal((await f.request('/app/crm/restrito/inicio/?brand=fish',{host})).status,200);
+ const managerLogin=await f.auth.login({email:f.user.user.email,password:PASS,host:HOST,origin:'https://'+HOST}),managerCookie=managerLogin.cookie.split(';')[0];
+ a.equal((await f.request('/app/crm/restrito/inicio-layout/?brand=fish',{host:HOST,cookie:managerCookie})).status,200);
+ a.equal((await f.request('/api/crm-restricted/compras?action=compare-home&brand=fish',{host:HOST,cookie:managerCookie})).status,200);
+ a.equal((await f.request('/api/crm-restricted/compras?action=compare-home&brand=aristo',{host:HOST,cookie:managerCookie})).status,403);
+ a.equal((await f.request('/api/crm-restricted/compras?action=status&brand=fish',{host:HOST,cookie:managerCookie})).status,404);
+ a.equal((await f.request('/api/crm-restricted/compras',{host:HOST,cookie:managerCookie,body:{action:'backfill',brand:'fish'}})).status,404);
+ const reader=await fixture(t,{fronts:['growth'],brands:['fish'],writeFronts:[],paidFacts:true});a.equal((await reader.request('/app/crm/restrito/inicio-layout/?brand=fish',{host})).status,403);
 });
+
+test('default Home promotion preserves ordinary read-only accounts on their existing view',()=>{const text=fs.readFileSync(runtime+'/public/crm-preview/app.js','utf8'),start=text.indexOf('function crmDefaultHomeAllowed('),sandbox={crmFeature:()=>false};a(start>0);vm.runInNewContext(text.slice(start),sandbox);a.equal(sandbox.crmDefaultHomeAllowed({permissions:{growth:{read:true,edit:false}},productWriteFronts:[]}),false);a.equal(sandbox.crmDefaultHomeAllowed({permissions:{growth:{read:true,edit:true}},productWriteFronts:['growth']}),true);a.equal(sandbox.crmDefaultHomeAllowed({permissions:{growth:{read:true,edit:true}},productWriteFronts:[]}),false);a.equal(sandbox.crmDefaultHomeAllowed({role:'superadmin'}),true);});

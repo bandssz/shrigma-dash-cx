@@ -412,8 +412,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 0e4fc4fd8f4b71fc91ec78fbb41dc9f96d351855
-          CRM_QA_EXPECT_MANIFEST: 0d4a8a306365a7f4c0c3c3994d8d4f30ca59ff9a2c2844782faa2d07b6f906ed
+          CRM_QA_EXPECT_REVISION: e7ddfb47e873a93dea227e889f936c154f80c3a6
+          CRM_QA_EXPECT_MANIFEST: f908c38adff48544abbb286417ad3d0ca71ecc457f02126b327ad6e5fdeedfd6
         shell: bash
         run: |
           set -euo pipefail
@@ -423,8 +423,8 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
-          CRM_QA_EXPECT_REVISION: 0e4fc4fd8f4b71fc91ec78fbb41dc9f96d351855
-          CRM_QA_EXPECT_MANIFEST: 0d4a8a306365a7f4c0c3c3994d8d4f30ca59ff9a2c2844782faa2d07b6f906ed
+          CRM_QA_EXPECT_REVISION: e7ddfb47e873a93dea227e889f936c154f80c3a6
+          CRM_QA_EXPECT_MANIFEST: f908c38adff48544abbb286417ad3d0ca71ecc457f02126b327ad6e5fdeedfd6
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
