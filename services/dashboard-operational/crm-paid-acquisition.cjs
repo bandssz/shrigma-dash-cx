@@ -11,9 +11,10 @@ function classify(v){
  if(['affiliate','affiliates','afiliado','afiliados'].includes(medium)||tactic==='AFFILIATE')return 'affiliate';
  if(['influ','influencer','influencers','influenciador','influenciadores'].includes(medium))return 'influencer';
  if(['email','e-mail','newsletter'].includes(medium)||['email','e-mail','listmonk','newsletter'].includes(source)||tactic==='NEWSLETTER')return 'email';
+ if(['cpc','ppc','paid','paid_social','paid-social','paidsocial','paid_search','paid-search','paidsearch','cpm','display','retargeting'].includes(medium))return 'paid';
  if(/^(?:tiktok|tik-tok|tik_tok)(?:[ ._-].*)?$/.test(source)||/^https?:\/\/(?:[^/]+\.)?tiktok\.com(?:\/|$)/i.test(v.referrerUrl||''))return 'tiktok';
- if(['cpc','ppc','paid','paid_social','paid-social','paidsocial','cpm','display','retargeting'].includes(medium))return 'other';
  if(medium==='organic'||tactic==='SEO'||tactic==='POST'&&!['cpc','ppc','paid','paid_social','paidsocial'].includes(medium))return 'organic';
+ if(/^(?:facebook|instagram|google)(?:[ ._-].*)?$/.test(source))return 'paid';
  if(['direct','(direct)','direct traffic'].includes(source)&&!Object.values(v.utm||{}).some(Boolean)&&!clean(v.referrerUrl))return 'direct';
  if(source&&!['unknown','an unknown source'].includes(source)||medium||tactic)return 'other';
  return 'unknown';
@@ -27,8 +28,15 @@ function webhook(order,observedAt){
  const landingPage=clean(order.landing_site),referrerUrl=clean(order.referring_site),source=clean(order.source_name);let params;
  try{if(landingPage)params=new URL(landingPage,'https://store.invalid').searchParams;}catch{}
  const codes=Array.isArray(order.discount_codes)&&order.discount_codes.every(c=>typeof c?.code==='string')?order.discount_codes.map(c=>c.code):null;
- const evidence={source,landingPage,referrerUrl,utm:Object.fromEntries(UTMS.map(k=>[k,params?.get('utm_'+k)||null])),discountCodes:codes,observedAt};
- return {schema:'crm-shopify-acquisition-v1',policy:POLICY,source:'shopify-orders-paid-webhook',observedAt,sourceUpdatedAt:order.updated_at,discountCodes:codes,utm:evidence.utm,origin:'unknown',selectedVisitId:null,selectedVisitAt:null,firstPurchase:null,journey:{ready:false,complete:false,reason:'not_collected',moments:[]},webhook:evidence};
+ const evidence={source,landingPage,referrerUrl,utm:Object.fromEntries(UTMS.map(k=>[k,params?.get('utm_'+k)||null])),discountCodes:codes,observedAt};evidence.origin=classify(evidence);
+ return {schema:'crm-shopify-acquisition-v1',policy:POLICY,source:'shopify-orders-paid-webhook',observedAt,sourceUpdatedAt:order.updated_at,discountCodes:codes,utm:evidence.utm,origin:'unknown',observedOrigin:evidence.origin,selectedVisitId:null,selectedVisitAt:null,firstPurchase:null,journey:{ready:false,complete:false,reason:'not_collected',moments:[]},webhook:evidence};
+}
+function reclassify(prior){
+ if(prior?.schema!=='crm-shopify-acquisition-v1'||prior.policy!==POLICY||!Array.isArray(prior.journey?.moments)||prior.journey.moments.some(v=>!v||typeof v.id!=='string'))return null;
+ const value=structuredClone(prior);for(const v of value.journey.moments)v.origin=classify(v);
+ if(value.journey.complete===true&&value.selectedVisitId){const selected=value.journey.moments.find(v=>v.id===value.selectedVisitId);if(!selected)return null;value.origin=selected.origin;}
+ if(value.webhook&&typeof value.webhook==='object'&&!Array.isArray(value.webhook)){value.webhook.origin=classify(value.webhook);value.observedOrigin=value.webhook.origin;}
+ return value;
 }
 function acquisition(order,{observedAt,complete,reason=null}){
  if(!order||!Array.isArray(order.discountCodes)||order.discountCodes.some(v=>typeof v!=='string')||!Number.isFinite(Date.parse(order.createdAt))||!Number.isFinite(Date.parse(order.updatedAt))||!Number.isFinite(Date.parse(observedAt)))throw Object.assign(Error('PAID_ACQUISITION_INCOMPLETE'),{code:'PAID_ACQUISITION_INCOMPLETE',status:409});
@@ -67,4 +75,4 @@ async function pacedRead(send,{sleep=ms=>new Promise(resolve=>setTimeout(resolve
  }
  refuse();
 }
-module.exports={ORDERS_QUERY,MOMENTS_QUERY,UTMS,POLICY,acquisition,completeJourney,classify,webhook,pacedRead};
+module.exports={ORDERS_QUERY,MOMENTS_QUERY,UTMS,POLICY,acquisition,completeJourney,classify,webhook,reclassify,pacedRead};

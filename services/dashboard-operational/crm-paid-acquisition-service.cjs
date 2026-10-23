@@ -32,7 +32,7 @@ function create({authorize,database,graphql,openBackup,now=Date.now}){
     for(const row of rows){
      const order=byId.get(row.order_id);orders++;
      if(!order||new Date(order.createdAt).toISOString()!==new Date(row.created_at).toISOString()){skipped++;continue;}
-     const full=await M.completeJourney(order,{shop:SHOPS[brand],read:(q,v)=>graphql(brand,q,v)}),value={...M.acquisition(full.order,{observedAt:new Date(now()).toISOString(),complete:full.complete,reason:full.reason}),...(row.prior_acquisition?.webhook?{webhook:row.prior_acquisition.webhook}:{})};
+     const full=await M.completeJourney(order,{shop:SHOPS[brand],read:(q,v)=>graphql(brand,q,v)}),webhook=row.prior_acquisition?.webhook,observed=webhook&&typeof webhook==='object'&&!Array.isArray(webhook)?{webhook:{...webhook,origin:M.classify(webhook)},observedOrigin:M.classify(webhook)}:{},value={...M.acquisition(full.order,{observedAt:new Date(now()).toISOString(),complete:full.complete,reason:full.reason}),...observed};
      value.factSourceUpdatedAt=row.fact_updated_at??null;value.snapshotMatchesFact=row.fact_updated_at?Date.parse(row.fact_updated_at)===Date.parse(order.updatedAt):null;
      if(!value.journey.complete){incomplete++;if(row.prior_acquisition?.journey?.complete===true){skipped++;continue;}}
      writes.push({row,value});
@@ -50,6 +50,23 @@ function create({authorize,database,graphql,openBackup,now=Date.now}){
    authorize(context,brand,true);return {ok:true,brand,period:p,pages,orders,stored,skipped,complete,incomplete,backup:backup.name,checkedAt:new Date(now()).toISOString()};
   }finally{backup.close();}
  }
- return {acquisition,enrich};
+ async function reclassify(context,brand,input={},onProgress=()=>{}){
+  authorize(context,brand,true);const p=range(now()),selected=ids(input.ids);if(typeof openBackup!=='function')fail('PAID_ACQUISITION_BACKUP_UNAVAILABLE');
+  const backup=openBackup(brand);let after='',pages=0,orders=0,stored=0,unchanged=0,skipped=0;
+  const progress=()=>({brand,...p,backup:backup.name,pages,orders,stored,unchanged,skipped});
+  try{
+   onProgress(progress());
+   for(;;){
+    authorize(context,brand,true);const rows=await database(async c=>(await c.query(SELECT,[brand,p.from,p.until,after,selected])).rows);if(!rows.length)break;
+    if(++pages>5000)fail('PAID_ACQUISITION_RANGE_TOO_LARGE');const writes=[];
+    for(const row of rows){orders++;const value=M.reclassify(row.prior_acquisition);if(!value){skipped++;continue;}if(JSON.stringify(value)===JSON.stringify(row.prior_acquisition)){unchanged++;continue;}writes.push({row,value});}
+    backup.append(writes.map(({row,value})=>({brand,orderId:row.order_id,baseHash:row.base_hash,before:row.prior_acquisition,after:value})));
+    const result=await database(async c=>{let changed=0,raced=0;for(const {row,value}of writes){authorize(context,brand,true);const r=await c.query(UPDATE,[brand,row.order_id,JSON.stringify(value),row.base_hash,JSON.stringify(row.prior_acquisition)]);if(r.rowCount===1)changed++;else raced++;}authorize(context,brand,true);return {changed,raced};},true);
+    stored+=result.changed;skipped+=result.raced;after=rows.at(-1).order_id;onProgress(progress());
+   }
+   authorize(context,brand,true);return {ok:true,...progress(),checkedAt:new Date(now()).toISOString()};
+  }finally{backup.close();}
+ }
+ return {acquisition,enrich,reclassify};
 }
 module.exports={create,SELECT,UPDATE,BASE,range,ids};
