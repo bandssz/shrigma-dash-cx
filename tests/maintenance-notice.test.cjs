@@ -4,6 +4,12 @@ const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,
 const revision='a'.repeat(40),targetRevision='b'.repeat(40),stamp=Date.parse('2026-10-23T10:00:00Z'),master={id:'master',role:'superadmin',email:'master@invalid.test'},editor={id:'editor',role:'manager',email:'editor-qa-fish@shrigma.com.br',permissions:{growth:{edit:true}}};
 const ctx={method:'POST',user:master,csrf:true,origin:true},query={brand:'fish',front:'growth'};
 test('embedded analysis inherits the parent notice without a second poll or duplicate banner',()=>{const vm=require('node:vm'),window={parent:{}};vm.runInNewContext(require(runtime+'/maintenance-notice-ui.cjs').JS,{window});a.equal(window.ShrigmaMaintenanceNotice,undefined);});
+test('background notice observes existing guard identity without replacing an affiliate session check',async()=>{
+ const vm=require('node:vm'),calls=[],window={ShrigmaPrepareRead:async()=>true,ShrigmaBrandAccess:{brands:['fish']},ShrigmaReadSession(){throw Error('FRESH_SESSION_MUST_NOT_BE_STARTED');},addEventListener(){}};window.parent=window;
+ const document={getElementById:id=>id==='brand'?{value:'fish'}:null,addEventListener(){}};
+ vm.runInNewContext(require(runtime+'/maintenance-notice-ui.cjs').JS,{window,document,location:{href:'https://gerencial.shrigma.com.br/app/afiliados/?brand=fish'},URL,URLSearchParams,setTimeout,clearTimeout,setInterval(){},fetch:async address=>{calls.push(address);return {ok:true,json:async()=>({active:false})};}});
+ await new Promise(setImmediate);a.equal(calls.length,1);a.match(calls[0],/^\/api\/maintenance-notice\?/);a.doesNotMatch(calls.join(','),/auth\/session/);
+});
 const input=(t=stamp,audience='qa')=>({targetRevision,restartAt:new Date(t+600001).toISOString(),expiresAt:new Date(t+660001).toISOString(),audience});
 const authorize=c=>{if(!c.user||c.method==='POST'&&(!c.csrf||!c.origin)||c.admin&&c.user!==master||c.brand==='aristo'&&c.user!==master)throw Object.assign(Error('SCOPE_DENIED'),{status:403});return c.user;};
 function fixture(t,{file=':memory:',current=revision}={}){const db=new DatabaseSync(file);let clock=stamp;const service=Notice.create({db,dbPath:file,authorize,revision:current,now:()=>clock});t.after(()=>db.close());return {db,service,tick:v=>clock=v};}

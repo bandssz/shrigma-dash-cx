@@ -1860,8 +1860,8 @@
     },
     {
       "path": "services/dashboard-operational/maintenance-notice-ui.cjs",
-      "bytes": 3365,
-      "sha256": "0dfea70bb99e9518605ee20d78cabaa9163141ba4b9e52f434b94c8e8b5b8e2c"
+      "bytes": 3733,
+      "sha256": "177d2bce5c68c2c74dc65e681054341a0ad58b0c5023ab7598b272062a864c9b"
     },
     {
       "path": "services/dashboard-operational/maintenance-notice.cjs",
@@ -2860,8 +2860,8 @@
     },
     {
       "path": "tests/maintenance-notice.test.cjs",
-      "bytes": 9531,
-      "sha256": "11ced154f2bfda9dcc2437f9a967ccbe92e6efdd5338b657cfaf49c23b88f6e6"
+      "bytes": 10446,
+      "sha256": "978bb4d13f223e6b0351349d3bb8d83ba790ba7aff282ba8bf891e5f326fc6c7"
     },
     {
       "path": "tests/master-template-read-native/root-fixture.cjs",

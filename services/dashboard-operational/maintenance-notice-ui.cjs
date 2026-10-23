@@ -16,11 +16,16 @@ function browser(){
  async function poll(){
   if(pending)return;pending=true;
   try{
-   let session;if(typeof window.ShrigmaReadSession==='function')session=await window.ShrigmaReadSession();else{
-    const r=await fetch('/auth/session',{credentials:'same-origin',cache:'no-store'});if(!r.ok){if([401,403].includes(r.status))hide();return;}session=await r.json();
-   }if(!session.authenticated)return hide();
-   const url=new URL(location.href),front=url.pathname.startsWith('/app/crm/')?'growth':url.pathname.startsWith('/app/organico/')?'organico':url.pathname.startsWith('/app/afiliados/')?'afiliados':url.pathname.startsWith('/app/influs/')?'influs':url.searchParams.get('front')||session.user.productFronts?.[0];
-   const selected=document.getElementById('brand')?.value||document.getElementById('issue-brand')?.value||url.searchParams.get('brand')||session.user.brands?.[0],brand=selected==='todas'?session.user.brands?.find(b=>['aristo','fish'].includes(b)):selected;
+   let brands=[],defaultFront;
+   if(typeof window.ShrigmaPrepareRead==='function'){
+    // Observe the guard's existing identity promise. A background notice must
+    // never supersede the fresh identity check used by an affiliate read.
+    if(!await window.ShrigmaPrepareRead())return hide();brands=window.ShrigmaBrandAccess?.brands||[];
+   }else{
+    const r=await fetch('/auth/session',{credentials:'same-origin',cache:'no-store'});if(!r.ok){if([401,403].includes(r.status))hide();return;}const session=await r.json();if(!session.authenticated)return hide();brands=session.user.brands||[];defaultFront=session.user.productFronts?.[0];
+   }
+   const url=new URL(location.href),front=url.pathname.startsWith('/app/crm/')||url.pathname==='/growth.html'?'growth':url.pathname.startsWith('/app/organico/')||url.pathname==='/organico.html'?'organico':url.pathname.startsWith('/app/afiliados/')?'afiliados':url.pathname.startsWith('/app/influs/')||url.pathname==='/influs.html'?'influs':url.searchParams.get('front')||defaultFront;
+   const selected=document.getElementById('brand')?.value||document.getElementById('issue-brand')?.value||url.searchParams.get('brand')||brands[0],brand=selected==='todas'?brands.find(b=>['aristo','fish'].includes(b)):selected;
    if(!['growth','organico','influs','afiliados'].includes(front)||!['aristo','fish'].includes(brand))return hide();
    const response=await fetch('/api/maintenance-notice?'+new URLSearchParams({brand,front}),{credentials:'same-origin',cache:'no-store'});
    if(response.ok)render(await response.json());else if([401,403].includes(response.status))hide();
