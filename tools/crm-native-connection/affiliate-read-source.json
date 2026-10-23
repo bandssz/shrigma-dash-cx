@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 50932,
-      "sha256": "ec314b4dc2ff24aa2b575b90f17495da6fa3fc31bad4ba2bb18c8cc7b71fe57a"
+      "bytes": 51082,
+      "sha256": "2713b8f979e8b624532d7d223b1271535a7b44462a46888334030ae35c1033fc"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -420,8 +420,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 16568,
-      "sha256": "b0e82d60da81e16c90f7517b71358939f92d964f79dbca4f7bc5c91160d3ab36"
+      "bytes": 16632,
+      "sha256": "ad93fe39b9194618b0a40ffe785690eeed17451c784a20759da7c32ea93621ba"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -430,13 +430,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 8856,
-      "sha256": "9f73471619f74aabeeb3522922b913468df5a392dd3429289b0e8004fa953fa5"
+      "bytes": 8920,
+      "sha256": "01426968499fd389ef75204beba82bc75392f6c45dcce5358c7a89897b019519"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 11671,
-      "sha256": "2729fb3a7c811105b04aa95665f31022b7633e0462be5824693f282c30db7405"
+      "bytes": 11832,
+      "sha256": "61f09bb5413dc92bbae301a768d0fe69abd1d6e457a3a3c3f10c83025940af2f"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -1615,8 +1615,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 168408,
-      "sha256": "6c7843e9a45fc4d2a5f457f9b0fbc2d701d2815cd110ed2d7da807f5132922d6"
+      "bytes": 169763,
+      "sha256": "e34f0c201ec83e4c9b2b5e9b4a692596a58c5d2927a0ee586107ca1147ed8be2"
     },
     {
       "path": "services/dashboard-operational/BCRYPT-LICENSE",
@@ -1899,6 +1899,16 @@
       "sha256": "c2791d4d37bef0d84b1c90408874bcd2eab60e194beeee48c6e6dd86ea1d9a8d"
     },
     {
+      "path": "services/dashboard-operational/native-whatsapp-connection.cjs",
+      "bytes": 10295,
+      "sha256": "0ce3bd25b12e1f7a1cccbe59e2bdd40002e8726fd84169b6821e471b59cbedcc"
+    },
+    {
+      "path": "services/dashboard-operational/native-whatsapp-operator.cjs",
+      "bytes": 3149,
+      "sha256": "c65fd3714d29a3365ef4a822f281c1f82a9ea6fa6336dbfbd3218e123d382b2d"
+    },
+    {
       "path": "services/dashboard-operational/organico-presentation.css",
       "bytes": 78231,
       "sha256": "3d9a84d3fea861131147dcf67ac28e7f6fdd764bdabe7e2e67358c0eba2a7542"
@@ -2040,8 +2050,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 158429,
-      "sha256": "72132d00c83f54172ff6a274598c97d9fe5cd57f416d632c0e19cde1c6a0a3d7"
+      "bytes": 158572,
+      "sha256": "40157103f78419a597c3428ee8fdfa0bef72a99b74f12e85d3e5e0d14c294713"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -2155,8 +2165,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 245714,
-      "sha256": "a505e21b48efb47604fd1fdfafa7cdbd163a786296fae78ca3c884e3bdc24b28"
+      "bytes": 245906,
+      "sha256": "5c40af40300e62db0b89b430c16b6b4fb20177bf7c1c6d8871a59553bc20e4de"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2190,8 +2200,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 26905,
-      "sha256": "2263c9626d4430097074b7fed7a8836e97fdbe65da84588a020725f193c63578"
+      "bytes": 27712,
+      "sha256": "a02afa88b5955d5aa7c877c0e1c3b9f484396a739940cd1fc227177cfa044daf"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -2297,6 +2307,11 @@
       "path": "tests/campaign-native-tracking.test.cjs",
       "bytes": 3704,
       "sha256": "63354e5a85376eb23082e91b33aaf5b14afc03de83104e0b602deb774947798b"
+    },
+    {
+      "path": "tests/campaign-test-rendered-controls.test.cjs",
+      "bytes": 2593,
+      "sha256": "e26f8d9b7b59e1be8b82b9c379f103267565a2bb4576d83fc954d4701a07dc5c"
     },
     {
       "path": "tests/cart-contract-summary.test.cjs",
@@ -2904,6 +2919,11 @@
       "sha256": "5258794cd005a19a16969a5b75c539d5efa193f7757296be0456de8b49083567"
     },
     {
+      "path": "tests/native-whatsapp-connection.test.cjs",
+      "bytes": 13951,
+      "sha256": "71ed2f377adaac0a561cd0bc78da09a4c646d67399afa9d8cb3ca38723d477e9"
+    },
+    {
       "path": "tests/organico-access.test.cjs",
       "bytes": 9331,
       "sha256": "cd637f46d9145d7628fa44f372df5fac54c60910ed1432b0d5862188e05464f3"
@@ -3273,5 +3293,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Restricted synthetic paid-entry journeys in an additive QA sidecar; daily cross-brand/person quota, no transport. CI requires ten-minute visible maintenance plus original-owner notice manifest and exact candidate binding. Publisher maintenance wait is asynchronous; one transient-transport retry for immutable reads, unchanged ten-minute and fresh-window guards, safe phase diagnostics and original observed notice receipt."
+  "candidatePurpose": "Restricted original Meta WhatsApp connection per brand using existing identity AES/MAC; owner-only binding, QA-only fixed WABA catalog GET, no mirror writes, template submission or messages. Includes the native internal TEST unrendered-controls guard and real-image CI tests. Original credentials are not copied or activated by this source; worker remains off."
 }

@@ -1042,6 +1042,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const ui=require('./crm-paid-acquisition-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:require('./product-issues-ui.cjs').decorate(ui.HTML));return;
       }
       if(require('./campaign-consent-observation-route.cjs').handle({req,res,url,ctx,auth,host,managerHost:s.managerHost,job:simpleConsentJob,nativeContext}))return;
+      if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-whatsapp-operator.cjs').handle({req,res,url,ctx,auth,managerHost:s.managerHost,crmHost:s.areaHosts.growth}))return;
       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./crm-native-operator.cjs').handleOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
       if(dashboardAffiliateRead&&!nativeContext&&await require('./afiliados-source-operator.cjs').handleAffiliateSourceOperator({req,res,url,ctx,auth,managerHost:s.managerHost,fetchImpl}))return;
        if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-database-operator.cjs').handleDatabaseOperator({req,res,url,ctx,auth,managerHost:s.managerHost,nativeInstaller}))return;
