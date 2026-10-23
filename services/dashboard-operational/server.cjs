@@ -211,10 +211,11 @@ function safeRequestPath(raw){
   if(decoded.includes('\\')||decoded.includes('\0')||decoded.split('/').some(x=>x==='.'||x==='..'))throw jsonError(400,'PATH_INVALID');
   return new URL(raw,'http://dashboard.invalid');
 }
-function sendJson(req,res,status,body){
+function sendJson(req,res,status,body,representation=null){
   res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');
   res.setHeader('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
-  res.end(req.method==='HEAD'?undefined:JSON.stringify(body));
+  if(representation){res.setHeader('Vary','Accept-Encoding');if(representation.encoding)res.setHeader('Content-Encoding',representation.encoding);res.setHeader('Content-Length',representation.bytes.length);}
+  res.end(req.method==='HEAD'?undefined:representation?representation.bytes:JSON.stringify(body));
 }
 function readTimingHeaders(res,result,{restricted=false}={}){
  if(result.status!==200||!brandRecord(result.readTiming))return;
@@ -1683,12 +1684,13 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         }
         if(simpleReader&&!nativeContext){const restricted=require('./crm-ui-features.cjs').restrictedUser(auth.session(ctx).user),measurePayload=restricted&&req.headers['x-shrigma-crm-measure']==='payload-v1';const result=await simpleReader.read({context:ctx,route,method:req.method,query:url.searchParams,body,viewBrand:req.headers['x-shrigma-view-brand'],homeOnly:req.headers['x-shrigma-crm-view']==='home',measurePayload,origin});
           if(route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200&&req.headers['x-shrigma-crm-view']==='home'){const started=Date.now();result.body=require('./simple-dashboard-read.cjs').projectCrmHome(result.body);if(result.readTiming)result.readTiming.homeResponse=Date.now()-started;}
-          const resultsReadOnly=route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&req.headers['x-shrigma-crm-consumer']==='results-read-v1'&&req.headers['x-shrigma-crm-view']!=='home';
+          const analyticsResponse=require('./crm-analytics-response.cjs'),analyticsConsumer=req.headers['x-shrigma-crm-consumer'],analyticalDto=Object.hasOwn(analyticsResponse.CONSUMERS,analyticsConsumer);
+          const resultsReadOnly=route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&(analyticsConsumer==='results-read-v1'||analyticalDto)&&req.headers['x-shrigma-crm-view']!=='home';
           // Analytics needs the same authenticated data, without model-write or
           // email-test capability probes. This grants no operation permission.
-          if(result.status===200&&resultsReadOnly){result.body.capabilities={read:true,send:false};if(result.readTiming)result.readTiming.modelCapability=0;}
+          if(result.status===200&&resultsReadOnly){if(analyticalDto)result.body=analyticsResponse.project(result.body,analyticsConsumer);else result.body.capabilities={read:true,send:false};if(result.readTiming)result.readTiming.modelCapability=0;}
           else if(simpleModels&&route==='crm-read'&&req.method==='GET'&&url.searchParams.get('action')==='cache_growth'&&result.status===200&&req.headers['x-shrigma-crm-view']!=='home'){const capabilityStarted=Date.now(),brand=req.headers['x-shrigma-view-brand']||auth.session(ctx).user?.brand;let availability;try{availability=await simpleModels.capability(ctx,brand);}catch{availability={read:false,draft:false,validate:false,submit:false,send:false};}const cap=result.body.capabilities||{};result.body.capabilities={...cap,write_key_required:false,templates:{...(cap.templates||{}),read_content:availability.read,read_contract:'crm-template-read-v1',server_drafts:availability.read,draft:availability.draft,validate:availability.validate,submit:availability.submit,submit_email:availability.submit,list_history:false,read_submission:false,send:false,native_email_preview:availability.read,native_email_test:availability.internalTest===true,...(availability.testRecovery===true?{test_recovery:true,email_test_recipient:'crm_email_test_recipient_v2',test_internal_only:true,test_recipient:availability.recipient,test_user_id:availability.userId}:{})},endpoints:{...(cap.endpoints||{}),templates:origin+'/api/templates'}};if(result.readTiming)result.readTiming.modelCapability=Date.now()-capabilityStarted;}
-          const restrictedNow=require('./crm-ui-features.cjs').restrictedUser(auth.session(ctx).user);readTimingHeaders(res,result,{restricted:restrictedNow});readPayloadShapeHeader(res,result,{restricted:restrictedNow,requested:measurePayload});return sendJson(req,res,result.status,result.body);}
+          const restrictedNow=require('./crm-ui-features.cjs').restrictedUser(auth.session(ctx).user);readTimingHeaders(res,result,{restricted:restrictedNow});readPayloadShapeHeader(res,result,{restricted:restrictedNow,requested:measurePayload});return sendJson(req,res,result.status,result.body,result.status===200&&resultsReadOnly&&analyticalDto?analyticsResponse.encode(result.body,req.headers['accept-encoding']):null);}
         const parityAction=req.method==='GET'&&(crmManagedAudienceRead&&Object.hasOwn(AudienceRead.ACTIONS[route]||{},url.searchParams.get('acao'))||crmManagedTemplateRead&&Object.hasOwn(TemplateRead.ACTIONS[route]||{},url.searchParams.get('acao')));
         const parityUser=parityAction?auth.authorize({...ctx,area:'growth',edit:false}):null;
         const individualParity=!(corporateWriter&&allowAudienceDraft&&route==='segments'&&audienceFeature(ctx))&&parityUser?.role==='manager'&&auth.managedCrmJournal.status(parityUser.id)!==null;
