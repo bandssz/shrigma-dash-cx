@@ -3170,8 +3170,8 @@
     },
     {
       "path": "tools/prepared-worker/image-smoke.cjs",
-      "bytes": 6583,
-      "sha256": "2da42d12826752462d94e0a34b2db1c0da61c1702917db347a803b38e126a419"
+      "bytes": 6706,
+      "sha256": "492ab46045633d83c3e51c189a0e581cdde94d3e52e364af8315434e610921e2"
     },
     {
       "path": "tools/prepared-worker/queue-smoke.cjs",
@@ -3185,8 +3185,8 @@
     },
     {
       "path": "tools/prepared-worker/README.md",
-      "bytes": 3588,
-      "sha256": "97f19f24db8eb5eb29cd7fbcc754e785f30328e2682e1d82d2af025108343fc9"
+      "bytes": 3915,
+      "sha256": "8fcc10dd68392da2b6c797cf70589d4a7509e1b00c160c855e21c4d719809fae"
     },
     {
       "path": "tools/production-release/build-envelope.cjs",

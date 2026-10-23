@@ -11,8 +11,13 @@ depend on its launcher. Current Compose command and health overrides stay valid.
 
 | Service | Required environment | Command | Health |
 | --- | --- | --- | --- |
-| API | `SHRIGMA_PROCESS_ROLE=api` (image default), existing admitted API configuration | `node /app/prepared-worker/command.cjs api` | `node /app/prepared-worker/command.cjs health-api` |
+| API | `SHRIGMA_PROCESS_ROLE=api` (image default), existing admitted operational API configuration and identity | `node /app/prepared-worker/command.cjs api` | `node /app/prepared-worker/command.cjs health-api` |
 | Worker | `SHRIGMA_PROCESS_ROLE=worker`, `SHRIGMA_WORKER_EXECUTION=disabled` | `node /app/prepared-worker/command.cjs worker` | `node /app/prepared-worker/command.cjs health-worker` |
+
+API initialization requires the existing admitted operational/corporate profile;
+a generic synthetic configuration is intentionally refused by the native helper.
+Image tests use a fresh disposable identity and generated credentials with that
+profile, without production identity, database or network.
 
 Docker defaults `start` and `health` dispatch by the validated process role.
 Configure the worker role **and explicit worker command** before any replica.
