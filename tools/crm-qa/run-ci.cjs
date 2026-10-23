@@ -19,7 +19,7 @@ function run(args){const r=spawnSync(process.env.CRM_QA_DOCKER||'docker',args,{c
  if(process.env.CRM_QA_GATE==='maintenance-window'){
   phase='maintenance-window-awaiting-notice';console.log(JSON.stringify({phase,candidateRevision:process.env.GITHUB_SHA}));
   run(['run','--rm','--read-only','--user',qaUid+':'+qaGid,'--memory','512m','--tmpfs','/tmp:rw,nosuid,mode=1777','--mount',`type=bind,src=${__dirname},dst=/runner,readonly`,'--mount',`type=bind,src=${bundleFile},dst=/run/secrets/qa-accounts,readonly`,'--mount',`type=bind,src=${proof},dst=/proof`,'--env','PROOF_NAME='+name,'--env','CANDIDATE_REVISION='+process.env.GITHUB_SHA,'--env','EXPECT_MANIFEST='+manifest,IMAGE,'node','/runner/maintenance-window.cjs']);
-  const receipt=JSON.parse(fs.readFileSync(path.join(proof,name+'-maintenance-window.json')));require('./maintenance-window.cjs').validateReceipt(receipt,{revision:process.env.GITHUB_SHA});fs.writeFileSync(path.join(process.env.AFFILIATE_CI_DIR,'maintenance-window.safe.json'),JSON.stringify(receipt,null,2)+'\n',{mode:0o600,flag:'wx'});console.log(JSON.stringify({ok:true,brands:2,businessWrites:0,phase:'maintenance-window-confirmed'}));return;
+  const receipt=JSON.parse(fs.readFileSync(path.join(proof,name+'-maintenance-window.json')));require('./maintenance-window.cjs').validateReceipt(receipt,{revision:process.env.GITHUB_SHA});fs.writeFileSync(path.join(process.env.AFFILIATE_CI_DIR,'maintenance-window.safe.json'),JSON.stringify(receipt,null,2)+'\n',{mode:0o600,flag:'wx'});console.log(JSON.stringify({...receipt,phase:'maintenance-window-confirmed'}));return;
  }
  if(frontsGate){
   const passes=[];

@@ -2969,6 +2969,11 @@
       "sha256": "0760315909337ab15ac81924ff91357d2035452fd93d510e35dfe3c0bf940086"
     },
     {
+      "path": "tests/production-read-retry.test.cjs",
+      "bytes": 3292,
+      "sha256": "c0a66c6e45398ea553aa3462647f9de17e1f46b724087db119e8076799297a8e"
+    },
+    {
       "path": "tests/published-journeys-native/gateway.test.cjs",
       "bytes": 11221,
       "sha256": "72ff3d816b37e395fdaf972c2b5af613ddd90b064a95ca6b715e355c90e9d6cf"
@@ -3185,8 +3190,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 13954,
-      "sha256": "b0baf1a7778ed3dc44b15529f72e48139be81198555122efcca720042c716423"
+      "bytes": 13931,
+      "sha256": "d90be4085e238e18b6c1abbc511e3f81bc80f30719e4bae45754d02c7b559685"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
@@ -3255,13 +3260,18 @@
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 13490,
-      "sha256": "88ad2b824e1d54cc58de5af484191fe583a44d076aef234719d93b668228f3af"
+      "bytes": 14699,
+      "sha256": "b15af25e8754e440530c6cc42c36f5988978431e5664871d6c5456f4bcaa3db5"
+    },
+    {
+      "path": "tools/production-release/read-retry.cjs",
+      "bytes": 743,
+      "sha256": "ac15f0631546f784c032bad879753f09442fb7615cf8195b0be3b3cb4189c1d3"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Restricted synthetic paid-entry journeys in an additive QA sidecar; daily cross-brand/person quota, no transport. CI requires ten-minute visible maintenance plus original-owner notice manifest and exact candidate binding."
+  "candidatePurpose": "Restricted synthetic paid-entry journeys in an additive QA sidecar; daily cross-brand/person quota, no transport. CI requires ten-minute visible maintenance plus original-owner notice manifest and exact candidate binding. Publisher maintenance wait is asynchronous; one transient-transport retry for immutable reads, unchanged ten-minute and fresh-window guards, safe phase diagnostics and original observed notice receipt."
 }
