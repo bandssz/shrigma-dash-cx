@@ -1,0 +1,10 @@
+{
+  "schema": "shrigma-programmed-maintenance-v1",
+  "source": "original-owner-maintenance-api-v1",
+  "saved": true,
+  "targetRevision": "e5f1f8fb935cc9a2ab7ce73f43e4e9da6552c444",
+  "audience": "editors",
+  "restartAt": "2026-10-23T14:42:33.789Z",
+  "expiresAt": "2026-10-23T14:52:33.789Z",
+  "programmedAtUtc": "2026-10-23T14:27:33.789Z"
+}
