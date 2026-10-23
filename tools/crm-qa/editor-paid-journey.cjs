@@ -1,0 +1,26 @@
+'use strict';
+const a=require('node:assert/strict');
+async function prove({page,context,origin,brand,name,row,save,headers}){
+ const proof=row.paidQa={mode:'synthetic',sourceCustomersRead:0,realSends:0,posts:[],expectedAction:null},label='[QA] Pedido pago CI '+name+' '+brand;
+ const read=async()=>{const r=await context.request.get(origin+'/api/journey-paid-qa?brand='+brand,{headers:headers()});a.equal(r.status(),200);const d=await r.json();a.equal(d.brand,brand);a.equal(d.executes,false);a.equal(d.sends,0);return d;};
+ const open=async()=>{await page.goto(origin+'/app/crm/?brand='+brand+'&view=lab',{waitUntil:'domcontentloaded'});await page.locator('[data-paid-read]').click({timeout:90000});await page.waitForFunction(()=>{const n=document.querySelector('[data-paid-status]');return n&&n.textContent!=='Consultando'&&!/Resposta incerta|recusada/.test(n.textContent)&&document.querySelector('[data-paid-create]')?.disabled===false;},null,{timeout:30000});};
+ const click=async(action,selector)=>{proof.expectedAction=action;save();const [r]=await Promise.all([page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/journey-paid-qa'&&r.request().postDataJSON()?.action===action,{timeout:30000}),page.locator(selector).click()]);a.equal(r.status(),200);const d=await r.json();a.equal(d.executes,false);a.equal(d.sends,0);await page.waitForFunction(rev=>document.querySelector('[data-paid-status]')?.textContent!=='Consultando'&&document.querySelector('[data-paid-create]')?.disabled===false,d.revision,{timeout:30000});proof.expectedAction=null;return d;};
+ await open();await page.locator('[data-paid-field=name]').fill(label);await page.locator('[data-paid-field=waits]').fill('0,60,1440');let data=await click('create','[data-paid-create]');const d=data.qa.definitions.find(d=>d.name===label);a(d);proof.draftId=d.id;
+ await page.locator('[data-paid-field=name]').fill(label+' · salvo');data=await click('update','[data-paid-save]');a.equal(data.qa.definitions.find(x=>x.id===d.id).revision,2);await open();await page.locator('[data-paid-select]').selectOption(d.id);a.equal(await page.locator('[data-paid-field=name]').inputValue(),label+' · salvo');a.equal(await page.locator('[data-paid-field=waits]').inputValue(),'0,60,1440');proof.savedReload=true;
+ await page.locator('[data-paid-field=person]').fill('ci-'+name);data=await click('start','[data-paid-start]');const round=data.qa.rounds.at(-1);proof.roundId=round.id;
+ data=await click('advance','[data-paid-advance="60"]');let r=data.qa.rounds.find(x=>x.id===round.id);a.equal(r.run.attempts.length,1);a.equal(r.decisions.at(-1).code,'daily-limit');proof.sameLoopCap=true;
+ data=await click('advance','[data-paid-advance="0"]');a.equal(data.qa.rounds.find(x=>x.id===round.id).run.attempts.length,1);proof.repeatNoExtraAttempt=true;
+ data=await click('advance','[data-paid-advance="1440"]');r=data.qa.rounds.find(x=>x.id===round.id);a.equal(r.run.attempts.length,2);a.equal(r.decisions.at(-1).code,'daily-limit');proof.nextDay=true;
+ const independent=await read();a.equal(independent.qa.rounds.find(x=>x.id===round.id).run.attempts.length,2);await open();await page.locator('[data-paid-select]').selectOption(d.id);await page.locator('[data-paid-history]').selectOption(round.id);a.equal(await page.locator('[data-paid-attempts]').textContent(),'2');proof.historyReload=true;
+ proof.captures=[];for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.locator('[data-paid-ready]').scrollIntoViewIfNeeded();await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth+2,null,{timeout:15000});const file='/proof/'+name+'-'+brand+'-paid-'+width+'.png';await page.locator('[data-paid-ready]').screenshot({path:file});proof.captures.push({width,file,noDocumentOverflow:true});}
+ a.equal(proof.posts.length,6);a(proof.posts.every(x=>x.realSends===0));proof.ok=true;save();return proof;
+}
+function admitRequest(q,proof,{brand,name}){
+ const fields={create:['name','waitMinutes'],update:['draftId','name','waitMinutes'],start:['draftId','personId'],advance:['roundId','minutes','payment','mailEvidence','afterEntry']};a(fields[q?.action]);a.deepEqual(Object.keys(q).sort(),['brand','expected_revision','mutationId','action',...fields[q.action]].sort());a(Number.isSafeInteger(q.expected_revision)&&q.expected_revision>=0);
+ a(proof&&proof.expectedAction);a.equal(q.action,proof.expectedAction);a.equal(q.brand,brand);a.match(q.mutationId||'',/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i);a(!proof.posts.some(x=>x.mutationId===q.mutationId));
+ if(q.action==='create'||q.action==='update'){a.equal(q.name,'[QA] Pedido pago CI '+name+' '+brand+(q.action==='update'?' · salvo':''));a.deepEqual(q.waitMinutes,[0,60,1440]);if(q.action==='update')a.equal(q.draftId,proof.draftId);}
+ else if(q.action==='start'){a.equal(q.draftId,proof.draftId);a.equal(q.personId,'ci-'+name);}
+ else{a.equal(q.action,'advance');a.equal(q.roundId,proof.roundId);a([0,60,1440].includes(q.minutes));a.equal(q.payment,'paid');a.equal(q.mailEvidence,'empty');a.equal(q.afterEntry,'none');}
+ proof.posts.push({action:q.action,mutationId:q.mutationId,realSends:0});
+}
+module.exports={prove,admitRequest};

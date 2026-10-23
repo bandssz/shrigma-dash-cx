@@ -65,7 +65,13 @@ async function main(){
  // has applied the prepared Compose once and installed the capability secret.
  if(!process.env.SHRIGMA_EASYPANEL_DEPLOY_URL){if(!initial||request.action!=='publish')throw Error('DEPLOY_CAPABILITY_MISSING');docker(['tag',desired,IMAGE+':producao']);docker(['push',IMAGE+':producao']);receipt({...base,status:'bootstrap-required',productionVerified:false,deployAttempted:false});return;}
  triggerUrl();let triggered=false;
- try{docker(['tag',desired,IMAGE+':producao']);docker(['push',IMAGE+':producao']);triggered=true;await trigger();if(!await wait(candidate))throw Error('PRODUCTION_NOT_CONFIRMED');receipt({...base,status:'installed',productionVerified:true,deployAttempted:triggered});}
+ const windowProof=()=>require('../crm-qa/maintenance-window.cjs').validateReceipt(JSON.parse(fs.readFileSync(path.join(process.env.AFFILIATE_CI_DIR,'maintenance-window.safe.json'),'utf8')),{revision:process.env.GITHUB_SHA});
+ if(request.action==='publish'){
+  publicationPhase='maintenance-window-awaiting-notice';console.log(JSON.stringify({phase:publicationPhase,candidateRevision:process.env.GITHUB_SHA}));
+  const gated=require('node:child_process').spawnSync(process.execPath,[path.join(__dirname,'../crm-qa/run-ci.cjs')],{env:{...process.env,CRM_QA_GATE:'maintenance-window',CRM_QA_PLAYWRIGHT_ROOT:path.join(process.env.AFFILIATE_CI_DIR,'playwright')},stdio:'inherit'});if(gated.status!==0)throw Error('MAINTENANCE_INSTALL_WINDOW_UNCONFIRMED');await currentHead();windowProof();
+  const window=JSON.parse(fs.readFileSync(path.join(process.env.AFFILIATE_CI_DIR,'maintenance-window.safe.json'),'utf8')),notice=await require('../crm-qa/maintenance-window.cjs').readProgrammedNotice({revision:process.env.GITHUB_SHA,window,token:process.env.GITHUB_TOKEN,repository:process.env.GITHUB_REPOSITORY});fs.writeFileSync(path.join(process.env.AFFILIATE_CI_DIR,'notice-programmed.safe.json'),JSON.stringify(notice,null,2)+'\n',{mode:0o600,flag:'wx'});windowProof();
+ }
+ try{docker(['tag',desired,IMAGE+':producao']);docker(['push',IMAGE+':producao']);if(request.action==='publish'){await currentHead();windowProof();}triggered=true;await trigger();if(!await wait(candidate))throw Error('PRODUCTION_NOT_CONFIRMED');receipt({...base,status:'installed',productionVerified:true,deployAttempted:triggered});}
  catch(e){
   // Recreate only the same existing gateway. No credential/config/admin writes.
   let restored=false;try{docker(['tag',previousImage,IMAGE+':producao']);docker(['push',IMAGE+':producao']);if(triggered)await trigger();restored=await wait(previous);}catch{}

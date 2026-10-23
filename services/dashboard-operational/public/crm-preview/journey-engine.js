@@ -55,7 +55,7 @@
  }
  function fact(value,now){return {value,observedAt:now,complete:true};}
  function observation(f,now){if(!f||f.complete!==true||typeof f.value!=='boolean'||!Number.isSafeInteger(f.observedAt)||f.observedAt>now||now-f.observedAt>300000)return null;return f.value;}
- function advance(input,{now,purchase,emailAllowed,result='simulated'}={}){
+ function advance(input,{now,purchase,emailAllowed,result='simulated',admit}={}){
   validateRun(input);const r=clone(input);if(!Number.isSafeInteger(now)||now<r.now||!['simulated','uncertain','failed'].includes(result))fail('LAB_CLOCK_INVALID');r.now=now;
   if(['finished','excluded','uncertain'].includes(r.status))return r;
   if(r.attempts.some(a=>a.result==='reserved'||a.result==='uncertain')){r.status='uncertain';r.paused=false;return r;}
@@ -69,6 +69,7 @@
    if(now<dueAt){r.status='waiting';return r;}
    const key=[r.draft.brand,r.draft.id,r.draft.revision,r.eventId,s.id].join(':');
    if(r.attempts.some(a=>a.key===key)){r.status='uncertain';return r;}
+   if(admit!==undefined){if(typeof admit!=='function')fail('LAB_ADMISSION_INVALID');if(admit(clone(r),s)!==true){r.status='waiting';r.trace.push({at:now,kind:'wait_data'});return r;}}
    // This local journal contains synthetic results only. It never grants transport.
    r.attempts.push({key,stepId:s.id,dueAt,at:now,result});r.trace.push({at:now,stepId:s.id,kind:result});
    if(result==='uncertain'){r.status='uncertain';return r;}
@@ -86,5 +87,36 @@
   if(!exact(value,['schema','drafts','runs'])||value?.schema!==SCHEMA||!Array.isArray(value.drafts)||value.drafts.length>20||!Array.isArray(value.runs)||value.runs.length>20)fail('LAB_STORAGE_INVALID');
   const ids=new Set(),events=new Set();for(const d of value.drafts){validateDraft(d);if(ids.has(d.id))fail('LAB_STORAGE_INVALID');ids.add(d.id);}for(const r of value.runs){validateRun(r);const d=value.drafts.find(d=>d.id===r.draft.id&&d.brand===r.draft.brand),event=JSON.stringify([r.draft.brand,r.draft.id,r.eventId]);if(!d||r.draft.revision>d.revision||JSON.stringify(r.draft.source)!==JSON.stringify(d.source)||r.draft.revision===d.revision&&JSON.stringify(r.draft)!==JSON.stringify(d)||events.has(event))fail('LAB_STORAGE_INVALID');events.add(event);}return value;
  }
- return Object.freeze({SCHEMA,validateDraft,duplicate,createDraft,duplicateDraft,saveDraft,newRun,validateRun,fact,advance,togglePause,startOnce,readStore});
+ const PAID_POLICY=Object.freeze({entry:'order_paid',maxEmailsPerPersonDay:1,timeZone:'America/Sao_Paulo',unknown:'wait',executes:false});
+ const paidDay=at=>{if(!Number.isSafeInteger(at)||at<0)fail('LAB_CLOCK_INVALID');const parts=new Intl.DateTimeFormat('en-CA',{timeZone:PAID_POLICY.timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(at);return ['year','month','day'].map(k=>parts.find(p=>p.type===k).value).join('-');};
+ // Evidence here is exclusively synthetic. No provider, identity lookup or
+ // transport is admitted by this laboratory policy.
+ function paidDecision(r,e,rounds,now){
+  const day=paidDay(now),out=(code,count=null)=>({code,day,count,mode:'synthetic',realSends:0});
+  if(e?.mode!=='synthetic'||e.brand!==r.draft.brand||typeof e.person!=='string'||!/^synthetic:[a-zA-Z0-9:_-]{1,180}$/.test(e.person))return out('identity-unknown');
+  if(!e.payment||e.payment.state!=='paid'||e.payment.orderId!==e.entryOrderId||!/^synthetic-order:[a-zA-Z0-9:_-]+$/.test(e.entryOrderId||'')||e.payment.occurredAt!==r.startedAt)return out(e.payment?.state==='unknown'?'payment-unknown':'payment-not-paid');
+  if(!Number.isSafeInteger(e.observedAt)||e.observedAt>now||now-e.observedAt>300000)return out('evidence-stale');
+  const c=e.coverage;if(c?.day!==day||c.complete!==true||!['campaigns','journeys','ses'].every(k=>c[k]===true)||JSON.stringify(c.brands)!=='["aristo","fish"]'||!Array.isArray(e.receipts)||e.receipts.length>100)return out('receipts-incomplete');
+  const messages=new Map();
+  for(const x of e.receipts){
+   if(!x||typeof x.id!=='string'||!x.id.startsWith('synthetic-message:')||x.person!==e.person||!Number.isSafeInteger(x.at)||x.at<0||x.at>now||!['campaign','journey','ses'].includes(x.kind))return out('receipts-incomplete');
+   const prior=messages.get(x.id);if(prior&&prior.at!==x.at)return out('identity-unknown');messages.set(x.id,{at:x.at});
+  }
+  if(!Array.isArray(rounds)||rounds.length>40)return out('receipts-incomplete');
+  for(const row of [...rounds,{person:e.person,run:r}]){
+   if(row.person!==e.person)continue;
+   try{validateRun(row.run);if(row.run.now>now)return out('receipts-incomplete');}catch{return out('receipts-incomplete');}
+   for(const a of row.run.attempts){if(['reserved','uncertain'].includes(a.result))return out('uncertain-message');if(a.result==='simulated')messages.set('attempt:'+a.key,{at:a.at});}
+  }
+  const count=[...messages.values()].filter(x=>paidDay(x.at)===day).length;
+  return out(count>=1?'daily-limit':'eligible',count);
+ }
+ function advancePaid(input,{now,evidence,rounds=[]}={}){
+  validateRun(input);if(input.draft.trigger!=='order_paid')fail('LAB_PAID_TRIGGER_REQUIRED');
+  const decisions=[],decision=()=>paidDecision(input,evidence,rounds,now);
+  const r=advance(input,{now,purchase:evidence?.afterEntryPurchase,emailAllowed:evidence?.emailAllowed,admit:current=>{const d=paidDecision(current,evidence,rounds,now);decisions.push(d);return d.code==='eligible';}});
+  if(!decisions.length){const code=r.status==='excluded'?r.trace.at(-1)?.reason==='opt_out'?'opt-out':'purchase-after-entry':r.status==='finished'?'finished':r.status==='uncertain'?'uncertain-message':observation(evidence?.afterEntryPurchase,now)===null||observation(evidence?.emailAllowed,now)===null?'conditions-unknown':null;const d=decision();decisions.push({...d,code:code||(d.code==='eligible'?'waiting-time':d.code)});}
+  return {run:r,decisions,policy:{...PAID_POLICY},mode:'synthetic',realSends:0};
+ }
+ return Object.freeze({SCHEMA,validateDraft,duplicate,createDraft,duplicateDraft,saveDraft,newRun,validateRun,fact,advance,togglePause,startOnce,readStore,PAID_POLICY,paidDay,paidDecision,advancePaid});
 });

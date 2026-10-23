@@ -162,6 +162,57 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   if(write&&(user.permissions?.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))fail('PRODUCT_WRITE_DENIED',403);
   return user;
  }
+ // Paid-entry QA is deliberately outside simple_journey_lab*. A previous
+ // release cannot discover these definitions through getDraft or send TEST.
+ if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='simple_journey_paid_qa_v1'").get()){
+  const main=db.prepare('PRAGMA database_list').all().find(r=>r.name==='main');
+  if(main?.file){const fs=require('node:fs'),path=require('node:path'),dir=path.join(path.dirname(main.file),'paid-qa-backups');fs.mkdirSync(dir,{recursive:true,mode:0o700});if(fs.lstatSync(dir).isSymbolicLink()||!fs.lstatSync(dir).isDirectory())fail('PAID_QA_BACKUP_REQUIRED',503);const file=path.join(dir,'before-paid-qa-'+crypto.randomUUID()+'.sqlite');db.exec("VACUUM INTO '"+file.replaceAll("'","''")+"'");fs.chmodSync(file,0o600);if(fs.statSync(file).size<1)fail('PAID_QA_BACKUP_REQUIRED',503);}
+  db.exec("CREATE TABLE simple_journey_paid_qa_v1(user_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('aristo','fish')),revision INTEGER NOT NULL CHECK(revision>0),qa_json TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(user_id,brand,revision))");
+ }
+ const paidEngine=require('./public/crm-preview/journey-engine.js');
+ const paidEmpty=()=>({schema:'shrigma-paid-journey-qa-v1',definitions:[],rounds:[],lastMutationId:null});
+ const paidKeys=(v,keys)=>v&&Object.getPrototypeOf(v)===Object.prototype&&Object.keys(v).sort().join(',')===keys.split(',').sort().join(',');
+ function paidOwner(context,brand,write=false){
+  if(context?.nativeBearer!==undefined||write&&context?.method!=='POST')fail('PAID_QA_COOKIE_REQUIRED',403);
+  const u=labOwner(context,brand,write);
+  if(!require('./crm-ui-features.cjs').restrictedUser(u)&&!/^editor-qa-(?:aristo|fish)@shrigma\.com\.br$/i.test(u.email||''))fail('PAID_QA_RESTRICTED',403);
+  return u;
+ }
+ function paidHead(userId,brand){
+  const row=db.prepare('SELECT revision,qa_json FROM simple_journey_paid_qa_v1 WHERE user_id=? AND brand=? ORDER BY revision DESC LIMIT 1').get(userId,brand),qa=row?JSON.parse(row.qa_json):paidEmpty();
+  if(!paidKeys(qa,'schema,definitions,rounds,lastMutationId')||qa.schema!=='shrigma-paid-journey-qa-v1'||!Array.isArray(qa.definitions)||qa.definitions.length>20||!Array.isArray(qa.rounds)||qa.rounds.length>20||JSON.stringify(qa).length>500000)fail('PAID_QA_STORAGE_INVALID',503);
+  const defs=new Set(),rounds=new Set();for(const d of qa.definitions){paidEngine.validateDraft(d);if(d.brand!==brand||d.trigger!=='order_paid'||defs.has(d.id))fail('PAID_QA_STORAGE_INVALID',503);defs.add(d.id);}
+  for(const r of qa.rounds){if(!paidKeys(r,'id,person,entryOrderId,run,receipts,decisions,policy,mode,realSends')||r.mode!=='synthetic'||r.realSends!==0||r.run?.draft?.brand!==brand||r.run?.draft?.trigger!=='order_paid'||!defs.has(r.run?.draft?.id)||rounds.has(r.id)||!Array.isArray(r.decisions)||r.decisions.length>200||JSON.stringify(r.policy)!==JSON.stringify(paidEngine.PAID_POLICY)||typeof r.person!=='string'||!Array.isArray(r.receipts)||r.receipts.length>100||!r.person.startsWith('synthetic:'+userId+':'))fail('PAID_QA_STORAGE_INVALID',503);paidEngine.validateRun(r.run);rounds.add(r.id);}
+  return {revision:row?.revision||0,qa};
+ }
+ function paidReceipt(userId,brand,mutationId){if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(mutationId||''))fail('PAID_QA_ARGUMENTS');const row=db.prepare("SELECT revision FROM simple_journey_paid_qa_v1 WHERE user_id=? AND brand=? AND json_extract(qa_json,'$.lastMutationId')=? ORDER BY revision DESC LIMIT 1").get(userId,brand,mutationId);return {mutationId,confirmed:!!row,revision:row?.revision||null};}
+ function paidQaRead({context,brand,mutationId}){const u=paidOwner(context,brand),head=paidHead(u.id,brand);return {persistence:'server',userId:u.id,brand,...head,...(mutationId?{mutationReceipt:paidReceipt(u.id,brand,mutationId)}:{}),policy:paidEngine.PAID_POLICY,executes:false,sends:0};}
+ function paidQaMutate({context,brand,expected_revision,mutationId,action,...args}){
+  const user=paidOwner(context,brand,true);if(!Number.isSafeInteger(expected_revision)||expected_revision<0||expected_revision>=2147483647||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(mutationId||''))fail('PAID_QA_ARGUMENTS');
+  const keys={create:'name,waitMinutes',update:'draftId,name,waitMinutes',start:'draftId,personId',advance:'roundId,minutes,payment,mailEvidence,afterEntry',resolve:'originalMutationId'};if(!keys[action]||!paidKeys(args,keys[action]))fail('PAID_QA_ARGUMENTS');
+  return transaction(()=>{
+   if(paidOwner(context,brand,true).id!==user.id)fail('PAID_QA_ACCESS_CHANGED',403);
+   const head=paidHead(user.id,brand);if(head.revision!==expected_revision)fail('PAID_QA_VERSION_CHANGED',409);if(paidReceipt(user.id,brand,mutationId).confirmed)fail('PAID_QA_MUTATION_REUSED',409);const q=head.qa;
+   if(action==='resolve'){
+    if(paidReceipt(user.id,brand,args.originalMutationId).confirmed)return paidQaRead({context,brand,mutationId:args.originalMutationId});
+   }else if(action==='create'||action==='update'){
+    if(typeof args.name!=='string'||!args.name.trim()||args.name.length>100||/[\x00-\x1f\x7f]/.test(args.name)||!Array.isArray(args.waitMinutes)||!args.waitMinutes.length||args.waitMinutes.length>5||args.waitMinutes.some((v,i)=>!Number.isSafeInteger(v)||v<0||v>43200||i>0&&v<args.waitMinutes[i-1]))fail('PAID_QA_DEFINITION_INVALID');
+    const old=action==='update'?q.definitions.find(d=>d.id===args.draftId):null;if(action==='update'&&!old)fail('PAID_QA_NOT_FOUND',404);if(!old&&q.definitions.length>=20)fail('PAID_QA_LIMIT',409);
+    const d=old?JSON.parse(JSON.stringify(old)):paidEngine.createDraft({brand,id:crypto.randomUUID()});d.trigger='order_paid';d.name=args.name.trim();d.audience='Pessoa sintética · pedido pago';d.steps=args.waitMinutes.map((waitMinutes,i)=>({id:'step-'+(i+1),channel:'email',waitMinutes,enabled:true,templateName:'Mensagem QA '+(i+1),subject:'[TESTE] Pedido pago · '+(i+1),text:'[TESTE] Ensaio sintético sem transporte.'}));const saved=old?paidEngine.saveDraft(old,d):paidEngine.validateDraft(d);q.definitions=old?q.definitions.map(x=>x.id===old.id?saved:x):[...q.definitions,saved];
+   }else{
+    const all=['aristo','fish'].flatMap(b=>paidHead(user.id,b).qa.rounds),globalNow=Math.max(stamp(),...all.map(r=>r.run.now));
+    if(action==='start'){
+     if(q.rounds.length>=20)fail('PAID_QA_LIMIT',409);const d=q.definitions.find(d=>d.id===args.draftId);if(!d)fail('PAID_QA_NOT_FOUND',404);if(!/^[a-z0-9_-]{1,40}$/.test(args.personId||''))fail('PAID_QA_PERSON_INVALID');
+     const id=crypto.randomUUID(),run=paidEngine.newRun(d,{eventId:'synthetic:'+id,startedAt:globalNow});q.rounds.push({id,person:'synthetic:'+user.id+':'+args.personId,entryOrderId:'synthetic-order:'+id,run,receipts:[],decisions:[],policy:{...paidEngine.PAID_POLICY},mode:'synthetic',realSends:0});
+    }else{
+     const r=q.rounds.find(r=>r.id===args.roundId);if(!r)fail('PAID_QA_NOT_FOUND',404);if(![0,1,60,1440].includes(args.minutes)||!['paid','pending','unknown','refunded'].includes(args.payment)||!['empty','campaign','journey','ses','unknown','incomplete','stale'].includes(args.mailEvidence)||!['none','purchase','optout','unknown'].includes(args.afterEntry)||r.decisions.length>190||r.run.trace.length>190)fail('PAID_QA_SCENARIO_INVALID');
+     const at=Math.max(globalNow,r.run.now+args.minutes*60000);if(['campaign','journey','ses'].includes(args.mailEvidence)){const id='synthetic-message:'+r.id+':'+args.mailEvidence+':'+paidEngine.paidDay(at);if(!r.receipts.some(x=>x.id===id)){if(r.receipts.length>=100)fail('PAID_QA_LIMIT',409);r.receipts.push({id,person:r.person,at,kind:args.mailEvidence});}}const receipts=[...all.filter(x=>x.person===r.person).flatMap(x=>x.receipts),...r.receipts].filter(x=>paidEngine.paidDay(x.at)===paidEngine.paidDay(at)),evidence={mode:'synthetic',brand,person:r.person,entryOrderId:r.entryOrderId,payment:{state:args.payment,orderId:r.entryOrderId,occurredAt:r.run.startedAt},observedAt:args.mailEvidence==='stale'?at-300001:at,coverage:{day:paidEngine.paidDay(at),complete:!['unknown','incomplete'].includes(args.mailEvidence),campaigns:true,journeys:true,ses:true,brands:['aristo','fish']},receipts,afterEntryPurchase:args.afterEntry==='unknown'?null:paidEngine.fact(args.afterEntry==='purchase',at),emailAllowed:paidEngine.fact(args.afterEntry!=='optout',at)};
+     const result=paidEngine.advancePaid(r.run,{now:at,evidence,rounds:all});r.run=result.run;r.decisions.push(...result.decisions.map(d=>({...d,at,payment:args.payment,mailEvidence:args.mailEvidence,afterEntry:args.afterEntry})));
+    }
+   }
+   q.lastMutationId=mutationId;const serialized=JSON.stringify(q);if(serialized.length>500000)fail('PAID_QA_LIMIT',409);db.prepare('INSERT INTO simple_journey_paid_qa_v1(user_id,brand,revision,qa_json,created_at) VALUES(?,?,?,?,?)').run(user.id,brand,expected_revision+1,serialized,stamp());return paidQaRead({context,brand,...(action==='resolve'?{mutationId:args.originalMutationId}:{})});
+  });
+ }
  // Existing v1 is an immutable baseline; new saves append a whole revision.
  // A later rollback writer changing that baseline is detected, never merged.
  function labHead(userId,brand){
@@ -230,6 +281,6 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
  }});
  const abRegistry=createAbRegistry({db,authorize:authorizeUser,now});
 
- return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,journeyTest,journeyActivationReview,abRegistry,modelPieces});
+ return Object.freeze({create,resetPassword,changePassword,update,list,profile:id=>profile(find(id)),affiliateEdit,pendingAffiliateEdits,reserveAffiliateEdit,finishAffiliateEdit,labRead,labSave,paidQaRead,paidQaMutate,journeyTest,journeyActivationReview,abRegistry,modelPieces});
 }
 module.exports={createSimpleAccounts,createAbRegistry,profile,FRONTS,BRANDS};

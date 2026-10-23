@@ -4,10 +4,11 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const runtime=process.env.DASHBOARD_ACCESS_TEST_RUNTIME||path.resolve(__dirname,'../services/dashboard-operational');
 const {createAuth}=require(runtime+'/auth.cjs'),{createServer}=require(runtime+'/server.cjs'),{FIXED_DESTINATIONS}=require(runtime+'/proxy.cjs');
 const HOST='gerencial.synthetic.invalid',PASS='synthetic-password-2026',STAMP='2026-10-12T15:00:00-03:00';
-async function fixture(t,{fronts=['growth','organico','influs','afiliados'],brands=['fish','aristo','olivas'],missing=false,revoke=false,unscoped=false,leak=false,leakJourney=false,ownPartners=false,writeFronts=[],writer=false,uncertainWrite=false,badWriteReceipt=false,hooks={}}={}){
+async function fixture(t,{fronts=['growth','organico','influs','afiliados'],brands=['fish','aristo','olivas'],missing=false,revoke=false,unscoped=false,leak=false,leakJourney=false,ownPartners=false,writeFronts=[],writer=false,uncertainWrite=false,badWriteReceipt=false,hooks={},adminWrite=false}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'simple-gateway-')),boot='synthetic-bootstrap-token',areaHosts={growth:'crm.synthetic.invalid',organico:'organic.synthetic.invalid',influs:'influs.synthetic.invalid'};
  const auth=createAuth({dbPath:path.join(dir,'identity.sqlite'),managerHost:HOST,areaHosts,allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'admin@synthetic.invalid',bootstrapTokenSha256:crypto.createHash('sha256').update(boot).digest('hex'),encryptionKey:Buffer.alloc(32,8),simpleReadMode:true});
  await auth.completeBootstrap({email:'admin@synthetic.invalid',token:boot,password:PASS,host:HOST,origin:'https://'+HOST});
+ if(adminWrite){const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(path.join(dir,'identity.sqlite'));db.prepare("UPDATE grants SET can_edit=1 WHERE area='growth'").run();db.close();}
  const admin=await auth.login({email:'admin@synthetic.invalid',password:PASS,host:HOST,origin:'https://'+HOST});
  const adminContext={host:HOST,origin:'https://'+HOST,method:'POST',cookieHeader:admin.cookie.split(';')[0],csrf:admin.csrf};
  const created=await auth.simpleAccounts.create({context:adminContext,email:'analista@synthetic.invalid',password:PASS,jobTitle:'analista',fronts,brands,writeFronts});
@@ -53,6 +54,11 @@ async function fixture(t,{fronts=['growth','organico','influs','afiliados'],bran
  });
  return {request,reads:()=>reads,keys,analyst,created,auth,adminContext,fetchImpl,upstreams,writes:()=>writes,candidate,receipts,writerKey};
 }
+test('paid QA HTTP refuses forged context, scope mismatch, ordinary users and missing CSRF; CAS ACK is readable',async t=>{
+ const f=await fixture(t,{adminWrite:true});const url='/api/journey-paid-qa';assert.equal((await f.request(url+'?brand=aristo')).status,403);assert.equal((await f.request(url+'?brand=aristo',{asAdmin:true})).body.revision,0);
+ const body={brand:'aristo',action:'create',expected_revision:0,mutationId:crypto.randomUUID(),name:'QA HTTP',waitMinutes:[0,60]};assert.equal((await f.request(url,{method:'POST',body,asAdmin:true,csrf:false})).status,403);assert.equal((await f.request(url,{method:'POST',body:{...body,context:f.adminContext},asAdmin:true})).status,400);assert.equal((await f.request(url,{method:'POST',body,asAdmin:true,brand:'fish'})).status,403);assert.equal((await f.request(url+'?brand=aristo',{asAdmin:true,brand:'fish'})).status,403);
+ const saved=await f.request(url,{method:'POST',body,asAdmin:true,brand:'aristo'});assert.equal(saved.status,200);assert.equal(saved.body.revision,1);assert.equal(saved.body.qa.lastMutationId,body.mutationId);assert.equal(saved.body.executes,false);assert.equal(saved.body.sends,0);assert.deepEqual((await f.request(url+'?brand=aristo',{asAdmin:true})).body,saved.body);assert.equal((await f.request(url,{method:'POST',body,asAdmin:true})).status,409);assert.equal(f.reads(),0);assert.equal(f.writes(),0);
+});
 test('ordinary session exposes four product fronts without individual credentials or writer features',async t=>{
  const f=await fixture(t),r=await f.request('/auth/session');assert.equal(r.status,200);assert.equal(r.body.features.simpleLogin,true);assert.deepEqual(r.body.user.productFronts,['growth','organico','influs','afiliados']);assert.equal(r.body.features.campaignSubmitWrite,false);assert.equal(f.reads(),0);
 });

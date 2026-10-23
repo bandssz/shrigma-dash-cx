@@ -7,10 +7,10 @@ const PASSWORD='synthetic-account-password-2026',NEW_PASSWORD='synthetic-changed
 const HOST='gerencial.synthetic.invalid',ORIGIN='https://'+HOST,TOKEN='synthetic-bootstrap-token';
 const sha=s=>crypto.createHash('sha256').update(s).digest('hex');
 function context(login){return {host:HOST,origin:ORIGIN,method:'POST',csrf:login.csrf,cookieHeader:login.cookie.split(';')[0]};}
-async function fixture({legacy=false,adminWrite=false}={}){
+async function fixture({legacy=false,adminWrite=false,qa=false}={}){
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'shrigma-simple-login-')),dbPath=path.join(directory,'dashboard.sqlite');
  let time=Date.parse('2026-10-12T18:00:00Z');
- const options={dbPath,managerHost:HOST,areaHosts:{growth:'crm.synthetic.invalid',organico:'organico.synthetic.invalid',influs:'influs.synthetic.invalid'},allowedEmailDomains:['synthetic.invalid'],bootstrapAdminEmail:'administrador@synthetic.invalid',bootstrapTokenSha256:sha(TOKEN),encryptionKey:Buffer.alloc(32,7),now:()=>time,...(!legacy?{simpleReadMode:true}:{})};
+ const options={dbPath,managerHost:HOST,areaHosts:{growth:'crm.synthetic.invalid',organico:'organico.synthetic.invalid',influs:'influs.synthetic.invalid'},allowedEmailDomains:['synthetic.invalid',...(qa?['shrigma.com.br']:[])],bootstrapAdminEmail:'administrador@synthetic.invalid',bootstrapTokenSha256:sha(TOKEN),encryptionKey:Buffer.alloc(32,7),now:()=>time,...(!legacy?{simpleReadMode:true}:{})};
  let auth=createAuth(options);
  await auth.completeBootstrap({email:options.bootstrapAdminEmail,token:TOKEN,password:PASSWORD,host:HOST,origin:ORIGIN});
  if(adminWrite){const db=new DatabaseSync(dbPath);db.prepare('UPDATE grants SET can_edit=1 WHERE area=?').run('growth');db.close();}
@@ -158,6 +158,31 @@ test('simple sessions keep logout and the existing attempt limit',async()=>{
 });
 
 const Lab=require(runtime+'/public/crm-preview/journey-engine.js');
+test('paid QA retains external receipts across scenarios and resolves history or fences an absent mutation',async()=>{
+ const f=await fixture({adminWrite:true});try{
+  const api=f.auth.simpleAccounts,brand='aristo',read=mutationId=>api.paidQaRead({context:f.admin,brand,...(mutationId?{mutationId}:{})}),mutate=(action,args={},id=crypto.randomUUID())=>api.paidQaMutate({context:f.admin,brand,expected_revision:read().revision,mutationId:id,action,...args});
+  const firstId=crypto.randomUUID(),created=mutate('create',{name:'Recibos cumulativos',waitMinutes:[0,60]},firstId),draftId=created.qa.definitions[0].id,started=mutate('start',{draftId,personId:'pessoa-1'}),roundId=started.qa.rounds[0].id;
+  let r=mutate('advance',{roundId,minutes:0,payment:'paid',mailEvidence:'ses',afterEntry:'none'});assert.equal(r.qa.rounds[0].run.attempts.length,0);r=mutate('advance',{roundId,minutes:60,payment:'paid',mailEvidence:'empty',afterEntry:'none'});assert.equal(r.qa.rounds[0].run.attempts.length,0);assert.equal(r.qa.rounds[0].decisions.at(-1).code,'daily-limit');assert.equal(r.qa.rounds[0].receipts.length,1);
+  r=mutate('advance',{roundId,minutes:1440,payment:'paid',mailEvidence:'ses',afterEntry:'none'});assert.equal(r.qa.rounds[0].run.attempts.length,0);assert.equal(r.qa.rounds[0].receipts.length,2);assert.equal(r.qa.rounds[0].decisions.at(-1).code,'daily-limit');
+  const historical=read(firstId);assert.equal(historical.mutationReceipt.confirmed,true);assert.equal(historical.mutationReceipt.revision,1);assert(historical.revision>1);assert.throws(()=>mutate('create',{name:'Não reutilizar ID',waitMinutes:[0]},firstId),{code:'PAID_QA_MUTATION_REUSED'});
+  const late=crypto.randomUUID(),expected=read().revision,fence=mutate('resolve',{originalMutationId:late});assert.equal(fence.revision,expected+1);assert.deepEqual(fence.mutationReceipt,{mutationId:late,confirmed:false,revision:null});assert.throws(()=>api.paidQaMutate({context:f.admin,brand,expected_revision:expected,mutationId:late,action:'create',name:'Chegou tarde',waitMinutes:[0]}),{code:'PAID_QA_VERSION_CHANGED'});assert.deepEqual(read().qa.definitions.map(d=>d.id),[draftId]);
+ }finally{f.close();}
+});
+test('paid QA sidecar saves, simulates, crosses brands, reopens and stays outside legacy TEST drafts',async()=>{
+ const f=await fixture({adminWrite:true});try{
+  const api=()=>f.auth.simpleAccounts,mutate=(brand,action,args)=>api().paidQaMutate({context:f.admin,brand,expected_revision:api().paidQaRead({context:f.admin,brand}).revision,mutationId:crypto.randomUUID(),action,...args});
+  const ids={};for(const brand of ['aristo','fish']){const created=mutate(brand,'create',{name:'Pedido pago QA '+brand,waitMinutes:[0,60,1440]});ids[brand]=created.qa.definitions[0].id;assert.equal(created.revision,1);assert.equal(created.executes,false);assert.equal(created.sends,0);assert.deepEqual(api().labRead({context:f.admin,brand}).store,{schema:Lab.SCHEMA,drafts:[],runs:[]});const started=mutate(brand,'start',{draftId:ids[brand],personId:'mesma-pessoa'});const roundId=started.qa.rounds[0].id;const first=mutate(brand,'advance',{roundId,minutes:60,payment:'paid',mailEvidence:'empty',afterEntry:'none'});assert.equal(first.qa.rounds[0].run.attempts.length,brand==='aristo'?1:0);assert.equal(first.qa.rounds[0].decisions.at(-1).code,'daily-limit');const updated=mutate(brand,'update',{draftId:ids[brand],name:'Nova revisão '+brand,waitMinutes:[0,1440]});assert.equal(updated.qa.definitions[0].revision,2);assert.equal(updated.qa.rounds[0].run.draft.revision,1);assert.throws(()=>api().paidQaMutate({context:f.admin,brand,expected_revision:0,mutationId:crypto.randomUUID(),action:'create',name:'Não repetir',waitMinutes:[0]}),{code:'PAID_QA_VERSION_CHANGED'});}
+  const before=api().paidQaRead({context:f.admin,brand:'aristo'});f.reopen(true);assert.deepEqual(api().paidQaRead({context:f.admin,brand:'aristo'}),before);assert.deepEqual(api().labRead({context:f.admin,brand:'aristo'}).store.drafts,[]);assert.equal(before.qa.rounds[0].realSends,0);assert.equal(fs.readdirSync(path.join(path.dirname(f.dbPath),'paid-qa-backups')).length,1);
+ }finally{f.close();}
+});
+test('paid QA requires current cookie, QA identity, brand, WRITE and CSRF without accepting contact or transport fields',async()=>{
+ const f=await fixture({adminWrite:true,qa:true});try{
+  const ordinary=await f.auth.simpleAccounts.create({context:f.admin,email:'ordinary@synthetic.invalid',password:PASSWORD,jobTitle:'CRM',fronts:['growth'],brands:['aristo'],writeFronts:['growth']}),ordinaryLogin=await f.auth.login({email:ordinary.user.email,password:PASSWORD,host:HOST,origin:ORIGIN});assert.throws(()=>f.auth.simpleAccounts.paidQaRead({context:context(ordinaryLogin),brand:'aristo'}),{code:'PAID_QA_RESTRICTED'});
+  const qa=await f.auth.simpleAccounts.create({context:f.admin,email:'editor-qa-aristo@shrigma.com.br',password:PASSWORD,jobTitle:'QA',fronts:['growth'],brands:['aristo']}),login=await f.auth.login({email:qa.user.email,password:PASSWORD,host:HOST,origin:ORIGIN}),ctx=context(login),base={context:ctx,brand:'aristo',expected_revision:0,mutationId:crypto.randomUUID(),action:'create',name:'QA',waitMinutes:[0]};assert.equal(f.auth.simpleAccounts.paidQaRead({context:ctx,brand:'aristo'}).revision,0);assert.throws(()=>f.auth.simpleAccounts.paidQaRead({context:ctx,brand:'fish'}),{code:'BRAND_DENIED'});assert.throws(()=>f.auth.simpleAccounts.paidQaMutate(base),{code:'PRODUCT_WRITE_DENIED'});
+  const adminBase={...base,context:f.admin};assert.throws(()=>f.auth.simpleAccounts.paidQaMutate({...adminBase,context:{...f.admin,csrf:'wrong'}}),{code:'CSRF_DENIED'});assert.throws(()=>f.auth.simpleAccounts.paidQaMutate({...adminBase,context:{...f.admin,method:'GET'}}),{code:'PAID_QA_COOKIE_REQUIRED'});assert.throws(()=>f.auth.simpleAccounts.paidQaRead({context:{...f.admin,nativeBearer:'synthetic'},brand:'aristo'}),{code:'PAID_QA_COOKIE_REQUIRED'});for(const extra of [{recipient:'customer@external.invalid'},{send:true},{policy:{maxEmailsPerPersonDay:2}},{rounds:[]}])assert.throws(()=>f.auth.simpleAccounts.paidQaMutate({...adminBase,...extra}),{code:'PAID_QA_ARGUMENTS'});
+  f.auth.simpleAccounts.update({context:f.admin,userId:qa.user.id,jobTitle:'QA',fronts:['growth'],brands:['aristo'],active:false});assert.throws(()=>f.auth.simpleAccounts.paidQaRead({context:ctx,brand:'aristo'}),{code:'SESSION_REQUIRED'});
+ }finally{f.close();}
+});
 function labStore(brand='aristo'){const draft=Lab.duplicate({brand,key:brand+':carrinho',name:'Carrinho sintético',published_version:1,published:{steps:[{channel:'email',wait_min:60,enabled:true,template_name:'Primeiro'},{channel:'email',wait_min:1440,enabled:true,template_name:'Segundo'}]}},{brand,id:'synthetic-draft'});return {schema:Lab.SCHEMA,drafts:[draft],runs:[]};}
 test('server test drafts reopen after restart, isolate account and brand, and compare revision atomically',async()=>{
  const f=await fixture();try{

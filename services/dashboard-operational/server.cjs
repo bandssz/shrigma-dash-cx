@@ -1399,6 +1399,17 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(req.method!=='GET'||url.search)throw jsonError(405,'METHOD_DENIED');
         return sendJson(req,res,200,auth.simpleAccounts.journeyActivationReview.inbox({context:ctx}));
       }
+      if(url.pathname==='/api/journey-paid-qa'&&s.simpleReadMode===true&&auth.simpleAccounts){
+        if(nativeContext)throw jsonError(403,'PAID_QA_COOKIE_REQUIRED');
+        const paidBrand=brand=>{if(req.headers['x-shrigma-view-brand']&&req.headers['x-shrigma-view-brand']!==brand)throw jsonError(403,'PAID_QA_BRAND_MISMATCH');return brand;};
+        if(req.method==='GET'&&url.searchParams.has('brand')&&[1,2].includes(url.searchParams.size)&&new Set(url.searchParams.keys()).size===url.searchParams.size&&[...url.searchParams.keys()].every(k=>['brand','mutationId'].includes(k)))return sendJson(req,res,200,auth.simpleAccounts.paidQaRead({context:ctx,brand:paidBrand(url.searchParams.get('brand')),...(url.searchParams.has('mutationId')?{mutationId:url.searchParams.get('mutationId')}:{})}));
+        if(req.method!=='POST'||url.search)throw jsonError(405,'METHOD_DENIED');
+        if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json'||req.headers['content-encoding'])throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const body=await readJson(req,10000);if(!body||Object.getPrototypeOf(body)!==Object.prototype||!Object.hasOwn(body,'brand'))throw jsonError(400,'PAID_QA_ARGUMENTS');
+        if(Object.hasOwn(body,'context'))throw jsonError(400,'PAID_QA_ARGUMENTS');
+        paidBrand(body.brand);
+        return sendJson(req,res,200,auth.simpleAccounts.paidQaMutate({...body,context:ctx}));
+      }
       if(url.pathname==='/api/journey-lab'&&s.simpleReadMode===true&&auth.simpleAccounts){
         if(nativeContext)throw jsonError(403,'LAB_COOKIE_REQUIRED');
         if(req.method==='GET'&&url.searchParams.size===1&&url.searchParams.has('brand'))return sendJson(req,res,200,auth.simpleAccounts.labRead({context:ctx,brand:url.searchParams.get('brand')}));
