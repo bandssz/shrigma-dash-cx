@@ -1681,7 +1681,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "3834e3701ec13c77aab79e0db9ae8e9f7fa43ac16e1c4125f510632450925f93"
+      "sha256": "6b009cd983fd41541f37e818da10e428ed2c76018d9e1b806fe19b506ee13b05"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -2050,8 +2050,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 244494,
-      "sha256": "fb34559e8a2ef39f4b6d02005672c9974ee863a87883e10ccf7628a33991ec12"
+      "bytes": 244496,
+      "sha256": "d17303b60e4921f4a1cb45cde4881b421d9aa21ccc3e29d47d008f41eed4f5a0"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
@@ -2115,8 +2115,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/whatsapp-campaign-ui.js",
-      "bytes": 14349,
-      "sha256": "669af6349f857eddd95f3933fb79c26e05899c852f9fe82adbdd3ba19cdb05c8"
+      "bytes": 14351,
+      "sha256": "195d477f7180ef3726c1b7f4777ce905e3629ea1224a8808c7ff5cd4a5dfb394"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/whatsapp-template-contract.js",
@@ -2235,8 +2235,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 27845,
-      "sha256": "9e9e26b2e553eb62ef40f16fc2306624effcdf450bc2611cd4ab287cbb6be8ba"
+      "bytes": 28105,
+      "sha256": "56bcaada30297355ac2fc2f8a58f0c74f4158b757f2474d8884e26e9e297cf13"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -3125,8 +3125,8 @@
     },
     {
       "path": "tests/simple-crm-native-direct.test.cjs",
-      "bytes": 30895,
-      "sha256": "949bacb44efe7d9eae1cd224ed53f765f28364fb3491feac7e388beb0c78a677"
+      "bytes": 31651,
+      "sha256": "95d93ffc2b83c614debdffd8a3a81c335595af343fb4d8652e25a5846386b45d"
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
@@ -3205,8 +3205,8 @@
     },
     {
       "path": "tests/whatsapp-campaign-ui.test.cjs",
-      "bytes": 4029,
-      "sha256": "2a550d25e1fc5551dfa5e38dc46c68d77cac2763b00ca340663694ee0100b567"
+      "bytes": 4119,
+      "sha256": "5e858611c1858c6c10854ba9d93d69bac3ea8f886236330c35f50aaad1a30912"
     },
     {
       "path": "tests/whatsapp-message.test.cjs",
@@ -3330,13 +3330,13 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 15174,
-      "sha256": "43b8853fa643e1031c7d5f2c169e9b0092e170c0e516e0bb8a1a10542a9197bc"
+      "bytes": 15772,
+      "sha256": "7e216428cbfc931d89544107b1741bb24b5fbf622e647b0792b69a81d10793b9"
     },
     {
       "path": "tools/crm-qa/w2-editor.cjs",
-      "bytes": 9004,
-      "sha256": "b7a6fafa60dd1e721c365e76db5af7ad50e1a2e3d655065df3191812f8ce4f72"
+      "bytes": 10184,
+      "sha256": "e67194ca0e750d2a0bbe8466d5c70bcf48f924ebeff8713daa89f6abff168f4e"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",

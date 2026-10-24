@@ -139,6 +139,7 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
  }
  const idOk=n=>Number.isSafeInteger(n)&&n>0&&n<=2147483647;
  function payload(d,brand,q){
+  if(String(q.audience_id??q.attribs?.shrigma?.audience_id??'').startsWith('purchase:'))throw error(503,'PAID_CAMPAIGN_RESOLUTION_UNAVAILABLE');
   if(!d||d.brand!==brand||typeof d.name!=='string'||!d.name.trim()||typeof d.subject!=='string'||!d.subject.trim()||typeof d.html!=='string'||!d.html.trim()||!Array.isArray(d.list_ids)||!d.list_ids.length||d.list_ids.some(id=>!idOk(id)))throw error(400,'CAMPAIGN_INPUT');
   const sender=address(d.from_email).toLowerCase(),domain=domains[brand];
   if(!['avisos@'+domain,'contato@'+domain].includes(sender)||d.reply_to!=='contato@'+domain)throw error(403,'CAMPAIGN_BRAND_REFUSED');
@@ -213,7 +214,7 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   }else if(action==='campanha_agendar'){
    if(q.confirm!=='agendar')throw error(400,'CAMPAIGN_INPUT');
    if(!future(q.send_at))throw error(400,'NATIVE_INTERNAL_DATE');
-   const current=await existing(true);if(!future(current.send_at)||Date.parse(current.send_at)!==Date.parse(q.send_at))throw error(400,'NATIVE_INTERNAL_DATE');
+   const current=await existing(true);if(String(current.audience_id||'').startsWith('purchase:'))throw error(503,'PAID_CAMPAIGN_RESOLUTION_UNAVAILABLE');if(!future(current.send_at)||Date.parse(current.send_at)!==Date.parse(q.send_at))throw error(400,'NATIVE_INTERNAL_DATE');
    data=await writeRequest('PUT','/campaigns/'+q.id+'/status',{status:'scheduled'});
   }else if(action==='campanha_cancelar'){
    if(q.confirm!=='cancelar'||!Array.isArray(q.list_ids)||!q.list_ids.length||q.list_ids.some(id=>!idOk(id)))throw error(400,'CAMPAIGN_INPUT');
