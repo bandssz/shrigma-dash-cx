@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 51263,
-      "sha256": "b25adc8a0bb37e47bccacddaac2081421e4b06277013b0e7adf7ea36cbc171fe"
+      "bytes": 51342,
+      "sha256": "b58c70655ac52085d26e1b059de4206f29c0c95d6277b80d3aaeef0942a5f8cc"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -420,8 +420,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 16685,
-      "sha256": "9c259feb4adb0b2256849389c824404ed005cf6f7cf34bfbc2cb743d6f30175d"
+      "bytes": 16812,
+      "sha256": "6ab69fda369b8f8daac5e872c01aea31e2eaab8df339f4de5da4ec9990b0fb6f"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -430,13 +430,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 8973,
-      "sha256": "bccf18a84e788bd4df463f49016193d347928132a4d4130a0651a863d33fb2b0"
+      "bytes": 9100,
+      "sha256": "5bcee53901c1c4727b939e5f1febe49c8b82bd742b37fe3b41afa35b8c9fbf13"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 11982,
-      "sha256": "e11220f3f2f750d9add7da82db676a1391b2505f5ea1e4843b38329a55e11d5d"
+      "bytes": 12043,
+      "sha256": "bd5d20f1ef5f9d7d2e53a90cbb1ad834d26978ba04f7e6298f3aa698d11e1a10"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -1615,8 +1615,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 169763,
-      "sha256": "e34f0c201ec83e4c9b2b5e9b4a692596a58c5d2927a0ee586107ca1147ed8be2"
+      "bytes": 172090,
+      "sha256": "d1dbf3bb5825d13251e2eccd14df76b5f0b816f7054985533c97603676715ef9"
     },
     {
       "path": "services/dashboard-operational/BCRYPT-LICENSE",
@@ -1681,7 +1681,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "cd112d10f8c5250f89df1a5a574a7d6da08b43eaa02eeff968944bf5881fbbdd"
+      "sha256": "67c0fe72bd278051877d31917787e97a6b1bcaa3debf9e69fc88872eb30e79bf"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -1910,8 +1910,8 @@
     },
     {
       "path": "services/dashboard-operational/native-whatsapp-connection.cjs",
-      "bytes": 17598,
-      "sha256": "b6c7d1465222182fe89977ddaa6d2c17626327987acd68581743ae8f82c53177"
+      "bytes": 19717,
+      "sha256": "9c2c134336fc27806965ddb9870981074676a6448528d82d4227edefebbe5fde"
     },
     {
       "path": "services/dashboard-operational/native-whatsapp-operator.cjs",
@@ -2040,18 +2040,18 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 212499,
-      "sha256": "8bd49cf0d36d2cf7d0a3a12ca6208e876d7db1ba309b1214cb42fb85ec672d42"
+      "bytes": 231638,
+      "sha256": "3dbf179d8ca5e3e6339b0eeca933f26e5feec6a1d95d0f67f16e4187e0b9fd0a"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
-      "bytes": 38914,
-      "sha256": "cd22f50a703570bff035c54001383b9bf6c0dadc10981bb6da55754aaa601591"
+      "bytes": 38952,
+      "sha256": "007b2e93eca325b71a329de57250b014955e9b3ca2ed757faae7596a295dc1ab"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 110503,
-      "sha256": "03157c9ad88ab0d7f199e1610def11114aa318a171340739b375d900c4b2b5c8"
+      "bytes": 112061,
+      "sha256": "ee125df9dab05c3410a857b8e2e8377ebf9a107912bb2be0bf785ec75fb83f99"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
@@ -2070,8 +2070,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 34572,
-      "sha256": "24d4dd40ac7a4a1b66f7ea597dae1f3c289de0d8350d1201c5a636bd40df0e97"
+      "bytes": 34929,
+      "sha256": "5b16c22645c7e392aa29fc36eab32937feee1d9bdc1529dc598081f5b4fe6364"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
@@ -2125,13 +2125,13 @@
     },
     {
       "path": "services/dashboard-operational/public/guard.compiled.js",
-      "bytes": 23020,
-      "sha256": "b138b4ae773f6dc85c63e52c85736644abcc266bdd45daafb02e9bdd29a73356"
+      "bytes": 24147,
+      "sha256": "4a8fe683b130760e800406888f02d73c9426ee06d27928a265e4a84b45abd085"
     },
     {
       "path": "services/dashboard-operational/public/guard.js",
-      "bytes": 22291,
-      "sha256": "52dfb006d0d7a2172905c608cc86ab589501b77a6f143e1487c3c63df672e004"
+      "bytes": 23642,
+      "sha256": "f1b6f70d7fd56795570caeb064b8e8a46fd7f981d63ddd1e87517ea66ca28bad"
     },
     {
       "path": "services/dashboard-operational/public/influs-workspace/app.js",
@@ -2175,8 +2175,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 248344,
-      "sha256": "e432ed5e0b969e8d2654ff2f71fe3ba94bd4a548d4302b488a9b51de57796a66"
+      "bytes": 249747,
+      "sha256": "c2543a087c2aac61b7d5f8aae3df2ff6c6a7a7e480473afe2137944889c8c0dd"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -3327,11 +3327,36 @@
       "path": "tools/production-release/read-retry.cjs",
       "bytes": 743,
       "sha256": "ac15f0631546f784c032bad879753f09442fb7615cf8195b0be3b3cb4189c1d3"
+    },
+    {
+      "path": "services/dashboard-operational/whatsapp-template-drafts.cjs",
+      "bytes": 9394,
+      "sha256": "95245f8bfa809542a83f864459692fe58f3b3a76430e97115b791e8585ea04ca"
+    },
+    {
+      "path": "services/dashboard-operational/public/crm-preview/whatsapp-template-contract.js",
+      "bytes": 4046,
+      "sha256": "3a3308c051adc3fedf709c29e4405796a323abbeb88b67001fc0fc96b57a7bef"
+    },
+    {
+      "path": "services/dashboard-operational/public/crm-preview/whatsapp-template-ui.js",
+      "bytes": 18033,
+      "sha256": "8f612dc7b4ae3d46b39aca51d96924fd0816404d418292f6654c9fec92d0f666"
+    },
+    {
+      "path": "tests/whatsapp-template-workspace.test.cjs",
+      "bytes": 9777,
+      "sha256": "2d804caf43cea19fe3eeb9fb5af02473685d3b9c172b8f59a0665eab42a9d54f"
+    },
+    {
+      "path": "tests/whatsapp-template-ui.test.cjs",
+      "bytes": 7024,
+      "sha256": "8f3ac95e764c821259d9cb61e12923389778f9d074b18e9fcc4ff2f55447f136"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Scoped server-side Meta debug_token GET of the current encrypted brand connection; return only actual validity, documented token type, scopes and numeric expiry, distinguish missing expiry from zero; never expose token, input URL, app/subject IDs or raw provider errors. Existing vault format and rollback stay identical. Correct uncertain-ack message without claiming previous token was retained. No submission, message or customer write."
+  "candidatePurpose": "W1 v36 restricted QA WhatsApp template workspace: real fixed-WABA read-only catalog, own-user brand-scoped versioned drafts with backup/CAS, strict variables and actual-example mobile preview. Original owner submission remains hard-disabled in production auth/store/vault; no Meta POST, messages, scheduler or customer write. Physical editor-QA save/reload proof in both brands required."
 }

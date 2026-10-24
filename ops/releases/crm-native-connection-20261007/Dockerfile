@@ -33,7 +33,7 @@ COPY services/dashboard-operational/native-delivery-health.cjs services/dashboar
 COPY services/dashboard-operational/native-scheduler-api-profile.cjs services/dashboard-operational/native-scheduler-binding.cjs services/dashboard-operational/native-scheduler-binding-operator.cjs services/dashboard-operational/native-scheduler-diagnostic-transport.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/native-scheduler-state.cjs services/dashboard-operational/native-scheduler-state-consent.cjs services/dashboard-operational/native-scheduler-state-controller.cjs services/dashboard-operational/native-scheduler-state-operator.cjs services/dashboard-operational/native-scheduler-state-chat-approval.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/native-source-diagnostics.cjs services/dashboard-operational/native-source-diagnostics-controller.cjs services/dashboard-operational/native-source-diagnostics-ui.cjs ./services/dashboard-operational/
-COPY services/dashboard-operational/native-whatsapp-connection.cjs services/dashboard-operational/native-whatsapp-operator.cjs ./services/dashboard-operational/
+COPY services/dashboard-operational/native-whatsapp-connection.cjs services/dashboard-operational/native-whatsapp-operator.cjs services/dashboard-operational/whatsapp-template-drafts.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/native-database-vault.cjs services/dashboard-operational/native-database-operator.cjs services/dashboard-operational/native-database-inventory.cjs services/dashboard-operational/native-health-view-structure.cjs services/dashboard-operational/native-pg-driver.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/crm-published-journey-read.cjs services/dashboard-operational/crm-master-template-read.cjs services/dashboard-operational/crm-individual-coexistence.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/native-foundation-preview.cjs services/dashboard-operational/crm-journey-read.cjs services/dashboard-operational/build.cjs ./services/dashboard-operational/
@@ -72,3 +72,4 @@ USER 1000:1000
 ENV SHRIGMA_PROCESS_ROLE=api
 CMD ["node","/app/prepared-worker/command.cjs","start"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["node","/app/prepared-worker/command.cjs","health"]
+

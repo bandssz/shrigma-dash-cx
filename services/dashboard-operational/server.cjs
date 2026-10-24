@@ -1042,6 +1042,13 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const ui=require('./crm-paid-acquisition-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:require('./product-issues-ui.cjs').decorate(ui.HTML));return;
       }
       if(require('./campaign-consent-observation-route.cjs').handle({req,res,url,ctx,auth,host,managerHost:s.managerHost,job:simpleConsentJob,nativeContext}))return;
+      if(url.pathname==='/api/whatsapp-template-drafts'){
+       if(!s.crmNativeEnabled||nativeContext||![s.managerHost,s.areaHosts.growth].includes(host))throw jsonError(403,'WA_TEMPLATE_COOKIE_REQUIRED');
+       const store=auth.whatsAppTemplateStore();let result;
+       if(req.method==='GET'){if([...url.searchParams.keys()].some(k=>!['brand','draftId'].includes(k))||new Set(url.searchParams.keys()).size!==url.searchParams.size||!url.searchParams.has('brand'))throw jsonError(400,'WA_TEMPLATE_INPUT_INVALID');result=store.read({context:ctx,...Object.fromEntries(url.searchParams)});}
+       else if(req.method==='POST'){if(url.search||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(400,'WA_TEMPLATE_INPUT_INVALID');const body=await readJson(req,32768);if(!body||Object.getPrototypeOf(body)!==Object.prototype)throw jsonError(400,'WA_TEMPLATE_INPUT_INVALID');const {action,...args}=body;const keys={save:'brand,draftId,expectedRevision,draft',submit:'brand,draftId,expectedRevision,contentHash',reconcile:'brand,draftId,expectedRevision'};if(!Object.hasOwn(keys,action)||Object.keys(args).sort().join(',')!==keys[action].split(',').sort().join(','))throw jsonError(400,'WA_TEMPLATE_INPUT_INVALID');result=await store[action]({context:ctx,...args});}
+       else throw jsonError(405,'METHOD_DENIED');return sendJson(req,res,200,result);
+      }
       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./native-whatsapp-operator.cjs').handle({req,res,url,ctx,auth,managerHost:s.managerHost,crmHost:s.areaHosts.growth}))return;
       if(s.crmNativeEnabled===true&&!nativeContext&&await require('./crm-native-operator.cjs').handleOperator({req,res,url,ctx,auth,managerHost:s.managerHost}))return;
       if(dashboardAffiliateRead&&!nativeContext&&await require('./afiliados-source-operator.cjs').handleAffiliateSourceOperator({req,res,url,ctx,auth,managerHost:s.managerHost,fetchImpl}))return;

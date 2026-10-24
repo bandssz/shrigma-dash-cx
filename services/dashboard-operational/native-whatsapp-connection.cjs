@@ -6,7 +6,7 @@ const FIELDS='id,name,status,category,language,components,quality_score,rejected
 const canonical=x=>JSON.stringify(x,(_k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 const fail=(code,status=403)=>{throw Object.assign(Error(code),{code,status});};
 const exact=(x,keys)=>x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).sort().join(',')===keys.slice().sort().join(',');
-function create({db,consent,identity,authorizeRead,encrypt,decrypt,mac,now=Date.now,fetchImpl=fetch}={}){
+function create({db,consent,identity,authorizeRead,authorizeTemplates,encrypt,decrypt,mac,now=Date.now,fetchImpl=fetch,allowTemplateSubmission=false}={}){
  if(!db?.prepare||[consent,identity,authorizeRead,encrypt,decrypt,mac,now,fetchImpl].some(x=>typeof x!=='function'))fail('WA_CONNECTION_CONFIG_REFUSED',500);
  db.exec(`CREATE TABLE IF NOT EXISTS shrigma_meta_wa_connection_v1(
   owner_id TEXT NOT NULL REFERENCES users(id),brand TEXT NOT NULL CHECK(brand IN ('fish','aristo')),
@@ -73,10 +73,10 @@ function create({db,consent,identity,authorizeRead,encrypt,decrypt,mac,now=Date.
   }finally{token='';}
  }
  function revoke({context,brand,connectionRef,expectedRevision}={}){brandGate(brand);const p=browser(context);db.exec('BEGIN IMMEDIATE');try{const r=row(p.userId,brand);if(!r||r.connection_ref!==connectionRef||r.revision!==expectedRevision)fail('WA_CONNECTION_CHANGED',409);if(r.revoked_at===null){const next={...r,revoked_at:time()};db.prepare('UPDATE shrigma_meta_wa_connection_v1 SET revoked_at=?,binding_mac=? WHERE owner_id=? AND brand=?').run(next.revoked_at,digest(next),p.userId,brand);r.revoked_at=next.revoked_at;r.binding_mac=digest(next);}db.exec('COMMIT');return view(r);}catch(e){db.exec('ROLLBACK');throw e;}}
- function resolve({context,brand}={}){
-  brandGate(brand);const p=authorizeRead(context,{brand});if(!p||typeof p.ownerId!=='string'||typeof p.userId!=='string'||!H.test(p.revision||''))fail('WA_READ_AUTHORITY_REFUSED');
+ function resolveWith({context,brand}={},operation=null){
+  brandGate(brand);const access=operation===null?authorizeRead:authorizeTemplates;if(typeof access!=='function')fail('WA_TEMPLATE_AUTHORITY_REQUIRED');const authority=()=>access(context,{brand,...(operation===null?{}:{submit:operation==='submit'})});const p=authority();if(!p||typeof p.ownerId!=='string'||typeof p.userId!=='string'||!H.test(p.revision||''))fail('WA_READ_AUTHORITY_REFUSED');
   const o=owner(p.ownerId),r=row(p.ownerId,brand);if(!r||r.revoked_at!==null)fail('WA_ORIGINAL_CONNECTION_UNAVAILABLE',503);if(r.owner_revision!==o.revision)fail('WA_ORIGINAL_OWNER_CHANGED',409);
-  function assertCurrent(){const next=authorizeRead(context,{brand});if(!next||canonical(next)!==canonical(p))fail('WA_READER_CHANGED',409);const currentOwner=owner(p.ownerId),current=row(p.ownerId,brand);if(!current||current.revoked_at!==null||current.owner_revision!==currentOwner.revision||current.binding_mac!==r.binding_mac)fail('WA_CONNECTION_CHANGED',409);}
+  function assertCurrent(){const next=authority();if(!next||canonical(next)!==canonical(p))fail('WA_READER_CHANGED',409);const currentOwner=owner(p.ownerId),current=row(p.ownerId,brand);if(!current||current.revoked_at!==null||current.owner_revision!==currentOwner.revision||current.binding_mac!==r.binding_mac)fail('WA_CONNECTION_CHANGED',409);}
   async function listTemplates({after}={}){
    if(after!==undefined&&(typeof after!=='string'||after.length<1||Buffer.byteLength(after)>4096||/[\x00-\x20\x7f]/.test(after)))fail('WA_CURSOR_REFUSED',400);
    assertCurrent();const privateValue=credential(r);
@@ -98,9 +98,17 @@ function create({db,consent,identity,authorizeRead,encrypt,decrypt,mac,now=Date.
    const expiry=value=>value===undefined?null:Number.isSafeInteger(value)&&value>=0?value:fail('WA_META_INTROSPECTION_UNCONFIRMED',502),expiresAt=expiry(data.expires_at),dataAccessExpiresAt=expiry(data.data_access_expires_at);assertCurrent();
    return {schema:'shrigma-meta-wa-token-metadata-v1',brand,connectionRef:r.connection_ref,connectionRevision:r.revision,wabaId:WABAS[brand],isValid:data.is_valid,type:data.type,expiresAt,dataAccessExpiresAt,expiryConfirmed:expiresAt!==null,scopes:[...new Set(data.scopes)].sort(),observedAtUtc:new Date(time()).toISOString(),mirrorWrites:0,submission:false,messages:false};
   }
-  return Object.freeze({...view(r),assertCurrent,listTemplates,inspectToken});
+
+  async function postPayload(payload){
+   assertCurrent();const privateValue=credential(r),url=new URL('https://graph.facebook.com/'+GRAPH_VERSION+'/'+WABAS[brand]+'/message_templates');let response;
+   try{response=await fetchImpl(url,{method:'POST',redirect:'error',headers:{accept:'application/json','content-type':'application/json',Authorization:'Bearer '+privateValue.token},body:JSON.stringify(payload),signal:AbortSignal.timeout(15000)});}catch{fail('WA_TEMPLATE_SUBMISSION_UNCERTAIN',409);}finally{privateValue.token='';}
+   if(!response.ok||!/application\/json/i.test(response.headers.get('content-type')||''))fail('WA_TEMPLATE_SUBMISSION_UNCERTAIN',409);
+   let size=0,parts=[],value;try{for await(const chunk of response.body){size+=chunk.length;if(size>65536)fail('WA_TEMPLATE_SUBMISSION_UNCERTAIN',409);parts.push(Buffer.from(chunk));}value=JSON.parse(Buffer.concat(parts).toString('utf8'));}catch{fail('WA_TEMPLATE_SUBMISSION_UNCERTAIN',409);}finally{for(const b of parts)b.fill(0);}
+   if(!value||typeof value.id!=='string'||!/^\d{1,30}$/.test(value.id)||!['PENDING','APPROVED','REJECTED'].includes(value.status)||value.category!==undefined&&!['UTILITY','MARKETING','AUTHENTICATION'].includes(value.category))fail('WA_TEMPLATE_SUBMISSION_UNCERTAIN',409);assertCurrent();return {id:value.id,status:value.status,category:value.category??null};
+  }
+  return Object.freeze({...view(r),assertCurrent,listTemplates,inspectToken,...(operation==='submit'?{submitTemplate:async draft=>{if(operation!=='submit')fail('WA_TEMPLATE_SUBMISSION_REFUSED');const payload=require('./public/crm-preview/whatsapp-template-contract.js').payload(draft);return postPayload(payload);}}:{})});
  }
  function authorizeOwnerRead(context){const p=authorizeRead(context,{brand:'fish'});if(!p||p.userId!==p.ownerId)fail('WA_ORIGINAL_OWNER_REQUIRED');owner(p.userId);return true;}
- return Object.freeze({status,bind,bindSystemUser,revoke,resolve,authorizeOwnerRead});
+ const resolve=args=>resolveWith(args),resolveTemplates=({context,brand,submit=false})=>{if(submit&&allowTemplateSubmission!==true)fail('WA_TEMPLATE_APPROVAL_REQUIRED');return resolveWith({context,brand},submit?'submit':'reconcile');};return Object.freeze({status,bind,bindSystemUser,revoke,resolve,resolveTemplates,authorizeOwnerRead});
 }
 module.exports=Object.freeze({create,WABAS,GRAPH_VERSION,ORIGINAL,FIELDS});
