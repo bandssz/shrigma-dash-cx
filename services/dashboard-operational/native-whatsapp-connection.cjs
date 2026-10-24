@@ -40,10 +40,13 @@ function create({db,consent,identity,authorizeRead,encrypt,decrypt,mac,now=Date.
  }
  // One owner paste, two brand-specific ciphertexts. Provider calls are GET only;
  // nothing is saved until both fixed WABAs and the granted scope are confirmed.
- async function bindSystemUser({context,token}={}){
+ async function bindSystemUser({context,token,expectedConnections}={}){
   const p=browser(context);
   if(typeof token!=='string'||token.length<32||Buffer.byteLength(token)>8192||/\s|[\x00-\x1f\x7f]/.test(token))fail('WA_SYSTEM_TOKEN_INPUT_REFUSED',400);
-  const available=()=>{const next=browser(context);if(next.userId!==p.userId||next.sessionHash!==p.sessionHash||next.owner.revision!==p.owner.revision)fail('WA_OWNER_CHANGED',409);for(const brand of Object.keys(WABAS))if(row(p.userId,brand))fail('WA_CONNECTION_ALREADY_BOUND',409);};
+  const snapshot=Object.keys(WABAS).map(brand=>{const r=row(p.userId,brand);return r?{brand,connectionRef:r.connection_ref,revision:r.revision,binding:r.binding_mac}:{brand,connectionRef:null,revision:0,binding:null};});
+  const replacing=expectedConnections!==undefined;
+  if(replacing&&(!Array.isArray(expectedConnections)||expectedConnections.length!==2||expectedConnections.some(x=>!exact(x,['brand','connectionRef','revision','binding']))||canonical(expectedConnections)!==canonical(snapshot)))fail('WA_CONNECTION_CHANGED',409);
+  const available=()=>{const next=browser(context);if(next.userId!==p.userId||next.sessionHash!==p.sessionHash||next.owner.revision!==p.owner.revision)fail('WA_OWNER_CHANGED',409);for(const before of snapshot){const r=row(p.userId,before.brand);if(!replacing&&r)fail('WA_CONNECTION_ALREADY_BOUND',409);if((r?.revision||0)!==before.revision||(r?.binding_mac||null)!==before.binding||(r?.connection_ref||null)!==before.connectionRef)fail('WA_CONNECTION_CHANGED',409);}};
   available();
   async function read(path,fields){
    const url=new URL('https://graph.facebook.com/'+GRAPH_VERSION+'/'+path);if(fields)url.searchParams.set('fields',fields);
@@ -60,10 +63,12 @@ function create({db,consent,identity,authorizeRead,encrypt,decrypt,mac,now=Date.
    available();db.exec('BEGIN IMMEDIATE');try{
     available();const t=time(),rows=[];
     for(const brand of Object.keys(WABAS)){
-     const r={owner_id:p.userId,brand,connection_ref:'meta-wa:'+brand+':'+crypto.randomUUID(),revision:1,encrypted_credential:encrypt(JSON.stringify({token,source:'system-user-owner',permissions})),owner_revision:p.owner.revision,consent_session_hash:p.sessionHash,linked_at:t,revoked_at:null};r.binding_mac=digest(r);
-     db.prepare('INSERT INTO shrigma_meta_wa_connection_v1 VALUES(?,?,?,?,?,?,?,?,?,?)').run(r.owner_id,r.brand,r.connection_ref,r.revision,r.encrypted_credential,r.owner_revision,r.consent_session_hash,r.linked_at,r.revoked_at,r.binding_mac);rows.push(r);
+     const prior=row(p.userId,brand);
+     if(prior){const metadata={owner_id:prior.owner_id,brand,connection_ref:prior.connection_ref,revision:prior.revision,linked_at:prior.linked_at,revoked_at:prior.revoked_at,supersededAt:t,tokenDiscarded:true};db.prepare('INSERT INTO shrigma_meta_wa_connection_versions_v1 VALUES(?,?,?,?,?)').run(p.userId,brand,prior.revision,encrypt(JSON.stringify(metadata)),t);}
+     const r={owner_id:p.userId,brand,connection_ref:prior?.connection_ref||'meta-wa:'+brand+':'+crypto.randomUUID(),revision:(prior?.revision||0)+1,encrypted_credential:encrypt(JSON.stringify({token,source:'system-user-owner',permissions})),owner_revision:p.owner.revision,consent_session_hash:p.sessionHash,linked_at:t,revoked_at:null};r.binding_mac=digest(r);
+     db.prepare('INSERT INTO shrigma_meta_wa_connection_v1 VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_id,brand) DO UPDATE SET revision=excluded.revision,encrypted_credential=excluded.encrypted_credential,owner_revision=excluded.owner_revision,consent_session_hash=excluded.consent_session_hash,linked_at=excluded.linked_at,revoked_at=NULL,binding_mac=excluded.binding_mac').run(r.owner_id,r.brand,r.connection_ref,r.revision,r.encrypted_credential,r.owner_revision,r.consent_session_hash,r.linked_at,r.revoked_at,r.binding_mac);rows.push(r);
     }
-    db.exec('COMMIT');return {schema:'shrigma-meta-wa-connections-v1',connections:rows.map(view)};
+    const result={schema:'shrigma-meta-wa-connections-v1',connections:rows.map(view)};db.exec('COMMIT');return result;
    }catch(e){db.exec('ROLLBACK');throw e;}
   }finally{token='';}
  }
