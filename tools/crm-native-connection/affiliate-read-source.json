@@ -3330,13 +3330,13 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 14631,
-      "sha256": "702c858cb2bf7b3d2cdd62543620c881b6cb1131cd404916d328d3036dc62914"
+      "bytes": 15174,
+      "sha256": "43b8853fa643e1031c7d5f2c169e9b0092e170c0e516e0bb8a1a10542a9197bc"
     },
     {
       "path": "tools/crm-qa/w2-editor.cjs",
-      "bytes": 8549,
-      "sha256": "a9147d29c15a3e155184716caa223e970802a3d917f2a4a8c52c5c213a5f64ba"
+      "bytes": 9004,
+      "sha256": "b7a6fafa60dd1e721c365e76db5af7ad50e1a2e3d655065df3191812f8ce4f72"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
