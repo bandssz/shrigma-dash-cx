@@ -726,6 +726,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const simpleReader=s.simpleReadMode===true?require('./simple-dashboard-read.cjs').createReader({auth,upstreams,keys:s.simpleReadSources||{},fetchImpl,projectGrowth:projectBrandCache,growthDiagnostics:cartContractSummary,timings:true,onReadFailure:row=>process.stderr.write(JSON.stringify(row)+'\n')}):null;
   const maintenanceNotice=s.simpleReadMode===true?auth.maintenanceNoticeStore?.():null;
   const productIssues=s.simpleReadMode===true?auth.productIssueStore?.():null;
+  const waCampaigns=s.paidFactsFile&&s.crmNativeEnabled===true?require('./whatsapp-campaigns.cjs').create({auth,file:s.paidFactsFile,sourceRevision:s.crmNativeSourceRevision}):null;
   const paidFacts=s.paidFactsFile?require('./crm-paid-facts.cjs').create({file:s.paidFactsFile,auth,store:auth.restrictedPurchaseStore(),fetchImpl,backupDirectory:path.join(path.dirname(s.dbPath),'paid-acquisition-backups')}):null;
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
   const simpleCampaignTests=simpleReader?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
@@ -1042,6 +1043,10 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         const ui=require('./crm-paid-acquisition-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:require('./product-issues-ui.cjs').decorate(ui.HTML));return;
       }
       if(require('./campaign-consent-observation-route.cjs').handle({req,res,url,ctx,auth,host,managerHost:s.managerHost,job:simpleConsentJob,nativeContext}))return;
+      if(url.pathname==='/api/whatsapp-campaigns'){
+       if(!waCampaigns||nativeContext||![s.managerHost,s.areaHosts.growth].includes(host))throw jsonError(403,'WA_CAMPAIGN_COOKIE_REQUIRED');
+       if(await require('./whatsapp-campaigns.cjs').handle({req,res,url,ctx,service:waCampaigns,sendJson,readJson}))return;
+      }
       if(url.pathname==='/api/whatsapp-template-drafts'){
        if(!s.crmNativeEnabled||nativeContext||![s.managerHost,s.areaHosts.growth].includes(host))throw jsonError(403,'WA_TEMPLATE_COOKIE_REQUIRED');
        const store=auth.whatsAppTemplateStore();let result;

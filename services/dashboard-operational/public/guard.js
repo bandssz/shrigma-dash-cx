@@ -1,6 +1,6 @@
 /* Loaded before panel code. API requests use the same-origin BFF; public links are pinned below. */
 (function(){'use strict';
- const ROUTES=new Set(['maintenance-notice','product-issues','crm-purchases','crm-features','cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-paid-qa','journey-entry-qa','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces','whatsapp-templates','whatsapp-template-drafts']);
+ const ROUTES=new Set(['maintenance-notice','product-issues','crm-purchases','crm-features','cx','cache','crm-read','ab','influ','tts','affiliate-read','affiliate-own-read','affiliate-own-edit','affiliate-own-operation','tts-manual','tts-action','organico-links','tts-cobranca','candidaturas','aprovacao','escopo','templates','campaigns','campaigns_media','segments','campaign_audience','ab_experiment','journey_graph','journey_graph_lifecycle','journey-lab','journey-paid-qa','journey-entry-qa','journey-test','journey-activation-review','journey-activation-inbox','crm-ab-plans','model-pieces','whatsapp-templates','whatsapp-template-drafts','whatsapp-campaigns']);
  const nativeFetch=window.fetch.bind(window);
  // A release flag is independent from WRITE permission or source capability.
  // Keep unfinished UI actions closed in both the current CRM and its legacy entry.
@@ -194,9 +194,10 @@
    }
   }
   let body;try{body=await cleanBody(input,init,method,headers);}catch(_){return reject(415);}
-  if(route==='whatsapp-templates'||route==='whatsapp-template-drafts'){
+  if(route==='whatsapp-templates'||route==='whatsapp-template-drafts'||route==='whatsapp-campaigns'){
    let command;try{command=method==='GET'?Object.fromEntries(url.searchParams):JSON.parse(body);}catch{return reject(400);}
    if(route==='whatsapp-templates'&&(method!=='GET'||new Set(url.searchParams.keys()).size!==url.searchParams.size||![1,2].includes(url.searchParams.size)||[...url.searchParams.keys()].some(k=>!['brand','after'].includes(k))||url.searchParams.has('after')&&(!command.after||command.after.length>4096||/[\x00-\x20\x7f]/.test(command.after))))return reject(400);
+   if(route==='whatsapp-campaigns'&&(!['GET','POST'].includes(method)||method==='POST'&&(url.search||!['save','count','test','schedule','cancel'].includes(command.action))||method==='GET'&&([...url.searchParams.keys()].some(k=>!['brand','campaignId'].includes(k))||new Set(url.searchParams.keys()).size!==url.searchParams.size)))return reject(400);
    if(route==='whatsapp-template-drafts'&&(!['GET','POST'].includes(method)||method==='GET'&&(new Set(url.searchParams.keys()).size!==url.searchParams.size||![1,2].includes(url.searchParams.size)||[...url.searchParams.keys()].some(k=>!['brand','draftId'].includes(k))||url.searchParams.has('draftId')&&!/^[a-f0-9-]{36}$/i.test(command.draftId))||method==='POST'&&(url.search||!['save','submit','reconcile'].includes(command.action))))return reject(400);
    const scope=window.ShrigmaBrandAccess;if(!['fish','aristo'].includes(command.brand)||!scope?.brands.includes(command.brand)||headers.has('X-Shrigma-View-Brand')&&headers.get('X-Shrigma-View-Brand')!==command.brand)return reject(403);headers.set('X-Shrigma-View-Brand',command.brand);
   }
