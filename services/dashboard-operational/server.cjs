@@ -739,7 +739,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
     if(write&&(user.permissions.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))throw jsonError(403,'PRODUCT_WRITE_DENIED');
     return user;
   };
-  const directCampaigns=simpleReader&&s.listmonkBindings?require('./simple-crm-native-internal.cjs').createDirect({credentials:s.listmonkBindings,fetchImpl,authorize:directCampaignAuthor,admitted:directCampaignAdmitted}):null;
+  const dynamicAudience=paidFacts&&waCampaigns?require('./dynamic-campaign-audience.cjs').create({paidFacts,database:waCampaigns.queueDatabase,authorize:(context,brand,write)=>auth.whatsAppCampaignAuthority(context,brand,write),sourceRevision:s.crmNativeSourceRevision}):null;
+  const directCampaigns=simpleReader&&s.listmonkBindings?require('./simple-crm-native-internal.cjs').createDirect({credentials:s.listmonkBindings,fetchImpl,authorize:directCampaignAuthor,admitted:directCampaignAdmitted,dynamicAudience}):null;
   // The existing per-brand release flag selects the native operator; unreleased accounts retain their prior operator.
   const directCampaignFor=(context,brand)=>!!directCampaigns&&directCampaignAdmitted(context,brand,auth.authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},brand));
   const simpleAffiliateEditor=simpleReader?require('./simple-dashboard-read.cjs').createAffiliateEditor({auth,upstreams,readKey:s.simpleReadSources?.afiliados,writeKey:s.simpleAffiliateWriteKey,otherReadKeys:Object.values(s.simpleReadSources||{}),fetchImpl}):null;
@@ -985,10 +986,16 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(!paidFacts||host!==s.areaHosts.growth||nativeContext)throw jsonError(404,'NOT_FOUND');
         let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
         paidFacts.authorize(ctx,q.brand,req.method==='POST'&&q.action!=='count',true);
+        if(q.action==='countSaved'&&Object.keys(q).sort().join()!=='action,brand,id'||q.action==='resolveCampaign'&&Object.keys(q).sort().join()!=='action,brand,campaignId')throw jsonError(400,'PAID_CAMPAIGN_INPUT_INVALID');
         if(req.method==='GET'&&q.action==='interface')return sendJson(req,res,200,{brand:q.brand,html:require('./crm-paid-facts-ui.cjs').FRAGMENT});
         if(req.method==='GET'&&['publics','products'].includes(q.action)){const result=await paidFacts[q.action](ctx,q.brand,true);paidFacts.authorize(ctx,q.brand,false,true);return sendJson(req,res,200,result);}
+        if(req.method==='POST'&&q.action==='resolveCampaign'){
+          if(!dynamicAudience||!directCampaigns||!Number.isSafeInteger(q.campaignId))throw jsonError(400,'PAID_CAMPAIGN_INPUT_INVALID');
+          const native=await directCampaigns.handle(ctx,'GET',{acao:'campanha_obter',brand:q.brand,id:q.campaignId});
+          return sendJson(req,res,200,await dynamicAudience.resolveQa(ctx,q.brand,native.body.campaign));
+        }
         if(req.method==='POST'&&q.action==='backfill'&&q.progress===true)return require('./crm-paid-facts.cjs').streamBackfill(res,onProgress=>paidFacts.backfill(ctx,q.brand,q.days,{onProgress,workspace:true}));
-        if(req.method==='POST'&&['count','save'].includes(q.action)){const result=await paidFacts[q.action](ctx,q.brand,q,true);paidFacts.authorize(ctx,q.brand,q.action==='save',true);return sendJson(req,res,200,result);}
+        if(req.method==='POST'&&['count','countSaved','save'].includes(q.action)){const result=await paidFacts[q.action](ctx,q.brand,q,true);paidFacts.authorize(ctx,q.brand,q.action==='save',true);return sendJson(req,res,200,result);}
         throw jsonError(400,'PAID_FACTS_ACTION_INVALID');
       }
       if(url.pathname==='/api/crm-restricted/compras'||['/app/crm/restrito/compras/','/app/crm/restrito/compras.js'].includes(url.pathname)){
