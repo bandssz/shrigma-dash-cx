@@ -1835,8 +1835,8 @@
     },
     {
       "path": "services/dashboard-operational/journey-entry-qa.cjs",
-      "bytes": 10374,
-      "sha256": "275ed8588b44a18c2b7bd91ac755a85af04486e7e435cd7ac68c84a5806319bb"
+      "bytes": 12550,
+      "sha256": "8a649746fa964d69391fa7b09d41a6c793787f4864f28530ec788918c725d14b"
     },
     {
       "path": "services/dashboard-operational/journey-internal-html-binding.cjs",
@@ -2245,8 +2245,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
-      "bytes": 35060,
-      "sha256": "64e69426af4331bd771fac37646588afa02d3babd9552340fa018fabe5feec45"
+      "bytes": 35096,
+      "sha256": "9fa6696d26578f55ee672681d9b6825460c0f41db2c9103bd391eff2cde4f5d8"
     },
     {
       "path": "services/dashboard-operational/simple-tts-manual.cjs",
@@ -2910,8 +2910,8 @@
     },
     {
       "path": "tests/journey-entry-qa.test.cjs",
-      "bytes": 15668,
-      "sha256": "83a31d36a381b2dbf7015aaf11d76faaddbdb40e463ffd418e62f7b82d39c559"
+      "bytes": 18235,
+      "sha256": "7ff41192f7335be9e875c8eb8f93b629d88badc4cdab26b5aaeded5a71f3695b"
     },
     {
       "path": "tests/journey-html-http.test.cjs",
@@ -3240,8 +3240,8 @@
     },
     {
       "path": "tools/crm-qa/editor-entry-journey.cjs",
-      "bytes": 8762,
-      "sha256": "5a40049d76adeac41d1dbedee21ead8adba07d3f7c5d76fdfc7fb281e1530b9b"
+      "bytes": 9301,
+      "sha256": "7677261e64764de252c4165fe4ed0769fe7dc38cb554a1d6d8d6df0d64c5e0ef"
     },
     {
       "path": "tools/crm-qa/editor-findability.cjs",
