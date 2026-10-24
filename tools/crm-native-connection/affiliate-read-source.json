@@ -2080,8 +2080,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-ui.js",
-      "bytes": 93641,
-      "sha256": "457539cabdcc82a5926ae64fb06255741e819f2db971df9c641e495d7af1a338"
+      "bytes": 93657,
+      "sha256": "f8657cf79e5f6ebf46df66226c568025411c1bfe185eaf3a12c460c51ad0f29b"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/message-preview.js",
@@ -2220,8 +2220,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
-      "bytes": 35263,
-      "sha256": "d90bbbb5bfc8c26826d96dd17609f9fce7d5901b2f9b3cc5e89b1c302f63f6d9"
+      "bytes": 35431,
+      "sha256": "5912a3946fc984958834c8ac3a8d8e023c9d0c1865a64a7ad5a68d47ed32a052"
     },
     {
       "path": "services/dashboard-operational/simple-tts-manual.cjs",

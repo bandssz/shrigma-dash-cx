@@ -180,7 +180,9 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
  }
  function entryOwner(context,brand,write=false){
   if(context?.nativeBearer!==undefined||write&&context?.method!=='POST')fail('ENTRY_QA_COOKIE_REQUIRED',403);
-  return labOwner(context,brand,write);
+  const user=labOwner(context,brand,write);
+  if(user.permissions?.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth'))fail('PRODUCT_WRITE_DENIED',403);
+  return user;
  }
  function paidHead(userId,brand){
   const row=db.prepare('SELECT revision,qa_json FROM simple_journey_paid_qa_v1 WHERE user_id=? AND brand=? ORDER BY revision DESC LIMIT 1').get(userId,brand),qa=row?JSON.parse(row.qa_json):paidEmpty();
