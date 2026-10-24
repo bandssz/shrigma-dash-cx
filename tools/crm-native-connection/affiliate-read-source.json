@@ -420,8 +420,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 17422,
-      "sha256": "578e90b11a6aef62ef5223d31b7112b99f8b9949a58c63dad53dd384b9989949"
+      "bytes": 17475,
+      "sha256": "bcccddc7093f76d7dd211ab2d65ecfbda0cb9af31046fcd77d6c58bfdf899aa2"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -3435,8 +3435,8 @@
     },
     {
       "path": "tools/worker-vault/image-gateway.cjs",
-      "bytes": 4685,
-      "sha256": "58393eaf9612fc34afb1d2b007ffc8860fed0f52837515d42b851cb233f46d7b"
+      "bytes": 4888,
+      "sha256": "be5efc674348a29890e6ed0831f49ab5bd6cea31b7683a8c2d41b970fbfa157f"
     },
     {
       "path": "tools/worker-vault/private-parent-smoke.cjs",

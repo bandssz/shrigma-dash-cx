@@ -46,6 +46,7 @@ function start({manifestSha256}={}){
   artifact=require('/app/artifact-policy.cjs').unpack(boot.selectPackFile(),path.join(parent,'artifact'),{expectedSha256:BASE_PACK});
   const runtime=require(ROOT+'/runtime/server.cjs'),settings=runtime.settingsFromEnv({...env,DASHBOARD_NATIVE_MCP:'enabled',DASHBOARD_PUBLIC_DIR:artifact.publicDir});
   settings.crmNativeManifestSha256=manifestSha256;
+  settings.crmNativeSourceRevision=m.sourceRevision;
   settings.crmNativeDatabaseInspection=true;
   settings.crmJourneyPresentationManifestSha256=m.presentationManifestSha256;
   const style=m.files.find(f=>f.path==='runtime/crm-presentation.css');if(!style)refuse();
