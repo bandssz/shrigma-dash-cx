@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 52801,
-      "sha256": "e22a4ea62cd0ea6b3bd0fc99ba7ec95acbff51f680db47a5d6b38e110b4a6ee3"
+      "bytes": 52843,
+      "sha256": "36594c0f6ed8145594a45d0000318918e075033a771989f9f2fa706b5e659c78"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1750,8 +1750,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-comparison-ui.cjs",
-      "bytes": 13223,
-      "sha256": "0abd3b4b98b28288bf66b00bf81a88b3aeb332658a9ce008617fa6b719e5f771"
+      "bytes": 16350,
+      "sha256": "dc86002b9665eb3c94d84631f084cb4d4729335d2172de172d978fe281ad7be3"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-store.cjs",
@@ -1770,8 +1770,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
-      "bytes": 8314,
-      "sha256": "65749570ea33f1171594fa7a8938511b021c0468065d5a97a5eb63a2b907bdff"
+      "bytes": 15137,
+      "sha256": "41ead4d626f5869f0f69cc84017f00378ff3bff0e486a7b205dff7ecbbd2efa5"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-ui.cjs",
@@ -1785,8 +1785,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-results.cjs",
-      "bytes": 12836,
-      "sha256": "8da4494659baa780ad5c382dd56344aa5e572e65c452c19ab5c75b88d83b75d5"
+      "bytes": 14321,
+      "sha256": "bb73ed573a0ac743c385dc9681e38437a1ebb4f90d3e3aacfdcee928277d60a4"
     },
     {
       "path": "services/dashboard-operational/crm-payload-shape.cjs",
@@ -2585,8 +2585,8 @@
     },
     {
       "path": "tests/crm-home-layout.test.cjs",
-      "bytes": 4510,
-      "sha256": "16039d7c46a9ee98d3286c288ed514dac94b33f190ec788c74874d5c3120d969"
+      "bytes": 8963,
+      "sha256": "1dba13d0e9b4279f5b2b14492951b544a36fd75d7c7a790b2777b36a8b280668"
     },
     {
       "path": "tests/crm-legacy-library-plan.test.cjs",
@@ -3065,8 +3065,8 @@
     },
     {
       "path": "tests/production-candidate-branch.test.cjs",
-      "bytes": 2322,
-      "sha256": "0ac788fd312071f90c1b81e23f51b22d0a166aaa15eb6fe2d36fa179864ca903"
+      "bytes": 2321,
+      "sha256": "fa28311e231b32a6062c19e1ab81660d4c80cb849ad001aeaeedecc719c99c96"
     },
     {
       "path": "tests/production-envelope.test.cjs",
@@ -3330,8 +3330,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 15802,
-      "sha256": "2b9d2d6bfc55ac54cc18e1279c0ec8cf6e02ad2064d2f3388e2d18cb987e1055"
+      "bytes": 16368,
+      "sha256": "716cf9912874860381cd3ed7d414daab70191195425e7534d4c57e426a413bcc"
     },
     {
       "path": "tools/crm-qa/w2-editor.cjs",
@@ -3420,8 +3420,8 @@
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 15924,
-      "sha256": "7ad13bbbc39df50c63ee1a81979022a0eda5348e479c1fcf3b2234704dad6527"
+      "bytes": 15923,
+      "sha256": "6e40c98a3778cfa6724a308842dbc73e215c7c035d7b8d5d5751cc319a8fda0f"
     },
     {
       "path": "tools/production-release/read-retry.cjs",
@@ -3442,11 +3442,21 @@
       "path": "tools/worker-vault/private-parent-smoke.cjs",
       "bytes": 4407,
       "sha256": "9f55d61fb524b53a0ae7f5cdcfaa2dbb27cd95c6b74406176059dd1aa4fd45dd"
+    },
+    {
+      "path": "tests/crm-home-v35-metrics.test.cjs",
+      "bytes": 3828,
+      "sha256": "b75dc360c382243b2237cc4a06195503d4a7d16a46b9339b42f662d8e188d091"
+    },
+    {
+      "path": "tools/crm-qa/home-v35-capture.cjs",
+      "bytes": 9351,
+      "sha256": "405d02f5990471929ab52780c984976ca1a5bd7973695b5f265491947ad9ff76"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "W2 restricted WhatsApp campaign editor; crm_worker durable queue with lease, identity dedup and uncertain reconciliation; internal fixed destination Graph send only; schedule/cancel persisted per brand. Worker remains replica0 and commercial sends disabled."
+  "candidatePurpose": "Home v35: four comparable metric cards, attributed revenue and send series, short native upcoming-campaign and recent-result lists, source freshness and filter-preserving links. Preserve accepted W2 and dynamic purchase audience queue."
 }
