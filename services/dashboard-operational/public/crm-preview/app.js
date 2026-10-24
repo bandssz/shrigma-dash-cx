@@ -392,6 +392,6 @@ async function crmLoadDefaultHome(session,ticket){
  });
 }
 
-function crmDefaultHomeAllowed(user){return user?.role==='superadmin'||crmFeature('campaignEditorial')||user?.permissions?.growth?.edit===true&&user.productWriteFronts?.includes('growth');}
-
 for(const b of document.querySelectorAll('[data-model-channel]'))b.addEventListener('click',()=>{const select=crmEl('crm-channel');select.value=b.dataset.modelChannel;select.dispatchEvent(new Event('change',{bubbles:true}));});
+
+function crmDefaultHomeAllowed(user){return user?.role==='superadmin'||crmFeature('campaignEditorial')||user?.permissions?.growth?.edit===true&&user.productWriteFronts?.includes('growth');}
