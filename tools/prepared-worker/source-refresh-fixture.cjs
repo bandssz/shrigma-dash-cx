@@ -39,6 +39,8 @@ const run=(queue,brand='fish',extra={})=>queue.run({brand,days:30,authorize:()=>
  await run(make(),'aristo',{days:30,work:async({window,guard})=>{check(window,wide.payload.window);await guard();return {ok:true,brand:'aristo',coverage:window};}});check((await admin.query('SELECT attempt FROM crm_worker.tasks_v1 WHERE id=$1',[wide.id])).rows[0].attempt,2);
  // Production must fail closed when no native vault/queue is bound.
  await a.rejects(run(Q.create({})),{code:'SOURCE_REFRESH_QUEUE_UNAVAILABLE'});checks++;
+ await admin.query("UPDATE crm_worker.campaigns_v1 SET owner_id='synthetic-other' WHERE brand='aristo'");
+ await a.rejects(run(make(),'aristo'),{code:'SOURCE_REFRESH_HEAD_MISMATCH'});checks++;check((await admin.query("SELECT owner_id FROM crm_worker.campaigns_v1 WHERE brand='aristo'")).rows[0].owner_id,'synthetic-other');
  check((await admin.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='crm_worker'")).rows[0].n,3);
  console.log(JSON.stringify({ok:true,checks,realPostgres:true,instances:2,sourceReads:reads,customerWrites:0,providerPosts:0,workerActivated:false}));
  }finally{await admin.end();}})().catch(e=>{console.error(e);process.exitCode=1;});

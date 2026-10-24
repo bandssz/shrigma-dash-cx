@@ -21,6 +21,7 @@ function create({database,sourceRevision,now=Date.now}){
    const held=await database('producer',async c=>{
     await c.query("INSERT INTO crm_worker.campaigns_v1(id,brand,owner_id,revision,name,definition,state,source_revision) VALUES($1,$2,$3,1,'Shopify', $4::jsonb,'draft',$5) ON CONFLICT(id) DO NOTHING",[headId,brand,owner,JSON.stringify({channel:'source',operation:'source.refresh'}),sourceRevision]);
     const head=(await c.query('SELECT * FROM crm_worker.campaigns_v1 WHERE id=$1 FOR UPDATE SKIP LOCKED',[headId])).rows[0];if(!head)return null;
+    if(head.brand!==brand||head.owner_id!==owner||head.definition?.channel!=='source'||head.definition?.operation!=='source.refresh')fail('SOURCE_REFRESH_HEAD_MISMATCH');
     // A locked task is executing, even if its uncommitted heartbeat is invisible.
     let last=(await c.query("SELECT id FROM crm_worker.tasks_v1 WHERE campaign_id=$1 ORDER BY campaign_revision DESC LIMIT 1",[headId])).rows[0];
     if(last){

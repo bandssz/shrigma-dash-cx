@@ -2670,8 +2670,8 @@
     },
     {
       "path": "tests/crm-purchase-workspace.test.cjs",
-      "bytes": 8100,
-      "sha256": "5567e4ab210d862ec71acf3c13cbb862eec5e654f771c17626fc7714b3b9ab9e"
+      "bytes": 8261,
+      "sha256": "80f9d417529b7b240842d26d586d95180e7e3cf7af600dc21530d0c83fab171b"
     },
     {
       "path": "tests/crm-qa-permission-failure.test.cjs",
@@ -3470,13 +3470,13 @@
     },
     {
       "path": "services/dashboard-operational/source-refresh-queue.cjs",
-      "bytes": 6326,
-      "sha256": "6458bd48e6cff5bcbe4b8a6d68176ea89efec014c03fcadd0a4a721bc1bff2c8"
+      "bytes": 6497,
+      "sha256": "27d85e9e1f4f1f51f58bfaff480526a34c9222f001c4bbc10b46842462882445"
     },
     {
       "path": "tools/prepared-worker/source-refresh-fixture.cjs",
-      "bytes": 7263,
-      "sha256": "fb40594e49d6a1f1482f1e2d5c7d83e1434f83e5a8c0f2039e1a0428897299a2"
+      "bytes": 7587,
+      "sha256": "8b4517964e6a35c913abd21b43209bcef8ba62078f8b7647019333c2a5bd755f"
     },
     {
       "path": "tools/prepared-worker/source-refresh-smoke.cjs",
