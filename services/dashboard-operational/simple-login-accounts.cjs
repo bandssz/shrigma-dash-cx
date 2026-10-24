@@ -178,6 +178,10 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   if(!require('./crm-ui-features.cjs').restrictedUser(u)&&!/^editor-qa-(?:aristo|fish)@shrigma\.com\.br$/i.test(u.email||''))fail('PAID_QA_RESTRICTED',403);
   return u;
  }
+ function entryOwner(context,brand,write=false){
+  if(context?.nativeBearer!==undefined||write&&context?.method!=='POST')fail('ENTRY_QA_COOKIE_REQUIRED',403);
+  return labOwner(context,brand,write);
+ }
  function paidHead(userId,brand){
   const row=db.prepare('SELECT revision,qa_json FROM simple_journey_paid_qa_v1 WHERE user_id=? AND brand=? ORDER BY revision DESC LIMIT 1').get(userId,brand),qa=row?JSON.parse(row.qa_json):paidEmpty();
   if(!paidKeys(qa,'schema,definitions,rounds,lastMutationId')||qa.schema!=='shrigma-paid-journey-qa-v1'||!Array.isArray(qa.definitions)||qa.definitions.length>20||!Array.isArray(qa.rounds)||qa.rounds.length>20||JSON.stringify(qa).length>500000)fail('PAID_QA_STORAGE_INVALID',503);
@@ -213,7 +217,7 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
    q.lastMutationId=mutationId;const serialized=JSON.stringify(q);if(serialized.length>500000)fail('PAID_QA_LIMIT',409);db.prepare('INSERT INTO simple_journey_paid_qa_v1(user_id,brand,revision,qa_json,created_at) VALUES(?,?,?,?,?)').run(user.id,brand,expected_revision+1,serialized,stamp());return paidQaRead({context,brand,...(action==='resolve'?{mutationId:args.originalMutationId}:{})});
   });
  }
- const entryQa=require('./journey-entry-qa.cjs').create({db,authorize:paidOwner,transaction,now:stamp,paidRounds:userId=>['aristo','fish'].flatMap(b=>paidHead(userId,b).qa.rounds)});
+ const entryQa=require('./journey-entry-qa.cjs').create({db,authorize:entryOwner,transaction,now:stamp,paidRounds:userId=>['aristo','fish'].flatMap(b=>paidHead(userId,b).qa.rounds)});
  // Existing v1 is an immutable baseline; new saves append a whole revision.
  // A later rollback writer changing that baseline is detected, never merged.
  function labHead(userId,brand){
