@@ -36,7 +36,7 @@
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
       "bytes": 51263,
-      "sha256": "a53494edf18705faa0a16d044516b61148e3490a39bbe10328109b490e21fa2b"
+      "sha256": "b25adc8a0bb37e47bccacddaac2081421e4b06277013b0e7adf7ea36cbc171fe"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1910,13 +1910,13 @@
     },
     {
       "path": "services/dashboard-operational/native-whatsapp-connection.cjs",
-      "bytes": 15643,
-      "sha256": "cc77ab9c2acd0dcc7bece070744640eeb7b424c4d893c5e3ecf151640b0c238d"
+      "bytes": 17598,
+      "sha256": "b6c7d1465222182fe89977ddaa6d2c17626327987acd68581743ae8f82c53177"
     },
     {
       "path": "services/dashboard-operational/native-whatsapp-operator.cjs",
-      "bytes": 9377,
-      "sha256": "ee63e20b234b94e08b7653ab495634b67bfd6010eb66d43ab66de5fd461c505e"
+      "bytes": 9858,
+      "sha256": "108f71c295400a92b8147c86be525be57ad41b9c171e50bf58fcdb65d5dc6f24"
     },
     {
       "path": "services/dashboard-operational/organico-presentation.css",
@@ -2950,8 +2950,8 @@
     },
     {
       "path": "tests/native-whatsapp-connection.test.cjs",
-      "bytes": 25076,
-      "sha256": "486592df0c7410bb9839b4a02730c531803081f2618183a03dbfbd73369d6091"
+      "bytes": 28160,
+      "sha256": "abdb403351502bf5e475d589c54960029c713f8d287e62444af892b7b94eba37"
     },
     {
       "path": "tests/organico-access.test.cjs",
@@ -3333,5 +3333,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Owner-only Meta token replacement: GET verification of permissions and both fixed WABAs before atomic two-brand replacement, preserved references/history, metadata-only superseded revision, no retained previous token, CAS on original identity and connection state. No template submission, messaging, workflow or customer changes."
+  "candidatePurpose": "Scoped server-side Meta debug_token GET of the current encrypted brand connection; return only actual validity, documented token type, scopes and numeric expiry, distinguish missing expiry from zero; never expose token, input URL, app/subject IDs or raw provider errors. Existing vault format and rollback stay identical. Correct uncertain-ack message without claiming previous token was retained. No submission, message or customer write."
 }

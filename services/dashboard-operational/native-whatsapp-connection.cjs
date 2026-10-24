@@ -89,7 +89,16 @@ function create({db,consent,identity,authorizeRead,encrypt,decrypt,mac,now=Date.
    const hasMore=typeof body.paging?.next==='string',next=hasMore?body.paging?.cursors?.after:null;if(hasMore&&(typeof next!=='string'||next.length<1||Buffer.byteLength(next)>4096||/[\x00-\x20\x7f]/.test(next)||next===after))fail('WA_META_PAGINATION_UNCONFIRMED',502);
    assertCurrent();return {schema:'shrigma-meta-wa-template-page-v1',brand,connectionRef:r.connection_ref,connectionRevision:r.revision,binding:r.binding_mac,wabaId:WABAS[brand],graphVersion:GRAPH_VERSION,observedAtUtc:new Date(time()).toISOString(),templates:body.data.map(x=>({id:x.id,name:x.name,status:x.status,category:x.category,language:x.language,components:x.components,quality_score:x.quality_score??null,rejected_reason:x.rejected_reason??null})),hasMore,nextCursor:next,mirrorWrites:0,submission:false,messages:false};
   }
-  return Object.freeze({...view(r),assertCurrent,listTemplates});
+  async function inspectToken(){
+   assertCurrent();const privateValue=credential(r),url=new URL('https://graph.facebook.com/'+GRAPH_VERSION+'/debug_token');url.searchParams.set('input_token',privateValue.token);
+   let response;try{response=await fetchImpl(url,{method:'GET',redirect:'error',headers:{accept:'application/json',Authorization:'Bearer '+privateValue.token},signal:AbortSignal.timeout(15000)});}catch{fail('WA_META_INTROSPECTION_UNAVAILABLE',503);}finally{privateValue.token='';url.search='';}
+   if(response.status!==200)fail('WA_META_INTROSPECTION_UNCONFIRMED',503);if(!/application\/json/i.test(response.headers.get('content-type')||''))fail('WA_META_INTROSPECTION_UNCONFIRMED',502);
+   let size=0,parts=[],data;try{for await(const chunk of response.body){size+=chunk.length;if(size>65536)fail('WA_META_INTROSPECTION_UNCONFIRMED',502);parts.push(Buffer.from(chunk));}data=JSON.parse(Buffer.concat(parts).toString('utf8')).data;}catch{fail('WA_META_INTROSPECTION_UNCONFIRMED',502);}finally{for(const b of parts)b.fill(0);}
+   if(!data||typeof data.is_valid!=='boolean'||!['SYSTEM_USER','USER','PAGE','APP'].includes(data.type)||!Array.isArray(data.scopes)||data.scopes.length>100||data.scopes.some(x=>typeof x!=='string'||!/^[a-z][a-z0-9_]{1,80}$/.test(x)))fail('WA_META_INTROSPECTION_UNCONFIRMED',502);
+   const expiry=value=>value===undefined?null:Number.isSafeInteger(value)&&value>=0?value:fail('WA_META_INTROSPECTION_UNCONFIRMED',502),expiresAt=expiry(data.expires_at),dataAccessExpiresAt=expiry(data.data_access_expires_at);assertCurrent();
+   return {schema:'shrigma-meta-wa-token-metadata-v1',brand,connectionRef:r.connection_ref,connectionRevision:r.revision,wabaId:WABAS[brand],isValid:data.is_valid,type:data.type,expiresAt,dataAccessExpiresAt,expiryConfirmed:expiresAt!==null,scopes:[...new Set(data.scopes)].sort(),observedAtUtc:new Date(time()).toISOString(),mirrorWrites:0,submission:false,messages:false};
+  }
+  return Object.freeze({...view(r),assertCurrent,listTemplates,inspectToken});
  }
  function authorizeOwnerRead(context){const p=authorizeRead(context,{brand:'fish'});if(!p||p.userId!==p.ownerId)fail('WA_ORIGINAL_OWNER_REQUIRED');owner(p.userId);return true;}
  return Object.freeze({status,bind,bindSystemUser,revoke,resolve,authorizeOwnerRead});
