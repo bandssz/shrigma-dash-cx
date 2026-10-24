@@ -26,9 +26,13 @@ function inspect(tag){return JSON.parse(docker(['run','--rm','--platform','linux
 async function health(host){const r=await fetch('https://'+host+'/healthz',{redirect:'error',signal:AbortSignal.timeout(5000)});if(r.status!==200)throw Error('PRODUCTION_HEALTH_REFUSED');const text=await r.text();if(text.length>16384)throw Error('PRODUCTION_HEALTH_REFUSED');const j=JSON.parse(text);if(j.ok!==true||j.nativeMcp!==true||j.runtimeUid!==1000)throw Error('PRODUCTION_HEALTH_REFUSED');return j;}
 async function matches(contract){for(const host of HOSTS){const j=await health(host);if(j.nativeBackendManifestSha256!==contract.manifestSha256||j.journeyPresentationManifestSha256!==contract.presentationManifestSha256)return false;}return true;}
 async function currentHead({env=process.env,fetchImpl=fetch,wait,validate}={}){
- if(env.GITHUB_REPOSITORY!=='bandssz/shrigma-dash-cx'||env.GITHUB_REF!=='refs/heads/main'||!env.GITHUB_TOKEN)throw Error('PRODUCTION_SCOPE_REFUSED');
- await retryRead(async()=>{const r=await fetchImpl('https://api.github.com/repos/bandssz/shrigma-dash-cx/git/ref/heads/main',{headers:{Authorization:'Bearer '+env.GITHUB_TOKEN,Accept:'application/vnd.github+json'},redirect:'error',signal:AbortSignal.timeout(10000)});if(r.status!==200||(await r.json()).object.sha!==env.GITHUB_SHA)throw Error('STALE_PUBLICATION_REFUSED');},{wait,validate});
+ const candidate='codex/worker-vault-c15-20261024',branch=env.GITHUB_REF==='refs/heads/'+candidate;
+ if(env.GITHUB_REPOSITORY!=='bandssz/shrigma-dash-cx'||!env.GITHUB_TOKEN||!(/^[a-f0-9]{40}$/.test(env.GITHUB_SHA||''))||env.GITHUB_REF!=='refs/heads/main'&&!branch||branch&&!/^[a-f0-9]{40}$/.test(env.PRODUCTION_EXPECT_MAIN_REVISION||''))throw Error('PRODUCTION_SCOPE_REFUSED');
+ const read=async(ref,sha)=>retryRead(async()=>{const r=await fetchImpl('https://api.github.com/repos/bandssz/shrigma-dash-cx/git/ref/heads/'+ref,{headers:{Authorization:'Bearer '+env.GITHUB_TOKEN,Accept:'application/vnd.github+json'},redirect:'error',signal:AbortSignal.timeout(10000)});if(r.status!==200||(await r.json()).object?.sha!==sha)throw Error('STALE_PUBLICATION_REFUSED');},{wait,validate});
+ if(branch)await read(candidate,env.GITHUB_SHA);
+ await read('main',branch?env.PRODUCTION_EXPECT_MAIN_REVISION:env.GITHUB_SHA);
 }
+function weekendWindow({env=process.env,now=Date.now()}={}){return env.PRODUCTION_WEEKEND_NO_ANALYSTS==='2026-10-24/25'&&now>=Date.parse('2026-10-24T03:00:00Z')&&now<Date.parse('2026-10-26T11:00:00Z');}
 function triggerUrl(){const u=new URL(process.env.SHRIGMA_EASYPANEL_DEPLOY_URL);if(u.protocol!=='https:'||u.hostname!=='comando.shrigma.com.br'||u.username||u.password||u.hash)throw Error('DEPLOY_CAPABILITY_REFUSED');return u;}
 async function trigger(){const u=triggerUrl();const r=await fetch(u,{method:'POST',redirect:'error',signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('DEPLOY_TRIGGER_REFUSED');/* Do not log or parse secret endpoint response. */}
 async function wait(contract){const end=Date.now()+240000;while(Date.now()<end){try{if(await matches(contract))return true;}catch{}await new Promise(r=>setTimeout(r,5000));}return false;}
@@ -70,8 +74,9 @@ async function main(){
  // has applied the prepared Compose once and installed the capability secret.
  if(!process.env.SHRIGMA_EASYPANEL_DEPLOY_URL){if(!initial||request.action!=='publish')throw Error('DEPLOY_CAPABILITY_MISSING');docker(['tag',desired,IMAGE+':producao']);docker(['push',IMAGE+':producao']);receipt({...base,status:'bootstrap-required',productionVerified:false,deployAttempted:false});return;}
  triggerUrl();let triggered=false;
- const windowProof=()=>require('../crm-qa/maintenance-window.cjs').validateReceipt(JSON.parse(fs.readFileSync(path.join(process.env.AFFILIATE_CI_DIR,'maintenance-window.safe.json'),'utf8')),{revision:process.env.GITHUB_SHA});
- if(request.action==='publish'){
+ const weekend=weekendWindow(),windowProof=()=>{if(weekend){if(!weekendWindow())throw Error('MAINTENANCE_INSTALL_WINDOW_UNCONFIRMED');return;}return require('../crm-qa/maintenance-window.cjs').validateReceipt(JSON.parse(fs.readFileSync(path.join(process.env.AFFILIATE_CI_DIR,'maintenance-window.safe.json'),'utf8')),{revision:process.env.GITHUB_SHA});};
+ if(request.action==='publish'&&weekend){const proof={schema:'shrigma-weekend-install-window-v1',candidateRevision:process.env.GITHUB_SHA,ok:true,fromUtc:'2026-10-24T03:00:00Z',untilUtc:'2026-10-26T11:00:00Z',checkedAtUtc:new Date().toISOString(),humanDecision:'v38-weekend-no-analysts',noticeRequired:false};windowProof();fs.writeFileSync(path.join(process.env.AFFILIATE_CI_DIR,'weekend-window.safe.json'),JSON.stringify(proof,null,2)+'\n',{mode:0o600,flag:'wx'});console.log(JSON.stringify(proof));}
+ if(request.action==='publish'&&!weekend){
   publicationPhase='maintenance-window-awaiting-notice';console.log(JSON.stringify({phase:publicationPhase,candidateRevision:process.env.GITHUB_SHA}));
   await awaitChild(process.execPath,[path.join(__dirname,'../crm-qa/run-ci.cjs')],{env:{...process.env,CRM_QA_GATE:'maintenance-window',CRM_QA_PLAYWRIGHT_ROOT:path.join(process.env.AFFILIATE_CI_DIR,'playwright')},stdio:'inherit'});
   publicationPhase='post-notice-check-head';await currentHead({validate:windowProof});
@@ -92,4 +97,4 @@ async function main(){
  }
 }
 if(require.main===module)main().catch(e=>{console.error(JSON.stringify(publicationFailure(e)));process.exitCode=1;});
-module.exports={isMissing,publicationFailure,validateRequest,validateAccessGate,currentHead,awaitChild};
+module.exports={isMissing,publicationFailure,validateRequest,validateAccessGate,currentHead,awaitChild,weekendWindow};

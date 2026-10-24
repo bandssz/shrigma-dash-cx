@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 51358,
-      "sha256": "a90c94b7b67aca717cc5d913676179cb3c0fc6734477d019c5517b0675693da8"
+      "bytes": 52515,
+      "sha256": "2c99feba4eb8148a72d6145b536179e98a69d22c17ac20dd88b0c8028013e645"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -420,8 +420,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 16812,
-      "sha256": "6ab69fda369b8f8daac5e872c01aea31e2eaab8df339f4de5da4ec9990b0fb6f"
+      "bytes": 17304,
+      "sha256": "45afa981bf7e4bbc105e1d6a54061295befe587b48e93c1c9ff399035a9508c2"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -430,13 +430,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 9100,
-      "sha256": "5bcee53901c1c4727b939e5f1febe49c8b82bd742b37fe3b41afa35b8c9fbf13"
+      "bytes": 9156,
+      "sha256": "72be5c58b0c5b55d2f76aa84a8f19b634480728ec886df36d0cadd57f44ff1ce"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 12043,
-      "sha256": "bd5d20f1ef5f9d7d2e53a90cbb1ad834d26978ba04f7e6298f3aa698d11e1a10"
+      "bytes": 12157,
+      "sha256": "d6fc5646989b563c5eb25523d3ab13b4f6b8d06e1079ba17472f7e32186464a5"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -1615,8 +1615,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 172090,
-      "sha256": "d1dbf3bb5825d13251e2eccd14df76b5f0b816f7054985533c97603676715ef9"
+      "bytes": 172706,
+      "sha256": "394d3404a745015ba8fcaa9e6bc2fb23c4a6772a9ec596d1e7871147382ce650"
     },
     {
       "path": "services/dashboard-operational/BCRYPT-LICENSE",
@@ -1919,6 +1919,16 @@
       "sha256": "108f71c295400a92b8147c86be525be57ad41b9c171e50bf58fcdb65d5dc6f24"
     },
     {
+      "path": "services/dashboard-operational/native-worker-vault-cli.cjs",
+      "bytes": 6454,
+      "sha256": "defa8d6e1c5c2753071be27f7f74f77ce46fb6612589e067a9208b0a405e5e81"
+    },
+    {
+      "path": "services/dashboard-operational/native-worker-vault.cjs",
+      "bytes": 16573,
+      "sha256": "f83a1d8b04939cee376208faae9aaa649b7be81a41fa69a52523fec6c9c004b4"
+    },
+    {
       "path": "services/dashboard-operational/organico-presentation.css",
       "bytes": 78231,
       "sha256": "3d9a84d3fea861131147dcf67ac28e7f6fdd764bdabe7e2e67358c0eba2a7542"
@@ -2104,6 +2114,16 @@
       "sha256": "c67aa1e2550d9d66e35a1ce93aba4290535f71eb51804e48d3292187471effda"
     },
     {
+      "path": "services/dashboard-operational/public/crm-preview/whatsapp-template-contract.js",
+      "bytes": 4046,
+      "sha256": "3a3308c051adc3fedf709c29e4405796a323abbeb88b67001fc0fc96b57a7bef"
+    },
+    {
+      "path": "services/dashboard-operational/public/crm-preview/whatsapp-template-ui.js",
+      "bytes": 18033,
+      "sha256": "8f612dc7b4ae3d46b39aca51d96924fd0816404d418292f6654c9fec92d0f666"
+    },
+    {
       "path": "services/dashboard-operational/public/entry.compiled.js",
       "bytes": 60895,
       "sha256": "cc88646d5550a5b5f6d889af4d9f970d9835431aa7491edf8fa189b9a6902b58"
@@ -2227,6 +2247,11 @@
       "path": "services/dashboard-operational/simple-tts-manual.cjs",
       "bytes": 8847,
       "sha256": "5f80fd767edd589f8f7dc9175449c97c97b8e6d49552ba4042dcb490950e4727"
+    },
+    {
+      "path": "services/dashboard-operational/whatsapp-template-drafts.cjs",
+      "bytes": 9394,
+      "sha256": "95245f8bfa809542a83f864459692fe58f3b3a76430e97115b791e8585ea04ca"
     },
     {
       "path": "tests/ab-experiment-integration.test.cjs",
@@ -2954,6 +2979,11 @@
       "sha256": "abdb403351502bf5e475d589c54960029c713f8d287e62444af892b7b94eba37"
     },
     {
+      "path": "tests/native-worker-vault.test.cjs",
+      "bytes": 18723,
+      "sha256": "89ff66c127615326aaa190d644870ea3f9455006c0b51bc2dbc6507f9d21294f"
+    },
+    {
       "path": "tests/organico-access.test.cjs",
       "bytes": 9331,
       "sha256": "cd637f46d9145d7628fa44f372df5fac54c60910ed1432b0d5862188e05464f3"
@@ -3012,6 +3042,11 @@
       "path": "tests/product-preview-expansion.test.cjs",
       "bytes": 47520,
       "sha256": "074b5f3bef8dcdc7edbdb41aab4831e8584f134e4ae636f998a94ce3ad0373c2"
+    },
+    {
+      "path": "tests/production-candidate-branch.test.cjs",
+      "bytes": 2321,
+      "sha256": "f533c5b2e2afed5a59ba15548fdc6b022a2c3b490128cb0bf3defad9235caf21"
     },
     {
       "path": "tests/production-envelope.test.cjs",
@@ -3149,6 +3184,21 @@
       "sha256": "1ed7f5c2089eb91c57f54dec30eb9324459bb36dcc98de3a22b53115182969fb"
     },
     {
+      "path": "tests/whatsapp-template-ui.test.cjs",
+      "bytes": 7024,
+      "sha256": "8f3ac95e764c821259d9cb61e12923389778f9d074b18e9fcc4ff2f55447f136"
+    },
+    {
+      "path": "tests/whatsapp-template-workspace.test.cjs",
+      "bytes": 9777,
+      "sha256": "2d804caf43cea19fe3eeb9fb5af02473685d3b9c172b8f59a0665eab42a9d54f"
+    },
+    {
+      "path": "tests/worker-vault-bootstrap-fixture.cjs",
+      "bytes": 69,
+      "sha256": "fe781515a8194747f9c116d30c2332dfa26de5c605e065fe0f82849013f3cbbc"
+    },
+    {
       "path": "tools/crm-native-connection/native-test-error-envelope.cjs",
       "bytes": 5268,
       "sha256": "96b50411b933889625cb88aa1fac19c5b1cc6e32b16d27d6b9bbbefd67c0b163"
@@ -3280,8 +3330,8 @@
     },
     {
       "path": "tools/prepared-worker/image-smoke.cjs",
-      "bytes": 7286,
-      "sha256": "f6943d440b726916955e59f50fae3e19c199d7e665be907c99f97ce32d9a87f7"
+      "bytes": 7452,
+      "sha256": "0a2c723f954c13447f75245608365dd057826cd01b3cf7a0c589e3c823b24dad"
     },
     {
       "path": "tools/prepared-worker/queue-smoke.cjs",
@@ -3320,8 +3370,8 @@
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 14699,
-      "sha256": "b15af25e8754e440530c6cc42c36f5988978431e5664871d6c5456f4bcaa3db5"
+      "bytes": 15923,
+      "sha256": "d99d785a4b4dab3290fbce4bf496f30e7823858ffd503cb97fbbfed7ceb3a7ea"
     },
     {
       "path": "tools/production-release/read-retry.cjs",
@@ -3329,34 +3379,24 @@
       "sha256": "ac15f0631546f784c032bad879753f09442fb7615cf8195b0be3b3cb4189c1d3"
     },
     {
-      "path": "services/dashboard-operational/whatsapp-template-drafts.cjs",
-      "bytes": 9394,
-      "sha256": "95245f8bfa809542a83f864459692fe58f3b3a76430e97115b791e8585ea04ca"
+      "path": "tools/worker-vault/docker-smoke.cjs",
+      "bytes": 2472,
+      "sha256": "3cce0b21ded01d11d86089709f4759f17570f26402ecc75ef63f4f621863e57e"
     },
     {
-      "path": "services/dashboard-operational/public/crm-preview/whatsapp-template-contract.js",
-      "bytes": 4046,
-      "sha256": "3a3308c051adc3fedf709c29e4405796a323abbeb88b67001fc0fc96b57a7bef"
+      "path": "tools/worker-vault/image-gateway.cjs",
+      "bytes": 4685,
+      "sha256": "58393eaf9612fc34afb1d2b007ffc8860fed0f52837515d42b851cb233f46d7b"
     },
     {
-      "path": "services/dashboard-operational/public/crm-preview/whatsapp-template-ui.js",
-      "bytes": 18033,
-      "sha256": "8f612dc7b4ae3d46b39aca51d96924fd0816404d418292f6654c9fec92d0f666"
-    },
-    {
-      "path": "tests/whatsapp-template-workspace.test.cjs",
-      "bytes": 9777,
-      "sha256": "2d804caf43cea19fe3eeb9fb5af02473685d3b9c172b8f59a0665eab42a9d54f"
-    },
-    {
-      "path": "tests/whatsapp-template-ui.test.cjs",
-      "bytes": 7024,
-      "sha256": "8f3ac95e764c821259d9cb61e12923389778f9d074b18e9fcc4ff2f55447f136"
+      "path": "tools/worker-vault/private-parent-smoke.cjs",
+      "bytes": 4407,
+      "sha256": "9f55d61fb524b53a0ae7f5cdcfaa2dbb27cd95c6b74406176059dd1aa4fd45dd"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "W1 v36 restricted QA WhatsApp template workspace: real fixed-WABA read-only catalog, own-user brand-scoped versioned drafts with backup/CAS, strict variables and actual-example mobile preview. Original owner submission remains hard-disabled in production auth/store/vault; no Meta POST, messages, scheduler or customer write. Physical editor-QA save/reload proof in both brands required."
+  "candidatePurpose": "C15 approved operational worker vault: two encrypted fixed-role credentials, private Unix IPC with one-use challenge/CAS/receipt and FD3 delivery; no PG mutation, queue tables, job, worker enablement or UI delta."
 }

@@ -1,7 +1,7 @@
 name: Shrigma native CRM connection
 'on':
   push:
-    branches: [main]
+    branches: [main, codex/worker-vault-c15-20261024]
 permissions:
   contents: read
 concurrency:
@@ -310,7 +310,7 @@ jobs:
     concurrency:
       group: shrigma-gateway-production
       cancel-in-progress: false
-    if: github.repository == 'bandssz/shrigma-dash-cx' && startsWith(github.event.head_commit.message, 'affiliate-read:')
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/worker-vault-c15-20261024' && startsWith(github.event.head_commit.message, 'affiliate-read:')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -318,6 +318,8 @@ jobs:
       packages: write
     env:
       IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
+      PRODUCTION_EXPECT_MAIN_REVISION: 054b22dddd09ee3cf8fe5a8e762fedb59803fa56
+      PRODUCTION_WEEKEND_NO_ANALYSTS: 2026-10-24/25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -370,6 +372,13 @@ jobs:
           set -euo pipefail
           docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000 --mount "type=bind,src=$GITHUB_WORKSPACE/tools/prepared-worker/image-smoke.cjs,dst=/tmp/prepared-smoke.cjs,readonly" --entrypoint node "$IMAGE:source-$GITHUB_SHA" /tmp/prepared-smoke.cjs > "$AFFILIATE_CI_DIR/prepared-worker.json"
           node -e 'const fs=require("node:fs"),a=require("node:assert/strict"),r=JSON.parse(fs.readFileSync(process.argv[1],"utf8").trim().split(/\r?\n/).at(-1));a.equal(r.ok,true);a.equal(r.sourceRevision,process.env.GITHUB_SHA);a.equal(r.uid,1000);a.equal(r.workerExecutionEnabled,false);a.equal(r.workerDatabaseConnected,false);a.equal(r.workerHandlers,0);a.equal(r.apiAdapterRealAuth,true);a.equal(r.apiHealth,true);a.equal(r.productionIdentityUsed,false);a.equal(r.productionDatabaseUsed,false);console.log(JSON.stringify(r));' "$AFFILIATE_CI_DIR/prepared-worker.json"
+      - name: Verify operational vault image and private IPC
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,noexec,nosuid,mode=1777,size=256m --tmpfs /dashboard-data:rw,noexec,nosuid,mode=0700,uid=1000,gid=1000,size=32m --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$GITHUB_WORKSPACE/tests/worker-vault-bootstrap-fixture.cjs,dst=/app/bootstrap.cjs,readonly" --env WV_CLI_FIXTURE=1 --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --workdir /source --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/native-worker-vault.test.cjs
+      - name: Prove Docker private parent and original API bootstrap
+        run: node tools/worker-vault/docker-smoke.cjs "$IMAGE:source-$GITHUB_SHA"
       - name: Prove the uninstalled queue contract on isolated PostgreSQL17
         run: node tools/prepared-worker/queue-smoke.cjs
       - name: Compare negative-public membership on isolated PostgreSQL17
@@ -400,7 +409,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/production-envelope.test.cjs /source/tests/production-read-retry.test.cjs /source/tests/crm-legacy-parity.test.cjs /source/tests/crm-legacy-library-plan.test.cjs /source/tests/simple-crm-service-draft.test.cjs /source/tests/simple-crm-models.test.cjs /source/tests/crm-model-import.test.cjs /source/tests/simple-crm-model-pieces.test.cjs /source/tests/simple-crm-model-tests.test.cjs /source/tests/simple-crm-campaign-tests.test.cjs /source/tests/crm-product-positive-ui.test.cjs /source/tests/private-test-diagnostics.test.cjs /source/tests/native-test-error-envelope.test.cjs /source/tests/simple-tts-manual.test.cjs /source/tests/simple-tabler-read.test.cjs /source/tests/crm-home-layout.test.cjs /source/tests/crm-qa-read-policy.test.cjs /source/tests/crm-qa-permission-failure.test.cjs /source/tests/product-issues.test.cjs /source/tests/maintenance-notice.test.cjs /source/tests/journey-entry-qa.test.cjs /source/tests/journey-entry-qa-ui.test.cjs /source/tests/editor-entry-journey-gate.test.cjs /source/tests/journey-paid-qa.test.cjs /source/tests/journey-paid-qa-ui.test.cjs /source/tests/maintenance-install-window.test.cjs /source/tests/editor-paid-journey-gate.test.cjs /source/tests/crm-paid-origins.test.cjs /source/tests/shared-period.test.cjs
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/production-envelope.test.cjs /source/tests/production-read-retry.test.cjs tests/production-candidate-branch.test.cjs /source/tests/crm-legacy-parity.test.cjs /source/tests/crm-legacy-library-plan.test.cjs /source/tests/simple-crm-service-draft.test.cjs /source/tests/simple-crm-models.test.cjs /source/tests/crm-model-import.test.cjs /source/tests/simple-crm-model-pieces.test.cjs /source/tests/simple-crm-model-tests.test.cjs /source/tests/simple-crm-campaign-tests.test.cjs /source/tests/crm-product-positive-ui.test.cjs /source/tests/private-test-diagnostics.test.cjs /source/tests/native-test-error-envelope.test.cjs /source/tests/simple-tts-manual.test.cjs /source/tests/simple-tabler-read.test.cjs /source/tests/crm-home-layout.test.cjs /source/tests/crm-qa-read-policy.test.cjs /source/tests/crm-qa-permission-failure.test.cjs /source/tests/product-issues.test.cjs /source/tests/maintenance-notice.test.cjs /source/tests/journey-entry-qa.test.cjs /source/tests/journey-entry-qa-ui.test.cjs /source/tests/editor-entry-journey-gate.test.cjs /source/tests/journey-paid-qa.test.cjs /source/tests/journey-paid-qa-ui.test.cjs /source/tests/maintenance-install-window.test.cjs /source/tests/editor-paid-journey-gate.test.cjs /source/tests/crm-paid-origins.test.cjs /source/tests/shared-period.test.cjs
       - name: Prove TEST safety and retention diagnostics in the same Node22 UID1000 image
         shell: bash
         run: |
@@ -420,8 +429,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 92784b500d21e10a91034757387264a53e969825
-          CRM_QA_EXPECT_MANIFEST: 7e8e1f362ce3f96e71c8fdfbf5a1c86f1aeae7528768e41cabfa332b29be8c46
+          CRM_QA_EXPECT_REVISION: 054b22dddd09ee3cf8fe5a8e762fedb59803fa56
+          CRM_QA_EXPECT_MANIFEST: fc7bc73ee8cd718ae5ffe932f7d4fe7bd10670dae4645f9ab1812db0d814d054
         shell: bash
         run: |
           set -euo pipefail
@@ -431,8 +440,8 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
-          CRM_QA_EXPECT_REVISION: 92784b500d21e10a91034757387264a53e969825
-          CRM_QA_EXPECT_MANIFEST: 7e8e1f362ce3f96e71c8fdfbf5a1c86f1aeae7528768e41cabfa332b29be8c46
+          CRM_QA_EXPECT_REVISION: 054b22dddd09ee3cf8fe5a8e762fedb59803fa56
+          CRM_QA_EXPECT_MANIFEST: fc7bc73ee8cd718ae5ffe932f7d4fe7bd10670dae4645f9ab1812db0d814d054
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
@@ -445,8 +454,8 @@ jobs:
       - name: Publish fixed tag and verify the existing gateway
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 92784b500d21e10a91034757387264a53e969825
-          CRM_QA_EXPECT_MANIFEST: 7e8e1f362ce3f96e71c8fdfbf5a1c86f1aeae7528768e41cabfa332b29be8c46
+          CRM_QA_EXPECT_REVISION: 054b22dddd09ee3cf8fe5a8e762fedb59803fa56
+          CRM_QA_EXPECT_MANIFEST: fc7bc73ee8cd718ae5ffe932f7d4fe7bd10670dae4645f9ab1812db0d814d054
           GITHUB_TOKEN: ${{ github.token }}
           SHRIGMA_EASYPANEL_DEPLOY_URL: ${{ secrets.SHRIGMA_EASYPANEL_DEPLOY_URL }}
         run: node tools/production-release/publish-ci.cjs
