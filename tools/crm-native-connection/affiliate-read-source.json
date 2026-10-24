@@ -1910,8 +1910,8 @@
     },
     {
       "path": "services/dashboard-operational/native-whatsapp-connection.cjs",
-      "bytes": 22562,
-      "sha256": "43293481148a3e37c44cf7ccc7e16e054fbb2019e8f0bfe26b798358abadf7df"
+      "bytes": 22552,
+      "sha256": "f78ee78308214cc6dcd8ab5504346d860fdfb7aa1184c8fe2bf827d9ed8c892f"
     },
     {
       "path": "services/dashboard-operational/native-whatsapp-operator.cjs",
@@ -3210,8 +3210,8 @@
     },
     {
       "path": "tests/whatsapp-message.test.cjs",
-      "bytes": 3679,
-      "sha256": "118af5f6873236ed9fd283812c46e9481b3ca877acdeaaefd1ed70319e8ba87e"
+      "bytes": 5069,
+      "sha256": "196ca8e32ed91e187c3faaae66d1184a9d6d0011f1dc00015ab7164009ef563f"
     },
     {
       "path": "tests/whatsapp-template-ui.test.cjs",
@@ -3330,13 +3330,13 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 15772,
-      "sha256": "7e216428cbfc931d89544107b1741bb24b5fbf622e647b0792b69a81d10793b9"
+      "bytes": 15802,
+      "sha256": "2b9d2d6bfc55ac54cc18e1279c0ec8cf6e02ad2064d2f3388e2d18cb987e1055"
     },
     {
       "path": "tools/crm-qa/w2-editor.cjs",
-      "bytes": 10184,
-      "sha256": "e67194ca0e750d2a0bbe8466d5c70bcf48f924ebeff8713daa89f6abff168f4e"
+      "bytes": 10350,
+      "sha256": "d58a34f6ad57468a849bea18327552c5dc32eb51e5b01ad7f46a6fb8be293784"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
