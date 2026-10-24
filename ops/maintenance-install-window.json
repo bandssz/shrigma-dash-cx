@@ -2,9 +2,10 @@
   "schema": "shrigma-programmed-maintenance-v1",
   "source": "original-owner-maintenance-api-v1",
   "saved": true,
-  "targetRevision": "92784b500d21e10a91034757387264a53e969825",
+  "targetRevision": "054b22dddd09ee3cf8fe5a8e762fedb59803fa56",
   "audience": "editors",
-  "restartAt": "2026-10-24T03:12:43.856Z",
-  "expiresAt": "2026-10-24T03:22:43.856Z",
-  "programmedAtUtc": "2026-10-24T03:00:43.856Z"
+  "restartAt": "2026-10-24T04:41:55.057Z",
+  "expiresAt": "2026-10-24T04:51:55.057Z",
+  "programmedAtUtc": "2026-10-24T04:29:55.057Z"
 }
+
