@@ -30,6 +30,7 @@
   const paidForm={name:'Pedido pago · QA',waits:'0,60,1440',person:'pessoa-1',payment:'paid',mail:'empty',after:'none'};
   const paidLabels={eligible:'Etapa admitida no ensaio','daily-limit':'Teto diário atingido','payment-unknown':'Pagamento desconhecido','payment-not-paid':'Pagamento não confirmado','evidence-stale':'Fonte antiga','receipts-incomplete':'Recibos incompletos','identity-unknown':'Identidade incerta','uncertain-message':'Mensagem incerta','conditions-unknown':'Condições desconhecidas','purchase-after-entry':'Nova compra','opt-out':'Descadastro',finished:'Ensaio concluído','waiting-time':'Aguardando prazo'};
   const paidAllowed=()=>serverStorage&&user&&(user.role==='superadmin'||/^(?:editor-qa-(?:aristo|fish)@shrigma\.com\.br|felipebandeira\+codex@oaristocrata\.com|qa\.crm\+(?:aristo|fish)\.(?:leitura|edicao)@shrigma\.com\.br)$/i.test(user.email||''));
+  const entryAllowed=()=>serverStorage&&user&&allowed({authenticated:true,user},context.brand)&&writable(user);
   function paidValue(data,account,brand){if(data?.persistence!=='server'||data.userId!==account||data.brand!==brand||data.executes!==false||data.sends!==0||data.qa?.schema!=='shrigma-paid-journey-qa-v1'||!Array.isArray(data.qa.definitions)||data.qa.definitions.length>20||!Array.isArray(data.qa.rounds)||data.qa.rounds.length>20||!Number.isSafeInteger(data.revision)||JSON.stringify(data.policy)!==JSON.stringify(engine.PAID_POLICY))throw Error('PAID_QA_RESPONSE');for(const d of data.qa.definitions){engine.validateDraft(d);if(d.brand!==brand||d.trigger!=='order_paid')throw Error('PAID_QA_RESPONSE');}for(const r of data.qa.rounds){engine.validateRun(r.run);if(r.mode!=='synthetic'||r.realSends!==0||r.run.draft.brand!==brand||!Array.isArray(r.decisions))throw Error('PAID_QA_RESPONSE');}return data;}
   async function paidAction(action,args={}){
    if(!paidAllowed()||paidBusy||action!=='read'&&(!canEdit()||action!=='resolve'&&paidPending||!paidData)||action==='resolve'&&!paidPending)return;
@@ -85,7 +86,7 @@
   }
   function entryRestoreForm(d){if(!d)return;entryForm.name=d.draft.name;entryForm.kind=d.entrySpec.kind;entryForm.days=String(d.entrySpec.rollingDays??d.entrySpec.delayDays);entryForm.waits=d.draft.steps.map(s=>s.waitMinutes/1440).join(',');entryForm.audience=d.entrySpec.audienceRef?.id||'';}
   async function entryAction(action,args={}){
-   if(!paidAllowed()||entryBusy||action!=='read'&&(!canEdit()||action!=='resolve'&&entryPending||!entryData)||action==='resolve'&&!entryPending)return;
+   if(!entryAllowed()||entryBusy||action!=='read'&&(!canEdit()||action!=='resolve'&&entryPending||!entryData)||action==='resolve'&&!entryPending)return;
    const account=user.id,brand=context.brand,ticket=sequence,scope=entryScope,stillHere=()=>ticket===sequence&&context?.brand===brand&&user?.id===account;entryBusy=true;entryError='';entryPaint();
    try{
     const session=await getSession();if(!stillHere())return;if(!allowed(session,brand)||session.user.id!==account)throw Error('ENTRY_QA_ACCESS_CHANGED');let data;
@@ -103,7 +104,7 @@
    finally{if(stillHere()){entryBusy=false;entryPaint();}}
   }
   function entryPaint(){
-   const box=host.querySelector('[data-entry-qa]');if(!box)return;if(!paidAllowed()){box.replaceChildren();return;}
+   const box=host.querySelector('[data-entry-qa]');if(!box)return;if(!entryAllowed()){box.replaceChildren();return;}
    const scope='shrigma:entry-qa:'+user.id+':'+context.brand;if(entryScope!==scope||entryEpoch!==sequence){entryScope=scope;entryEpoch=sequence;entryData=null;entryBusy=false;entryError='';entrySelected='';entryRound='';try{entryPending=JSON.parse(storage.getItem(scope+':pending')||'null');}catch{entryPending=null;}}
    const defs=entryData?.qa.definitions||[],d=defs.find(x=>x.draft.id===entrySelected),rounds=(entryData?.qa.rounds||[]).filter(x=>x.definition.draft.id===d?.draft.id),r=rounds.find(x=>x.id===entryRound)||rounds.at(-1),decision=r?.decisions.at(-1),disabled=entryBusy||entryPending||!canEdit()||!entryData,audienceMode=entryForm.kind==='audience_entry';
    const select=(key,rows)=>'<select class="form-select" data-entry-field="'+key+'">'+rows.map(([v,n])=>'<option value="'+esc(v)+'"'+(entryForm[key]===v?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select>',date=at=>new Date(at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
