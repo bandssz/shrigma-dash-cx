@@ -3395,8 +3395,8 @@
     },
     {
       "path": "tools/prepared-worker/image-smoke.cjs",
-      "bytes": 7452,
-      "sha256": "a82225bbc3cef9a8f06fc2755192c7e8a47bb4b52d3cab46bf84694991fc79c2"
+      "bytes": 7532,
+      "sha256": "baa135590a807ac3d83202e677529fe43bb417b06951a812ab650c1b6ba305fd"
     },
     {
       "path": "tools/prepared-worker/queue-smoke.cjs",
