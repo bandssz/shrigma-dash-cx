@@ -3245,8 +3245,8 @@
     },
     {
       "path": "tools/crm-qa/dynamic-publics-editor.cjs",
-      "bytes": 10391,
-      "sha256": "f6d37624164d94886e0f5cc443aecba049ab9e2da8ec2b2cef6d58a8cf9a6b0f"
+      "bytes": 11264,
+      "sha256": "8990ff2595dac28029895a5995b936cb01051100f570a576c4b2318afa9bd8fa"
     },
     {
       "path": "tools/crm-qa/editor-entry-journey.cjs",
@@ -3340,8 +3340,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 16513,
-      "sha256": "4dd3dbdcf796e84230880a8b8599ed1c041e9e14997de71c386d33d9554379bc"
+      "bytes": 16883,
+      "sha256": "eef21d9b24a6e7c256c27bd5a1c9751e0d5c0ab4cd645803d80797b340e2a6e1"
     },
     {
       "path": "tools/crm-qa/w2-editor.cjs",
