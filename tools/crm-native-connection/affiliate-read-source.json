@@ -2060,8 +2060,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 171355,
-      "sha256": "f5a8bd273dbb9c7842de9e1345b39b9498d8ac8addefae617efdfb6584baa7a3"
+      "bytes": 171421,
+      "sha256": "49e5212147432e7681eebba2a8e86c487f77acdfb3a32a7e61de430136c8d607"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -2365,8 +2365,8 @@
     },
     {
       "path": "tests/consent19/four-steps.test.cjs",
-      "bytes": 22193,
-      "sha256": "b1c78f2f5e4379415f5f523d37682b3b069a48fde6a5fffe4d8ce8ca6b1ad8d1"
+      "bytes": 22198,
+      "sha256": "1c751bccb3c89e8374db23fef2c290768e03aafd5f0f7258667526c40bdc3c49"
     },
     {
       "path": "tests/consent19/gateway-fixture.cjs",
@@ -2665,8 +2665,8 @@
     },
     {
       "path": "tests/crm-ui-independent.test.cjs",
-      "bytes": 21394,
-      "sha256": "fed8dde600e3a35d43728fe308d117ceb4a7ca793c4c8656f540bcc3c6512434"
+      "bytes": 21584,
+      "sha256": "acbbc712b6511b16cafed05c98ba90ae327433eb6e3ff7b55c9d7cdb08fb883f"
     },
     {
       "path": "tests/dashboard-central-delegation.test.cjs",
@@ -3010,8 +3010,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 47520,
-      "sha256": "074b5f3bef8dcdc7edbdb41aab4831e8584f134e4ae636f998a94ce3ad0373c2"
+      "bytes": 47727,
+      "sha256": "8f091d893739b7f9cf0a894de82ed733d41b33c9b90d94d26bd5de639fe2938e"
     },
     {
       "path": "tests/production-envelope.test.cjs",
