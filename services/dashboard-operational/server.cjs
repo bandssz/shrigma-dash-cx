@@ -727,7 +727,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const maintenanceNotice=s.simpleReadMode===true?auth.maintenanceNoticeStore?.():null;
   const productIssues=s.simpleReadMode===true?auth.productIssueStore?.():null;
   const waCampaigns=s.paidFactsFile&&s.crmNativeEnabled===true?require('./whatsapp-campaigns.cjs').create({auth,file:s.paidFactsFile,sourceRevision:s.crmNativeSourceRevision}):null;
-  const paidFacts=s.paidFactsFile?require('./crm-paid-facts.cjs').create({file:s.paidFactsFile,auth,store:auth.restrictedPurchaseStore(),fetchImpl,backupDirectory:path.join(path.dirname(s.dbPath),'paid-acquisition-backups')}):null;
+  const paidFacts=s.paidFactsFile?require('./crm-paid-facts.cjs').create({file:s.paidFactsFile,auth,store:auth.restrictedPurchaseStore(),fetchImpl,backupDirectory:path.join(path.dirname(s.dbPath),'paid-acquisition-backups'),queueDatabase:waCampaigns?.queueDatabase,sourceRevision:s.crmNativeSourceRevision}):null;
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
   const simpleCampaignTests=simpleReader?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
   const simpleCampaignAudiences=simpleReader?auth.simpleCampaignAudienceFactory?.({fetchImpl}):null;

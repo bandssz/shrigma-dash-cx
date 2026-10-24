@@ -381,6 +381,8 @@ jobs:
         run: node tools/worker-vault/docker-smoke.cjs "$IMAGE:source-$GITHUB_SHA"
       - name: Prove W2 lease deduplication uncertainty and cancellation on isolated PostgreSQL17
         run: W2_TEST_IMAGE="$IMAGE:source-$GITHUB_SHA" node tools/prepared-worker/w2-smoke.cjs
+      - name: Prove source refresh possession restart and committed projection in the same queue
+        run: W2_TEST_IMAGE="$IMAGE:source-$GITHUB_SHA" node tools/prepared-worker/source-refresh-smoke.cjs
       - name: Prove dynamic purchase resolution and cancellation in the same PostgreSQL queue
         run: W2_TEST_IMAGE="$IMAGE:source-$GITHUB_SHA" node tools/prepared-worker/dynamic-audience-smoke.cjs
       - name: Prove the uninstalled queue contract on isolated PostgreSQL17
