@@ -1,0 +1,31 @@
+name: Cancel uninstalled 3ab CI once
+'on':
+  push:
+    branches: [codex/cancel-3ab-ci-20261024]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  cancel-exact-uninstalled-run:
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.event_name == 'push' && github.ref == 'refs/heads/codex/cancel-3ab-ci-20261024'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Cancel only uninstalled 3ab after queue-contract review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          'use strict';
+          const a=require('node:assert/strict'),repo='bandssz/shrigma-dash-cx',run=40137038429,sha='bdaf283d5e788e3e9677f7dfe10476dabe719fd4';
+          (async()=>{
+            a.equal(process.env.GITHUB_REPOSITORY,repo);a.equal(process.env.GITHUB_REF,'refs/heads/codex/cancel-3ab-ci-20261024');a.equal(process.env.GITHUB_EVENT_NAME,'push');
+            const request=async(path,method='GET')=>{const r=await fetch('https://api.github.com/repos/'+repo+path,{method,redirect:'error',headers:{Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},signal:AbortSignal.timeout(15000)});if(method==='POST'){a.equal(r.status,202);return null;}a.equal(r.status,200);return r.json();};
+            const state=await request('/actions/runs/'+run);a.equal(state.id,run);a.equal(state.head_sha,sha);a.equal(state.head_branch,'codex/publics-dynamic-3ab-20261024');a.equal(state.event,'push');a.equal(state.name,'Shrigma native CRM connection');a.equal(state.head_repository.full_name,repo);
+            if(state.status==='completed'){console.log(JSON.stringify({ok:true,action:'already-complete-no-mutation',run,conclusion:state.conclusion}));return;}a.equal(state.status,'in_progress');
+            a.equal((await request('/git/ref/heads/main')).object.sha,'52fe2dcd6e07f5ab1d1515141c3de5fe30b3aba8');
+            const jobs=await request('/actions/runs/'+run+'/jobs'),job=jobs.jobs.find(x=>x.id===121000636298);a(job);a.equal(job.name,'verify-affiliate-read');a.equal(job.steps.find(x=>x.name==='Publish fixed tag and verify the existing gateway')?.status,'pending');a.equal(job.steps.find(x=>x.name==='Ordinary editor QA in both brands after installation')?.status,'pending');
+            await request('/actions/runs/'+run+'/cancel','POST');console.log(JSON.stringify({ok:true,action:'cancel-requested',run,sha,productionStepPending:true,deploys:0}));
+          })().catch(()=>{console.error(JSON.stringify({ok:false,code:'EXACT_UNINSTALLED_RUN_CANCEL_REFUSED',noFallback:true}));process.exitCode=1;});
+          NODE
