@@ -48,6 +48,7 @@ COPY tools/native-pg-dependency/package.json tools/native-pg-dependency/package-
 RUN cd tools/native-pg-dependency && npm ci --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org
 COPY tools/prepared-worker/build.cjs tools/prepared-worker/command.cjs tools/prepared-worker/queue.sql ./tools/prepared-worker/
 COPY ops/releases/crm-native-connection-20261007/bootstrap.cjs ops/releases/crm-native-connection-20261007/build-release.cjs ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs ops/releases/crm-native-connection-20261007/start-existing.cjs ops/releases/crm-native-connection-20261007/health-existing.cjs ./ops/releases/crm-native-connection-20261007/
+COPY services/dashboard-operational/crm-person-contracts.cjs services/dashboard-operational/crm-person-read.cjs services/dashboard-operational/crm-person-ui.cjs ./services/dashboard-operational/
 RUN node ops/releases/crm-native-connection-20261007/build-release.cjs /source /app /native-output "$GIT_SHA" \
  && node tools/prepared-worker/build.cjs /source/tools/prepared-worker /native-output /prepared-worker-output "$GIT_SHA"
 
