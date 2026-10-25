@@ -3455,8 +3455,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 26985,
-      "sha256": "fcbfd1da8fe3754c736d62891ecbaa7ad18e19a5f38d27f69474bfae11c40236"
+      "bytes": 27045,
+      "sha256": "7a4e665b207cbf988f58db172044c5f1091d55de29ea35b2243c3091c7d7786e"
     },
     {
       "path": "tools/crm-qa/paid-acquisition-restore-sql.cjs",
