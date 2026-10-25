@@ -1730,8 +1730,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-combined-ui.cjs",
-      "bytes": 11614,
-      "sha256": "4a9f4d0e4275bea1e302b60527a0fd097f3da425144c55649c20dab9074c5553"
+      "bytes": 11632,
+      "sha256": "ff7ba22a00dbdc2fc4070fa8fd88807a88389458b3f13379ab8f3d754f3c868a"
     },
     {
       "path": "services/dashboard-operational/crm-manager-runtime.cjs",
