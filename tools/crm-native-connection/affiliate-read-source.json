@@ -2265,8 +2265,8 @@
     },
     {
       "path": "services/dashboard-operational/whatsapp-queue.cjs",
-      "bytes": 15150,
-      "sha256": "bb1d60660a12985c9eca988702568373e6231c16c2e3c84b78538661da136bec"
+      "bytes": 15377,
+      "sha256": "fefe76fa67eaeaf025eab02d7450c3f2002c0e8d25806459f6234e0320353b7b"
     },
     {
       "path": "services/dashboard-operational/whatsapp-template-drafts.cjs",
@@ -3507,11 +3507,26 @@
       "path": "tools/prepared-worker/crm-worker-v3-source.sql",
       "bytes": 405,
       "sha256": "af4e99c36685fdda43c600b27925973fe241a2b82d678956e07638effa7c2b85"
+    },
+    {
+      "path": "tools/prepared-worker/wa-job-engine.cjs",
+      "bytes": 8238,
+      "sha256": "d8d3938abf91e57f2f23baaff1a0595041c964a5e97da74cd6011c46f5e8b907"
+    },
+    {
+      "path": "tools/prepared-worker/wa-job-fixture.cjs",
+      "bytes": 7928,
+      "sha256": "46bc329088fe6b4f28b0375cc6cd60508e95048e15447d202da986e5473d5a78"
+    },
+    {
+      "path": "tools/prepared-worker/wa-job-smoke.cjs",
+      "bytes": 1354,
+      "sha256": "9d4b04f13f2d0cfc39100fbf8a60145f52959883e6b19f7fc64d65ef0083c537"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Dynamic saved purchase definitions recount, Shopify refresh in the single crm_worker queue, resolution on schedule and QA resolution. Preserve Home v35, robust exact health contract and W2 internal TEST proof; worker remains zero."
+  "candidatePurpose": "Prepared W2 PostgreSQL wa.schedule/wa.message handlers, strictly internal, concurrent proof and cancellation fence. Runtime worker authority/connection/bootstrap integration still disconnected; replica unchanged."
 }
