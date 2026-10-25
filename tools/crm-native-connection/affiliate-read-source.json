@@ -3385,8 +3385,8 @@
     },
     {
       "path": "tools/crm-qa/home-v35-capture.cjs",
-      "bytes": 10028,
-      "sha256": "58ac6578a96fd3d4b7cada6ca18864bb30819e8c8b3a6d534288182b246abc09"
+      "bytes": 10694,
+      "sha256": "c18eccdcfcfd279d5fbadddef0152e1c4e0d2a360a27449f2b9809adb73e01c5"
     },
     {
       "path": "tools/crm-qa/journey.cjs",
