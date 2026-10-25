@@ -3,6 +3,7 @@ const crypto=require('node:crypto'),E=require('./journey-entry-qa-engine.cjs'),L
 const SCHEMA='shrigma-entry-journey-qa-v1',TABLE='simple_journey_entry_qa_v1',UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const exact=(x,keys)=>!!x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).sort().join(',')===keys.split(',').sort().join(',');
 const fail=(code,status=400)=>{throw Object.assign(Error(code),{code,status});},clone=x=>JSON.parse(JSON.stringify(x));
+const LIMITS=Object.freeze({definitions:20,rounds:20});
 const POLICY=Object.freeze({mode:'synthetic',maxEmailsPerPersonDay:1,timeZone:'America/Sao_Paulo',purchaseDuration:'elapsed_24h',entryPolicy:'once_per_journey_person',executes:false,sends:0});
 function scopeCapRounds(rounds,person,at){return rounds.filter(r=>r.person===person&&r.run.attempts.some(a=>['reserved','uncertain'].includes(a.result)||Lab.paidDay(a.at)===Lab.paidDay(at)));}
 function create({db,authorize,transaction,now=Date.now,paidRounds=()=>[]}){
@@ -13,13 +14,13 @@ function create({db,authorize,transaction,now=Date.now,paidRounds=()=>[]}){
  const empty=()=>({schema:SCHEMA,definitions:[],rounds:[],lastMutationId:null});
  function head(userId,brand){
   const row=db.prepare('SELECT revision,qa_json FROM '+TABLE+' WHERE user_id=? AND brand=? ORDER BY revision DESC LIMIT 1').get(userId,brand),qa=row?JSON.parse(row.qa_json):empty();
-  if(!exact(qa,'schema,definitions,rounds,lastMutationId')||qa.schema!==SCHEMA||!Array.isArray(qa.definitions)||qa.definitions.length>20||!Array.isArray(qa.rounds)||qa.rounds.length>20||qa.lastMutationId!==null&&!UUID.test(qa.lastMutationId)||JSON.stringify(qa).length>500000)fail('ENTRY_QA_STORAGE_INVALID',503);
+  if(!exact(qa,'schema,definitions,rounds,lastMutationId')||qa.schema!==SCHEMA||!Array.isArray(qa.definitions)||qa.definitions.length>LIMITS.definitions||!Array.isArray(qa.rounds)||qa.rounds.length>LIMITS.rounds||qa.lastMutationId!==null&&!UUID.test(qa.lastMutationId)||JSON.stringify(qa).length>500000)fail('ENTRY_QA_STORAGE_INVALID',503);
   const ids=new Set(),roundIds=new Set();for(const d of qa.definitions){E.validateDefinition(d);if(d.draft.brand!==brand||ids.has(d.draft.id))fail('ENTRY_QA_STORAGE_INVALID',503);ids.add(d.draft.id);}
   for(const r of qa.rounds){E.validateRound(r);const d=qa.definitions.find(x=>x.draft.id===r.definition.draft.id);if(!d||r.definition.draft.brand!==brand||r.definition.draft.revision>d.draft.revision||!r.person.startsWith('synthetic:'+userId+':')||roundIds.has(r.id))fail('ENTRY_QA_STORAGE_INVALID',503);roundIds.add(r.id);}
   return {revision:row?.revision||0,qa};
  }
  function receipt(userId,brand,id){if(!UUID.test(id||''))fail('ENTRY_QA_ARGUMENTS');const r=db.prepare("SELECT revision FROM "+TABLE+" WHERE user_id=? AND brand=? AND json_extract(qa_json,'$.lastMutationId')=? ORDER BY revision DESC LIMIT 1").get(userId,brand,id);return {mutationId:id,confirmed:!!r,revision:r?.revision||null};}
- function read({context,brand,mutationId}){const u=authorize(context,brand),h=head(u.id,brand);return {persistence:'server',userId:u.id,brand,...h,...(mutationId?{mutationReceipt:receipt(u.id,brand,mutationId)}:{}),policy:POLICY,executes:false,sends:0};}
+ function read({context,brand,mutationId}){const u=authorize(context,brand),h=head(u.id,brand);return {persistence:'server',userId:u.id,brand,...h,...(mutationId?{mutationReceipt:receipt(u.id,brand,mutationId)}:{}),capacity:Object.fromEntries(Object.entries(LIMITS).map(([key,limit])=>[key,{limit,used:h.qa[key].length,available:limit-h.qa[key].length}])),policy:POLICY,executes:false,sends:0};}
  const historicalEntries=new Map();
  function allEntries(userId){return ['aristo','fish'].flatMap(brand=>{
   const current=head(userId,brand),key=userId+':'+brand,cached=historicalEntries.get(key);if(cached?.revision===current.revision)return cached.rounds;
@@ -64,13 +65,13 @@ function create({db,authorize,transaction,now=Date.now,paidRounds=()=>[]}){
    }
    else if(action==='resolve'){if(receipt(u.id,brand,args.originalMutationId).confirmed)return read({context,brand,mutationId:args.originalMutationId});}
    else if(action==='create'||action==='update'){
-    const old=action==='update'?q.definitions.find(d=>d.draft.id===args.definitionId):null;if(!old&&q.definitions.length>=20)fail('ENTRY_QA_LIMIT',409);
+    const old=action==='update'?q.definitions.find(d=>d.draft.id===args.definitionId):null;if(!old&&q.definitions.length>=LIMITS.definitions)fail('ENTRY_QA_LIMIT',409);
     const draft=old?clone(old.draft):Lab.createDraft({brand,id:crypto.randomUUID()});draft.name=args.name.trim();draft.trigger='manual_event';draft.audience='Pessoa sintética · referência sem leitura de membros';draft.steps=args.waitMinutes.map((waitMinutes,i)=>({id:'step-'+(i+1),channel:'email',waitMinutes,enabled:true,templateName:'Mensagem QA '+(i+1),subject:'[TESTE] Entradas · '+(i+1),text:'[TESTE] Ensaio sintético sem transporte.'}));
     const entrySpec=args.kind==='audience_entry'?{kind:args.kind,audienceRef:clone(audienceRef),rollingDays:args.days,cadence:'daily',timeZone:'America/Sao_Paulo',entryPolicy:'once_per_journey_person'}:{kind:args.kind,delayDays:args.days,anchor:'lastPaidAt',duration:'elapsed_24h',resetOnLaterPaid:true,entryPolicy:'once_per_journey_person'};
     const saved=E.validateDefinition({schema:E.SCHEMA,draft:old?Lab.saveDraft(old.draft,draft):Lab.validateDraft(draft),entrySpec});q.definitions=old?q.definitions.map(d=>d.draft.id===old.draft.id?saved:d):[...q.definitions,saved];
    }else{
     const entries=allEntries(u.id),all=[...paidRounds(u.id),...entries.map(E.capRound)],globalNow=Math.max(now(),...all.map(x=>x.run.now));
-    if(action==='start'){if(q.rounds.length>=20)fail('ENTRY_QA_LIMIT',409);q.rounds.push(E.newRound(q.definitions.find(d=>d.draft.id===args.definitionId),{id:crypto.randomUUID(),person:'synthetic:'+u.id+':'+args.personId,now:globalNow,purchaseAgeDays:args.purchaseAgeDays}));}
+    if(action==='start'){if(q.rounds.length>=LIMITS.rounds)fail('ENTRY_QA_LIMIT',409);q.rounds.push(E.newRound(q.definitions.find(d=>d.draft.id===args.definitionId),{id:crypto.randomUUID(),person:'synthetic:'+u.id+':'+args.personId,now:globalNow,purchaseAgeDays:args.purchaseAgeDays}));}
     else{
      const r=q.rounds.find(r=>r.id===args.roundId);if(r.checks.length>=95||r.decisions.length>=190)fail('ENTRY_QA_LIMIT',409);const at=Math.max(globalNow,r.now+args.minutes*60000),scenario=E.scenario(r,{now:at,membership:args.membership,payment:args.payment,mailEvidence:args.mailEvidence,afterEntry:args.afterEntry});
      scenario.evidence.receipts=[...all.flatMap(x=>x.receipts||[]),...scenario.round.receipts].filter(x=>x.person===r.person&&Lab.paidDay(x.at)===Lab.paidDay(at));const prior=entries.find(x=>x.id!==r.id&&x.person===r.person&&x.definition.draft.id===r.definition.draft.id&&x.entry),advanced=E.advance(scenario.round,{now:at,evidence:scenario.evidence,entryRounds:prior?[prior]:[],capRounds:scopeCapRounds(all,r.person,at),result:args.result});q.rounds=q.rounds.map(x=>x.id===r.id?advanced:x);

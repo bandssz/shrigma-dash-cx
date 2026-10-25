@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 53605,
-      "sha256": "e45885cb55212b518471aa2a6cfd0810829bd5d2b4359f008d89e36c2511823c"
+      "bytes": 53656,
+      "sha256": "f690550b904271b01839b8457fc809ab3420da568f6ce7807b3a70cdf22ec08f"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1840,8 +1840,8 @@
     },
     {
       "path": "services/dashboard-operational/journey-entry-qa.cjs",
-      "bytes": 12550,
-      "sha256": "8a649746fa964d69391fa7b09d41a6c793787f4864f28530ec788918c725d14b"
+      "bytes": 12801,
+      "sha256": "f98b8928537d194b24bccf1a7584ba3bd2ea46c77b76bfa32028497902aa8c74"
     },
     {
       "path": "services/dashboard-operational/journey-internal-html-binding.cjs",
@@ -2075,8 +2075,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 163187,
-      "sha256": "ad586363139378dbe51a1b11c90f0b2655fec987fd64d5ff2b73354e7a1f44e9"
+      "bytes": 163469,
+      "sha256": "ba8fcf82658f179e3c72b6afbc7d9690776dea32a83f60f8ac8c147e44e9edca"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -2250,8 +2250,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-login-accounts.cjs",
-      "bytes": 37406,
-      "sha256": "2c635e2ff75884a98b293a9dbdf1cf1b38070da212bde9127d9310024e37132d"
+      "bytes": 37688,
+      "sha256": "41136f53ac4e3d0fd3b5bd00393aa878a82f0a8b43275cb55152092665f3565d"
     },
     {
       "path": "services/dashboard-operational/simple-tts-manual.cjs",
@@ -2859,6 +2859,11 @@
       "sha256": "4e8a8c309e5177c4539ab98da929dd98d17de6bf46665b5593f6fe2da6d4e599"
     },
     {
+      "path": "tests/editor-native-state.test.cjs",
+      "bytes": 4602,
+      "sha256": "6b1750e5ccef564f973c6731f65701b1b5e9471afd9881868f9d6587d1d7cb17"
+    },
+    {
       "path": "tests/editor-paid-journey-gate.test.cjs",
       "bytes": 1636,
       "sha256": "cc93bd994a15926692a5421b458dd4cf989c8f5d5b27048b21d742bdfaffcfd7"
@@ -2945,8 +2950,8 @@
     },
     {
       "path": "tests/journey-entry-qa.test.cjs",
-      "bytes": 18235,
-      "sha256": "7ff41192f7335be9e875c8eb8f93b629d88badc4cdab26b5aaeded5a71f3695b"
+      "bytes": 19000,
+      "sha256": "11031a6eacfee8861f46e6af906318ee44e3830ed9cef76c04ff7f701027fc0a"
     },
     {
       "path": "tests/journey-html-http.test.cjs",
@@ -3000,8 +3005,8 @@
     },
     {
       "path": "tests/journey-paid-retention.test.cjs",
-      "bytes": 5276,
-      "sha256": "02c2fafe13d761dca1be5b7600a3c5398e8b59e2062d0c52e4e2a2e3f79660b3"
+      "bytes": 5415,
+      "sha256": "c205f4066e0c72360a99dc4aeae9106290a2c55e407f49eb5ac0de45abcd0811"
     },
     {
       "path": "tests/maintenance-install-window.test.cjs",
@@ -3105,8 +3110,8 @@
     },
     {
       "path": "tests/production-candidate-branch.test.cjs",
-      "bytes": 2324,
-      "sha256": "0224145189d1f411cc49c293ea939be2fd8db7d990b398416f07d384b128afce"
+      "bytes": 2328,
+      "sha256": "12fd8a249733068ab00208a8b824115075c855d3461b1dae2992f5d0e1820bb2"
     },
     {
       "path": "tests/production-envelope.test.cjs",
@@ -3295,13 +3300,13 @@
     },
     {
       "path": "tools/crm-qa/editor-entry-journey.cjs",
-      "bytes": 9301,
-      "sha256": "7677261e64764de252c4165fe4ed0769fe7dc38cb554a1d6d8d6df0d64c5e0ef"
+      "bytes": 9035,
+      "sha256": "2a549e0fb98e77be5a240fdb5ae6195bd31c25eee012aeba87fde3eec7bf0730"
     },
     {
       "path": "tools/crm-qa/editor-findability.cjs",
-      "bytes": 3201,
-      "sha256": "a0fad30e6c9336e0197884340bd7fe9f6c5d9caacc4cf703d2217c71a71e495c"
+      "bytes": 2925,
+      "sha256": "c80b7cb66ca7c46fac021b61e11621dfba5895c5f9b5d3e439e9f34cb3d5c745"
     },
     {
       "path": "tools/crm-qa/editor-home.cjs",
@@ -3314,14 +3319,19 @@
       "sha256": "2d9d502926add15ec30a8a176597b3723c62c0d97de910d6718e2e436253aea1"
     },
     {
+      "path": "tools/crm-qa/editor-native-state.cjs",
+      "bytes": 5555,
+      "sha256": "fe01a5d116b518a3af77d72151a37de053691bcb735ececee0b389d99848edf9"
+    },
+    {
       "path": "tools/crm-qa/editor-objects.cjs",
-      "bytes": 4655,
-      "sha256": "c084cac54b48efaed748fd3be032ffb7ad0790e9ec6e58a14ea8ce0686814788"
+      "bytes": 5176,
+      "sha256": "5b13c7ec7bedda1372c43373c41ead72c2ec108102e02cf762c3eddbbea7c926"
     },
     {
       "path": "tools/crm-qa/editor-paid-journey.cjs",
-      "bytes": 5787,
-      "sha256": "c458162269eb1f3032c89166435b241333b3cc1b5dd17f706add23d7509ca229"
+      "bytes": 5494,
+      "sha256": "539ddc62dba66b89c3fcddeb4d9929b09ea641b454575bec257d634c3464e613"
     },
     {
       "path": "tools/crm-qa/editor-purchases.cjs",
@@ -3360,8 +3370,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 21523,
-      "sha256": "655f64bf99ed57716c81da0b54a0994009c28d9fd634b43bf37f4c32afa5c2da"
+      "bytes": 22557,
+      "sha256": "c67f24c756e2a2f0bb57886811f3a931247f2eb3d4eb30d185f348fdad4a59bc"
     },
     {
       "path": "tools/crm-qa/paid-acquisition-restore-sql.cjs",
@@ -3525,8 +3535,8 @@
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 15926,
-      "sha256": "85e89f8ed5b3fc8fc43dd841b226d3747f273b6ea98cada5b28b0955e7907f54"
+      "bytes": 15930,
+      "sha256": "96e1d947633b1f67074e511b98a53bbc99cb9e2939afa0e92e2f1f88ccfc3445"
     },
     {
       "path": "tools/production-release/read-retry.cjs",
