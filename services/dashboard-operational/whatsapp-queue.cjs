@@ -26,7 +26,7 @@ function parameters(template,d,row,{test=false}={}){
 }
 const canonical=x=>Array.isArray(x)?x.map(canonical):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,canonical(x[k])])):x;
 function definitionProofKey(d){if(!d)return null;const {name,...definition}=d;return hash(canonical(definition));}
-function testProofKey(p){if(!p||!p.definition)return null;const {name,...definition}=p.definition;const stable=x=>Array.isArray(x)?x.map(stable):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,stable(x[k])])):x;return hash(stable({template:p.template,definition,sender:p.sender,connectionRef:p.connectionRef,connectionRevision:p.connectionRevision}));}
+function testProofKey(p){if(!p||!p.definition)return null;const {name,...definition}=p.definition;const stable=x=>Array.isArray(x)?x.map(stable):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,stable(x[k])])):x;return hash(stable({template:p.template,definition,sender:{phoneNumberId:p.sender?.phoneNumberId,wabaId:p.sender?.wabaId},connectionRef:p.connectionRef,connectionRevision:p.connectionRevision}));}
 function create({database,authorize,connection,audience,sourceRevision,now=Date.now}){
  if(!/^[a-f0-9]{40}$/.test(sourceRevision||''))fail('WA_SOURCE_REVISION_REQUIRED',503);
  const view=r=>r&&({id:r.id,brand:r.brand,revision:r.revision,name:r.name,definition:r.definition,state:r.state,sourceRevision:r.source_revision,updatedAtUtc:new Date(r.updated_at).toISOString()});

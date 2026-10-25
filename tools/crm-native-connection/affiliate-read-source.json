@@ -2280,8 +2280,8 @@
     },
     {
       "path": "services/dashboard-operational/whatsapp-queue.cjs",
-      "bytes": 16672,
-      "sha256": "6b03f20d8761bc79aeb8e3600fc94e6c11b53e71e0e1e9f5bb2c9f81a6669715"
+      "bytes": 16727,
+      "sha256": "dc588b18af0e5fa0d0719b94a6612222a07b5a4d103c434da0ae45eb7f6dc726"
     },
     {
       "path": "services/dashboard-operational/whatsapp-template-drafts.cjs",
@@ -3245,8 +3245,8 @@
     },
     {
       "path": "tests/whatsapp-message.test.cjs",
-      "bytes": 7230,
-      "sha256": "064abdce42e0fccc1f704c21518134c9cecc40f5a7e30f274a65ef3cf3cd8676"
+      "bytes": 7345,
+      "sha256": "2cf4582e5c31d233e46a59135991a64cd9548f40318a82ec0718218ee64531a5"
     },
     {
       "path": "tests/whatsapp-template-ui.test.cjs",
