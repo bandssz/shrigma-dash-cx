@@ -2120,8 +2120,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/whatsapp-campaign-ui.js",
-      "bytes": 14351,
-      "sha256": "195d477f7180ef3726c1b7f4777ce905e3629ea1224a8808c7ff5cd4a5dfb394"
+      "bytes": 14518,
+      "sha256": "2f6b087998fb77d1f8ee2a34744ad178869e6678f992ada98d435ffaed62a924"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/whatsapp-template-contract.js",
@@ -2270,8 +2270,8 @@
     },
     {
       "path": "services/dashboard-operational/whatsapp-campaigns.cjs",
-      "bytes": 5382,
-      "sha256": "61e8f966e2d1357d996cb6a24c056c82dc30b7ce1a4cf7ca66d4e44065c1ad01"
+      "bytes": 5631,
+      "sha256": "27cc338de5c1e17c4b3983a051bf6f79e04d31c861bbcdcd792483ea76f6d594"
     },
     {
       "path": "services/dashboard-operational/whatsapp-csv-preview.cjs",
@@ -2280,8 +2280,8 @@
     },
     {
       "path": "services/dashboard-operational/whatsapp-queue.cjs",
-      "bytes": 16045,
-      "sha256": "f7fd17c687d782ecf62e575d85620230596d3eab1d94b08e054d2d986359dd7f"
+      "bytes": 16672,
+      "sha256": "6b03f20d8761bc79aeb8e3600fc94e6c11b53e71e0e1e9f5bb2c9f81a6669715"
     },
     {
       "path": "services/dashboard-operational/whatsapp-template-drafts.cjs",
@@ -2290,8 +2290,8 @@
     },
     {
       "path": "services/dashboard-operational/worker-execution-broker.cjs",
-      "bytes": 4395,
-      "sha256": "4450b6e412a072d0279c1eb1b331db971b21a69eca0f040be4df60efd7d4bcc5"
+      "bytes": 4762,
+      "sha256": "7f9f0f80ef5631382bc812769c50639d5b5a835f8e0fe9f07c674073d25b5a81"
     },
     {
       "path": "services/dashboard-operational/worker-execution-client.cjs",
@@ -3240,8 +3240,8 @@
     },
     {
       "path": "tests/whatsapp-campaign-ui.test.cjs",
-      "bytes": 4119,
-      "sha256": "5e858611c1858c6c10854ba9d93d69bac3ea8f886236330c35f50aaad1a30912"
+      "bytes": 6676,
+      "sha256": "eb5fac3adf261954a17c4ff54a1ce9f674c9ca06799d09b69133a6aa414cd71c"
     },
     {
       "path": "tests/whatsapp-message.test.cjs",

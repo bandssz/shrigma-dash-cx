@@ -16,7 +16,7 @@ function create({auth,file,sourceRevision,clientFactory,now=Date.now}){
  async function readCampaigns(args){
   const value=await queue.read(args),ids=value.records.flatMap(r=>r.tasks.filter(t=>t.providerId).map(t=>t.providerId));
   const rows=ids.length?await read(async c=>(await c.query("SELECT wamid,status,ocorreu_em,recebido_em FROM public.shrigma_wa_status WHERE brand=$1 AND wamid=ANY($2::text[])",[args.brand,ids])).rows):[];
-  authorize(args.context,args.brand);return {...value,records:value.records.map(r=>({...r,tasks:r.tasks.map(t=>{const s=rows.filter(x=>x.wamid===t.providerId);return {...t,delivered:s.some(x=>['delivered','read'].includes(x.status)),read:s.some(x=>x.status==='read'),failed:s.some(x=>x.status==='failed'),statusObservedAtUtc:s.map(x=>new Date(x.recebido_em).toISOString()).sort().at(-1)||null};})}))};
+  authorize(args.context,args.brand);const execution=require('./worker-execution-broker.cjs').currentStatus(sourceRevision);return {...value,workerEnabled:execution.workerConnected===true,execution:{internalOnly:true,connected:execution.workerConnected===true,lastWorkerAt:execution.lastWorkerAt||null},records:value.records.map(r=>({...r,tasks:r.tasks.map(t=>{const s=rows.filter(x=>x.wamid===t.providerId);return {...t,delivered:s.some(x=>['delivered','read'].includes(x.status)),read:s.some(x=>x.status==='read'),failed:s.some(x=>x.status==='failed'),statusObservedAtUtc:s.map(x=>new Date(x.recebido_em).toISOString()).sort().at(-1)||null};})}))};
  }
  return Object.freeze({...queue,read:readCampaigns,authorize,queueDatabase:database});
 }
