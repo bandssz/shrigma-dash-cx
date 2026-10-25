@@ -1,7 +1,7 @@
 name: Shrigma native CRM connection
 'on':
   push:
-    branches: [main, codex/results-funnel-v47-20261025]
+    branches: [main, codex/f2-v51-20261025]
 permissions:
   contents: read
 concurrency:
@@ -310,7 +310,7 @@ jobs:
     concurrency:
       group: shrigma-gateway-production
       cancel-in-progress: false
-    if: github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/results-funnel-v47-20261025' && startsWith(github.event.head_commit.message, 'affiliate-read:')
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/f2-v51-20261025' && startsWith(github.event.head_commit.message, 'affiliate-read:')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -318,7 +318,7 @@ jobs:
       packages: write
     env:
       IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
-      PRODUCTION_EXPECT_MAIN_REVISION: d71fa3024bb9942bc56c6cb4707f9c9cea1d81fa
+      PRODUCTION_EXPECT_MAIN_REVISION: e11f8f73fec64b52669a5bce4c855a58fef910c1
       PRODUCTION_WEEKEND_NO_ANALYSTS: 2026-10-24/25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -417,7 +417,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/production-envelope.test.cjs /source/tests/production-read-retry.test.cjs /source/tests/production-candidate-branch.test.cjs /source/tests/crm-legacy-parity.test.cjs /source/tests/crm-results-funnel.test.cjs /source/tests/crm-legacy-library-plan.test.cjs /source/tests/simple-crm-service-draft.test.cjs /source/tests/simple-crm-models.test.cjs /source/tests/crm-model-import.test.cjs /source/tests/simple-crm-model-pieces.test.cjs /source/tests/simple-crm-model-tests.test.cjs /source/tests/simple-crm-campaign-tests.test.cjs /source/tests/crm-product-positive-ui.test.cjs /source/tests/private-test-diagnostics.test.cjs /source/tests/native-test-error-envelope.test.cjs /source/tests/simple-tts-manual.test.cjs /source/tests/simple-tabler-read.test.cjs /source/tests/crm-home-layout.test.cjs /source/tests/crm-home-v35-metrics.test.cjs /source/tests/crm-qa-read-policy.test.cjs /source/tests/crm-qa-health-read.test.cjs /source/tests/crm-qa-permission-failure.test.cjs /source/tests/product-issues.test.cjs /source/tests/maintenance-notice.test.cjs /source/tests/journey-entry-qa.test.cjs /source/tests/journey-entry-qa-ui.test.cjs /source/tests/editor-entry-journey-gate.test.cjs /source/tests/journey-paid-qa.test.cjs /source/tests/journey-paid-retention.test.cjs /source/tests/worker-execution-ipc.test.cjs /source/tests/worker-task-authority.test.cjs /source/tests/journey-paid-qa-ui.test.cjs /source/tests/maintenance-install-window.test.cjs /source/tests/editor-paid-journey-gate.test.cjs /source/tests/editor-native-state.test.cjs /source/tests/campaign-linked-public.test.cjs /source/tests/message-client-preview.test.cjs /source/tests/crm-paid-origins.test.cjs /source/tests/shared-period.test.cjs
+          docker run --rm --network none --read-only --user 1000:1000 --memory 512m --tmpfs /tmp:rw,noexec,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/production-envelope.test.cjs /source/tests/production-read-retry.test.cjs /source/tests/production-candidate-branch.test.cjs /source/tests/crm-legacy-parity.test.cjs /source/tests/crm-legacy-library-plan.test.cjs /source/tests/simple-crm-service-draft.test.cjs /source/tests/simple-crm-models.test.cjs /source/tests/crm-model-import.test.cjs /source/tests/simple-crm-model-pieces.test.cjs /source/tests/simple-crm-model-tests.test.cjs /source/tests/simple-crm-campaign-tests.test.cjs /source/tests/crm-product-positive-ui.test.cjs /source/tests/private-test-diagnostics.test.cjs /source/tests/native-test-error-envelope.test.cjs /source/tests/simple-tts-manual.test.cjs /source/tests/simple-tabler-read.test.cjs /source/tests/crm-home-layout.test.cjs /source/tests/crm-home-v35-metrics.test.cjs /source/tests/crm-qa-read-policy.test.cjs /source/tests/crm-qa-health-read.test.cjs /source/tests/crm-qa-permission-failure.test.cjs /source/tests/product-issues.test.cjs /source/tests/maintenance-notice.test.cjs /source/tests/journey-entry-qa.test.cjs /source/tests/journey-entry-qa-ui.test.cjs /source/tests/editor-entry-journey-gate.test.cjs /source/tests/journey-paid-qa.test.cjs /source/tests/combined-audience.test.cjs /source/tests/behavior-source.test.cjs /source/tests/crm-combined-service.test.cjs /source/tests/crm-combined-store.test.cjs /source/tests/crm-combined-original-catalog.test.cjs /source/tests/crm-combined-large-base.test.cjs /source/tests/editor-combined-context.test.cjs /source/tests/journey-paid-retention.test.cjs /source/tests/worker-execution-ipc.test.cjs /source/tests/worker-task-authority.test.cjs /source/tests/journey-paid-qa-ui.test.cjs /source/tests/maintenance-install-window.test.cjs /source/tests/editor-paid-journey-gate.test.cjs /source/tests/editor-native-state.test.cjs /source/tests/crm-paid-origins.test.cjs /source/tests/shared-period.test.cjs /source/tests/crm-results-funnel.test.cjs /source/tests/campaign-linked-public.test.cjs /source/tests/message-client-preview.test.cjs
       - name: Prove TEST safety and retention diagnostics in the same Node22 UID1000 image
         shell: bash
         run: |
@@ -437,8 +437,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: d71fa3024bb9942bc56c6cb4707f9c9cea1d81fa
-          CRM_QA_EXPECT_MANIFEST: e0bb6199bec6776bf2e0b5655bbb4a6e03ff17b53666fee44c4f4a1e8499a95e
+          CRM_QA_EXPECT_REVISION: e11f8f73fec64b52669a5bce4c855a58fef910c1
+          CRM_QA_EXPECT_MANIFEST: ba0e7fad978a436b99e38c060299a00938f1da10ba60e4952106e03559f67535
         shell: bash
         run: |
           set -euo pipefail
@@ -448,8 +448,8 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
-          CRM_QA_EXPECT_REVISION: d71fa3024bb9942bc56c6cb4707f9c9cea1d81fa
-          CRM_QA_EXPECT_MANIFEST: e0bb6199bec6776bf2e0b5655bbb4a6e03ff17b53666fee44c4f4a1e8499a95e
+          CRM_QA_EXPECT_REVISION: e11f8f73fec64b52669a5bce4c855a58fef910c1
+          CRM_QA_EXPECT_MANIFEST: ba0e7fad978a436b99e38c060299a00938f1da10ba60e4952106e03559f67535
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
@@ -462,8 +462,8 @@ jobs:
       - name: Publish fixed tag and verify the existing gateway
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: d71fa3024bb9942bc56c6cb4707f9c9cea1d81fa
-          CRM_QA_EXPECT_MANIFEST: e0bb6199bec6776bf2e0b5655bbb4a6e03ff17b53666fee44c4f4a1e8499a95e
+          CRM_QA_EXPECT_REVISION: e11f8f73fec64b52669a5bce4c855a58fef910c1
+          CRM_QA_EXPECT_MANIFEST: ba0e7fad978a436b99e38c060299a00938f1da10ba60e4952106e03559f67535
           GITHUB_TOKEN: ${{ github.token }}
           SHRIGMA_EASYPANEL_DEPLOY_URL: ${{ secrets.SHRIGMA_EASYPANEL_DEPLOY_URL }}
         run: node tools/production-release/publish-ci.cjs

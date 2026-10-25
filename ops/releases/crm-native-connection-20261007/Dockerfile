@@ -1,6 +1,7 @@
 FROM ghcr.io/bandssz/shrigma-dash-crm-presentation-v2@sha256:1adba1fb8a222684b300ed49fbb2f0adf681bd24ab679022eb15c765328f4911 AS native-build
 USER 0:0
 WORKDIR /source
+COPY services/dashboard-operational/crm-combined-audience.cjs services/dashboard-operational/crm-combined-ui.cjs services/dashboard-operational/combined-audience.cjs services/dashboard-operational/behavior-source.cjs services/dashboard-operational/behavior-contracts.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/source-refresh-queue.cjs services/dashboard-operational/maintenance-notice.cjs services/dashboard-operational/maintenance-notice-ui.cjs ./services/dashboard-operational/
 ARG GIT_SHA
 COPY services/dashboard-operational/product-issues.cjs services/dashboard-operational/product-issues-ui.cjs ./services/dashboard-operational/
