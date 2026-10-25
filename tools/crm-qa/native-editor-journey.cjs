@@ -44,7 +44,7 @@ const noKeys=q=>{for(const key of ['idempotency_key','preview_token','claim_id',
   phase=brand+':default-home';report.phase=phase;save();const homeObserved=require('./editor-home.cjs').observe(page);await page.goto(origin+'/app/crm/?brand='+brand+'&view=home',{waitUntil:'domcontentloaded'});row.home=await require('./editor-home.cjs').prove({page,brand,observed:homeObserved,required:true});save();
   phase=brand+':purchase-filters';report.phase=phase;save();await require('./editor-purchases.cjs').prove({page,context,origin,brand,row,name,save});
   phase=brand+':objects';report.phase=phase;save();const objects=await require('./editor-objects.cjs').create({page,context,brand,origin,name,row,save});
-  phase=brand+':combined-audience';report.phase=phase;save();await require('./editor-combined-audience.cjs').prove({page,context,origin,brand,name,row,save});
+  phase=brand+':combined-audience';report.phase=phase;save();await require('./editor-combined-audience.cjs').prove({page,context,origin,brand,name,row,save,headers});
   phase=brand+':choose-public';report.phase=phase;save();await page.goto(origin+'/app/crm/?brand='+brand+'&view=campaigns',{waitUntil:'domcontentloaded'});await page.locator('#new-campaign:enabled').click({timeout:90000});
   // The incident blocks before saving: prove actual selector admission, no campaign on286.
   await page.locator('#campaign-first-audience option[value="'+objects.public.id+'"]').waitFor({state:'attached',timeout:90000});
