@@ -500,6 +500,7 @@ jobs:
       contents: read
       packages: write
     env:
+      PRODUCTION_EXPECT_MAIN_REVISION: d71fa3024bb9942bc56c6cb4707f9c9cea1d81fa
       IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
