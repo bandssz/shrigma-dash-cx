@@ -15,6 +15,10 @@ function allow(method,address,body){
    return method==='GET'&&!u.hash&&keys.length===2&&new Set(keys).size===2&&keys.every(k=>['brand','front'].includes(k))&&['aristo','fish'].includes(u.searchParams.get('brand'))&&frontHosts[front]?.includes(u.hostname)===true;
   }
   if(u.pathname==='/api/crm-purchases')return u.searchParams.size===2&&['fish','aristo'].includes(u.searchParams.get('brand'))&&['interface','publics','products'].includes(u.searchParams.get('action'));
+  if(['/api/whatsapp-template-drafts','/api/whatsapp-templates'].includes(u.pathname)){
+   const keys=[...u.searchParams.keys()],catalog=u.pathname==='/api/whatsapp-templates';
+   return method==='GET'&&!u.hash&&['crm.shrigma.com.br','gerencial.shrigma.com.br'].includes(u.hostname)&&new Set(keys).size===keys.length&&keys.includes('brand')&&keys.every(k=>k==='brand'||catalog&&k==='after')&&['fish','aristo'].includes(u.searchParams.get('brand'))&&(!u.searchParams.has('after')||/^[A-Za-z0-9._=+\/-]{1,2048}$/.test(u.searchParams.get('after')));
+  }
   if(u.pathname==='/api/crm-ab-plans')return u.searchParams.size===1&&['fish','aristo'].includes(u.searchParams.get('brand'));
   if(u.pathname==='/api/segments')return ['fish','aristo'].includes(u.searchParams.get('brand'))&&['segmentos_listar','segmento_obter','segmento_capacidade','segmento_operacao'].includes(u.searchParams.get('acao'));
   if(u.pathname==='/api/campaign_audience')return ['fish','aristo'].includes(u.searchParams.get('brand'))&&['campanha_publico_obter','campanha_publico_operacao'].includes(u.searchParams.get('acao'));

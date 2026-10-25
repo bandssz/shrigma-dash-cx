@@ -2675,8 +2675,8 @@
     },
     {
       "path": "tests/crm-qa-read-policy.test.cjs",
-      "bytes": 2857,
-      "sha256": "148265903f47cb98fcb6dc8cf93a4d99a255c19999cc1a762f4a68193f84a705"
+      "bytes": 3657,
+      "sha256": "1b0bceda40f086a1836e300d73fb7ed902d9a67099c135a3ecbd05860d166b44"
     },
     {
       "path": "tests/crm-read-inflight.test.cjs",
@@ -3325,8 +3325,8 @@
     },
     {
       "path": "tools/crm-qa/read-policy.cjs",
-      "bytes": 5352,
-      "sha256": "b523f0aec4d8d4119c4ea7b0b9b6312e55dfa5e244b57a6d29d780f456f4a324"
+      "bytes": 5903,
+      "sha256": "319b67262cfd5ea47e8d8b021dbd4e265fabe61e4a23bae5217ae4da0f68b3f1"
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
