@@ -75,7 +75,7 @@ async function streamBackfill(res,work){
  catch(e){write({type:'error',error:/^PAID_[A-Z0-9_]+$/.test(e.code||'')?e.code:'PAID_FACTS_UPDATE_UNCONFIRMED'});}
  if(!res.destroyed)res.end();
 }
-function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,backupDirectory,queueDatabase,sourceRevision,refreshQueue}){
+function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,backupDirectory,queueDatabase,sourceRevision,refreshQueue,listCatalog}){
  const tokens=new Map();let config;
  const cfg=()=>config||=(configuration(file));
  const authorize=(context,brand,write=false,workspace=false)=>{if(!BRANDS.includes(brand))fail('PAID_FACTS_BRAND_INVALID');const user=auth.authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},brand);if(!workspace&&!canUse(user))fail('RESTRICTED_AREA_REQUIRED',403);if(write&&(user.permissions?.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))fail('PRODUCT_WRITE_DENIED',403);return user;};
@@ -171,7 +171,7 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  const results=require('./crm-paid-results.cjs').create({authorize:analysisAuthorize,authorizeComparison:analysisAuthorize,database,now,coverage:brand=>store.coverage(brand)});
  async function home(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.results(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
  async function compareHome(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.compare(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
- const combined=require('./crm-combined-audience.cjs').create({database,authorize,store,sourceRevision,purchaseSql:audienceSql,coverage:brand=>store.coverage(brand),refresh:async(context,brand,definition)=>{const days=definitionDays(definition);if(days)await freshSource(context,brand,days);},now});
+ const combined=require('./crm-combined-audience.cjs').create({database,authorize,store,sourceRevision,purchaseSql:audienceSql,coverage:brand=>store.coverage(brand),listCatalog,refresh:async(context,brand,definition)=>{const days=definitionDays(definition);if(days)await freshSource(context,brand,days);},now});
  return {ingest,status,publics,products,count,countSaved,resolveSaved,savedDefinition,freshSource,save,backfill,subscribe,subscriptions,authorize,authorizeAnalysis,acquisitionBackup,acquisitionBackupFile,combined,definitionDays,...origin,...results,home,compareHome};
 }
 function definitionDays(definition){let days=0;function visit(n){if(n?.kind==='purchase')days=Math.max(days,n.rule.days);if(n?.rules)n.rules.forEach(visit);if(n?.op==='exclude'){visit(n.base);visit(n.without);}}if(definition?.schema==='combined-audience-v2')visit(definition.rule);else days=definition?.days;return days;}

@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 53514,
-      "sha256": "9ecc3fcadead29c9a225acccb9c652f76cbaa2addc905792961e9d3dd14dac5e"
+      "bytes": 53567,
+      "sha256": "fe8303fa62c35ffb1c8cfc6d7ba25a5a61df69a3e96f92e5326b51a6d4c52b56"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1725,13 +1725,13 @@
     },
     {
       "path": "services/dashboard-operational/crm-combined-audience.cjs",
-      "bytes": 6850,
-      "sha256": "51078576979ddc8c7f1e6dc0a6b39d283a9f27ab9f915cf0707ae7b721334405"
+      "bytes": 7752,
+      "sha256": "f06789e87472900ea9131258577194803612e8c8e47394ff6a2aad7ceb1686b9"
     },
     {
       "path": "services/dashboard-operational/crm-combined-ui.cjs",
-      "bytes": 11344,
-      "sha256": "54f79bb8d4bbd07b0b8c186ccde8fa1f68a79c308c49ee423035eb524042ee4b"
+      "bytes": 11614,
+      "sha256": "4a9f4d0e4275bea1e302b60527a0fd097f3da425144c55649c20dab9074c5553"
     },
     {
       "path": "services/dashboard-operational/crm-manager-runtime.cjs",
@@ -1790,8 +1790,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 27208,
-      "sha256": "54a10d0d14937bf10487d536bc9be25c8716915056fe732f2d4c23a1ad89d000"
+      "bytes": 27232,
+      "sha256": "476571dd06c6b1599aaf97aeb73cc6e95abdbbd31ebb6d367efcf6e154bf70d0"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
@@ -2230,8 +2230,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 253073,
-      "sha256": "8936631d9c4bda369962ef04f7c3b214942b46f9f59e49027505555680b5f6a1"
+      "bytes": 253351,
+      "sha256": "c580f3f1914902a765a7429dda3f9c83878cb942269cf9ecaac329d751071fb0"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2604,9 +2604,14 @@
       "sha256": "1a5127a236d577878f8321530cb537b023eb5a1641474b2b10a612329703f48e"
     },
     {
+      "path": "tests/crm-combined-original-catalog.test.cjs",
+      "bytes": 2061,
+      "sha256": "35f167cdf2c91aeb7fb28269208cdc709cd5e09ddaceadb55a30a5cdad3a3e8c"
+    },
+    {
       "path": "tests/crm-combined-service.test.cjs",
-      "bytes": 4476,
-      "sha256": "22a3495e208cda89dd0fc339c7617434d5e7407dbed65723c6e615987544d6b5"
+      "bytes": 4613,
+      "sha256": "12acee2b08219e56c875d4eae73eb575f37f772d78353b1ad1b2442e04070061"
     },
     {
       "path": "tests/crm-combined-store.test.cjs",
@@ -3315,8 +3320,8 @@
     },
     {
       "path": "tools/crm-qa/editor-combined-audience.cjs",
-      "bytes": 6717,
-      "sha256": "93107bd5598a429f80f50f21399da2cd68c2211baaad31b4a3399e8fbae55e26"
+      "bytes": 7009,
+      "sha256": "6d9b5455d3dcee2b362b60605409c4bd7177df400eac5417bf3c52581f43faf0"
     },
     {
       "path": "tools/crm-qa/editor-entry-journey.cjs",
@@ -3568,5 +3573,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Restricted F/F2 combined audience snapshot; preserve original campaign transport and worker zero. Paid QA retention preserves immutable history and caps."
+  "candidatePurpose": "Restricted F/F2 combined audience snapshot; preserve original campaign transport and worker zero. Paid QA retention preserves immutable history and caps. Lists use original Listmonk catalog; remove unproved SQL tags/sent catalog projection; preserve same PG membership snapshot."
 }
