@@ -2265,8 +2265,8 @@
     },
     {
       "path": "services/dashboard-operational/whatsapp-queue.cjs",
-      "bytes": 15377,
-      "sha256": "fefe76fa67eaeaf025eab02d7450c3f2002c0e8d25806459f6234e0320353b7b"
+      "bytes": 15411,
+      "sha256": "517075a74b13c1f40597932ece8bcff764fee62a55bb663da3ae8c93af30aa6a"
     },
     {
       "path": "services/dashboard-operational/whatsapp-template-drafts.cjs",
@@ -3510,13 +3510,13 @@
     },
     {
       "path": "tools/prepared-worker/wa-job-engine.cjs",
-      "bytes": 8238,
-      "sha256": "d8d3938abf91e57f2f23baaff1a0595041c964a5e97da74cd6011c46f5e8b907"
+      "bytes": 8185,
+      "sha256": "b28c49a7ebecbc5d9c1036d8b76e07117e3c00d65c5f6a8f675874719d8a81d9"
     },
     {
       "path": "tools/prepared-worker/wa-job-fixture.cjs",
-      "bytes": 7928,
-      "sha256": "46bc329088fe6b4f28b0375cc6cd60508e95048e15447d202da986e5473d5a78"
+      "bytes": 9745,
+      "sha256": "22045fdb6ce2d75aa9e3d44eefa039af6be9e87a7875065939892961abc9041b"
     },
     {
       "path": "tools/prepared-worker/wa-job-smoke.cjs",

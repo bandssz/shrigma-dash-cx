@@ -47,7 +47,7 @@ function create({database,authorize,connection,audience,sourceRevision,now=Date.
    const t=(await c.query("INSERT INTO crm_worker.tasks_v1(id,campaign_id,brand,owner_id,kind,identity,source_revision,campaign_revision,payload,state,run_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,'pending',$10) ON CONFLICT(identity) DO NOTHING RETURNING *",[taskId,campaignId,brand,u.id,kind,identity,sourceRevision,r.revision,JSON.stringify(payload),kind==='wa.test'?new Date(now()).toISOString():new Date(runAt).toISOString()])).rows[0]||(await c.query('SELECT * FROM crm_worker.tasks_v1 WHERE identity=$1',[identity])).rows[0];
    if(kind==='wa.schedule'){
     for(const row of a.rows){const message=parameters(found.template,r.definition,row);await c.query("INSERT INTO crm_worker.tasks_v1(id,parent_id,campaign_id,brand,owner_id,kind,identity,source_revision,campaign_revision,payload,state,run_at) VALUES($1,$2,$3,$4,$5,'wa.message',$6,$7,$8,$9::jsonb,'pending',$10) ON CONFLICT(identity) DO NOTHING",[crypto.randomUUID(),t.id,campaignId,brand,u.id,brand+':'+campaignId+':wa.message:'+row.telefone,sourceRevision,r.revision,JSON.stringify({template:found.template,message,sender,connectionRef:found.conn.connectionRef,connectionRevision:found.conn.revision,recipient:row,audienceSnapshotTaskId:t.id,consent:a.consent,countedAtUtc:payload.countedAtUtc}),new Date(runAt).toISOString()]);}
-    await c.query("UPDATE crm_worker.campaigns_v1 SET state='scheduled',updated_at=clock_timestamp() WHERE id=$1",[campaignId]);
+    await c.query("UPDATE crm_worker.campaigns_v1 SET state='scheduled',source_revision=$2,updated_at=clock_timestamp() WHERE id=$1",[campaignId,sourceRevision]);
    }return {task:scopedTask(t),taskId:t.id,deduplicated:t.id!==taskId};
   });
  }
