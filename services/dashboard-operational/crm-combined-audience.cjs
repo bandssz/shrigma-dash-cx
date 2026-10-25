@@ -1,7 +1,7 @@
 'use strict';
 const crypto=require('node:crypto'),C=require('./combined-audience.cjs'),B=require('./behavior-source.cjs'),{nativeListBrand}=require('./simple-crm-native-internal.cjs');
 const fail=(code,status=409)=>{throw Object.assign(Error(code),{code,status});};
-const ids=rows=>{if(rows.length>100000)fail('COMBINED_MEMBERS_LIMIT');return rows.map(r=>String(r.id));};
+const ids=rows=>{if(rows.length>500000)fail('COMBINED_MEMBERS_LIMIT');return rows.map(r=>String(r.id));};
 const ELIGIBLE="SELECT DISTINCT s.id FROM public.subscribers s JOIN public.subscriber_lists sl ON sl.subscriber_id=s.id JOIN public.lists l ON l.id=sl.list_id WHERE sl.list_id=$1 AND l.status='active' AND s.status='enabled' AND sl.status<>'unsubscribed' AND (l.optin='single' OR sl.status='confirmed')";
 function create({database,authorize,store,sourceRevision,purchaseSql,coverage,listCatalog,refresh=async()=>{},now=Date.now}){
  function authority(context,brand){const u=authorize(context,brand);return {userId:u.id,revision:C.digest({id:u.id,email:u.email,role:u.role,brands:u.brands,viewBrands:u.viewBrands,permissions:u.permissions,productWriteFronts:u.productWriteFronts,profileRevision:u.profileRevision})};}
@@ -9,20 +9,20 @@ function create({database,authorize,store,sourceRevision,purchaseSql,coverage,li
  async function evaluate(context,definition,sharedSnapshot=null){
   const normalized=C.normalize(definition,now()),brand=normalized.brand,before=authority(context,brand),cut=coverage(brand),cutHash=C.digest(cut),end=cut?Date.parse(cut.until):now();
   const originalLists=await lists(context,brand),referenced=new Set([brand==='aristo'?16:17]);function visit(n){if(n.kind==='list')referenced.add(n.listId);if(n.rules)n.rules.forEach(visit);if(n.op==='exclude'){visit(n.base);visit(n.without);}}visit(normalized.rule);const scopeHash=rows=>C.digest([...referenced].sort((a,b)=>a-b).map(id=>{const r=rows.find(x=>x.id===id);return r?{id,brand:r.brand,available:r.available}:null;})),originalHash=scopeHash(originalLists);
-  const engine=C.create({sourceRevision,now,maxMembers:100000,authorize:authority,beginSnapshot:work=>sharedSnapshot?work(sharedSnapshot):database(async client=>work({consistent:true,brand,id:crypto.randomUUID(),client}),false,true),readSet:async(ctx,leaf,{snapshot,leafHash})=>{
+  const engine=C.create({sourceRevision,now,maxMembers:500000,authorize:authority,beginSnapshot:work=>sharedSnapshot?work(sharedSnapshot):database(async client=>work({consistent:true,brand,id:crypto.randomUUID(),client}),false,true),readSet:async(ctx,leaf,{snapshot,leafHash})=>{
    const c=snapshot.client,base={brand,snapshotId:snapshot.id,leafHash,positiveOnly:true,eligibleOnly:true};
    const validateList=async id=>{const admitted=originalLists.find(l=>l.id===id);if(!admitted||admitted.brand!==brand)fail('COMBINED_LIST_SCOPE_DENIED',403);if(admitted.available!==true)fail('COMBINED_LIST_UNAVAILABLE');const l=(await c.query('SELECT id,status,optin FROM public.lists WHERE id=$1',[id])).rows[0];if(!l||l.status!=='active'||!['single','double'].includes(l.optin))fail('COMBINED_LIST_UNAVAILABLE');return l;};
    await validateList(brand==='aristo'?16:17);
-   const filterEligible=async(_,{ids:input})=>({brand,snapshotId:snapshot.id,confirmed:true,ids:ids((await c.query(ELIGIBLE+' AND s.id=ANY($2::bigint[]) ORDER BY s.id LIMIT 100001',[brand==='aristo'?16:17,input])).rows)});
-   if(leaf.kind==='behavior')return B.create({query:(sql,params)=>c.query(sql,params),filterEligible,maxMembers:100000})(ctx,leaf,{brand,snapshot,leafHash});
+   const filterEligible=async(_,{ids:input})=>({brand,snapshotId:snapshot.id,confirmed:true,ids:ids((await c.query(ELIGIBLE+' AND s.id=ANY($2::bigint[]) ORDER BY s.id LIMIT 500001',[brand==='aristo'?16:17,input])).rows)});
+   if(leaf.kind==='behavior')return B.create({query:(sql,params)=>c.query(sql,params),filterEligible,maxMembers:500000})(ctx,leaf,{brand,snapshot,leafHash});
    let members;
    if(leaf.kind==='list'){
     await validateList(leaf.listId);
-    members=ids((await c.query(ELIGIBLE+' ORDER BY s.id LIMIT 100001',[leaf.listId])).rows);
+    members=ids((await c.query(ELIGIBLE+' ORDER BY s.id LIMIT 500001',[leaf.listId])).rows);
     members=(await filterEligible(ctx,{ids:members})).ids;
    }else{
     const q=leaf.rule,from=new Date(end-q.days*86400000).toISOString();if(!cut||cut.from>from||now()-end>=30*60000)return {...base,confirmed:false,count:null,ids:null};
-    const sql=purchaseSql(q.kind).replace('SELECT count(DISTINCT s.id)::int count FROM','SELECT DISTINCT s.id FROM')+' ORDER BY s.id LIMIT 100001';
+    const sql=purchaseSql(q.kind).replace('SELECT count(DISTINCT s.id)::int count FROM','SELECT DISTINCT s.id FROM')+' ORDER BY s.id LIMIT 500001';
     members=ids((await c.query(sql,[brand,from,cut.until,q.productId||null,false,brand==='aristo'?16:17])).rows);
    }
    return {...base,confirmed:true,count:members.length,ids:members};

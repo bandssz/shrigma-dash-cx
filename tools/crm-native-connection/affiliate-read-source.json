@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 53875,
-      "sha256": "31a8bfd2a092637a1738c70b91ca07e29c5d7bb86ab86f936739e7068a2629fa"
+      "bytes": 53922,
+      "sha256": "25bd0310cb8966b9ce798f0686bc01c4695e396e6638f809c55c7c0fce964004"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1726,7 +1726,7 @@
     {
       "path": "services/dashboard-operational/crm-combined-audience.cjs",
       "bytes": 7752,
-      "sha256": "f06789e87472900ea9131258577194803612e8c8e47394ff6a2aad7ceb1686b9"
+      "sha256": "0abd19b32d93f39af56535dbcdd90c636d65cadfafbd5a39b6f849c70e401466"
     },
     {
       "path": "services/dashboard-operational/crm-combined-ui.cjs",
@@ -2617,6 +2617,11 @@
       "path": "tests/crm-client-session-lazy19.test.cjs",
       "bytes": 8197,
       "sha256": "1a5127a236d577878f8321530cb537b023eb5a1641474b2b10a612329703f48e"
+    },
+    {
+      "path": "tests/crm-combined-large-base.test.cjs",
+      "bytes": 1976,
+      "sha256": "603cbcf4002a15d738a9523ff1ab8ce515a3a93a739e4ee72365b08e94f40955"
     },
     {
       "path": "tests/crm-combined-original-catalog.test.cjs",
