@@ -2730,8 +2730,8 @@
     },
     {
       "path": "tests/crm-results-funnel.test.cjs",
-      "bytes": 4412,
-      "sha256": "b61703d770109e3233272023442305928f37bbfa6ae11373f90e3aea8e287422"
+      "bytes": 4791,
+      "sha256": "aaace545bb8a9f1011992d6ba786a8bd19f4d11548b9ed37c11b155dda398b77"
     },
     {
       "path": "tests/crm-source-timing-gateway.test.cjs",
