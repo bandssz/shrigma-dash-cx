@@ -438,7 +438,7 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_EXPECT_REVISION: 400894f968a58606959a8e8f671ec3c19c9263a7
-          CRM_QA_EXPECT_MANIFEST: 8db42f8a5356a561fdf4e5c77058ad94780d5a5303eec741b4e3625fb4335b6e
+          CRM_QA_EXPECT_MANIFEST: 490ee0be3cc79c4691b3e7e73d3db8a7559fb34f8e3931fb7c7c37dd19271eb2
         shell: bash
         run: |
           set -euo pipefail
@@ -449,7 +449,7 @@ jobs:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
           CRM_QA_EXPECT_REVISION: 400894f968a58606959a8e8f671ec3c19c9263a7
-          CRM_QA_EXPECT_MANIFEST: 8db42f8a5356a561fdf4e5c77058ad94780d5a5303eec741b4e3625fb4335b6e
+          CRM_QA_EXPECT_MANIFEST: 490ee0be3cc79c4691b3e7e73d3db8a7559fb34f8e3931fb7c7c37dd19271eb2
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
@@ -463,7 +463,7 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_EXPECT_REVISION: 400894f968a58606959a8e8f671ec3c19c9263a7
-          CRM_QA_EXPECT_MANIFEST: 8db42f8a5356a561fdf4e5c77058ad94780d5a5303eec741b4e3625fb4335b6e
+          CRM_QA_EXPECT_MANIFEST: 490ee0be3cc79c4691b3e7e73d3db8a7559fb34f8e3931fb7c7c37dd19271eb2
           GITHUB_TOKEN: ${{ github.token }}
           SHRIGMA_EASYPANEL_DEPLOY_URL: ${{ secrets.SHRIGMA_EASYPANEL_DEPLOY_URL }}
         run: node tools/production-release/publish-ci.cjs
