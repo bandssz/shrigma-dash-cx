@@ -1770,8 +1770,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
-      "bytes": 15159,
-      "sha256": "3ee99504c17b76189829f7b152dcb283ca45b8b6adc327a66afb8cb6d5a7a30a"
+      "bytes": 16516,
+      "sha256": "24efcf077b26fe862aba734c12291c0d55982c635823741492c4e9491b5b5f89"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-ui.cjs",
@@ -2080,8 +2080,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 37673,
-      "sha256": "e25613b103af3f667b7d0a86124c442f4feaa268fbbd3eed4333116eb9a0ecc8"
+      "bytes": 37669,
+      "sha256": "c6b86441c25064059ac163d769e6a2e5f6c377fc6a50ced6ad0c930451918fc9"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
@@ -3523,5 +3523,5 @@
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "UI v35: compact campaign four-step editor, audience source/count chips, faithful inert email and WhatsApp previews and wrapped mobile template catalog. Preserve accepted Home, W2 and all backend contracts; no Meta template submission or customer sends."
+  "candidatePurpose": "UI v35: compact four-step campaign editor, audiences, inert device previews; Home desktop graph alongside compact lists without stretched empty schedule; preserve W2 and dynamic audience contracts. No recipient or provider change."
 }
