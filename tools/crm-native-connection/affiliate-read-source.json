@@ -2640,8 +2640,8 @@
     },
     {
       "path": "tests/crm-legacy-parity.test.cjs",
-      "bytes": 28060,
-      "sha256": "1570325a943e0adfa0db18f64af685d59ec1f1a7dc1cdbc45485e65539aa7d1a"
+      "bytes": 28176,
+      "sha256": "13fef5f8735a0a51b97fd18531c31580758d77cdb7a7837bf47611c82aba7011"
     },
     {
       "path": "tests/crm-message-preview.test.cjs",
