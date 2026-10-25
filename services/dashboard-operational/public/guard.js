@@ -209,7 +209,9 @@
   }
   if(route==='crm-purchases'){
    let command;try{command=method==='GET'?Object.fromEntries(url.searchParams):JSON.parse(body);}catch{return reject(400);}
-   if(!['GET','POST'].includes(method)||method==='GET'&&(url.searchParams.size!==2||!['interface','publics','products'].includes(command.action))||method==='POST'&&(url.search||!['count','save','backfill'].includes(command.action)))return reject(400);
+   if(!['GET','POST'].includes(method)||method==='GET'&&(url.searchParams.size!==2||!['interface','publics','products'].includes(command.action))||method==='POST'&&(url.search||!['count','countSaved','resolveCampaign','save','backfill'].includes(command.action)))return reject(400);
+   if(command.action==='countSaved'&&(Object.keys(command).sort().join()!=='action,brand,id'||typeof command.id!=='string'||!/^[a-f0-9-]{36}$/.test(command.id)))return reject(400);
+   if(command.action==='resolveCampaign'&&(Object.keys(command).sort().join()!=='action,brand,campaignId'||!Number.isSafeInteger(command.campaignId)||command.campaignId<1))return reject(400);
    const scope=window.ShrigmaBrandAccess;if(!scope?.brands.includes(command.brand)||headers.has('X-Shrigma-View-Brand')&&headers.get('X-Shrigma-View-Brand')!==command.brand)return reject();headers.set('X-Shrigma-View-Brand',command.brand);
   }
   if(route==='segments'&&method==='POST'&&!crmRelease.audienceUpdates){
