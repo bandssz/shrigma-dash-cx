@@ -1681,7 +1681,7 @@
     {
       "path": "services/dashboard-operational/campaign-ui-assets.json",
       "bytes": 1726,
-      "sha256": "7bbfe040d2a13903ff9cd41f2d60ad0fa554baec06f83e273ea009bde3c3057a"
+      "sha256": "900e7e9855a8408cb6be613deed116f3ee400c889ca67fdb752ab023860b54ed"
     },
     {
       "path": "services/dashboard-operational/campaign-write-contract.js",
@@ -2055,8 +2055,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.compiled.js",
-      "bytes": 244496,
-      "sha256": "d17303b60e4921f4a1cb45cde4881b421d9aa21ccc3e29d47d008f41eed4f5a0"
+      "bytes": 244624,
+      "sha256": "738136f1c48ed50ccffaea69eaa5a0a5c001842e8fe58b58b60d777f8f554e77"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/analytics.js",
