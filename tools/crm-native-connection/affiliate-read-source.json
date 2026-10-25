@@ -3507,11 +3507,36 @@
       "path": "tools/prepared-worker/crm-worker-v3-source.sql",
       "bytes": 405,
       "sha256": "af4e99c36685fdda43c600b27925973fe241a2b82d678956e07638effa7c2b85"
+    },
+    {
+      "path": "tools/behavior-publics-v2/behavior-contracts.cjs",
+      "bytes": 19099,
+      "sha256": "7927710c6494cc482d759175ab0911a9f9efbd03895c08731fa7ef240c39dafa"
+    },
+    {
+      "path": "tools/behavior-publics-v2/behavior-source.cjs",
+      "bytes": 3865,
+      "sha256": "cc165f34d7f81e6206ed14847afc5b9d583e9fff07146332996f348a1b748e2d"
+    },
+    {
+      "path": "tools/behavior-publics-v2/behavior-source.test.cjs",
+      "bytes": 4087,
+      "sha256": "775e172f33677836218f2e59e751f2ff73958010e81837083af43462c59dea30"
+    },
+    {
+      "path": "tools/behavior-publics-v2/combined-audience.cjs",
+      "bytes": 6772,
+      "sha256": "ec3bf6e7694a38dd843a2b3afec0148b33605e1f7515a023707ef8782f4d9b04"
+    },
+    {
+      "path": "tools/behavior-publics-v2/combined-audience.test.cjs",
+      "bytes": 4066,
+      "sha256": "a6d21bca2addadfa0d31accb2ac1460a0eab204fce3ac2f0af5fdc17a0cbdd3f"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Dynamic saved purchase definitions recount, Shopify refresh in the single crm_worker queue, resolution on schedule and QA resolution. Preserve Home v35, robust exact health contract and W2 internal TEST proof; worker remains zero."
+  "candidatePurpose": "Prepared F/F2 closed set engine and exact admitted behavior readers, runtime integration still disabled. Preserve joint3ab/Home code; no customer/source mutations."
 }
