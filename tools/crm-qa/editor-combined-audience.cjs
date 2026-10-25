@@ -8,7 +8,8 @@ async function prove({page,context,origin,brand,name,row,save,headers}){
  const group=()=>page.locator('#builder > .criteria-group').first(),line=(g,i)=>g.locator(':scope > .criterion').nth(i);
  const setList=async(g,i,id)=>{await line(g,i).locator('select').first().selectOption('list');await line(g,i).locator('select').nth(1).selectOption(String(id));};
  const to=brand==='fish'?new Date('2026-10-21T19:18:00.860Z'):new Date(Date.now()-60000),from=new Date(to-90*86400000),local=d=>new Date(d.getTime()-180*60000).toISOString().slice(0,23);
- const setEvent=async(g,i,event,id)=>{await line(g,i).locator('select').first().selectOption(event);await line(g,i).locator('select').nth(1).selectOption(String(id));await line(g,i).locator('input').nth(0).fill(local(from));await line(g,i).locator('input').nth(1).fill(local(to));};
+ const fillDate=async(input,raw)=>{const canonical=await input.evaluate((node,value)=>{const clone=node.cloneNode(false);clone.value=value;return clone.value;},raw);a.equal(Date.parse(canonical+'-03:00'),Date.parse(raw+'-03:00'),'EXACT_BEHAVIOR_CUT_PRESERVED');await input.fill(canonical);a.equal(await input.inputValue(),canonical);};
+ const setEvent=async(g,i,event,id)=>{await line(g,i).locator('select').first().selectOption(event);await line(g,i).locator('select').nth(1).selectOption(String(id));await fillDate(line(g,i).locator('input').nth(0),local(from));await fillDate(line(g,i).locator('input').nth(1),local(to));};
  if(brand==='fish'){
   a([260,261,284].every(id=>catalog.lists.some(l=>l.id===id)));a([169,170,174,186,187].every(id=>catalog.campaigns.some(c=>c.id===id)));
   await group().locator(':scope > .group-head select').selectOption('or');await setList(group(),0,260);await setList(group(),1,261);await page.locator('#exclude').click();const groups=()=>page.locator('#builder > .criteria-group');await groups().nth(1).locator(':scope > .group-head select').selectOption('or');
