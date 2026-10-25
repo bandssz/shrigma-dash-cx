@@ -2440,8 +2440,8 @@
     },
     {
       "path": "tests/consent19/four-steps.test.cjs",
-      "bytes": 22256,
-      "sha256": "14066356b765100e7543435427c78a9468cae8464da6b3c3e8b68e57aa46ae89"
+      "bytes": 23154,
+      "sha256": "2d2ba56466e3376016859d6606e1ad2e8964bbc707507cecc4ec91b3bd8d2c34"
     },
     {
       "path": "tests/consent19/gateway-fixture.cjs",
@@ -3340,8 +3340,8 @@
     },
     {
       "path": "tools/crm-qa/editor-operator-steps.cjs",
-      "bytes": 2845,
-      "sha256": "a3ee874205df8f08c3fdd06d11449ffade91f13d07c4603eb783e70b7bba4cb6"
+      "bytes": 3035,
+      "sha256": "7f842fda39a719efc153be9980442a940525920bfae620b8bbfec225fa13648a"
     },
     {
       "path": "tools/crm-qa/editor-paid-journey.cjs",
@@ -3385,8 +3385,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 25502,
-      "sha256": "33e485bb6041d5ea390a965d3f405f81a3e158831f98950c2754461175689c64"
+      "bytes": 25428,
+      "sha256": "0c4a5d1e3ab28d8cf50008efbdb5282794de1b6ec7f469914427c975c68fe37d"
     },
     {
       "path": "tools/crm-qa/paid-acquisition-restore-sql.cjs",
