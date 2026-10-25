@@ -81,11 +81,11 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  const authorize=(context,brand,write=false,workspace=false)=>{if(!BRANDS.includes(brand))fail('PAID_FACTS_BRAND_INVALID');const user=auth.authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},brand);if(!workspace&&!canUse(user))fail('RESTRICTED_AREA_REQUIRED',403);if(write&&(user.permissions?.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))fail('PRODUCT_WRITE_DENIED',403);return user;};
  const authorizeAnalysis=(context,brand)=>{const user=authorize(context,brand,false,true);if(!canUse(user)&&(user.permissions?.growth?.edit!==true||!user.productWriteFronts?.includes('growth')))fail('ANALYSIS_EDITOR_REQUIRED',403);return user;};
  const analysisAuthorize=(context,brand,write=false)=>write?authorize(context,brand,true):authorizeAnalysis(context,brand);
- async function database(work,write=false){
+ async function database(work,write=false,repeatable=false){
   let client;try{
    const settings={...cfg().pg,application_name:'shrigma-paid-facts',connectionTimeoutMillis:3000,query_timeout:20000,statement_timeout:15000};
    if(clientFactory)client=clientFactory(settings);else{const manifest=JSON.parse(fs.readFileSync('/app/native-backend/manifest.json'));const {Client}=require('./native-pg-driver.cjs').loadPGDriver(manifest.pgDriverManifestSha256);client=new Client(settings);}
-   await client.connect();await client.query(write?"BEGIN; SET LOCAL statement_timeout='15s'; SET LOCAL lock_timeout='500ms'":"BEGIN TRANSACTION READ ONLY; SET LOCAL statement_timeout='15s'");const result=await work(client);await client.query(write?'COMMIT':'ROLLBACK');return result;
+   await client.connect();await client.query(write?"BEGIN; SET LOCAL statement_timeout='15s'; SET LOCAL lock_timeout='500ms'":repeatable?"BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL statement_timeout='15s'":"BEGIN TRANSACTION READ ONLY; SET LOCAL statement_timeout='15s'");const result=await work(client);await client.query(write?'COMMIT':'ROLLBACK');return result;
   }catch(e){if(client)await client.query('ROLLBACK').catch(()=>{});if(e.code&&/^[0-9A-Z]{5}$/.test(e.code))fail('PAID_FACTS_DATABASE_UNAVAILABLE',503);throw e;}finally{if(client)await client.end().catch(()=>{});}
  }
  async function token(brand){
@@ -104,7 +104,7 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
   const r=await c.query("SELECT count(*)::int facts,max(paid_fact->>'observedAt') latest,count(*) FILTER(WHERE paid_fact->>'test'='true')::int tests FROM public.crm_attribution_order_v2 WHERE brand=$1 AND paid_fact IS NOT NULL",[brand]);
   return {brand,...r.rows[0],coverage:store.coverage(brand),publics:store.list(brand),checkedAt:new Date(now()).toISOString()};
  });}
- function publics(context,brand,workspace=false){authorize(context,brand,false,workspace);return {brand,coverage:store.coverage(brand),publics:store.list(brand),checkedAt:new Date(now()).toISOString()};}
+ function publics(context,brand,workspace=false){const u=authorize(context,brand,false,workspace);return {brand,coverage:store.coverage(brand),publics:store.list(brand).filter(p=>p.rule.schema!=='combined-audience-v2'||canUse(u)),checkedAt:new Date(now()).toISOString()};}
  async function products(context,brand,workspace=false){authorize(context,brand,false,workspace);return database(async c=>(await c.query("SELECT DISTINCT p->>'productId' id,p->>'title' title FROM public.crm_attribution_order_v2 o CROSS JOIN LATERAL jsonb_array_elements(o.paid_fact->'products') p WHERE o.brand=$1 AND p->>'productId' IS NOT NULL ORDER BY title LIMIT 1000",[brand])).rows);}
  async function count(context,brand,input,workspace=false){authorize(context,brand,false,workspace);const coverage=store.coverage(brand),q=rule(input,coverage?Date.parse(coverage.until):now()),covered=coverage&&coverage.from<=q.from&&coverage.until>=q.until&&now()-Date.parse(coverage.until)<30*60000;
   if(!covered)return {brand,rule:q,confirmed:false,count:null,reason:'Atualize os pedidos para contar este período.'};
@@ -117,17 +117,26 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  const sourceRefresh=refreshQueue||require('./source-refresh-queue.cjs').create({database:queueDatabase,sourceRevision,now});
  async function freshSource(context,brand,days,workspace=false,force=false){
   authorize(context,brand,true,workspace);const c=store.coverage(brand);
+  if(days===0)return c;
   if(!force&&c&&c.days>=days&&now()-Date.parse(c.until)<=60000)return c;
   await backfill(context,brand,Math.max(30,days),{workspace});return store.coverage(brand);
  }
  function savedDefinition(context,brand,id,workspace=false){
   authorize(context,brand,false,workspace);if(typeof id!=='string'||!/^[a-f0-9-]{36}$/.test(id))fail('PAID_PUBLIC_NOT_FOUND',404);
   const p=store.list(brand).find(p=>p.id===id);if(!p)fail('PAID_PUBLIC_NOT_FOUND',404);
-  const definition={kind:p.rule.kind,days:p.rule.days,...(p.rule.productId?{productId:p.rule.productId}:{})};
+  if(p.rule.schema==='combined-audience-v2')authorize(context,brand);
+  const definition=p.rule.schema==='combined-audience-v2'?require('./combined-audience.cjs').normalize(p.rule,now()):{kind:p.rule.kind,days:p.rule.days,...(p.rule.productId?{productId:p.rule.productId}:{})};
   return {source:'paid',id:p.id,name:p.name,revision:p.updatedAt,definition,definitionHash:crypto.createHash('sha256').update(JSON.stringify(definition)).digest('hex'),baseListId:brand==='aristo'?16:17};
  }
  async function resolveSaved(context,brand,id,{workspace=false,refresh=true,forceRefresh=false}={}){
-  const binding=savedDefinition(context,brand,id,workspace);if(refresh)await freshSource(context,brand,binding.definition.days,workspace,forceRefresh);
+  const binding=savedDefinition(context,brand,id,workspace);
+  if(binding.definition.schema==='combined-audience-v2'){
+   if(refresh)await freshSource(context,brand,definitionDays(binding.definition),workspace,forceRefresh);
+   const r=await combined.evaluate(context,binding.definition);if(!r.confirmed)fail('PAID_PUBLIC_SOURCE_UNCONFIRMED',409);
+   const after=savedDefinition(context,brand,id,workspace);if(binding.revision!==after.revision||binding.definitionHash!==after.definitionHash)fail('PAID_PUBLIC_VERSION_CHANGED',409);
+   const recipientIds=r.subscriberIds.map(Number);return {binding,count:recipientIds.length,recipientIds,recipientHash:crypto.createHash('sha256').update(JSON.stringify(recipientIds)).digest('hex'),checkedAt:r.checkedAt,coverage:r.coverage};
+  }
+  if(refresh)await freshSource(context,brand,binding.definition.days,workspace,forceRefresh);
   const coverage=store.coverage(brand),q=rule(binding.definition,coverage?Date.parse(coverage.until):now());if(!coverage||coverage.from>q.from||coverage.until<q.until||now()-Date.parse(coverage.until)>=30*60000)fail('PAID_PUBLIC_SOURCE_UNCONFIRMED',409);
   const coverageHash=crypto.createHash('sha256').update(JSON.stringify(coverage)).digest('hex'),sql=audienceSql(q.kind).replace('SELECT count(DISTINCT s.id)::int count FROM','SELECT DISTINCT s.id FROM')+' ORDER BY s.id LIMIT 100001';
   const ids=await database(async c=>(await c.query(sql,[brand,q.from,q.until,q.productId||null,false,binding.baseListId])).rows.map(r=>r.id));
@@ -162,6 +171,8 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  const results=require('./crm-paid-results.cjs').create({authorize:analysisAuthorize,authorizeComparison:analysisAuthorize,database,now,coverage:brand=>store.coverage(brand)});
  async function home(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.results(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
  async function compareHome(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.compare(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
- return {ingest,status,publics,products,count,countSaved,resolveSaved,savedDefinition,freshSource,save,backfill,subscribe,subscriptions,authorize,authorizeAnalysis,acquisitionBackup,acquisitionBackupFile,...origin,...results,home,compareHome};
+ const combined=require('./crm-combined-audience.cjs').create({database,authorize,store,sourceRevision,purchaseSql:audienceSql,coverage:brand=>store.coverage(brand),refresh:async(context,brand,definition)=>{const days=definitionDays(definition);if(days)await freshSource(context,brand,days);},now});
+ return {ingest,status,publics,products,count,countSaved,resolveSaved,savedDefinition,freshSource,save,backfill,subscribe,subscriptions,authorize,authorizeAnalysis,acquisitionBackup,acquisitionBackupFile,combined,definitionDays,...origin,...results,home,compareHome};
 }
+function definitionDays(definition){let days=0;function visit(n){if(n?.kind==='purchase')days=Math.max(days,n.rule.days);if(n?.rules)n.rules.forEach(visit);if(n?.op==='exclude'){visit(n.base);visit(n.without);}}if(definition?.schema==='combined-audience-v2')visit(definition.rule);else days=definition?.days;return days;}
 module.exports={create,streamBackfill,canUse,fromGraphql,period,rule,audienceSql,UPSERT,ORDERS_QUERY,UPDATED_ORDERS_QUERY,ITEMS_QUERY,WEBHOOKS_QUERY,WEBHOOK_CREATE,WEBHOOK_DELETE};

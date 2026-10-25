@@ -3,6 +3,7 @@ USER 0:0
 WORKDIR /source
 COPY services/dashboard-operational/source-refresh-queue.cjs services/dashboard-operational/maintenance-notice.cjs services/dashboard-operational/maintenance-notice-ui.cjs ./services/dashboard-operational/
 ARG GIT_SHA
+COPY services/dashboard-operational/crm-combined-audience.cjs services/dashboard-operational/crm-combined-ui.cjs services/dashboard-operational/combined-audience.cjs services/dashboard-operational/behavior-source.cjs services/dashboard-operational/behavior-contracts.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/product-issues.cjs services/dashboard-operational/product-issues-ui.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/campaign-editorial-policy.cjs services/dashboard-operational/crm-campaign-editorial-admission.cjs services/dashboard-operational/crm-payload-shape.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/crm-ui-features.cjs services/dashboard-operational/shopify-paid-order.cjs services/dashboard-operational/crm-paid-facts.cjs services/dashboard-operational/crm-paid-facts-store.cjs services/dashboard-operational/crm-paid-facts-ui.cjs ./services/dashboard-operational/

@@ -186,21 +186,42 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
   return {revision:row?.revision||0,qa};
  }
  function paidReceipt(userId,brand,mutationId){if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(mutationId||''))fail('PAID_QA_ARGUMENTS');const row=db.prepare("SELECT revision FROM simple_journey_paid_qa_v1 WHERE user_id=? AND brand=? AND json_extract(qa_json,'$.lastMutationId')=? ORDER BY revision DESC LIMIT 1").get(userId,brand,mutationId);return {mutationId,confirmed:!!row,revision:row?.revision||null};}
+ function paidAllRounds(userId){
+  const all=new Map();for(const row of db.prepare('SELECT brand,qa_json FROM simple_journey_paid_qa_v1 WHERE user_id=? ORDER BY revision').all(userId)){
+   const q=JSON.parse(row.qa_json);for(const r of q.rounds){if(r.mode!=='synthetic'||r.realSends!==0||r.run?.draft?.brand!==row.brand||!r.person?.startsWith('synthetic:'+userId+':'))fail('PAID_QA_STORAGE_INVALID',503);paidEngine.validateRun(r.run);all.set(r.id,r);}
+  }return [...all.values()];
+ }
  function paidQaRead({context,brand,mutationId}){const u=paidOwner(context,brand),head=paidHead(u.id,brand);return {persistence:'server',userId:u.id,brand,...head,...(mutationId?{mutationReceipt:paidReceipt(u.id,brand,mutationId)}:{}),policy:paidEngine.PAID_POLICY,executes:false,sends:0};}
  function paidQaMutate({context,brand,expected_revision,mutationId,action,...args}){
   const user=paidOwner(context,brand,true);if(!Number.isSafeInteger(expected_revision)||expected_revision<0||expected_revision>=2147483647||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(mutationId||''))fail('PAID_QA_ARGUMENTS');
-  const keys={create:'name,waitMinutes',update:'draftId,name,waitMinutes',start:'draftId,personId',advance:'roundId,minutes,payment,mailEvidence,afterEntry',resolve:'originalMutationId'};if(!keys[action]||!paidKeys(args,keys[action]))fail('PAID_QA_ARGUMENTS');
+  const keys={create:'name,waitMinutes',update:'draftId,name,waitMinutes',start:'draftId,personId',advance:'roundId,minutes,payment,mailEvidence,afterEntry',resolve:'originalMutationId',archive_ci:'runName'};if(!keys[action]||!paidKeys(args,keys[action]))fail('PAID_QA_ARGUMENTS');
+  if(action==='archive_ci'){
+   if(!/^ci-[0-9]{1,20}-[0-9]{1,6}$/.test(args.runName||''))fail('PAID_QA_ARGUMENTS');
+   const main=db.prepare('PRAGMA database_list').all().find(x=>x.name==='main');if(main?.file){
+    const fs=require('node:fs'),path=require('node:path'),dir=path.join(path.dirname(main.file),'paid-qa-retention-backups');fs.mkdirSync(dir,{recursive:true,mode:0o700});if(fs.lstatSync(dir).isSymbolicLink()||!fs.lstatSync(dir).isDirectory())fail('PAID_QA_BACKUP_REQUIRED',503);
+    const file=path.join(dir,'before-'+crypto.createHash('sha256').update(user.id+':'+brand).digest('hex').slice(0,16)+'-'+expected_revision+'.sqlite');if(!fs.existsSync(file)){db.exec("VACUUM INTO '"+file.replaceAll("'","''")+"'");fs.chmodSync(file,0o600);}if(fs.lstatSync(file).isSymbolicLink()||!fs.lstatSync(file).isFile()||fs.statSync(file).size<1)fail('PAID_QA_BACKUP_REQUIRED',503);
+   }
+  }
   return transaction(()=>{
    if(paidOwner(context,brand,true).id!==user.id)fail('PAID_QA_ACCESS_CHANGED',403);
    const head=paidHead(user.id,brand);if(head.revision!==expected_revision)fail('PAID_QA_VERSION_CHANGED',409);if(paidReceipt(user.id,brand,mutationId).confirmed)fail('PAID_QA_MUTATION_REUSED',409);const q=head.qa;
-   if(action==='resolve'){
+   let retention;
+   if(action==='archive_ci'){
+    if(!/^ci-[0-9]{1,20}-[0-9]{1,6}$/.test(args.runName||''))fail('PAID_QA_ARGUMENTS');
+    const active='[QA] Pedido pago CI '+args.runName+' '+brand,eligible=new Set(q.definitions.filter(d=>{
+     if(!new RegExp('^\\[QA\\] Pedido pago CI ci-[0-9]+-[0-9]+ '+brand+'(?: · salvo)?$').test(d.name)||d.name===active||d.name===active+' · salvo')return false;
+     return q.rounds.filter(r=>r.run.draft.id===d.id).every(r=>r.person.startsWith('synthetic:'+user.id+':ci-ci-'));
+    }).map(d=>d.id));
+    const definitions=q.definitions.length,rounds=q.rounds.length;q.rounds=q.rounds.filter(r=>!eligible.has(r.run.draft.id));q.definitions=q.definitions.filter(d=>!eligible.has(d.id));
+    retention={previousRevision:head.revision,archivedDefinitions:definitions-q.definitions.length,archivedRounds:rounds-q.rounds.length,preservedImmutableRevision:head.revision,customerData:false,executes:false,sends:0};
+   }else if(action==='resolve'){
     if(paidReceipt(user.id,brand,args.originalMutationId).confirmed)return paidQaRead({context,brand,mutationId:args.originalMutationId});
    }else if(action==='create'||action==='update'){
     if(typeof args.name!=='string'||!args.name.trim()||args.name.length>100||/[\x00-\x1f\x7f]/.test(args.name)||!Array.isArray(args.waitMinutes)||!args.waitMinutes.length||args.waitMinutes.length>5||args.waitMinutes.some((v,i)=>!Number.isSafeInteger(v)||v<0||v>43200||i>0&&v<args.waitMinutes[i-1]))fail('PAID_QA_DEFINITION_INVALID');
     const old=action==='update'?q.definitions.find(d=>d.id===args.draftId):null;if(action==='update'&&!old)fail('PAID_QA_NOT_FOUND',404);if(!old&&q.definitions.length>=20)fail('PAID_QA_LIMIT',409);
     const d=old?JSON.parse(JSON.stringify(old)):paidEngine.createDraft({brand,id:crypto.randomUUID()});d.trigger='order_paid';d.name=args.name.trim();d.audience='Pessoa sintética · pedido pago';d.steps=args.waitMinutes.map((waitMinutes,i)=>({id:'step-'+(i+1),channel:'email',waitMinutes,enabled:true,templateName:'Mensagem QA '+(i+1),subject:'[TESTE] Pedido pago · '+(i+1),text:'[TESTE] Ensaio sintético sem transporte.'}));const saved=old?paidEngine.saveDraft(old,d):paidEngine.validateDraft(d);q.definitions=old?q.definitions.map(x=>x.id===old.id?saved:x):[...q.definitions,saved];
    }else{
-    const all=[...['aristo','fish'].flatMap(b=>paidHead(user.id,b).qa.rounds),...entryQa.capRounds(user.id)],globalNow=Math.max(stamp(),...all.map(r=>r.run.now));
+    const all=[...paidAllRounds(user.id),...entryQa.capRounds(user.id)],globalNow=Math.max(stamp(),...all.map(r=>r.run.now));
     if(action==='start'){
      if(q.rounds.length>=20)fail('PAID_QA_LIMIT',409);const d=q.definitions.find(d=>d.id===args.draftId);if(!d)fail('PAID_QA_NOT_FOUND',404);if(!/^[a-z0-9_-]{1,40}$/.test(args.personId||''))fail('PAID_QA_PERSON_INVALID');
      const id=crypto.randomUUID(),run=paidEngine.newRun(d,{eventId:'synthetic:'+id,startedAt:globalNow});q.rounds.push({id,person:'synthetic:'+user.id+':'+args.personId,entryOrderId:'synthetic-order:'+id,run,receipts:[],decisions:[],policy:{...paidEngine.PAID_POLICY},mode:'synthetic',realSends:0});
@@ -210,10 +231,10 @@ function createSimpleAccounts({db,authorizeAdmin,authorizeUser,normalizeEmail,ha
      const result=paidEngine.advancePaid(r.run,{now:at,evidence,rounds:entryQa.scopeCapRounds(all,r.person,at)});r.run=result.run;r.decisions.push(...result.decisions.map(d=>({...d,at,payment:args.payment,mailEvidence:args.mailEvidence,afterEntry:args.afterEntry})));
     }
    }
-   q.lastMutationId=mutationId;const serialized=JSON.stringify(q);if(serialized.length>500000)fail('PAID_QA_LIMIT',409);db.prepare('INSERT INTO simple_journey_paid_qa_v1(user_id,brand,revision,qa_json,created_at) VALUES(?,?,?,?,?)').run(user.id,brand,expected_revision+1,serialized,stamp());return paidQaRead({context,brand,...(action==='resolve'?{mutationId:args.originalMutationId}:{})});
+   q.lastMutationId=mutationId;const serialized=JSON.stringify(q);if(serialized.length>500000)fail('PAID_QA_LIMIT',409);db.prepare('INSERT INTO simple_journey_paid_qa_v1(user_id,brand,revision,qa_json,created_at) VALUES(?,?,?,?,?)').run(user.id,brand,expected_revision+1,serialized,stamp());return {...paidQaRead({context,brand,...(action==='resolve'?{mutationId:args.originalMutationId}:{})}),...(retention?{ciRetention:retention}:{})};
   });
  }
- const entryQa=require('./journey-entry-qa.cjs').create({db,authorize:paidOwner,transaction,now:stamp,paidRounds:userId=>['aristo','fish'].flatMap(b=>paidHead(userId,b).qa.rounds)});
+ const entryQa=require('./journey-entry-qa.cjs').create({db,authorize:paidOwner,transaction,now:stamp,paidRounds:paidAllRounds});
  // Existing v1 is an immutable baseline; new saves append a whole revision.
  // A later rollback writer changing that baseline is detected, never merged.
  function labHead(userId,brand){
