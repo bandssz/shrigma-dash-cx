@@ -3475,8 +3475,8 @@
     },
     {
       "path": "tools/prepared-worker/dynamic-audience-smoke.cjs",
-      "bytes": 1372,
-      "sha256": "a89a4e4696a0aed9d5d9d9d05c809b5adeabcb200e7c6b62baf0b53bf723c59d"
+      "bytes": 1432,
+      "sha256": "2b512c5024657bbf98a03f547d804600f97e610537c881fbdae9f7340cfec60f"
     },
     {
       "path": "tools/prepared-worker/image-smoke.cjs",
@@ -3505,8 +3505,8 @@
     },
     {
       "path": "tools/prepared-worker/source-refresh-smoke.cjs",
-      "bytes": 1371,
-      "sha256": "c3b7cda673ac55efd87cf6d009143f1aae97d8c083df9b439bfc2fad977eb22a"
+      "bytes": 1431,
+      "sha256": "9c26167466759aabb509b2ac6c77763d64d768bea2d2b895844589854f6b668e"
     },
     {
       "path": "tools/prepared-worker/w2-fixture.cjs",
@@ -3515,8 +3515,8 @@
     },
     {
       "path": "tools/prepared-worker/w2-smoke.cjs",
-      "bytes": 1353,
-      "sha256": "b3de6fe2ad67625b8d0dba369bc0d44cc738fcf1d623560e837874961af24027"
+      "bytes": 1413,
+      "sha256": "cb77364490b8d21e3a07325bd86bfa9ebd2f0fcccb195a065796f6401a646a4f"
     },
     {
       "path": "tools/prepared-worker/wa-job-fixture.cjs",
@@ -3525,8 +3525,8 @@
     },
     {
       "path": "tools/prepared-worker/wa-job-smoke.cjs",
-      "bytes": 1354,
-      "sha256": "9d4b04f13f2d0cfc39100fbf8a60145f52959883e6b19f7fc64d65ef0083c537"
+      "bytes": 1414,
+      "sha256": "3cfa52ebeff1d37ca2725e861914ec3188b572ac585109bca6f7f22445be6be9"
     },
     {
       "path": "tools/production-release/build-envelope.cjs",
