@@ -2999,6 +2999,11 @@
       "sha256": "60d39ea1d9a35cb59a4c2f8ebc504c239fc8f80f21686402675bd9b8b93756cb"
     },
     {
+      "path": "tests/journey-paid-retention.test.cjs",
+      "bytes": 5276,
+      "sha256": "02c2fafe13d761dca1be5b7600a3c5398e8b59e2062d0c52e4e2a2e3f79660b3"
+    },
+    {
       "path": "tests/maintenance-install-window.test.cjs",
       "bytes": 2655,
       "sha256": "13a0ecd4ae1b25dcd19a8f1a703440fed4fd7aa2937201cf2bb407bdba81f2e5"
@@ -3259,6 +3264,16 @@
       "sha256": "2d804caf43cea19fe3eeb9fb5af02473685d3b9c172b8f59a0665eab42a9d54f"
     },
     {
+      "path": "tests/worker-execution-ipc.test.cjs",
+      "bytes": 4510,
+      "sha256": "0b2062f568faf065a20e38640bf4748e183099abf86895201f04ab7bd46b762f"
+    },
+    {
+      "path": "tests/worker-task-authority.test.cjs",
+      "bytes": 2696,
+      "sha256": "4f3a9c2b10caa52eda806bf1a92660e99422d0d13ebddd791b901da9c9a13c8e"
+    },
+    {
       "path": "tests/worker-vault-bootstrap-fixture.cjs",
       "bytes": 69,
       "sha256": "fe781515a8194747f9c116d30c2332dfa26de5c605e065fe0f82849013f3cbbc"
@@ -3477,6 +3492,16 @@
       "path": "tools/prepared-worker/w2-smoke.cjs",
       "bytes": 1353,
       "sha256": "b3de6fe2ad67625b8d0dba369bc0d44cc738fcf1d623560e837874961af24027"
+    },
+    {
+      "path": "tools/prepared-worker/wa-job-fixture.cjs",
+      "bytes": 10884,
+      "sha256": "600e3488d9fbb89c850fdf15567efdd773c5dc49cd9497b93e87e9019e056cf6"
+    },
+    {
+      "path": "tools/prepared-worker/wa-job-smoke.cjs",
+      "bytes": 1354,
+      "sha256": "9d4b04f13f2d0cfc39100fbf8a60145f52959883e6b19f7fc64d65ef0083c537"
     },
     {
       "path": "tools/production-release/build-envelope.cjs",
