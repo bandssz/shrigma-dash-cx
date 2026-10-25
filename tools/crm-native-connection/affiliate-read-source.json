@@ -2455,8 +2455,8 @@
     },
     {
       "path": "tests/consent19/four-steps.test.cjs",
-      "bytes": 23154,
-      "sha256": "2d2ba56466e3376016859d6606e1ad2e8964bbc707507cecc4ec91b3bd8d2c34"
+      "bytes": 23335,
+      "sha256": "fbc43c9838821f00354c6b956ffaa786aa273fdac5e5556faf59b8464ab02f9f"
     },
     {
       "path": "tests/consent19/gateway-fixture.cjs",
