@@ -2075,8 +2075,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
-      "bytes": 178888,
-      "sha256": "d62f88615fec791089455cbb2dc7bbbf993937f179a69b7b0bea4c17edc837a4"
+      "bytes": 178891,
+      "sha256": "80930ae3538605d7852b50b2a9d080d7cae098b5a5d7ed422367e5d888d6ae7d"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
