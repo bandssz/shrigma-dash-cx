@@ -2070,8 +2070,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 113174,
-      "sha256": "a1aa0d98043ef7eae4e38644397c885b2e3d9b87e5b70bea560c7d8105c56aae"
+      "bytes": 113586,
+      "sha256": "55d445e50ccc05d517eda506472104601adce60d97e58d996a9ccbcd0e7cf122"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
@@ -3130,8 +3130,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 47520,
-      "sha256": "074b5f3bef8dcdc7edbdb41aab4831e8584f134e4ae636f998a94ce3ad0373c2"
+      "bytes": 48588,
+      "sha256": "c8bc11a7bf1e13e869fdbcda3ea7b4d61973c8dc13bf053014b622b83f88076e"
     },
     {
       "path": "tests/production-candidate-branch.test.cjs",
