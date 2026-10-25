@@ -18,7 +18,7 @@ const READ_WORKSPACES=Object.freeze({
  [ORGANIC_WORKSPACE]:{front:'organico',area:'organico',directory:'organico-workspace',files:['index.html','app.js','organico-attribution.js']},
  [INFLUS_WORKSPACE]:{front:'influs',area:'influs',directory:'influs-workspace',files:['index.html','app.js','math.js','influs-conferencia.js']}
 });
-const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','home.js','analytics.compiled.js','drafts.js','journey-engine.js','journey-ui.js']);
+const CRM_PREVIEW_OWN_FILES=Object.freeze(['index.html','app.js','home.js','analytics.compiled.js','drafts.js','journey-engine.js','journey-ui.js','crm-shell.js','guide.html']);
 const CRM_PREVIEW_FILES=Object.freeze([...CRM_PREVIEW_OWN_FILES,...AFFILIATE_PREVIEW_FILES.filter(n=>n==='workspace.js'||n==='tema.css'||n.startsWith('vendor/'))]);
 const jsonError=(status,code)=>Object.assign(new Error(code),{status,code});
 const LOGIN_PENDING_PER_SOCKET=8,LOGIN_SOCKET_KEYS_MAX=1024;
@@ -727,7 +727,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const maintenanceNotice=s.simpleReadMode===true?auth.maintenanceNoticeStore?.():null;
   const productIssues=s.simpleReadMode===true?auth.productIssueStore?.():null;
   const waCampaigns=s.paidFactsFile&&s.crmNativeEnabled===true?require('./whatsapp-campaigns.cjs').create({auth,file:s.paidFactsFile,sourceRevision:s.crmNativeSourceRevision}):null;
-  const paidFacts=s.paidFactsFile?require('./crm-paid-facts.cjs').create({file:s.paidFactsFile,auth,store:auth.restrictedPurchaseStore(),fetchImpl,backupDirectory:path.join(path.dirname(s.dbPath),'paid-acquisition-backups'),queueDatabase:waCampaigns?.queueDatabase,sourceRevision:s.crmNativeSourceRevision}):null;
+  const paidFacts=s.paidFactsFile?require('./crm-paid-facts.cjs').create({file:s.paidFactsFile,auth,store:auth.restrictedPurchaseStore(),fetchImpl,backupDirectory:path.join(path.dirname(s.dbPath),'paid-acquisition-backups'),queueDatabase:waCampaigns?.queueDatabase,sourceRevision:s.crmNativeSourceRevision,campaignReader:async(context,brand,ids)=>{if(!directCampaigns)throw jsonError(503,'NATIVE_CAMPAIGNS_UNAVAILABLE');const rows=[];for(let page=1;page<=20;page++){const r=await directCampaigns.handle(context,'GET',{acao:'campanha_listar',brand,page});if(r.status!==200)throw jsonError(503,'NATIVE_CAMPAIGNS_UNAVAILABLE');rows.push(...r.body.campaigns);if(ids.every(id=>rows.some(c=>c.id===id))||!r.body.has_more)return rows;}throw jsonError(503,'NATIVE_CAMPAIGNS_INCOMPLETE');}}):null;
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
   const simpleCampaignTests=simpleReader?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
   const simpleCampaignAudiences=simpleReader?auth.simpleCampaignAudienceFactory?.({fetchImpl}):null;
@@ -1006,7 +1006,8 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
           const ui=require('./crm-paid-facts-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:require('./product-issues-ui.cjs').decorate(ui.HTML));return;
         }
         let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
-        if(req.method==='GET'&&['home','results','acquisition','compare-home','compare-results'].includes(q.action))paidFacts.authorizeAnalysis(ctx,q.brand);else paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&['home','results','acquisition','compare-home','compare-results','engagement'].includes(q.action))paidFacts.authorizeAnalysis(ctx,q.brand);else paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&q.action==='engagement'){if(new Set(url.searchParams.keys()).size!==url.searchParams.size||Object.keys(q).sort().join(',')!=='action,brand,campaigns')throw jsonError(400,'ENGAGEMENT_INPUT');return sendJson(req,res,200,await paidFacts.engagement(ctx,q.brand,q));}
         if(req.method==='GET'&&q.action==='compare-home')return sendJson(req,res,200,await paidFacts.compareHome(ctx,q.brand,q));
         if(req.method==='GET'&&q.action==='compare-results')return sendJson(req,res,200,await paidFacts.compare(ctx,q.brand,q));
         if(req.method==='GET'&&q.action==='home')return sendJson(req,res,200,await paidFacts.home(ctx,q.brand,q));

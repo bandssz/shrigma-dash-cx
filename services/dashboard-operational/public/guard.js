@@ -150,10 +150,18 @@
  window.fetch=async function(input,init={}){
   let url;try{url=new URL(input instanceof Request?input.url:input,location.href);}catch(_){return reject();}
   if(url.origin!==location.origin)return reject();
-  const route=url.pathname.match(/^\/api\/([a-z][a-z0-9_-]*)\/?$/)?.[1];
-  if(!ROUTES.has(route))return reject();
+  const paidAnalysis=url.pathname==='/api/crm-restricted/compras',route=paidAnalysis?'crm-paid-analysis':url.pathname.match(/^\/api\/([a-z][a-z0-9_-]*)\/?$/)?.[1];
+  if(!ROUTES.has(route)&&!paidAnalysis)return reject();
   const method=String(init.method||(input instanceof Request?input.method:'GET')).toUpperCase();
   if(!['GET','HEAD','POST','PUT','PATCH','DELETE'].includes(method))return reject(405);
+  if(paidAnalysis){
+   if(method!=='GET')return reject(405);if(url.hash||url.username||url.password)return reject(400);
+   const q=Object.fromEntries(url.searchParams),keys=[...url.searchParams.keys()];if(new Set(keys).size!==keys.length||!['aristo','fish'].includes(q.brand))return reject(400);
+   if(q.action==='compare-results'){if(keys.sort().join(',')!=='action,brand,campaigns,currency,fim,ini,preset'||!['today','yesterday','last7','last30','week','lastWeek','month','lastMonth','custom'].includes(q.preset)||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(q.ini||'')||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(q.fim||'')||!/^[A-Z]{3}$/.test(q.currency||'')||!/^(?:[1-9][0-9]{0,8}(?:,[1-9][0-9]{0,8}){0,19})?$/.test(q.campaigns||''))return reject(400);}
+   else if(q.action==='engagement'){if(keys.sort().join(',')!=='action,brand,campaigns'||!/^[1-9][0-9]{0,8}(?:,[1-9][0-9]{0,8}){0,19}$/.test(q.campaigns||''))return reject(400);}
+   else return reject(400);
+  }
+
   if(route==='maintenance-notice'){
    if(method!=='GET')return reject(405);
    if(url.searchParams.size!==2||!['fish','aristo'].includes(url.searchParams.get('brand'))||!['growth','organico','influs','afiliados'].includes(url.searchParams.get('front')))return reject(400);
@@ -180,6 +188,7 @@
   }
   cleanUrl(url);
   const headers=new Headers(init.headers||(input instanceof Request?input.headers:{}));cleanHeaders(headers);
+  if(paidAnalysis){const brand=url.searchParams.get('brand'),scope=window.ShrigmaBrandAccess;if(!scope?.brands.includes(brand)||headers.has('X-Shrigma-View-Brand')&&headers.get('X-Shrigma-View-Brand')!==brand)return reject();headers.set('X-Shrigma-View-Brand',brand);}
   if(route==='crm-features'){const brand=url.searchParams.get('brand'),scope=window.ShrigmaBrandAccess;if(!scope?.brands.includes(brand)||headers.has('X-Shrigma-View-Brand')&&headers.get('X-Shrigma-View-Brand')!==brand)return reject();headers.set('X-Shrigma-View-Brand',brand);}
   if(route==='templates'&&sessionState?.features?.simpleRead===true&&window.ShrigmaBrandAccess){const scope=window.ShrigmaBrandAccess,selected=document.querySelector('#seg-marca button[data-marca].ativo')?.dataset.marca??scope.brand??scope.brands[0];if(!scope.brands.includes(selected)||headers.has('X-Shrigma-View-Brand')&&headers.get('X-Shrigma-View-Brand')!==selected)return reject();headers.set('X-Shrigma-View-Brand',selected);}
   if(method==='GET'&&['cx','cache','crm-read'].includes(route)&&window.ShrigmaBrandAccess){

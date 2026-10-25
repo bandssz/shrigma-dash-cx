@@ -5,7 +5,7 @@ COPY services/dashboard-operational/source-refresh-queue.cjs services/dashboard-
 ARG GIT_SHA
 COPY services/dashboard-operational/product-issues.cjs services/dashboard-operational/product-issues-ui.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/campaign-editorial-policy.cjs services/dashboard-operational/crm-campaign-editorial-admission.cjs services/dashboard-operational/crm-payload-shape.cjs ./services/dashboard-operational/
-COPY services/dashboard-operational/crm-ui-features.cjs services/dashboard-operational/shopify-paid-order.cjs services/dashboard-operational/crm-paid-facts.cjs services/dashboard-operational/crm-paid-facts-store.cjs services/dashboard-operational/crm-paid-facts-ui.cjs ./services/dashboard-operational/
+COPY services/dashboard-operational/crm-ui-features.cjs services/dashboard-operational/shopify-paid-order.cjs services/dashboard-operational/crm-paid-facts.cjs services/dashboard-operational/behavior-contracts.cjs services/dashboard-operational/crm-paid-facts-store.cjs services/dashboard-operational/crm-paid-facts-ui.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/crm-paid-home-layout-ui.cjs services/dashboard-operational/crm-paid-home-ui.cjs services/dashboard-operational/crm-paid-comparison-ui.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/crm-paid-results.cjs services/dashboard-operational/crm-paid-results-ui.cjs ./services/dashboard-operational/
 COPY services/dashboard-operational/crm-paid-acquisition.cjs services/dashboard-operational/crm-paid-acquisition-service.cjs services/dashboard-operational/crm-paid-acquisition-backup.cjs services/dashboard-operational/crm-paid-acquisition-ui.cjs ./services/dashboard-operational/
