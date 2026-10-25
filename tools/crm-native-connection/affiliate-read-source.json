@@ -2750,8 +2750,8 @@
     },
     {
       "path": "tests/crm-ui-independent.test.cjs",
-      "bytes": 21394,
-      "sha256": "fed8dde600e3a35d43728fe308d117ceb4a7ca793c4c8656f540bcc3c6512434"
+      "bytes": 21632,
+      "sha256": "c5f1ef2156467d6186fb9711c9c13e32525a63770455a227d1b6859dc1e0e351"
     },
     {
       "path": "tests/dashboard-central-delegation.test.cjs",
