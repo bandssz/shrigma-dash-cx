@@ -81,13 +81,16 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  const authorize=(context,brand,write=false,workspace=false)=>{if(!BRANDS.includes(brand))fail('PAID_FACTS_BRAND_INVALID');const user=auth.authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},brand);if(!workspace&&!canUse(user))fail('RESTRICTED_AREA_REQUIRED',403);if(write&&(user.permissions?.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))fail('PRODUCT_WRITE_DENIED',403);return user;};
  const authorizeAnalysis=(context,brand)=>{const user=authorize(context,brand,false,true);if(!canUse(user)&&(user.permissions?.growth?.edit!==true||!user.productWriteFronts?.includes('growth')))fail('ANALYSIS_EDITOR_REQUIRED',403);return user;};
  const analysisAuthorize=(context,brand,write=false)=>write?authorize(context,brand,true):authorizeAnalysis(context,brand);
- async function database(work,write=false){
+ async function database(work,write=false,mode='facts'){
+  if(!['facts','person-v2'].includes(mode)||mode==='person-v2'&&write)fail('PERSON_DATABASE_MODE_INVALID',503);
   let client;try{
-   const settings={...cfg().pg,application_name:'shrigma-paid-facts',connectionTimeoutMillis:3000,query_timeout:20000,statement_timeout:15000};
+   const settings={...cfg().pg,application_name:'shrigma-paid-facts',connectionTimeoutMillis:3000,query_timeout:mode==='person-v2'?4000:20000,statement_timeout:mode==='person-v2'?3000:15000};
    if(clientFactory)client=clientFactory(settings);else{const manifest=JSON.parse(fs.readFileSync('/app/native-backend/manifest.json'));const {Client}=require('./native-pg-driver.cjs').loadPGDriver(manifest.pgDriverManifestSha256);client=new Client(settings);}
+   if(mode==='person-v2')return await require('./crm-person-read.cjs').readOnlyDatabase(client,work);
    await client.connect();await client.query(write?"BEGIN; SET LOCAL statement_timeout='15s'; SET LOCAL lock_timeout='500ms'":"BEGIN TRANSACTION READ ONLY; SET LOCAL statement_timeout='15s'");const result=await work(client);await client.query(write?'COMMIT':'ROLLBACK');return result;
   }catch(e){if(client)await client.query('ROLLBACK').catch(()=>{});if(e.code&&/^[0-9A-Z]{5}$/.test(e.code))fail('PAID_FACTS_DATABASE_UNAVAILABLE',503);throw e;}finally{if(client)await client.end().catch(()=>{});}
  }
+ const personReader=require('./crm-person-read.cjs').create({now,authorize:(context,brand)=>{if(typeof auth.personReadAuthority!=='function')fail('PERSON_ACCESS_DENIED',403);return auth.personReadAuthority(context,brand);},read:(contract,params,sql)=>{const admitted=require('./crm-person-contracts.cjs')[contract];if(!admitted||admitted.sql!==sql)fail('PERSON_SOURCE_INVALID',503);return database(client=>client.query(admitted.sql,params),false,'person-v2');}});
  async function token(brand){
   const cached=tokens.get(brand);if(cached&&cached.until>now()+60000)return cached;
   const c=cfg().brands[brand],r=await fetchImpl('https://'+c.shop+'/admin/oauth/access_token',{method:'POST',redirect:'error',signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'client_credentials',client_id:c.clientId,client_secret:c.secret})});
@@ -162,6 +165,6 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  const results=require('./crm-paid-results.cjs').create({authorize:analysisAuthorize,authorizeComparison:analysisAuthorize,database,now,coverage:brand=>store.coverage(brand)});
  async function home(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.results(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
  async function compareHome(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.compare(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
- return {ingest,status,publics,products,count,countSaved,resolveSaved,savedDefinition,freshSource,save,backfill,subscribe,subscriptions,authorize,authorizeAnalysis,acquisitionBackup,acquisitionBackupFile,...origin,...results,home,compareHome};
+ return {personRead:personReader.read,ingest,status,publics,products,count,countSaved,resolveSaved,savedDefinition,freshSource,save,backfill,subscribe,subscriptions,authorize,authorizeAnalysis,acquisitionBackup,acquisitionBackupFile,...origin,...results,home,compareHome};
 }
 module.exports={create,streamBackfill,canUse,fromGraphql,period,rule,audienceSql,UPSERT,ORDERS_QUERY,UPDATED_ORDERS_QUERY,ITEMS_QUERY,WEBHOOKS_QUERY,WEBHOOK_CREATE,WEBHOOK_DELETE};

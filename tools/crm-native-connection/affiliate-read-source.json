@@ -420,8 +420,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 17534,
-      "sha256": "8c9bcd8153d49b5504bd71a24d2c6e19090790be2c51729752d73911cc4b3fa2"
+      "bytes": 17603,
+      "sha256": "ed44eb56fcd732e7d94bbe9ffa0273401048289081d5fc553d02ab8a1de0fe52"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -430,13 +430,13 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 9333,
-      "sha256": "42deacfd02cc0b2819fcecca0c5170e156bdc9cb11ab9a595e09db8c7eda72b0"
+      "bytes": 9402,
+      "sha256": "1a6440dc3da22bfcc2ad19e40e515de32d69235d6bb6247eb13a7bce2bb585e8"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 12434,
-      "sha256": "a22277c13c71b49292cea7674b74d36219dc1ec152fb377668044a765894b547"
+      "bytes": 12635,
+      "sha256": "c576e2422d6f3540d985e492d484cef5c62528a72e6c57c11323fb361c5b47f5"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
@@ -1615,8 +1615,8 @@
     },
     {
       "path": "services/dashboard-operational/auth.cjs",
-      "bytes": 173758,
-      "sha256": "18758a47f8f13051c146bc9cb7b1526ad0af98a5d2700ec6bc8e2558a41dcc80"
+      "bytes": 174319,
+      "sha256": "652ce9da92b9a0a685a692655d6d616809e48fb51b53c4e34e83883ea8622eff"
     },
     {
       "path": "services/dashboard-operational/BCRYPT-LICENSE",
@@ -1765,8 +1765,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 25456,
-      "sha256": "cb7994fa0fcc34f1737d5b22406a81b9176541db4b223cc6ca9fc2270713d2e1"
+      "bytes": 26224,
+      "sha256": "245b4bf1c16554ae48b2e0cc163834933b91c7f3e898bf568dd6d83c6b0b7b42"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
@@ -2200,8 +2200,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 251302,
-      "sha256": "87d039fdaf18c763d20e5fd87b1c1cdfd96c7f5c83b8c8f6800c6fb3862d1ba5"
+      "bytes": 252834,
+      "sha256": "4657cc84751302e93b4922fc06749d9b3dc86106b5f5f856ac14c44716ab4ba0"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -3507,11 +3507,31 @@
       "path": "tools/prepared-worker/crm-worker-v3-source.sql",
       "bytes": 405,
       "sha256": "af4e99c36685fdda43c600b27925973fe241a2b82d678956e07638effa7c2b85"
+    },
+    {
+      "path": "services/dashboard-operational/crm-person-contracts.cjs",
+      "bytes": 21224,
+      "sha256": "76b12d857f62ba54cc6c2483f66c345e16815c1de26d8f27796e2037e1a6aae7"
+    },
+    {
+      "path": "services/dashboard-operational/crm-person-read.cjs",
+      "bytes": 15123,
+      "sha256": "784033c051ce72cec876f16d78c1d8fbde75ed5cfa21690ea94e7ea0c249ea9e"
+    },
+    {
+      "path": "services/dashboard-operational/crm-person-ui.cjs",
+      "bytes": 12195,
+      "sha256": "2499d99e941c63511492a4068066df36d908192a70d2343a3b1606c8ea1c6376"
+    },
+    {
+      "path": "tests/crm-person-read.test.cjs",
+      "bytes": 12189,
+      "sha256": "c3aa34a729bccddbba42265667f8047bd6f96e39b26f72739b0b656cb97316ca"
     }
   ],
   "nativeAffiliateRead": "Separate versioned browser consent on the SAME original connection; original scopes/health/source receipts preserved.",
   "privateBinding": "Server custody per real holder. Manual key binding is an existing fallback, not the requested user-onboarding flow. Internal original issuer remains inactive and outside this package.",
   "realAcceptance": "Públicos READ instalado e conferido Fish27/Aristo3. Candidata de COUNT READ e rascunhos sintéticos no SQLite original: HTTP/reabertura, CAS, deadline, mudança de conta e cinco etapas conferidos. Nova leitura Aristo exige uma intenção explícita e GET atual; claim original arbitra exclusividade. Transporte de teste ainda pendente.",
   "managerDelegation": "Master selects one or multiple of Fish, Aristo and Olivas, independent product front and requested READ/WRITE. Existing identities and journals preserved; changing the selection retires prior access. Olivas operational source contracts remain unproved and unavailable; no automatic WRITE or source grant.",
-  "candidatePurpose": "Dynamic saved purchase definitions recount, Shopify refresh in the single crm_worker queue, resolution on schedule and QA resolution. Preserve Home v35, robust exact health contract and W2 internal TEST proof; worker remains zero."
+  "candidatePurpose": "Customer profile branch: four exact catalog122 read contracts, scoped QA POST endpoint, separate email/phone UI, revocation after read and readonly PostgreSQL3s/4s/8s limits. No customer writes or send controls."
 }
