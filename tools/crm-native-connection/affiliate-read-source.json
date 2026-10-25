@@ -420,8 +420,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/bootstrap.cjs",
-      "bytes": 17574,
-      "sha256": "5d5af960786ea5af2cd2e4c264bd9b71b9780d94dc61545f59e3a4f37aa851ff"
+      "bytes": 17612,
+      "sha256": "96faec3f7cf295038f61f4c9947f7cb3901950589ae55ed66b0a38d50518b816"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-journey-presentation.cjs",
@@ -430,8 +430,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/build-release.cjs",
-      "bytes": 9373,
-      "sha256": "6750a4811d3b19086653f16c3120976686f63dd8d723b3d4e3305a24628ce664"
+      "bytes": 9411,
+      "sha256": "9bb688a4d0f773f5b2a9da558b52ad772d9ab8e7b80ee04d108a6295e5dc4407"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
@@ -3370,8 +3370,8 @@
     },
     {
       "path": "tools/prepared-worker/image-smoke.cjs",
-      "bytes": 7620,
-      "sha256": "0888728f0add020b897eba72d2350c065c100de078ae780a092dee62843438ca"
+      "bytes": 7706,
+      "sha256": "c9533fe52ebb830e69ebdea4cf46097ea2ea3ac8cc005db2b916f224f28f2184"
     },
     {
       "path": "tools/prepared-worker/queue-smoke.cjs",
