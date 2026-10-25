@@ -2690,8 +2690,8 @@
     },
     {
       "path": "tests/crm-product-positive-ui.test.cjs",
-      "bytes": 6771,
-      "sha256": "6454c64415787936d354252b53464c0dcd9d5dc527b4bdd3b2074d192e588f6e"
+      "bytes": 7210,
+      "sha256": "86ff29e68eb9c7cc4d31647052b574f3b6ef995876977ea82a9c84c8e3dd72a0"
     },
     {
       "path": "tests/crm-public-operator.test.cjs",
@@ -3180,8 +3180,8 @@
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
-      "bytes": 72951,
-      "sha256": "ed5acdfc78a8adcf05985ad9b24b7b2c5a2cea4075b66d642921729cdb7bb701"
+      "bytes": 72931,
+      "sha256": "ab589f2894fe5d9d5e1e2073a8e5155852563042e3fd1f6d74672045d8c238ab"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
