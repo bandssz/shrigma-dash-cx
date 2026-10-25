@@ -2065,8 +2065,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 115890,
-      "sha256": "547863df3702199ca8b53cb423df38f772d6999e13aea5687d2e225992308fd0"
+      "bytes": 116637,
+      "sha256": "739afb81778f28c92976e98601a1d67454e7b0526de4b51c282260acdc4627a5"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
@@ -2085,8 +2085,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/index.html",
-      "bytes": 38796,
-      "sha256": "e88dcb4bff336743ebac23e928d0232f89da0cb0abf3bda8ba6db1ad006fb912"
+      "bytes": 38868,
+      "sha256": "92a3e1057ab148f94cfaffe3c57c463153153c1d281927b266e947dee46fbbd8"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/journey-engine.js",
@@ -3395,8 +3395,8 @@
     },
     {
       "path": "tools/crm-qa/native-editor-journey.cjs",
-      "bytes": 25468,
-      "sha256": "168e8a012f16088b11530477a98f5d95460fb095371a991593ce78f77a5308e1"
+      "bytes": 25892,
+      "sha256": "c022c4f61015a7d9f11f95cd23ff39702dfc4084f59ad65d1c7e89b35e4193dc"
     },
     {
       "path": "tools/crm-qa/paid-acquisition-restore-sql.cjs",
@@ -3435,8 +3435,8 @@
     },
     {
       "path": "tools/crm-qa/run-ci.cjs",
-      "bytes": 17443,
-      "sha256": "facb2142fd94e064830ecd3b792e82d1a55adebeda00c32928ebc6004c3f266f"
+      "bytes": 17818,
+      "sha256": "fdab76e0f99c45745ff74b6fc0a024708ac8afc7f8b84092cd69f12f5b7bec58"
     },
     {
       "path": "tools/crm-qa/w2-editor.cjs",
