@@ -318,7 +318,7 @@ jobs:
       packages: write
     env:
       IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
-      PRODUCTION_EXPECT_MAIN_REVISION: 2b00a567ee82803fb6f93723f02b458b5f972dca
+      PRODUCTION_EXPECT_MAIN_REVISION: 52fe2dcd6e07f5ab1d1515141c3de5fe30b3aba8
       PRODUCTION_WEEKEND_NO_ANALYSTS: 2026-10-24/25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -435,8 +435,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 2b00a567ee82803fb6f93723f02b458b5f972dca
-          CRM_QA_EXPECT_MANIFEST: 6b187baaeac2e6b5fe3f3059213a28b3d161402704d3137edb968b2b15f36d88
+          CRM_QA_EXPECT_REVISION: 52fe2dcd6e07f5ab1d1515141c3de5fe30b3aba8
+          CRM_QA_EXPECT_MANIFEST: 8db42f8a5356a561fdf4e5c77058ad94780d5a5303eec741b4e3625fb4335b6e
         shell: bash
         run: |
           set -euo pipefail
@@ -446,8 +446,8 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
-          CRM_QA_EXPECT_REVISION: 2b00a567ee82803fb6f93723f02b458b5f972dca
-          CRM_QA_EXPECT_MANIFEST: 6b187baaeac2e6b5fe3f3059213a28b3d161402704d3137edb968b2b15f36d88
+          CRM_QA_EXPECT_REVISION: 52fe2dcd6e07f5ab1d1515141c3de5fe30b3aba8
+          CRM_QA_EXPECT_MANIFEST: 8db42f8a5356a561fdf4e5c77058ad94780d5a5303eec741b4e3625fb4335b6e
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
@@ -460,8 +460,8 @@ jobs:
       - name: Publish fixed tag and verify the existing gateway
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 2b00a567ee82803fb6f93723f02b458b5f972dca
-          CRM_QA_EXPECT_MANIFEST: 6b187baaeac2e6b5fe3f3059213a28b3d161402704d3137edb968b2b15f36d88
+          CRM_QA_EXPECT_REVISION: 52fe2dcd6e07f5ab1d1515141c3de5fe30b3aba8
+          CRM_QA_EXPECT_MANIFEST: 8db42f8a5356a561fdf4e5c77058ad94780d5a5303eec741b4e3625fb4335b6e
           GITHUB_TOKEN: ${{ github.token }}
           SHRIGMA_EASYPANEL_DEPLOY_URL: ${{ secrets.SHRIGMA_EASYPANEL_DEPLOY_URL }}
         run: node tools/production-release/publish-ci.cjs
