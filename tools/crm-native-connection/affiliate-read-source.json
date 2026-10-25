@@ -2265,8 +2265,8 @@
     },
     {
       "path": "services/dashboard-operational/wa-job-engine.cjs",
-      "bytes": 8185,
-      "sha256": "b28c49a7ebecbc5d9c1036d8b76e07117e3c00d65c5f6a8f675874719d8a81d9"
+      "bytes": 8505,
+      "sha256": "718857fc7576e1712e44c3ac8e426d73827ef60276a276aa7fb13538eb75f843"
     },
     {
       "path": "services/dashboard-operational/whatsapp-campaigns.cjs",
@@ -2280,8 +2280,8 @@
     },
     {
       "path": "services/dashboard-operational/whatsapp-queue.cjs",
-      "bytes": 15150,
-      "sha256": "bb1d60660a12985c9eca988702568373e6231c16c2e3c84b78538661da136bec"
+      "bytes": 16045,
+      "sha256": "f7fd17c687d782ecf62e575d85620230596d3eab1d94b08e054d2d986359dd7f"
     },
     {
       "path": "services/dashboard-operational/whatsapp-template-drafts.cjs",
@@ -3245,8 +3245,8 @@
     },
     {
       "path": "tests/whatsapp-message.test.cjs",
-      "bytes": 6413,
-      "sha256": "96ea90cf48c1e479a8762b47f3d7e7d69463ea45bb74eb060137b71b38b14c20"
+      "bytes": 7230,
+      "sha256": "064abdce42e0fccc1f704c21518134c9cecc40f5a7e30f274a65ef3cf3cd8676"
     },
     {
       "path": "tests/whatsapp-template-ui.test.cjs",
