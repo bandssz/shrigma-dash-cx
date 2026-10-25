@@ -982,6 +982,17 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});
         res.setHeader('Content-Type','text/javascript; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(require('./crm-paid-facts-ui.cjs').WORKSPACE_JS);return;
       }
+      if(url.pathname==='/api/crm-person'){
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='POST'||url.search)throw jsonError(404,'NOT_FOUND');
+        auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});
+        if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');
+        const input=await readJson(req,4096),value=await paidFacts.personRead(ctx,input);return sendJson(req,res,200,value);
+      }
+      if(['/app/crm/restrito/perfil/','/app/crm/restrito/perfil.js'].includes(url.pathname)){
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET'||url.search)throw jsonError(404,'NOT_FOUND');
+        const user=auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});const allowed=(user?.viewBrands||user?.brands||[]).filter(b=>['fish','aristo'].includes(b));if(!allowed.some(b=>{try{auth.personReadAuthority(ctx,b);return true;}catch{return false;}}))throw jsonError(403,'PERSON_QA_RELEASE_REQUIRED');
+        const ui=require('./crm-person-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'self'");res.end(js?ui.JS:ui.HTML);return;
+      }
       if(url.pathname==='/api/crm-purchases'){
         if(!paidFacts||host!==s.areaHosts.growth||nativeContext)throw jsonError(404,'NOT_FOUND');
         let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
