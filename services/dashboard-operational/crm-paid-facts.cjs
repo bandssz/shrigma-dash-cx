@@ -75,17 +75,25 @@ async function streamBackfill(res,work){
  catch(e){write({type:'error',error:/^PAID_[A-Z0-9_]+$/.test(e.code||'')?e.code:'PAID_FACTS_UPDATE_UNCONFIRMED'});}
  if(!res.destroyed)res.end();
 }
-function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,backupDirectory,queueDatabase,sourceRevision,refreshQueue}){
+
+// Counts are observed distinct people in the admitted event source, never Delivery.
+function engagementCount(value,{brand,id,uuid,from,to,kind}){
+ const integer=n=>Number.isSafeInteger(n)&&n>=0;
+ if(!value||value.schema!=='infra-behavior-native-counts-v2'||value.kind!==kind||value.brand!==brand||value.campaignId!==id||value.campaignUuid!==uuid||value.from!==from||value.to!==to||value.validInput!==true||value.campaignMatched!==true||value.status!=='observed'||!integer(value.nativeUniqueSubscribers)||!integer(value.nativeEventRows)||value.nativeEventRows<value.nativeUniqueSubscribers||value.nullSubscriberEventRows!==0||value.nonpositiveSubscriberEventRows!==0||value.unresolvedUniqueSubscribers!==0)return null;
+ return value.nativeUniqueSubscribers;
+}
+
+function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,backupDirectory,queueDatabase,sourceRevision,refreshQueue,campaignReader}){
  const tokens=new Map();let config;
  const cfg=()=>config||=(configuration(file));
  const authorize=(context,brand,write=false,workspace=false)=>{if(!BRANDS.includes(brand))fail('PAID_FACTS_BRAND_INVALID');const user=auth.authorizeBrand({...context,area:'growth',productFront:'growth',edit:false},brand);if(!workspace&&!canUse(user))fail('RESTRICTED_AREA_REQUIRED',403);if(write&&(user.permissions?.growth?.edit!==true||user.role!=='superadmin'&&!user.productWriteFronts?.includes('growth')))fail('PRODUCT_WRITE_DENIED',403);return user;};
  const authorizeAnalysis=(context,brand)=>{const user=authorize(context,brand,false,true);if(!canUse(user)&&(user.permissions?.growth?.edit!==true||!user.productWriteFronts?.includes('growth')))fail('ANALYSIS_EDITOR_REQUIRED',403);return user;};
  const analysisAuthorize=(context,brand,write=false)=>write?authorize(context,brand,true):authorizeAnalysis(context,brand);
- async function database(work,write=false){
+ async function database(work,write=false,repeatable=false){
   let client;try{
    const settings={...cfg().pg,application_name:'shrigma-paid-facts',connectionTimeoutMillis:3000,query_timeout:20000,statement_timeout:15000};
    if(clientFactory)client=clientFactory(settings);else{const manifest=JSON.parse(fs.readFileSync('/app/native-backend/manifest.json'));const {Client}=require('./native-pg-driver.cjs').loadPGDriver(manifest.pgDriverManifestSha256);client=new Client(settings);}
-   await client.connect();await client.query(write?"BEGIN; SET LOCAL statement_timeout='15s'; SET LOCAL lock_timeout='500ms'":"BEGIN TRANSACTION READ ONLY; SET LOCAL statement_timeout='15s'");const result=await work(client);await client.query(write?'COMMIT':'ROLLBACK');return result;
+   await client.connect();await client.query(write?"BEGIN; SET LOCAL statement_timeout='15s'; SET LOCAL lock_timeout='500ms'":repeatable?"BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL statement_timeout='15s'":"BEGIN TRANSACTION READ ONLY; SET LOCAL statement_timeout='15s'");const result=await work(client);await client.query(write?'COMMIT':'ROLLBACK');return result;
   }catch(e){if(client)await client.query('ROLLBACK').catch(()=>{});if(e.code&&/^[0-9A-Z]{5}$/.test(e.code))fail('PAID_FACTS_DATABASE_UNAVAILABLE',503);throw e;}finally{if(client)await client.end().catch(()=>{});}
  }
  async function token(brand){
@@ -159,9 +167,17 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
  const origin=require('./crm-paid-acquisition-service.cjs').create({authorize:analysisAuthorize,database,graphql:(brand,q,v)=>require('./crm-paid-acquisition.cjs').pacedRead(()=>graphql(brand,q,v,{withCost:true})),now,openBackup:brand=>require('./crm-paid-acquisition-backup.cjs').open(backupDirectory,brand),readBackup:(brand,name,offset)=>require('./crm-paid-acquisition-backup.cjs').read(backupDirectory,brand,name,offset)});
  const acquisitionBackup=async(context,brand,input)=>{authorize(context,brand);const result=await require('./crm-paid-acquisition-backup.cjs').read(backupDirectory,brand,input.name,input.offset??0);authorize(context,brand);return result;};
  const acquisitionBackupFile=(context,brand,input)=>require('./crm-paid-acquisition-backup.cjs').file(backupDirectory,brand,input.name,()=>authorize(context,brand));
+
+ async function engagement(context,brand,input={}){
+  authorizeAnalysis(context,brand);
+  if(typeof campaignReader!=='function'||typeof input.campaigns!=='string'||!(/^[1-9][0-9]{0,8}(?:,[1-9][0-9]{0,8}){0,19}$/).test(input.campaigns))fail('ENGAGEMENT_INPUT',400);
+  const ids=[...new Set(input.campaigns.split(',').map(Number))],owned=await campaignReader(context,brand,ids),asOf=new Date(now()).toISOString();authorizeAnalysis(context,brand);
+  const rows=await database(async client=>{const result=[];for(const id of ids){const c=owned.find(c=>c.id===id),created=Date.parse(c?.created_at||c?.started_at||''),uuid=c?.uuid;if(!c||typeof uuid!=='string'||!Number.isFinite(created)||created>=Date.parse(asOf)){result.push({campaignId:id,openedUnique:null,clickedUnique:null,reason:'Identidade ou início nativo não confirmado.'});continue;}const from=new Date(created).toISOString(),row={campaignId:id,openedUnique:null,clickedUnique:null,from,to:asOf,historicalCoverageProved:false,deliveryInferred:false};for(const kind of ['open','click']){const contract=require('./behavior-contracts.cjs')['behavior-'+kind+'-counts-v2'];const response=await client.query(contract.sql,[brand,id,uuid,from,asOf]),v=response.rows?.[0]?.behavior_counts;row[kind==='open'?'openedUnique':'clickedUnique']=engagementCount(v,{brand,id,uuid,from,to:asOf,kind});}if(row.openedUnique===null||row.clickedUnique===null)row.reason='Contagem nativa ou identidade não confirmada.';result.push(row);}return result;},false,true);authorizeAnalysis(context,brand);return {ok:true,brand,asOf,source:'native-distinct-events-v2',rows};
+ }
+
  const results=require('./crm-paid-results.cjs').create({authorize:analysisAuthorize,authorizeComparison:analysisAuthorize,database,now,coverage:brand=>store.coverage(brand)});
  async function home(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.results(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
  async function compareHome(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.compare(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
- return {ingest,status,publics,products,count,countSaved,resolveSaved,savedDefinition,freshSource,save,backfill,subscribe,subscriptions,authorize,authorizeAnalysis,acquisitionBackup,acquisitionBackupFile,...origin,...results,home,compareHome};
+ return {engagement,ingest,status,publics,products,count,countSaved,resolveSaved,savedDefinition,freshSource,save,backfill,subscribe,subscriptions,authorize,authorizeAnalysis,acquisitionBackup,acquisitionBackupFile,...origin,...results,home,compareHome};
 }
-module.exports={create,streamBackfill,canUse,fromGraphql,period,rule,audienceSql,UPSERT,ORDERS_QUERY,UPDATED_ORDERS_QUERY,ITEMS_QUERY,WEBHOOKS_QUERY,WEBHOOK_CREATE,WEBHOOK_DELETE};
+module.exports={engagementCount,create,streamBackfill,canUse,fromGraphql,period,rule,audienceSql,UPSERT,ORDERS_QUERY,UPDATED_ORDERS_QUERY,ITEMS_QUERY,WEBHOOKS_QUERY,WEBHOOK_CREATE,WEBHOOK_DELETE};
