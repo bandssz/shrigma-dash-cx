@@ -3345,8 +3345,8 @@
     },
     {
       "path": "tools/crm-qa/editor-findability.cjs",
-      "bytes": 2925,
-      "sha256": "c80b7cb66ca7c46fac021b61e11621dfba5895c5f9b5d3e439e9f34cb3d5c745"
+      "bytes": 3043,
+      "sha256": "02cd587f12ae6dc8a95362b4a6fca8f4d0dc9b37eeea95fad0b9b771514c687d"
     },
     {
       "path": "tools/crm-qa/editor-home.cjs",
