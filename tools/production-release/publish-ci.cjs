@@ -26,7 +26,7 @@ function inspect(tag){return JSON.parse(docker(['run','--rm','--platform','linux
 async function health(host){const r=await fetch('https://'+host+'/healthz',{redirect:'error',signal:AbortSignal.timeout(5000)});if(r.status!==200)throw Error('PRODUCTION_HEALTH_REFUSED');const text=await r.text();if(text.length>16384)throw Error('PRODUCTION_HEALTH_REFUSED');const j=JSON.parse(text);if(j.ok!==true||j.nativeMcp!==true||j.runtimeUid!==1000)throw Error('PRODUCTION_HEALTH_REFUSED');return j;}
 async function matches(contract){for(const host of HOSTS){const j=await health(host);if(j.nativeBackendManifestSha256!==contract.manifestSha256||j.journeyPresentationManifestSha256!==contract.presentationManifestSha256)return false;}return true;}
 async function currentHead({env=process.env,fetchImpl=fetch,wait,validate}={}){
- const candidate='codex/ui-campaigns-v47-20261025',branch=env.GITHUB_REF==='refs/heads/'+candidate;
+ const candidate='codex/results-funnel-v47-20261025',branch=env.GITHUB_REF==='refs/heads/'+candidate;
  if(env.GITHUB_REPOSITORY!=='bandssz/shrigma-dash-cx'||!env.GITHUB_TOKEN||!(/^[a-f0-9]{40}$/.test(env.GITHUB_SHA||''))||env.GITHUB_REF!=='refs/heads/main'&&!branch||branch&&!/^[a-f0-9]{40}$/.test(env.PRODUCTION_EXPECT_MAIN_REVISION||''))throw Error('PRODUCTION_SCOPE_REFUSED');
  const read=async(ref,sha)=>retryRead(async()=>{const r=await fetchImpl('https://api.github.com/repos/bandssz/shrigma-dash-cx/git/ref/heads/'+ref,{headers:{Authorization:'Bearer '+env.GITHUB_TOKEN,Accept:'application/vnd.github+json'},redirect:'error',signal:AbortSignal.timeout(10000)});if(r.status!==200||(await r.json()).object?.sha!==sha)throw Error('STALE_PUBLICATION_REFUSED');},{wait,validate});
  if(branch)await read(candidate,env.GITHUB_SHA);
