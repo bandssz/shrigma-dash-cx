@@ -3110,8 +3110,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 47520,
-      "sha256": "074b5f3bef8dcdc7edbdb41aab4831e8584f134e4ae636f998a94ce3ad0373c2"
+      "bytes": 47785,
+      "sha256": "3ccaaa7295d4a80e31e15136ee3f7e4484abd993edad42ab566105aaebaf67ed"
     },
     {
       "path": "tests/production-candidate-branch.test.cjs",
