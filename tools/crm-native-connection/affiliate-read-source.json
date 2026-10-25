@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 53838,
-      "sha256": "388c30f4cf9b348267ebfe060cfa5555359d8acf940a8d442fc6eeb5e855723a"
+      "bytes": 53891,
+      "sha256": "47e8e0d2aebcc7dd211719f6fe586296583ad9e732a317487e01f51501e96971"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -3440,8 +3440,8 @@
     },
     {
       "path": "tools/crm-qa/profile-read.cjs",
-      "bytes": 7117,
-      "sha256": "7a71074e7132da85426d56990cb96502e00e3c8cf359e7be12473d3db99916fb"
+      "bytes": 7121,
+      "sha256": "76c70d015f9ed29254e24c68e79ecfc34a2f16d95709e1c350a599a9b7fb82f9"
     },
     {
       "path": "tools/crm-qa/read-policy.cjs",

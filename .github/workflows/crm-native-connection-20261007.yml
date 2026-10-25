@@ -333,6 +333,7 @@ jobs:
         run: node tools/crm-native-connection/verify-affiliate-read-source.cjs
       - name: Install existing canonical compiler and verify actual source assets
         run: |
+          node --check tools/crm-qa/profile-read.cjs
           npm ci --prefix tools/campaign-runtime-build --ignore-scripts --no-audit --no-fund
           node tools/dashboard-campaign-ui-build.cjs --check
           node tools/dashboard-model-piece-build.cjs --check
