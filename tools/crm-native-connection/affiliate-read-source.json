@@ -435,8 +435,8 @@
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/Dockerfile",
-      "bytes": 12742,
-      "sha256": "331874fadc41045aa75e92ce462a52fec0df7ed42ba74f7773503ca071fdf8c7"
+      "bytes": 12960,
+      "sha256": "a4861f6b4f12e770c84ff8ef948c26b5a97f2305054c53be9422ac4806f46b6b"
     },
     {
       "path": "ops/releases/crm-native-connection-20261007/health-existing.cjs",
