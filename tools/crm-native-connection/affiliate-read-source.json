@@ -2070,8 +2070,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 116268,
-      "sha256": "3614e6fc52b6956885d5e3f86aa9c8922a3e8570010eee1a183692a9feace32c"
+      "bytes": 116398,
+      "sha256": "cedfe7be2e61ac27577314b8d0f06da45e1a81f3dfe358e22e388709fe1b33d8"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
