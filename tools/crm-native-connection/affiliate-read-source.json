@@ -2230,8 +2230,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 252238,
-      "sha256": "646c0415d3e654f7c2f3c4cef8d3e1d9c38698317ad5e360aa676d770bde4b37"
+      "bytes": 252276,
+      "sha256": "8dd2bfa00dd86466c891ec230271c38e5a9478701ecb191cdc64a61edd3f4d30"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
