@@ -9,7 +9,12 @@ function fixture(rows,{coverage=null,queryHook=()=>{},authorize=()=>{},authorize
 }
 test('comparison uses two adjacent Brasilia windows, one snapshot and one currency',async()=>{
  const f=fixture([row('2026-10-22T03:00:00.000Z','10.00'),row('2026-10-22T02:59:59.999Z','5.00'),row('2026-10-23T03:00:00.000Z','99.00')]);
- const v=await f.reader.compare({},'fish',{preset:'today'});a.equal(v.totals.revenueCents,'1000');a.equal(v.comparison.totals.revenueCents,'500');a.equal(v.period.from,'2026-10-22T03:00:00.000Z');a.equal(v.comparison.period.until,v.period.from);a.equal(f.transactions,1);a.match(f.calls[0].sql,/REPEATABLE READ/);a.equal(f.calls.filter(x=>x.sql===M.SELECT).length,3);a.equal(v.trend30.series.length,30);a.deepEqual(v.trend30.calendar,{ini:'2026-09-23',fim:'2026-10-22'});a.equal(v.comparison.currency,'BRL');
+ const v=await f.reader.compare({},'fish',{preset:'today'});a.equal(v.totals.revenueCents,'1000');a.equal(v.comparison.totals.revenueCents,'500');a.equal(v.period.from,'2026-10-22T03:00:00.000Z');a.equal(v.comparison.period.until,v.period.from);a.equal(f.transactions,1);a.match(f.calls[0].sql,/REPEATABLE READ/);a.equal(f.calls.filter(x=>x.sql===M.SELECT).length,2);a.equal(v.trend30,null);a.equal(v.comparison.currency,'BRL');
+});
+test('thirty-day trend reuses existing facts and never delays a historical comparison with another read',async()=>{
+ const rows=[row('2026-10-22T04:00:00.000Z'),row('2026-09-24T04:00:00.000Z')];
+ for(const input of [{preset:'last30'},{preset:'custom',ini:'2026-09-01',fim:'2026-10-22'}]){const f=fixture(rows),v=await f.reader.compare({},'fish',input);a.equal(f.calls.filter(x=>x.sql===M.SELECT).length,2);a.equal(v.trend30.series.length,30);a.deepEqual(v.trend30.calendar,{ini:'2026-09-23',fim:'2026-10-22'});a.equal(v.trend30.series.at(-1).revenueCents,'1000');a.equal(f.calls.some(x=>/SAVEPOINT/.test(x.sql)),false);}
+ const f=fixture([row('2026-10-14T04:00:00.000Z')]),v=await f.reader.compare({},'fish',{preset:'custom',ini:'2026-09-20',fim:'2026-10-19'});a.equal(v.totals.revenueCents,'1000');a.equal(v.trend30,null);a.equal(f.calls.filter(x=>x.sql===M.SELECT).length,2);
 });
 test('existing calendar handles week and clamped February while custom ranges remain validated',()=>{
  const p=M.comparisonCalendar({preset:'month'},Date.parse('2026-03-31T15:00:00Z'));a.equal(p.previous.fim,'2026-02-28');a.equal(p.previous.clamped,true);
