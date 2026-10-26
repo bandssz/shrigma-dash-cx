@@ -191,9 +191,9 @@ function createDirect({authorize,admitted,credentials,fetchImpl=fetch,now=Date.n
   }
   if(action==='campanha_listar'){
    await currentScope();
-   const data=await request(brand,'GET','/campaigns?no_body=true&per_page=100&page='+Math.max(1,Number(q.page)||1));
+   const data=await request(brand,'GET','/campaigns?no_body='+(q.include_content===true?'false':'true')+'&per_page=100&page='+Math.max(1,Number(q.page)||1));
    const rows=Array.isArray(data)?data:data.results;if(!Array.isArray(rows))throw error(502,'LISTMONK_RESPONSE_UNCONFIRMED');
-   const campaigns=[];for(const row of rows)try{campaigns.push(campaign(row,brand,scope));}catch(e){if(e.code!=='CAMPAIGN_BRAND_REFUSED')throw e;}
+   const campaigns=[];for(const row of rows)try{campaigns.push(q.include_content===true?{...campaign(row,brand,scope),contentConfirmed:typeof row.body==='string'}:campaign(row,brand,scope));}catch(e){if(e.code!=='CAMPAIGN_BRAND_REFUSED')throw e;}
    const page=Math.max(1,Number(q.page)||1),total=Array.isArray(data)?data.length:data.total;
    return {status:200,body:{campaigns:dynamicAudience?await dynamicAudience.decorateMany(context,brand,campaigns):campaigns,total,page,has_more:!Array.isArray(data)&&page*100<total}};
   }
