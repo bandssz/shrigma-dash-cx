@@ -3,6 +3,14 @@
 BEGIN;
 SET LOCAL lock_timeout='500ms';
 SET LOCAL statement_timeout='20s';
+-- The raw candidate is deliberately not an operational installer. Only the
+-- short-lived, baseline-pinned plan may set this transaction-local marker.
+DO $sealed_only$
+BEGIN
+ IF coalesce(current_setting('shrigma.rfm.install_guard',true),'') !~ '^[0-9a-f]{64}$' THEN
+  RAISE EXCEPTION 'RFM_INSTALL_COMPILER_REQUIRED';
+ END IF;
+END $sealed_only$;
 DO $guard$
 BEGIN
  IF current_user<>'postgres' OR session_user<>'postgres' OR current_setting('server_version_num')::integer<170000 THEN RAISE EXCEPTION 'RFM_INSTALL_CONTEXT'; END IF;

@@ -2,6 +2,7 @@
 process.env.CRM_AUDIENCE_SHOPIFY_PRODUCT_SEMANTICS='v2';
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{Pool}=require('pg');
 const {setupRecordedNativeV2}=require('./segment-recorded-origin-fixture.cjs'),{fixture,replaceOrders}=require('./segment-shopify-rfm-evidence-fixture.cjs');
+const {installNative}=require('./segment-shopify-rfm-install-fixture.cjs');
 const {createWorker}=require('../services/crm-shopify-sync/worker.cjs'),Store=require('../n8n/growth/segment-audience-store.cjs'),Counter=require('../n8n/growth/segment-audience-listmonk.cjs');
 const uri=process.env.TEST_DATABASE_URL,u=new URL(uri||'http://invalid');
 if(process.env.RFM_NATIVE_TEST_ISOLATED!=='1'||u.protocol!=='postgresql:'||u.hostname!=='127.0.0.1'||!u.port||u.port==='5432'||u.pathname!=='/listmonk')throw Error('ISOLATED_DATABASE_REQUIRED');
@@ -11,7 +12,7 @@ const rule={op:'condition',field:'relationship.rfm',operator:'is',value:'leal'};
 async function main(){let api,sync,temp;
  try{
   assert.equal((await db.query("SELECT current_setting('server_version_num') version")).rows[0].version,'170010');
-  const native=await setupRecordedNativeV2(db);await db.exec(fs.readFileSync(path.join(__dirname,'../n8n/growth/segment-shopify-rfm.sql'),'utf8'));
+  const native=await setupRecordedNativeV2(db);await installNative(db);
   await db.exec('ALTER ROLE crm_audience_api LOGIN;ALTER ROLE crm_shopify_sync LOGIN');
   const roleUrl=role=>{const url=new URL(uri);url.username=role;return url.href;};
   api=new Pool({connectionString:roleUrl('crm_audience_api'),max:2});sync=new Pool({connectionString:roleUrl('crm_shopify_sync'),max:2});

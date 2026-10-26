@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {PGlite}=require(process.env.CAMPAIGN_PGLITE_MODULE||'../../growth-test-tools/node_modules/@electric-sql/pglite');
 const {setupRecordedComponent}=require('./segment-recorded-origin-fixture.cjs');
+const {componentSql}=require('./segment-shopify-rfm-install-fixture.cjs');
 const R=require('../n8n/growth/segment-shopify-rfm.cjs'),read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8'),H='a'.repeat(64);
 const Store=require('../n8n/growth/segment-audience-store.cjs');
 const emailDigest=email=>email===null?null:crypto.createHash('sha256').update(email).digest('hex');
@@ -12,7 +13,7 @@ function provenance(p){return {brand:p.brand,shop_id:p.shop_id,operation_id:p.op
 async function setup(t){
  const db=new PGlite();t.after(()=>db.close());await setupRecordedComponent(db);
  await db.exec('CREATE ROLE crm_shopify_sync NOLOGIN NOINHERIT');
- await db.exec(read('n8n/growth/segment-shopify-rfm.sql'));return db;
+ await db.exec(componentSql());return db;
 }
 test('PostgreSQL source stays OFF until exact two-Bulk evidence, then count and selection share NULL-safe facts',async t=>{
  const db=await setup(t),p=meta(),pin=R.sourceHash(provenance(p));
