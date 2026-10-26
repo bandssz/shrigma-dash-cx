@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 54140,
-      "sha256": "b5cdbed3e5661fbede28c1f4f2568750cba65cc5e2bad278a822e0fd184871a4"
+      "bytes": 54131,
+      "sha256": "cbe5c2efb996a750b3ba4eb62181812099efdd415cb8d5929b998f574729f91a"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1795,8 +1795,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-results.cjs",
-      "bytes": 20233,
-      "sha256": "7117dc2981fc5f0af550098cb03b11bd0418021da1d350044c4789a43c464f5d"
+      "bytes": 21403,
+      "sha256": "1cf7f1e62f443c06ad5dabff8f1670116638972ae720ebc53d67981d813fd42d"
     },
     {
       "path": "services/dashboard-operational/crm-payload-shape.cjs",
@@ -2085,18 +2085,18 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-performance.js",
-      "bytes": 23431,
-      "sha256": "76247f2e52cfb5f84c584d8f0bacb4cc8e021cdb74772cf182fe9b12976c7de2"
+      "bytes": 29352,
+      "sha256": "246a9585e7f96b2b3ee1400641c11005506abd9c7e13d44ae1397fab628e70a8"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/crm-performance.js",
-      "bytes": 23692,
-      "sha256": "cd57143a445bdb775414192a8de0883eed41aed8f885778749513461ea2a7256"
+      "bytes": 27194,
+      "sha256": "c46ac32430b1273a564122ae84538effb9250fdf398ec83f791b238d679ad492"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/crm-shell.js",
-      "bytes": 15685,
-      "sha256": "a8c2eaf8b457397ca3da7f935ed38fb1a8d923fb3f3a1fa692e0d4e30d2db637"
+      "bytes": 15735,
+      "sha256": "62622f5034e3de3e4f7b850353069e22d00af18878fc2e6d878ab24a24b4ae69"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/drafts.js",
@@ -2430,8 +2430,8 @@
     },
     {
       "path": "tests/campaign-performance-ui.test.cjs",
-      "bytes": 7297,
-      "sha256": "5cd9eaab4364f3f6e368efe1ef1981584a2a3b53fc2a8b684c7d6da3a4d96188"
+      "bytes": 9633,
+      "sha256": "2dbf3a318eecfcae34850b313c6409f83424b8862dfd395aa1052ce3e21e9799"
     },
     {
       "path": "tests/campaign-performance.test.cjs",
@@ -2800,8 +2800,8 @@
     },
     {
       "path": "tests/crm-shell-navigation.test.cjs",
-      "bytes": 7593,
-      "sha256": "9cf23839ea39d43e65c7847ba7dd5c65b54c230dc0b302571439a7970ae4ba87"
+      "bytes": 8222,
+      "sha256": "7c62c2f3785365fbf5e07780593c8577e1e9067052fad51b4e18ebf5d286fec8"
     },
     {
       "path": "tests/crm-source-timing-gateway.test.cjs",
@@ -2827,6 +2827,11 @@
       "path": "tests/crm-ui-independent.test.cjs",
       "bytes": 25524,
       "sha256": "fe5e1f3a00601e32dd50f45a27ea6ffa6eb3aae58c3d1b85655d472e1b5621bc"
+    },
+    {
+      "path": "tests/crm-utm-performance.test.cjs",
+      "bytes": 4631,
+      "sha256": "340117e24376b016b206bbfcf05f6c08aa3fe969c341950c40412f592254e255"
     },
     {
       "path": "tests/crm-visual-trend.test.cjs",
@@ -3201,7 +3206,7 @@
     {
       "path": "tests/production-candidate-branch.test.cjs",
       "bytes": 2322,
-      "sha256": "144b9f8412aa7326a4a950295e0ca3898284dd1174f834b965b4de6a47d7aa6a"
+      "sha256": "f04dc6aa79837df9876160905f3999ad44a6be6fca82b47e88c3ee61c2266b9e"
     },
     {
       "path": "tests/production-envelope.test.cjs",
@@ -3395,8 +3400,8 @@
     },
     {
       "path": "tools/crm-qa/editor-findability.cjs",
-      "bytes": 3043,
-      "sha256": "02cd587f12ae6dc8a95362b4a6fca8f4d0dc9b37eeea95fad0b9b771514c687d"
+      "bytes": 3302,
+      "sha256": "dbcbbbf7bb75952654795ea96629f624e02e833f370ae47b3fb6b88a88aa3002"
     },
     {
       "path": "tools/crm-qa/editor-home.cjs",
@@ -3631,7 +3636,7 @@
     {
       "path": "tools/production-release/publish-ci.cjs",
       "bytes": 15924,
-      "sha256": "46dcfeaff776373a29e51e51e503694ba337bfff0b25b87db75b11c7e1bdaeb8"
+      "sha256": "0d782eec550b4debf1f7bb0123a011ec67eb0ff85283d0c1b33bd82eac045b25"
     },
     {
       "path": "tools/production-release/read-retry.cjs",
