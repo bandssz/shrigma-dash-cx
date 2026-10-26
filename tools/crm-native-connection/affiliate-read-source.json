@@ -1755,8 +1755,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-comparison-ui.cjs",
-      "bytes": 18760,
-      "sha256": "bad94fc13b91c0821358ad9adef557a2a856b54531f4a794e9d2daa4319b6b2e"
+      "bytes": 18958,
+      "sha256": "b4ba4d30df67f8db42cb1da23e46a28624da883c6415ecba902e35b17fc61413"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-store.cjs",
@@ -2070,8 +2070,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 117347,
-      "sha256": "c9b88ed4941d39d20dc9f03cd15e98a650dd085d77a444ca09dda75f9a829138"
+      "bytes": 117450,
+      "sha256": "c303cd23b44b5bee23c178073f8e9f5892076c92e797f50ca28fe1ed6155ae55"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
@@ -2085,8 +2085,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/crm-performance.js",
-      "bytes": 21575,
-      "sha256": "bbdfde156ed66a2a4eb0de86e1434d2a5b113af5c3c20f35cfd3f5d9fbc2c8b4"
+      "bytes": 21981,
+      "sha256": "0ad17b40727966e612486aa797d65d8371241074d9d9d7baeb9a2468abfefd92"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/crm-shell.js",
@@ -2625,8 +2625,8 @@
     },
     {
       "path": "tests/crm-client-session-lazy19.test.cjs",
-      "bytes": 8197,
-      "sha256": "1a5127a236d577878f8321530cb537b023eb5a1641474b2b10a612329703f48e"
+      "bytes": 8400,
+      "sha256": "a2fdaeaa503e35c44c792aa4785e331ba816a250385528f10710762e3faa6b32"
     },
     {
       "path": "tests/crm-editorial-admission.test.cjs",
@@ -3170,8 +3170,8 @@
     },
     {
       "path": "tests/product-preview-expansion.test.cjs",
-      "bytes": 48588,
-      "sha256": "c8bc11a7bf1e13e869fdbcda3ea7b4d61973c8dc13bf053014b622b83f88076e"
+      "bytes": 48770,
+      "sha256": "87abf3b87835e65f8b0c1b47cc5cdc729553b52241bcca3171c9838b59a21341"
     },
     {
       "path": "tests/production-candidate-branch.test.cjs",
@@ -3240,8 +3240,8 @@
     },
     {
       "path": "tests/simple-crm-service-draft.test.cjs",
-      "bytes": 72951,
-      "sha256": "ed5acdfc78a8adcf05985ad9b24b7b2c5a2cea4075b66d642921729cdb7bb701"
+      "bytes": 73158,
+      "sha256": "4a0f9777c98bf3deec2edbba54de0514611ab75a6a9f9115f7eb94445fd2c3e2"
     },
     {
       "path": "tests/simple-login-accounts.test.cjs",
@@ -3260,8 +3260,8 @@
     },
     {
       "path": "tests/simple-tabler-read.test.cjs",
-      "bytes": 33566,
-      "sha256": "be00567c53940aad718f4c6dbedd6934ed11201a637262ee27d5f065144ea389"
+      "bytes": 33726,
+      "sha256": "4c3c835763c96597737026c54268fbc7eb650819888d3cdcf50497287fdb0e59"
     },
     {
       "path": "tests/simple-tts-manual.test.cjs",
