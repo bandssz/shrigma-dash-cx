@@ -3475,8 +3475,8 @@
     },
     {
       "path": "tools/crm-qa/w2-editor.cjs",
-      "bytes": 10495,
-      "sha256": "0b582bcd014dc5f91ae45dc1468d482fdc9691241b1560ce173489c84edbbc0b"
+      "bytes": 10616,
+      "sha256": "fb749cbd748b039a51c6aa911622d7c3e07eb048f6d4fc08da36fa9b6ddba570"
     },
     {
       "path": "tools/dashboard-campaign-ui-build.cjs",
