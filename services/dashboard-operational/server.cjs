@@ -727,7 +727,7 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
   const maintenanceNotice=s.simpleReadMode===true?auth.maintenanceNoticeStore?.():null;
   const productIssues=s.simpleReadMode===true?auth.productIssueStore?.():null;
   const waCampaigns=s.paidFactsFile&&s.crmNativeEnabled===true?require('./whatsapp-campaigns.cjs').create({auth,file:s.paidFactsFile,sourceRevision:s.crmNativeSourceRevision}):null;
-  const paidFacts=s.paidFactsFile?require('./crm-paid-facts.cjs').create({file:s.paidFactsFile,auth,store:auth.restrictedPurchaseStore(),fetchImpl,backupDirectory:path.join(path.dirname(s.dbPath),'paid-acquisition-backups'),queueDatabase:waCampaigns?.queueDatabase,sourceRevision:s.crmNativeSourceRevision,campaignReader:async(context,brand,ids)=>{if(!directCampaigns)throw jsonError(503,'NATIVE_CAMPAIGNS_UNAVAILABLE');const rows=[];for(let page=1;page<=20;page++){const r=await directCampaigns.handle(context,'GET',{acao:'campanha_listar',brand,page});if(r.status!==200)throw jsonError(503,'NATIVE_CAMPAIGNS_UNAVAILABLE');rows.push(...r.body.campaigns);if(ids.every(id=>rows.some(c=>c.id===id))||!r.body.has_more)return rows;}throw jsonError(503,'NATIVE_CAMPAIGNS_INCOMPLETE');}}):null;
+  const paidFacts=s.paidFactsFile?require('./crm-paid-facts.cjs').create({file:s.paidFactsFile,auth,store:auth.restrictedPurchaseStore(),fetchImpl,backupDirectory:path.join(path.dirname(s.dbPath),'paid-acquisition-backups'),queueDatabase:waCampaigns?.queueDatabase,sourceRevision:s.crmNativeSourceRevision,campaignReader:async(context,brand,ids)=>{if(!directCampaigns)throw jsonError(503,'NATIVE_CAMPAIGNS_UNAVAILABLE');const rows=[];for(let page=1;page<=20;page++){const r=await directCampaigns.handle(context,'GET',{acao:'campanha_listar',brand,page});if(r.status!==200)throw jsonError(503,'NATIVE_CAMPAIGNS_UNAVAILABLE');rows.push(...r.body.campaigns);if(ids.every(id=>rows.some(c=>c.id===id))||!r.body.has_more)return rows;}throw jsonError(503,'NATIVE_CAMPAIGNS_INCOMPLETE');},listCatalog:async(context,brand)=>{if(!directCampaigns)throw jsonError(503,'COMBINED_CATALOG_UNAVAILABLE');const r=await directCampaigns.handle(context,'GET',{acao:'campanha_catalogo',brand});if(r.status!==200)throw jsonError(503,'COMBINED_CATALOG_UNAVAILABLE');return r.body;}}):null;
   const simpleModels=simpleReader?auth.simpleModelsFactory?.({fetchImpl}):null;
   const simpleCampaignTests=simpleReader?auth.simpleCampaignTestFactory?.({fetchImpl}):null;
   const simpleCampaignAudiences=simpleReader?auth.simpleCampaignAudienceFactory?.({fetchImpl}):null;
@@ -981,6 +981,17 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
         if(!paidFacts||host!==s.areaHosts.growth||nativeContext||req.method!=='GET'||url.search)throw jsonError(404,'NOT_FOUND');
         auth.authorize({...ctx,area:'growth',productFront:'growth',edit:false});
         res.setHeader('Content-Type','text/javascript; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(require('./crm-paid-facts-ui.cjs').WORKSPACE_JS);return;
+      }
+      if(['/api/crm-combined','/app/crm/restrito/publicos-combinados/','/app/crm/restrito/publicos-combinados.js'].includes(url.pathname)){
+        if(!paidFacts||host!==s.areaHosts.growth||nativeContext)throw jsonError(404,'NOT_FOUND');
+        if(url.pathname!=='/api/crm-combined'){
+          if(req.method!=='GET')throw jsonError(405,'METHOD_DENIED');const session=auth.session(ctx);if(!session.authenticated||!require('./crm-paid-facts.cjs').canUse(session.user))throw jsonError(403,'RESTRICTED_AREA_REQUIRED');
+          const ui=require('./crm-combined-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");return res.end(js?ui.JS:require('./product-issues-ui.cjs').decorate(ui.HTML));
+        }
+        const q=req.method==='GET'?Object.fromEntries(url.searchParams):req.method==='POST'?await readJson(req,32768):null;if(!q)throw jsonError(405,'METHOD_DENIED');paidFacts.authorize(ctx,q.brand,req.method==='POST'&&q.action==='save');
+        const keys={catalog:'action,brand',count:'action,brand,definition',compareList:'action,brand,definition,listId',save:q.id?'action,brand,definition,definitionHash,expectedUpdatedAt,id,name':'action,brand,definition,definitionHash,name'};
+        if(!keys[q.action]||Object.keys(q).sort().join()!==keys[q.action]||req.method!==(q.action==='catalog'?'GET':'POST'))throw jsonError(400,'COMBINED_INPUT_INVALID');
+        return sendJson(req,res,200,await paidFacts.combined[q.action](ctx,q.brand,q));
       }
       if(url.pathname==='/api/crm-purchases'){
         if(!paidFacts||host!==s.areaHosts.growth||nativeContext)throw jsonError(404,'NOT_FOUND');
