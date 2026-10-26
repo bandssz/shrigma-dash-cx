@@ -2070,8 +2070,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 117256,
-      "sha256": "96b970107b23b31b823e39fe2a251a60c2d381fda8ae9da0a1fad85630eb05a3"
+      "bytes": 117347,
+      "sha256": "c9b88ed4941d39d20dc9f03cd15e98a650dd085d77a444ca09dda75f9a829138"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
@@ -2650,8 +2650,8 @@
     },
     {
       "path": "tests/crm-firm-numbers.test.cjs",
-      "bytes": 3484,
-      "sha256": "b88cc83058f0ee7b8275c48fbad0f262fa4d7c2b7dab6306ae9898db32e76613"
+      "bytes": 4431,
+      "sha256": "63ad1f819785c01dcb4c2936004d6c2b3b944263c92bf918f3669d1ded659837"
     },
     {
       "path": "tests/crm-freeze-scale20.test.cjs",
