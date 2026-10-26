@@ -49,6 +49,17 @@ function guardFixture(user,{status=200,body={ok:true},simpleRead=false,sessionPe
  return {...d,calls,requests,messages,events,window};
 }
 
+test('compiled guard admits exact paid-fact reads and keeps nested writes and foreign scope closed',async()=>{
+ for(const brand of ['fish','aristo']){
+  const f=guardFixture(manager(brand),{simpleRead:true}),base='/api/crm-restricted/compras?',results=base+new URLSearchParams({action:'compare-results',brand,preset:'last30',ini:'2026-09-26',fim:'2026-10-25',currency:'BRL',campaigns:''}),engagement=base+new URLSearchParams({action:'engagement',brand,campaigns:'12,13'});
+  for(const address of [results,engagement])assert.equal((await f.window.fetch(address)).status,200);
+  const reads=()=>f.requests.filter(x=>new URL(x.url,'https://crm.synthetic.invalid').pathname==='/api/crm-restricted/compras');assert.equal(reads().length,2);for(const read of reads()){assert.equal(read.options.method,'GET');assert.equal(new Headers(read.options.headers).get('X-Shrigma-View-Brand'),brand);assert.equal(new Headers(read.options.headers).has('authorization'),false);}
+  for(const method of ['POST','PUT','PATCH','DELETE','HEAD'])assert.equal((await f.window.fetch(results,{method,body:'{}'})).status,405);
+  for(const address of [results+'&brand='+brand,results+'&extra=1',results+'#x',results.replace('compare-results','backfill'),engagement.replace('12%2C13','12%3BSELECT'),engagement.replace('12%2C13',Array.from({length:21},(_,i)=>i+1).join(','))])assert.equal((await f.window.fetch(address)).status,400);
+  assert.equal((await f.window.fetch(engagement.replace('brand='+brand,'brand='+(brand==='fish'?'aristo':'fish')))).status,403);assert.equal(reads().length,2);
+ }
+});
+
 test('guard applies own-brand UI before API response, master retains Consolidada and Olivas; missing grant never reaches API',async()=>{
  for(const brand of ['fish','aristo']){const f=guardFixture(manager(brand));assert.equal((await f.window.fetch('/api/cx?painel=growth')).status,200);assert.deepEqual([...f.document.querySelectorAll('#seg-marca button')].map(b=>b.dataset.marca),[brand]);assert.equal(f.document.querySelector('button').disabled,true);assert.equal(f.events[0].detail.brand,brand);assert.equal(f.calls.length,2);}
  const all=guardFixture(master);assert.equal((await all.window.fetch('/api/cx?painel=growth')).status,200);assert.equal(all.document.querySelectorAll('button').length,4);assert.equal(all.document.querySelector('[data-marca="olivas"]').disabled,false);
