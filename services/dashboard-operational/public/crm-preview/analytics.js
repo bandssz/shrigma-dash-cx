@@ -11,7 +11,7 @@ require('./model-library.js');
 require('./model-import.js');
 require('./campaign-import.js');
 require('./message-preview.js');
-window.ShrigmaCrmJourneys=require('./journeys-observed.js');
+if(typeof window!=='undefined')window.ShrigmaCrmJourneys=require('./journeys-observed.js');
 require('./whatsapp-template-ui.js');
 require('./whatsapp-campaign-ui.js');
 const Analytics=(()=>{
