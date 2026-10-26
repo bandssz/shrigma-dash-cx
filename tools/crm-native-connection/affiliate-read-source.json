@@ -2625,8 +2625,8 @@
     },
     {
       "path": "tests/crm-campaign-facts-read.test.cjs",
-      "bytes": 2328,
-      "sha256": "d7d5773458781b40d24b9be4dbbfde00103ae43d7c4138df3ad77fff4215b921"
+      "bytes": 2966,
+      "sha256": "d0534ffb64e9008e74de3191e488912ab8e97d31955f70fc65f892e1c5c623d2"
     },
     {
       "path": "tests/crm-campaign-identity.test.cjs",
