@@ -35,8 +35,8 @@
     },
     {
       "path": ".github/workflows/crm-native-connection-20261007.yml",
-      "bytes": 54130,
-      "sha256": "e43e19c8d0741ceb75a317a80d12a613f143731dd94aee53446dd9463288477c"
+      "bytes": 54140,
+      "sha256": "b5cdbed3e5661fbede28c1f4f2568750cba65cc5e2bad278a822e0fd184871a4"
     },
     {
       "path": ".github/workflows/crm-native-night-20261018.yml",
@@ -1760,8 +1760,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-comparison-ui.cjs",
-      "bytes": 20034,
-      "sha256": "7e59da6e1c8a688bcda425c4b3413bd07f1687e256db43457051173997da74e3"
+      "bytes": 20093,
+      "sha256": "b6dcf3cd11a14c008b27f4b421a99209bec1824389dd87eea0ed6f4604aefcfd"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-store.cjs",
@@ -1780,8 +1780,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
-      "bytes": 15891,
-      "sha256": "34383d112ee6ddb1400d8ffce6bf52258cb91a88e00de3f465f264e16400337d"
+      "bytes": 16267,
+      "sha256": "77b41e9a8637104ddf29a7d8b86bf7e14f9b142c4b83297dee52a3e8abab8dc9"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-ui.cjs",
@@ -2105,8 +2105,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/guide.html",
-      "bytes": 55465,
-      "sha256": "b3ef2a33dc9fc709995b93906c4647f9dc0fb282a05d8b1dabf92f9f5afa4223"
+      "bytes": 55694,
+      "sha256": "f21009d530c86327b83543d756cee713812a51671d3ef46ea5c7ef152485a175"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/home.js",
@@ -3200,8 +3200,8 @@
     },
     {
       "path": "tests/production-candidate-branch.test.cjs",
-      "bytes": 2317,
-      "sha256": "8df7543628630c5284eecdaaa665daac6ae326afee0b18f242b232452a4a72bf"
+      "bytes": 2322,
+      "sha256": "144b9f8412aa7326a4a950295e0ca3898284dd1174f834b965b4de6a47d7aa6a"
     },
     {
       "path": "tests/production-envelope.test.cjs",
@@ -3630,8 +3630,8 @@
     },
     {
       "path": "tools/production-release/publish-ci.cjs",
-      "bytes": 15919,
-      "sha256": "a7f198538a2eb3ab19f76335ad1916a974f88f08ad5d04741ade7dc011bb53db"
+      "bytes": 15924,
+      "sha256": "46dcfeaff776373a29e51e51e503694ba337bfff0b25b87db75b11c7e1bdaeb8"
     },
     {
       "path": "tools/production-release/read-retry.cjs",
