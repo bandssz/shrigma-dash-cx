@@ -3520,8 +3520,8 @@
     },
     {
       "path": "tools/crm-qa/permissions.cjs",
-      "bytes": 5766,
-      "sha256": "d735d34e94c82fe5039bbf78969e7c6faf8b1732d1961c862f18b39a07ec20ae"
+      "bytes": 5929,
+      "sha256": "cf3ba2f6e675c714861120fe242cd6459275455f5e6beb7b5648b8039f071b7a"
     },
     {
       "path": "tools/crm-qa/read-policy.cjs",
