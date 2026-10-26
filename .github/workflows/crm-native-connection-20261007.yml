@@ -1,7 +1,7 @@
 name: Shrigma native CRM connection
 'on':
   push:
-    branches: [main, codex/c-v51-20261025]
+    branches: [main, codex/v54-numbers-20261026]
 permissions:
   contents: read
 concurrency:
@@ -310,7 +310,7 @@ jobs:
     concurrency:
       group: shrigma-gateway-production
       cancel-in-progress: false
-    if: github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/c-v51-20261025' && startsWith(github.event.head_commit.message, 'affiliate-read:')
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/v54-numbers-20261026' && startsWith(github.event.head_commit.message, 'affiliate-read:')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -318,7 +318,7 @@ jobs:
       packages: write
     env:
       IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
-      PRODUCTION_EXPECT_MAIN_REVISION: e11f8f73fec64b52669a5bce4c855a58fef910c1
+      PRODUCTION_EXPECT_MAIN_REVISION: 2185517bb172f86a478ecac12fe1f5dc7a9a27a2
       PRODUCTION_WEEKEND_NO_ANALYSTS: 2026-10-24/25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -396,7 +396,7 @@ jobs:
       - name: Prove restricted metadata return over real HTTP and PostgreSQL17
         run: PAID_RESTORE_TEST_IMAGE="$IMAGE:source-$GITHUB_SHA" node tools/crm-qa/paid-acquisition-restore-sql.cjs
       - name: Prove restricted paid-order admission in the actual image
-        run: docker run --rm --network none --read-only --user 1000:1000 --memory 256m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/shopify-paid-order.test.cjs /source/tests/crm-paid-facts.test.cjs /source/tests/crm-campaign-facts-read.test.cjs /source/tests/crm-paid-acquisition.test.cjs /source/tests/crm-paid-results.test.cjs /source/tests/crm-paid-comparison.test.cjs
+        run: docker run --rm --network none --read-only --user 1000:1000 --memory 256m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --env PAID_FACTS_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/shopify-paid-order.test.cjs /source/tests/crm-paid-facts.test.cjs /source/tests/crm-campaign-facts-read.test.cjs /source/tests/crm-firm-numbers.test.cjs /source/tests/crm-paid-acquisition.test.cjs /source/tests/crm-paid-results.test.cjs /source/tests/crm-paid-comparison.test.cjs
       - name: Prove Master delegation and compiled four-front signup in Node22 UID1000
         shell: bash
         run: |
@@ -437,8 +437,8 @@ jobs:
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: e11f8f73fec64b52669a5bce4c855a58fef910c1
-          CRM_QA_EXPECT_MANIFEST: ba0e7fad978a436b99e38c060299a00938f1da10ba60e4952106e03559f67535
+          CRM_QA_EXPECT_REVISION: 2185517bb172f86a478ecac12fe1f5dc7a9a27a2
+          CRM_QA_EXPECT_MANIFEST: 8327a410c5f00ad603a23ed9b1d98f49f4a55b09dee34914778a464a11cbf67c
         shell: bash
         run: |
           set -euo pipefail
@@ -448,8 +448,8 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
-          CRM_QA_EXPECT_REVISION: e11f8f73fec64b52669a5bce4c855a58fef910c1
-          CRM_QA_EXPECT_MANIFEST: ba0e7fad978a436b99e38c060299a00938f1da10ba60e4952106e03559f67535
+          CRM_QA_EXPECT_REVISION: 2185517bb172f86a478ecac12fe1f5dc7a9a27a2
+          CRM_QA_EXPECT_MANIFEST: 8327a410c5f00ad603a23ed9b1d98f49f4a55b09dee34914778a464a11cbf67c
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
@@ -462,8 +462,8 @@ jobs:
       - name: Publish fixed tag and verify the existing gateway
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: e11f8f73fec64b52669a5bce4c855a58fef910c1
-          CRM_QA_EXPECT_MANIFEST: ba0e7fad978a436b99e38c060299a00938f1da10ba60e4952106e03559f67535
+          CRM_QA_EXPECT_REVISION: 2185517bb172f86a478ecac12fe1f5dc7a9a27a2
+          CRM_QA_EXPECT_MANIFEST: 8327a410c5f00ad603a23ed9b1d98f49f4a55b09dee34914778a464a11cbf67c
           GITHUB_TOKEN: ${{ github.token }}
           SHRIGMA_EASYPANEL_DEPLOY_URL: ${{ secrets.SHRIGMA_EASYPANEL_DEPLOY_URL }}
         run: node tools/production-release/publish-ci.cjs
