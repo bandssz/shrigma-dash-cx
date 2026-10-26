@@ -1755,8 +1755,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-comparison-ui.cjs",
-      "bytes": 18958,
-      "sha256": "b4ba4d30df67f8db42cb1da23e46a28624da883c6415ecba902e35b17fc61413"
+      "bytes": 18947,
+      "sha256": "95d7fa65d6d626836ea5e3947dc38393cd0104714811ccddd236c2c6bef31193"
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts-store.cjs",
