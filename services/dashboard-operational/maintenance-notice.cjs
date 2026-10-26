@@ -32,7 +32,7 @@ function create({db,dbPath,authorize,revision,now=Date.now}){
   if(!Number.isSafeInteger(restart)||!Number.isSafeInteger(expires)||restart<stamp+(q.audience==='editors'?600000:0)||restart>stamp+86400000||expires<=restart||expires>restart+900000)fail('MAINTENANCE_WINDOW_INVALID');
   const before=db.prepare('SELECT * FROM product_maintenance_notice WHERE id=1').get()||null;
   db.prepare(`INSERT INTO product_maintenance_notice VALUES(1,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET target_revision=excluded.target_revision,restart_at=excluded.restart_at,expires_at=excluded.expires_at,audience=excluded.audience,created_by=excluded.created_by,created_at=excluded.created_at`).run(q.targetRevision,restart,expires,q.audience,user.id,stamp);
-  return {saved:true,targetRevision:q.targetRevision,restartAt:new Date(restart).toISOString(),expiresAt:new Date(expires).toISOString(),audience:q.audience,previous:before?{targetRevision:before.target_revision,restartAt:new Date(before.restart_at).toISOString(),expiresAt:new Date(before.expires_at).toISOString(),audience:before.audience}:null};
+  return {saved:true,programmedAtUtc:new Date(stamp).toISOString(),targetRevision:q.targetRevision,restartAt:new Date(restart).toISOString(),expiresAt:new Date(expires).toISOString(),audience:q.audience,previous:before?{targetRevision:before.target_revision,restartAt:new Date(before.restart_at).toISOString(),expiresAt:new Date(before.expires_at).toISOString(),audience:before.audience}:null};
  }
  return Object.freeze({read,set,migration:Object.freeze(migration)});
 }
