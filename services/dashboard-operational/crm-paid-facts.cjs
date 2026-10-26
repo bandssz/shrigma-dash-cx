@@ -190,7 +190,7 @@ function create({file,auth,store,fetchImpl=fetch,clientFactory,now=Date.now,back
   authorizeAnalysis(context,brand);return {ok:true,brand,asOf,source:'native-distinct-events-v2',rows};
  }
 
- const results=require('./crm-paid-results.cjs').create({authorize:analysisAuthorize,authorizeComparison:analysisAuthorize,database,now,coverage:brand=>store.coverage(brand),campaignCatalog:async(context,brand)=>typeof campaignReader==='function'?campaignReader(context,brand,null):[]});
+ const results=require('./crm-paid-results.cjs').create({authorize:analysisAuthorize,authorizeComparison:analysisAuthorize,database,now,coverage:brand=>store.coverage(brand),campaignCatalog:async(context,brand)=>typeof campaignReader==='function'?campaignReader(context,brand,null,true):[]});
  async function home(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.results(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
  async function compareHome(context,brand,input={}){authorizeAnalysis(context,brand);const value=await results.compare(context,brand,input);authorizeAnalysis(context,brand);return {...value,revenueObservedAt:value.contributingObservedAt};}
  return {engagement,ingest,status,publics,products,count,countSaved,resolveSaved,savedDefinition,freshSource,save,backfill,subscribe,subscriptions,authorize,authorizeAnalysis,acquisitionBackup,acquisitionBackupFile,...origin,...results,home,compareHome};

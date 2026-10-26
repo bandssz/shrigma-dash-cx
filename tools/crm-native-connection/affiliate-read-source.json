@@ -1770,8 +1770,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-facts.cjs",
-      "bytes": 32124,
-      "sha256": "ab68f44e809c490ab7702087e4901d5acb99df2b415998de84d69e0a5cf632bc"
+      "bytes": 32129,
+      "sha256": "34c9e8a312e504b89cc8761bc86f8463fd79462255be4c6643018600a07f6f40"
     },
     {
       "path": "services/dashboard-operational/crm-paid-home-layout-ui.cjs",
@@ -1790,8 +1790,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-results.cjs",
-      "bytes": 15804,
-      "sha256": "ca5e9b924ab976f8e66a03298746ce3704643506664f4de5c50e0f972a406236"
+      "bytes": 16093,
+      "sha256": "ad25e7a49895d1efe2fc34ed628a87428a0a317728cc07535f9429e79e1a9182"
     },
     {
       "path": "services/dashboard-operational/crm-payload-shape.cjs",
@@ -2070,8 +2070,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/app.js",
-      "bytes": 116398,
-      "sha256": "cedfe7be2e61ac27577314b8d0f06da45e1a81f3dfe358e22e388709fe1b33d8"
+      "bytes": 117256,
+      "sha256": "96b970107b23b31b823e39fe2a251a60c2d381fda8ae9da0a1fad85630eb05a3"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-import.js",
@@ -2080,13 +2080,13 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/campaign-performance.js",
-      "bytes": 21740,
-      "sha256": "9af2f59c959abb33bf83eb64e929b1be82e21a4dd75d86c0d8803e07f6b3bc53"
+      "bytes": 21802,
+      "sha256": "f1e8a5374ace75123b987224cb2f28beaad2d777188c4c8e0597f8eb3d2b5444"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/crm-performance.js",
-      "bytes": 20671,
-      "sha256": "b3a2d498294da58c96d61e6e94732a1b4accdd8e0dfb18080578752c20f34a5f"
+      "bytes": 21575,
+      "sha256": "bbdfde156ed66a2a4eb0de86e1434d2a5b113af5c3c20f35cfd3f5d9fbc2c8b4"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/crm-shell.js",
@@ -2230,8 +2230,8 @@
     },
     {
       "path": "services/dashboard-operational/server.cjs",
-      "bytes": 252171,
-      "sha256": "b77acda018dd26296621808baba305faa5b6d24e6f9ac6564d25abeb35ed657c"
+      "bytes": 252238,
+      "sha256": "646c0415d3e654f7c2f3c4cef8d3e1d9c38698317ad5e360aa676d770bde4b37"
     },
     {
       "path": "services/dashboard-operational/shopify-paid-order.cjs",
@@ -2265,8 +2265,8 @@
     },
     {
       "path": "services/dashboard-operational/simple-crm-native-internal.cjs",
-      "bytes": 29715,
-      "sha256": "c4fc3e1e19bcf2cb2d782066c9d6121df6336b7e704395cf58e29ef0d81b834a"
+      "bytes": 29856,
+      "sha256": "a8d5218c34a20144bd5d652f9faedf926647dd2ee82fe46ef224909c0d3f8a7f"
     },
     {
       "path": "services/dashboard-operational/simple-dashboard-read.cjs",
@@ -2425,8 +2425,8 @@
     },
     {
       "path": "tests/campaign-performance.test.cjs",
-      "bytes": 10549,
-      "sha256": "266750df2047bf6aff58cb43769f8e45eca44edef9e03bc0a8d656e80134c480"
+      "bytes": 10550,
+      "sha256": "3fcb8b6a82ac2738bef5cbe49ac88ae0fcb32105bddb2b7e483e76990a1c2108"
     },
     {
       "path": "tests/campaign-test-rendered-controls.test.cjs",
@@ -2650,8 +2650,8 @@
     },
     {
       "path": "tests/crm-firm-numbers.test.cjs",
-      "bytes": 2706,
-      "sha256": "fe7c23efa03859b4d954da04ed33d0b317f7e227a06e4d6d8dd149e328bbbadb"
+      "bytes": 3484,
+      "sha256": "b88cc83058f0ee7b8275c48fbad0f262fa4d7c2b7dab6306ae9898db32e76613"
     },
     {
       "path": "tests/crm-freeze-scale20.test.cjs",
