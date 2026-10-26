@@ -1,7 +1,7 @@
 name: Shrigma native CRM connection
 'on':
   push:
-    branches: [main, codex/v54-editor-deadline-20261026]
+    branches: [main, codex/v54-journeys-20261026]
 permissions:
   contents: read
 concurrency:
@@ -310,7 +310,7 @@ jobs:
     concurrency:
       group: shrigma-gateway-production
       cancel-in-progress: false
-    if: github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/v54-editor-deadline-20261026' && startsWith(github.event.head_commit.message, 'affiliate-read:')
+    if: github.repository == 'bandssz/shrigma-dash-cx' && github.ref == 'refs/heads/codex/v54-journeys-20261026' && startsWith(github.event.head_commit.message, 'affiliate-read:')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -318,7 +318,7 @@ jobs:
       packages: write
     env:
       IMAGE: ghcr.io/bandssz/shrigma-dash-native-connection
-      PRODUCTION_EXPECT_MAIN_REVISION: 2185517bb172f86a478ecac12fe1f5dc7a9a27a2
+      PRODUCTION_EXPECT_MAIN_REVISION: c40897b0dc6206202e56f96d64a4c63e78222e10
       PRODUCTION_WEEKEND_NO_ANALYSTS: 2026-10-24/25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -430,15 +430,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/source/tests/consent19/source-runtime --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/campaign-consent-observation.test.cjs /source/tests/consent19/task.test.cjs /source/tests/consent19/source.test.cjs /source/tests/consent19/source-v3.test.cjs /source/tests/consent19/source-scale.test.cjs /source/tests/crm-source-timing-gateway.test.cjs /source/tests/consent19/store.test.cjs /source/tests/consent19/broker.test.cjs /source/tests/consent19/service-binding.test.cjs /source/tests/consent19/transport.test.cjs /source/tests/consent19/source-http.test.cjs /source/tests/consent19/gateway-integration.test.cjs /source/tests/consent19/four-steps.test.cjs /source/tests/consent19/native-admission.test.cjs /source/tests/consent19/native-reservation-http.test.cjs /source/tests/consent19/editor-shared-http.test.cjs /source/tests/crm-client-session-lazy19.test.cjs /source/tests/crm-ui-features.test.cjs /source/tests/crm-message-preview.test.cjs /source/tests/crm-ui-independent.test.cjs /source/tests/crm-campaign-import.test.cjs /source/tests/crm-campaign-draft-links.test.cjs /source/tests/crm-campaign-draft-links-source.test.cjs /source/tests/crm-campaign-link-warnings.test.cjs /source/tests/crm-campaign-link-receipts.test.cjs /source/tests/crm-campaign-piece-picker.test.cjs /source/tests/crm-freeze-scale20.test.cjs /source/tests/simple-crm-native-direct.test.cjs /source/tests/campaign-test-rendered-controls.test.cjs /source/tests/native-whatsapp-connection.test.cjs /source/tests/whatsapp-message.test.cjs /source/tests/whatsapp-template-workspace.test.cjs /source/tests/whatsapp-template-ui.test.cjs /source/tests/simple-crm-native-direct-ui.test.cjs /source/tests/crm-shell-navigation.test.cjs /source/tests/campaign-performance.test.cjs /source/tests/campaign-performance-ui.test.cjs /source/tests/whatsapp-campaign-ui.test.cjs /source/tests/crm-paid-facts-ui.test.cjs /source/tests/crm-purchase-workspace.test.cjs /source/tests/campaign-native-tracking.test.cjs /source/tests/campaign-account-operator.test.cjs
+          docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env CONSENT_SOURCE_TEST_RUNTIME=/source/tests/consent19/source-runtime --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/campaign-consent-observation.test.cjs /source/tests/consent19/task.test.cjs /source/tests/consent19/source.test.cjs /source/tests/consent19/source-v3.test.cjs /source/tests/consent19/source-scale.test.cjs /source/tests/crm-source-timing-gateway.test.cjs /source/tests/consent19/store.test.cjs /source/tests/consent19/broker.test.cjs /source/tests/consent19/service-binding.test.cjs /source/tests/consent19/transport.test.cjs /source/tests/consent19/source-http.test.cjs /source/tests/consent19/gateway-integration.test.cjs /source/tests/consent19/four-steps.test.cjs /source/tests/consent19/native-admission.test.cjs /source/tests/consent19/native-reservation-http.test.cjs /source/tests/consent19/editor-shared-http.test.cjs /source/tests/crm-client-session-lazy19.test.cjs /source/tests/crm-ui-features.test.cjs /source/tests/crm-message-preview.test.cjs /source/tests/crm-ui-independent.test.cjs /source/tests/crm-campaign-import.test.cjs /source/tests/crm-campaign-draft-links.test.cjs /source/tests/crm-campaign-draft-links-source.test.cjs /source/tests/crm-campaign-link-warnings.test.cjs /source/tests/crm-campaign-link-receipts.test.cjs /source/tests/crm-campaign-piece-picker.test.cjs /source/tests/crm-freeze-scale20.test.cjs /source/tests/simple-crm-native-direct.test.cjs /source/tests/campaign-test-rendered-controls.test.cjs /source/tests/native-whatsapp-connection.test.cjs /source/tests/whatsapp-message.test.cjs /source/tests/whatsapp-template-workspace.test.cjs /source/tests/whatsapp-template-ui.test.cjs /source/tests/simple-crm-native-direct-ui.test.cjs /source/tests/crm-shell-navigation.test.cjs /source/tests/campaign-performance.test.cjs /source/tests/crm-journey-observation.test.cjs /source/tests/crm-journey-observed-fallback.test.cjs /source/tests/crm-visual-trend.test.cjs /source/tests/campaign-performance-ui.test.cjs /source/tests/whatsapp-campaign-ui.test.cjs /source/tests/crm-paid-facts-ui.test.cjs /source/tests/crm-purchase-workspace.test.cjs /source/tests/campaign-native-tracking.test.cjs /source/tests/campaign-account-operator.test.cjs
       - name: Restricted editorial authority and aggregate payload regressions in the same image
         run: |
           docker run --rm --network none --read-only --user 1000:1000 --memory 768m --tmpfs /tmp:rw,nosuid,mode=1777 --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/source,readonly" --mount "type=bind,src=$AFFILIATE_CI_DIR/dom/node_modules,dst=/test-deps,readonly" --env NODE_PATH=/test-deps --env DASHBOARD_ACCESS_TEST_RUNTIME=/app/native-backend/runtime --entrypoint node "$IMAGE:source-$GITHUB_SHA" --test --test-concurrency=1 /source/tests/crm-editorial-admission.test.cjs /source/tests/crm-editorial-policy.test.cjs /source/tests/crm-external-cta8e.test.cjs /source/tests/crm-editorial-models.test.cjs /source/tests/crm-campaign-identity.test.cjs /source/tests/crm-payload-shape.test.cjs /source/tests/crm-payload-shape-proxy.test.cjs
       - name: Live analyst access in Linux Docker before installation - no send or schedule
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 2185517bb172f86a478ecac12fe1f5dc7a9a27a2
-          CRM_QA_EXPECT_MANIFEST: 8327a410c5f00ad603a23ed9b1d98f49f4a55b09dee34914778a464a11cbf67c
+          CRM_QA_EXPECT_REVISION: c40897b0dc6206202e56f96d64a4c63e78222e10
+          CRM_QA_EXPECT_MANIFEST: 2418dd4fcab31b28f9ef7f456475457bc0668ac238f7f74b41009013fe31e516
         shell: bash
         run: |
           set -euo pipefail
@@ -448,8 +448,8 @@ jobs:
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
           CRM_QA_GATE: fronts-twice
-          CRM_QA_EXPECT_REVISION: 2185517bb172f86a478ecac12fe1f5dc7a9a27a2
-          CRM_QA_EXPECT_MANIFEST: 8327a410c5f00ad603a23ed9b1d98f49f4a55b09dee34914778a464a11cbf67c
+          CRM_QA_EXPECT_REVISION: c40897b0dc6206202e56f96d64a4c63e78222e10
+          CRM_QA_EXPECT_MANIFEST: 2418dd4fcab31b28f9ef7f456475457bc0668ac238f7f74b41009013fe31e516
         run: CRM_QA_PLAYWRIGHT_ROOT="$AFFILIATE_CI_DIR/playwright" node tools/crm-qa/run-ci.cjs
       - name: Publish the same verified artifact
         shell: bash
@@ -462,8 +462,8 @@ jobs:
       - name: Publish fixed tag and verify the existing gateway
         env:
           CRM_QA_ACCOUNTS_JSON: ${{ secrets.CRM_QA_ACCOUNTS_JSON }}
-          CRM_QA_EXPECT_REVISION: 2185517bb172f86a478ecac12fe1f5dc7a9a27a2
-          CRM_QA_EXPECT_MANIFEST: 8327a410c5f00ad603a23ed9b1d98f49f4a55b09dee34914778a464a11cbf67c
+          CRM_QA_EXPECT_REVISION: c40897b0dc6206202e56f96d64a4c63e78222e10
+          CRM_QA_EXPECT_MANIFEST: 2418dd4fcab31b28f9ef7f456475457bc0668ac238f7f74b41009013fe31e516
           GITHUB_TOKEN: ${{ github.token }}
           SHRIGMA_EASYPANEL_DEPLOY_URL: ${{ secrets.SHRIGMA_EASYPANEL_DEPLOY_URL }}
         run: node tools/production-release/publish-ci.cjs

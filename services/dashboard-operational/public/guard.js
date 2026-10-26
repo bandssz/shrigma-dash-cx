@@ -158,7 +158,8 @@
    if(method!=='GET')return reject(405);if(url.hash||url.username||url.password)return reject(400);
    const q=Object.fromEntries(url.searchParams),keys=[...url.searchParams.keys()];if(new Set(keys).size!==keys.length||!['aristo','fish'].includes(q.brand))return reject(400);
    if(q.action==='compare-results'){if(keys.sort().join(',')!=='action,brand,campaigns,currency,fim,ini,preset'||!['today','yesterday','last7','last30','week','lastWeek','month','lastMonth','custom'].includes(q.preset)||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(q.ini||'')||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(q.fim||'')||!/^[A-Z]{3}$/.test(q.currency||'')||!/^(?:[1-9][0-9]{0,8}(?:,[1-9][0-9]{0,8}){0,19})?$/.test(q.campaigns||''))return reject(400);}
-   else if(q.action==='engagement'){if(keys.sort().join(',')!=='action,brand,campaigns'||!/^[1-9][0-9]{0,8}(?:,[1-9][0-9]{0,8}){0,19}$/.test(q.campaigns||''))return reject(400);}
+   else if(q.action==='engagement'){if(keys.sort().join(',')!=='action,brand,campaigns'||!/^[1-9][0-9]{0,8}(?:,[1-9][0-9]{0,8}){0,499}$/.test(q.campaigns||''))return reject(400);}
+   else if(q.action==='journey-results'){if(keys.sort().join(',')!=='action,brand,currency,fim,ini,preset'||!['today','yesterday','last7','last30','week','lastWeek','month','lastMonth','custom'].includes(q.preset)||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(q.ini||'')||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(q.fim||'')||q.currency!=='BRL')return reject(400);}
    else return reject(400);
   }
 

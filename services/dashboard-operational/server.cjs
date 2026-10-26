@@ -1000,13 +1000,14 @@ function createServer(s,{auth,fetchImpl=fetch,loginBodyTimeoutMs=LOGIN_BODY_TIME
       }
       if(url.pathname==='/api/crm-restricted/compras'||['/app/crm/restrito/compras/','/app/crm/restrito/compras.js'].includes(url.pathname)){
         if(!paidFacts||host!==s.areaHosts.growth&&host!==s.managerHost||nativeContext)throw jsonError(404,'NOT_FOUND');
-        if(host===s.managerHost&&(url.pathname!=='/api/crm-restricted/compras'||req.method!=='GET'||!['home','results','acquisition','compare-home','compare-results'].includes(url.searchParams.get('action'))))throw jsonError(404,'NOT_FOUND');
+        if(host===s.managerHost&&(url.pathname!=='/api/crm-restricted/compras'||req.method!=='GET'||!['home','results','acquisition','compare-home','compare-results','journey-results'].includes(url.searchParams.get('action'))))throw jsonError(404,'NOT_FOUND');
         if(url.pathname!=='/api/crm-restricted/compras'){
           if(req.method!=='GET')throw jsonError(405,'METHOD_DENIED');const session=auth.session(ctx);if(!session.authenticated||!require('./crm-paid-facts.cjs').canUse(session.user))throw jsonError(403,'RESTRICTED_AREA_REQUIRED');
           const ui=require('./crm-paid-facts-ui.cjs'),js=url.pathname.endsWith('.js');res.setHeader('Content-Type',js?'text/javascript; charset=utf-8':'text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'");res.end(js?ui.JS:require('./product-issues-ui.cjs').decorate(ui.HTML));return;
         }
         let q;if(req.method==='GET')q=Object.fromEntries(url.searchParams);else if(req.method==='POST'){if(req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')throw jsonError(415,'CONTENT_TYPE_DENIED');q=await readJson(req,4096);}else throw jsonError(405,'METHOD_DENIED');
-        if(req.method==='GET'&&['home','results','acquisition','compare-home','compare-results','engagement'].includes(q.action))paidFacts.authorizeAnalysis(ctx,q.brand);else paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&['home','results','acquisition','compare-home','compare-results','journey-results','engagement'].includes(q.action))paidFacts.authorizeAnalysis(ctx,q.brand);else paidFacts.authorize(ctx,q.brand,req.method==='POST');
+        if(req.method==='GET'&&q.action==='journey-results'){if(new Set(url.searchParams.keys()).size!==url.searchParams.size||Object.keys(q).some(k=>!['action','brand','preset','ini','fim','currency'].includes(k)))throw jsonError(400,'PAID_RESULTS_PERIOD_INVALID');return sendJson(req,res,200,await paidFacts.journeys(ctx,q.brand,q));}
         if(req.method==='GET'&&q.action==='engagement'){if(new Set(url.searchParams.keys()).size!==url.searchParams.size||Object.keys(q).sort().join(',')!=='action,brand,campaigns')throw jsonError(400,'ENGAGEMENT_INPUT');return sendJson(req,res,200,await paidFacts.engagement(ctx,q.brand,q));}
         if(req.method==='GET'&&q.action==='compare-home')return sendJson(req,res,200,await paidFacts.compareHome(ctx,q.brand,q));
         if(req.method==='GET'&&q.action==='compare-results')return sendJson(req,res,200,await paidFacts.compare(ctx,q.brand,q));

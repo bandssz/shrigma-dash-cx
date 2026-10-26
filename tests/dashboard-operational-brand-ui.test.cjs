@@ -52,11 +52,11 @@ function guardFixture(user,{status=200,body={ok:true},simpleRead=false,sessionPe
 test('compiled guard admits exact paid-fact reads and keeps nested writes and foreign scope closed',async()=>{
  for(const brand of ['fish','aristo']){
   const f=guardFixture(manager(brand),{simpleRead:true}),base='/api/crm-restricted/compras?',results=base+new URLSearchParams({action:'compare-results',brand,preset:'last30',ini:'2026-09-26',fim:'2026-10-25',currency:'BRL',campaigns:''}),engagement=base+new URLSearchParams({action:'engagement',brand,campaigns:'12,13'});
-  for(const address of [results,engagement])assert.equal((await f.window.fetch(address)).status,200);
-  const reads=()=>f.requests.filter(x=>new URL(x.url,'https://crm.synthetic.invalid').pathname==='/api/crm-restricted/compras');assert.equal(reads().length,2);for(const read of reads()){assert.equal(read.options.method,'GET');assert.equal(new Headers(read.options.headers).get('X-Shrigma-View-Brand'),brand);assert.equal(new Headers(read.options.headers).has('authorization'),false);}
+  const batch=engagement.replace('12%2C13',Array.from({length:500},(_,i)=>i+1).join(',')),journey=results.replace('compare-results','journey-results').replace('&campaigns=','');for(const address of [results,engagement,batch,journey])assert.equal((await f.window.fetch(address)).status,200);
+  const reads=()=>f.requests.filter(x=>new URL(x.url,'https://crm.synthetic.invalid').pathname==='/api/crm-restricted/compras');assert.equal(reads().length,4);for(const read of reads()){assert.equal(read.options.method,'GET');assert.equal(new Headers(read.options.headers).get('X-Shrigma-View-Brand'),brand);assert.equal(new Headers(read.options.headers).has('authorization'),false);}
   for(const method of ['POST','PUT','PATCH','DELETE','HEAD'])assert.equal((await f.window.fetch(results,{method,body:'{}'})).status,405);
-  for(const address of [results+'&brand='+brand,results+'&extra=1',results+'#x',results.replace('compare-results','backfill'),engagement.replace('12%2C13','12%3BSELECT'),engagement.replace('12%2C13',Array.from({length:21},(_,i)=>i+1).join(','))])assert.equal((await f.window.fetch(address)).status,400);
-  assert.equal((await f.window.fetch(engagement.replace('brand='+brand,'brand='+(brand==='fish'?'aristo':'fish')))).status,403);assert.equal(reads().length,2);
+  for(const address of [results+'&brand='+brand,results+'&extra=1',results+'#x',results.replace('compare-results','backfill'),engagement.replace('12%2C13','12%3BSELECT'),engagement.replace('12%2C13',Array.from({length:501},(_,i)=>i+1).join(','))])assert.equal((await f.window.fetch(address)).status,400);
+  assert.equal((await f.window.fetch(engagement.replace('brand='+brand,'brand='+(brand==='fish'?'aristo':'fish')))).status,403);assert.equal(reads().length,4);
  }
 });
 
