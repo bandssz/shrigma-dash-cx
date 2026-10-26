@@ -1790,8 +1790,8 @@
     },
     {
       "path": "services/dashboard-operational/crm-paid-results.cjs",
-      "bytes": 16093,
-      "sha256": "ad25e7a49895d1efe2fc34ed628a87428a0a317728cc07535f9429e79e1a9182"
+      "bytes": 16091,
+      "sha256": "ea04ff7ed712fc762d7b64d9013930a50491aaf43dc01ac2ab33762a1dbdc391"
     },
     {
       "path": "services/dashboard-operational/crm-payload-shape.cjs",
@@ -2650,8 +2650,8 @@
     },
     {
       "path": "tests/crm-firm-numbers.test.cjs",
-      "bytes": 4431,
-      "sha256": "63ad1f819785c01dcb4c2936004d6c2b3b944263c92bf918f3669d1ded659837"
+      "bytes": 4830,
+      "sha256": "e6e3bd12e989fb30a92c1b75fab4f83746af9209b68d61c9a70ddfbb8fdefd82"
     },
     {
       "path": "tests/crm-freeze-scale20.test.cjs",
