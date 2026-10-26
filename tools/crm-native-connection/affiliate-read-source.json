@@ -2085,8 +2085,8 @@
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/crm-performance.js",
-      "bytes": 21981,
-      "sha256": "0ad17b40727966e612486aa797d65d8371241074d9d9d7baeb9a2468abfefd92"
+      "bytes": 22064,
+      "sha256": "023263da1da4f9915b7e6fb50e714e8349469f9de6e4c5f0e9c2a11c5e3f2551"
     },
     {
       "path": "services/dashboard-operational/public/crm-preview/crm-shell.js",
